@@ -1,13 +1,13 @@
 import { attackArc, computeDamage, facingTowards, hitChance } from './combat.js';
 import { GameMap, manhattan, posKey, samePos } from './grid.js';
 import { aoeTiles, reachableTiles, targetableTiles, type ReachableTile } from './pathfinding.js';
+import { applyModifiers } from './derived.js';
 import { Rng } from './rng.js';
 import {
   applyStatus,
   hasStatus,
   overheatDamage,
-  statusDefenseBonus,
-  statusEvadeBonus,
+  statusModifiers,
   tickStatuses,
 } from './status.js';
 import { advanceToNextTurn, forecastTurnOrder } from './turn.js';
@@ -118,16 +118,16 @@ export class Battle {
     return this.units.find((u) => u.hp > 0 && samePos(u.position, pos));
   }
 
-  /** Stats efectivas de una unidad (base del chasis + estados). */
+  /**
+   * Stats efectivas de una unidad: base de la definición + pipeline de
+   * modificadores (docs/DESIGN.md §3.2). ÚNICA vía legítima de lectura de
+   * stats en el motor, la IA y la UI — leer `definitionOf(...).stats`
+   * directamente se salta los estados (y, en fases futuras, los módulos
+   * dañados, el calor y la energía).
+   */
   effectiveStats(unit: UnitState): Stats {
     const base = this.definitionOf(unit.unitTypeId).stats;
-    const defBonus = statusDefenseBonus(unit);
-    return {
-      ...base,
-      def: base.def + defBonus,
-      energyDef: base.energyDef + defBonus,
-      evade: base.evade + statusEvadeBonus(unit),
-    };
+    return applyModifiers(base, statusModifiers(unit));
   }
 
   get winner(): Team | undefined {
@@ -144,7 +144,7 @@ export class Battle {
 
   /** Timeline de próximos turnos para la UI. */
   forecast(count = 8): string[] {
-    return forecastTurnOrder(this.units, (u) => this.definitionOf(u.unitTypeId).stats.speed, count);
+    return forecastTurnOrder(this.units, (u) => this.effectiveStats(u).speed, count);
   }
 
   // ── Avance de turnos ───────────────────────────────────────────────────
@@ -160,7 +160,7 @@ export class Battle {
 
     const events: BattleEvent[] = [];
     for (;;) {
-      const next = advanceToNextTurn(this.units, (u) => this.definitionOf(u.unitTypeId).stats.speed);
+      const next = advanceToNextTurn(this.units, (u) => this.effectiveStats(u).speed);
       if (!next) return events;
 
       next.hasMoved = false;
@@ -183,11 +183,11 @@ export class Battle {
   legalMoves(unitId: string): ReachableTile[] {
     const unit = this.requireActive(unitId);
     if (unit.hasMoved) return [];
-    const def = this.definitionOf(unit.unitTypeId);
+    const stats = this.effectiveStats(unit);
     return reachableTiles(this.map, unit.position, {
-      move: def.stats.move,
-      jump: def.stats.jump,
-      moveType: def.moveType,
+      move: stats.move,
+      jump: stats.jump,
+      moveType: this.definitionOf(unit.unitTypeId).moveType,
       team: unit.team,
     }, this.units).filter((t) => !samePos(t.pos, unit.position));
   }
@@ -295,7 +295,7 @@ export class Battle {
           break;
         }
         case 'heal': {
-          const maxHp = this.definitionOf(target.unitTypeId).stats.maxHp;
+          const maxHp = this.effectiveStats(target).maxHp;
           const amount = Math.min(effect.power, maxHp - target.hp);
           if (amount <= 0) break;
           target.hp += amount;
@@ -330,7 +330,7 @@ export class Battle {
 
     // Efectos de fin de turno: sobrecalentamiento y expiración de estados.
     if (hasStatus(unit, 'overheat')) {
-      const damage = overheatDamage(this.definitionOf(unit.unitTypeId).stats.maxHp);
+      const damage = overheatDamage(this.effectiveStats(unit).maxHp);
       unit.hp = Math.max(0, unit.hp - damage);
       events.push({ type: 'status-ticked', targetUnitId: unit.id, status: 'overheat', damage, targetHp: unit.hp });
       if (unit.hp === 0) {

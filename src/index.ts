@@ -7,7 +7,8 @@ export { GameMap, manhattan, posKey, samePos } from './core/grid.js';
 export { reachableTiles, targetableTiles, aoeTiles, type ReachableTile } from './core/pathfinding.js';
 export { attackArc, computeDamage, facingTowards, hitChance, type AttackArc } from './core/combat.js';
 export { advanceToNextTurn, forecastTurnOrder } from './core/turn.js';
-export { applyStatus, hasStatus, tickStatuses, STATUS_INFO } from './core/status.js';
+export { applyStatus, hasStatus, tickStatuses, STATUS_DEFINITIONS, STATUS_INFO } from './core/status.js';
+export { applyModifiers, type StatModifier } from './core/derived.js';
 export { Rng } from './core/rng.js';
 export * from './core/types.js';
 
