@@ -3,13 +3,8 @@ import { GameMap, manhattan, posKey, samePos } from './grid.js';
 import { aoeTiles, reachableTiles, targetableTiles, type ReachableTile } from './pathfinding.js';
 import { applyModifiers } from './derived.js';
 import { Rng } from './rng.js';
-import {
-  applyStatus,
-  hasStatus,
-  overheatDamage,
-  statusModifiers,
-  tickStatuses,
-} from './status.js';
+import { applyStatus, hasStatus, statusModifiers, tickStatuses } from './status.js';
+import { defaultSystems, type BattleSystem, type SystemContext } from './systems.js';
 import { advanceToNextTurn, forecastTurnOrder } from './turn.js';
 import {
   CT_THRESHOLD,
@@ -40,6 +35,11 @@ export interface BattleConfig {
   unitCatalog: Record<string, UnitDefinition>;
   abilityCatalog: Record<string, AbilityDefinition>;
   seed: number;
+  /**
+   * Sistemas activos, invocados en el orden del array (determinista).
+   * Si se omite, se usan los de defaultSystems().
+   */
+  systems?: BattleSystem[];
 }
 
 /**
@@ -59,12 +59,19 @@ export class Battle {
   private rng: Rng;
   private activeUnitId: string | undefined;
   private winnerTeam: Team | undefined;
+  private systems: BattleSystem[];
+  private systemContext: SystemContext;
 
   constructor(config: BattleConfig) {
     this.map = config.map;
     this.definitions = config.unitCatalog;
     this.abilities = config.abilityCatalog;
     this.rng = new Rng(config.seed);
+    this.systems = config.systems ?? defaultSystems();
+    this.systemContext = {
+      effectiveStats: (u) => this.effectiveStats(u),
+      units: [],
+    };
 
     this.units = config.spawns.map((spawn) => {
       const def = this.definitionOf(spawn.unitTypeId);
@@ -92,6 +99,18 @@ export class Battle {
       if (seen.has(key)) throw new Error(`Dos unidades en ${key}`);
       seen.add(key);
     }
+    this.systemContext.units = this.units;
+  }
+
+  /** Invoca un hook en todos los sistemas, en orden de registro. */
+  private runSystems(
+    hook: (system: BattleSystem) => BattleEvent[] | undefined,
+  ): BattleEvent[] {
+    const events: BattleEvent[] = [];
+    for (const system of this.systems) {
+      events.push(...(hook(system) ?? []));
+    }
+    return events;
   }
 
   // ── Consultas ──────────────────────────────────────────────────────────
@@ -167,6 +186,8 @@ export class Battle {
       next.hasActed = false;
       this.activeUnitId = next.id;
       events.push({ type: 'turn-started', unitId: next.id });
+      events.push(...this.runSystems((s) => s.onTurnStart?.(next, this.systemContext)));
+      if (this.checkBattleEnd(events)) return events;
 
       if (hasStatus(next, 'stunned')) {
         // El turno se consume sin poder hacer nada.
@@ -204,11 +225,26 @@ export class Battle {
 
   execute(action: BattleAction): BattleEvent[] {
     if (this.isOver) throw new Error('La batalla ya terminó');
-    switch (action.type) {
-      case 'move': return this.executeMove(action.unitId, action.to);
-      case 'ability': return this.executeAbility(action.unitId, action.abilityId, action.target);
-      case 'wait': return this.executeWait(action.unitId, action.facing);
+
+    const actor = this.unit(action.unitId);
+    for (const system of this.systems) {
+      const veto = system.onValidateAction?.(action, actor, this.systemContext);
+      if (veto) throw new Error(`Acción vetada por ${veto.systemId}: ${veto.reason}`);
     }
+
+    const events = (() => {
+      switch (action.type) {
+        case 'move': return this.executeMove(action.unitId, action.to);
+        case 'ability': return this.executeAbility(action.unitId, action.abilityId, action.target);
+        case 'wait': return this.executeWait(action.unitId, action.facing);
+      }
+    })();
+
+    if (!this.isOver) {
+      events.push(...this.runSystems((s) => s.onActionResolved?.(action, actor, this.systemContext)));
+      this.checkBattleEnd(events);
+    }
+    return events;
   }
 
   private executeMove(unitId: string, to: Position): BattleEvent[] {
@@ -328,15 +364,10 @@ export class Battle {
     const unit = this.requireActive(unitId);
     const events: BattleEvent[] = [];
 
-    // Efectos de fin de turno: sobrecalentamiento y expiración de estados.
-    if (hasStatus(unit, 'overheat')) {
-      const damage = overheatDamage(this.effectiveStats(unit).maxHp);
-      unit.hp = Math.max(0, unit.hp - damage);
-      events.push({ type: 'status-ticked', targetUnitId: unit.id, status: 'overheat', damage, targetHp: unit.hp });
-      if (unit.hp === 0) {
-        events.push({ type: 'unit-destroyed', unitId: unit.id });
-      }
-    }
+    // Efectos de fin de turno de los sistemas (sobrecalentamiento hoy;
+    // disipación de calor, regeneración de energía... en fases futuras),
+    // seguidos de la expiración de estados.
+    events.push(...this.runSystems((s) => s.onTurnEnd?.(unit, this.systemContext)));
     for (const expired of tickStatuses(unit)) {
       events.push({ type: 'status-expired', targetUnitId: unit.id, status: expired.id });
     }

@@ -9,6 +9,13 @@ export { attackArc, computeDamage, facingTowards, hitChance, type AttackArc } fr
 export { advanceToNextTurn, forecastTurnOrder } from './core/turn.js';
 export { applyStatus, hasStatus, tickStatuses, STATUS_DEFINITIONS, STATUS_INFO } from './core/status.js';
 export { applyModifiers, type StatModifier } from './core/derived.js';
+export {
+  defaultSystems,
+  overheatSystem,
+  type ActionVeto,
+  type BattleSystem,
+  type SystemContext,
+} from './core/systems.js';
 export { Rng } from './core/rng.js';
 export * from './core/types.js';
 

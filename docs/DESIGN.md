@@ -1,6 +1,6 @@
 # Gea — Diseño de evolución: de motor táctico FFTA a simulador táctico profundo
 
-> **Estado**: aprobado como dirección del proyecto · **Última revisión**: fase 0 sin empezar
+> **Estado**: aprobado como dirección del proyecto · **Última revisión**: ✅ fase 0 completada
 >
 > Este documento es la fuente de verdad de la migración. Cada fase se marca al
 > completarse y las decisiones que se tomen por el camino se anotan aquí.
@@ -238,7 +238,7 @@ los PRs/commits naturales.
 
 ---
 
-### Fase 0 — Fundamentos (sin cambio de comportamiento observable)
+### ✅ Fase 0 — Fundamentos (sin cambio de comportamiento observable) — COMPLETADA
 
 *Objetivo: crear los raíles sobre los que corre todo lo demás. Riesgo bajo,
 valor estructural máximo.*
@@ -260,6 +260,18 @@ valor estructural máximo.*
 
 **Hecho cuando**: golden master idéntico antes y después; cero referencias a
 "zoid" en `src/core/`; los 32 tests actuales pasan sin modificarse.
+
+**Resultado (2026-07-03)**: completada en 4 commits (golden master →
+genericización → pipeline → bus de sistemas). Golden master idéntico en los
+tres pasos de refactor. Desvíos del plan, anotados:
+- Los tests existentes SÍ se tocaron, pero solo mecánicamente (renombrado
+  `zoidId`→`unitTypeId`, `zoidCatalog`→`unitCatalog` en literales); ninguna
+  aserción cambió. El criterio real de no-regresión lo cubre el golden master.
+- `onValidateAction` recibe también la unidad actora además de la acción,
+  y `SystemContext` expone `effectiveStats` + `units` en lugar de la Battle
+  completa: contexto mínimo hasta que un sistema real pida más.
+- El pipeline aplica `Math.round` y clamp a ≥0 al final; con el contenido
+  actual (aditivos enteros) es un no-op, verificado por el golden master.
 
 ---
 
