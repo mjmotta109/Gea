@@ -9,12 +9,12 @@ import type { BattleEvent } from '../src/core/types.js';
 function duel(overrides: Partial<BattleConfig> = {}): Battle {
   return new Battle({
     map: FLAT_ARENA,
-    zoidCatalog: ZOIDS,
+    unitCatalog: ZOIDS,
     abilityCatalog: ABILITIES,
     seed: 123,
     spawns: [
-      { id: 'P1', name: 'Liger', zoidId: 'liger-zero', team: 'player', position: { x: 1, y: 2 } },
-      { id: 'E1', name: 'Molga', zoidId: 'molga', team: 'enemy', position: { x: 6, y: 2 } },
+      { id: 'P1', name: 'Liger', unitTypeId: 'liger-zero', team: 'player', position: { x: 1, y: 2 } },
+      { id: 'E1', name: 'Molga', unitTypeId: 'molga', team: 'enemy', position: { x: 6, y: 2 } },
     ],
     ...overrides,
   });
@@ -64,8 +64,8 @@ describe('Battle: habilidades', () => {
   it('resuelve un ataque melee con daño', () => {
     const battle = duel({
       spawns: [
-        { id: 'P1', name: 'Liger', zoidId: 'liger-zero', team: 'player', position: { x: 1, y: 2 } },
-        { id: 'E1', name: 'Molga', zoidId: 'molga', team: 'enemy', position: { x: 2, y: 2 } },
+        { id: 'P1', name: 'Liger', unitTypeId: 'liger-zero', team: 'player', position: { x: 1, y: 2 } },
+        { id: 'E1', name: 'Molga', unitTypeId: 'molga', team: 'enemy', position: { x: 2, y: 2 } },
       ],
     });
     battle.nextTurn();
@@ -78,8 +78,8 @@ describe('Battle: habilidades', () => {
   it('rechaza habilidades que el chasis no conoce y objetivos fuera de rango', () => {
     const battle = duel({
       spawns: [
-        { id: 'P1', name: 'Liger', zoidId: 'liger-zero', team: 'player', position: { x: 1, y: 2 } },
-        { id: 'E1', name: 'Molga', zoidId: 'molga', team: 'enemy', position: { x: 2, y: 2 } },
+        { id: 'P1', name: 'Liger', unitTypeId: 'liger-zero', team: 'player', position: { x: 1, y: 2 } },
+        { id: 'E1', name: 'Molga', unitTypeId: 'molga', team: 'enemy', position: { x: 2, y: 2 } },
       ],
     });
     battle.nextTurn();
@@ -92,13 +92,13 @@ describe('Battle: habilidades', () => {
   it('la curación no revive ni excede el HP máximo', () => {
     const battle = new Battle({
       map: FLAT_ARENA,
-      zoidCatalog: ZOIDS,
+      unitCatalog: ZOIDS,
       abilityCatalog: ABILITIES,
       seed: 7,
       spawns: [
-        { id: 'P1', name: 'Gustav', zoidId: 'gustav', team: 'player', position: { x: 1, y: 2 } },
-        { id: 'P2', name: 'Liger', zoidId: 'liger-zero', team: 'player', position: { x: 2, y: 2 } },
-        { id: 'E1', name: 'Molga', zoidId: 'molga', team: 'enemy', position: { x: 7, y: 5 } },
+        { id: 'P1', name: 'Gustav', unitTypeId: 'gustav', team: 'player', position: { x: 1, y: 2 } },
+        { id: 'P2', name: 'Liger', unitTypeId: 'liger-zero', team: 'player', position: { x: 2, y: 2 } },
+        { id: 'E1', name: 'Molga', unitTypeId: 'molga', team: 'enemy', position: { x: 7, y: 5 } },
       ],
     });
     battle.unit('P2').hp = 100; // Liger maxHp 120

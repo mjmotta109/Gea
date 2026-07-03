@@ -17,7 +17,7 @@ export function planTurn(battle: Battle, unit: UnitState): BattleAction[] {
   const enemies = battle.units.filter((u) => u.team !== unit.team && u.hp > 0);
   if (enemies.length === 0) return [{ type: 'wait', unitId: unit.id }];
 
-  const zoid = battle.zoidOf(unit.zoidId);
+  const zoid = battle.definitionOf(unit.unitTypeId);
   const offensiveAbilities = zoid.abilityIds
     .map((id) => battle.abilityOf(id))
     .filter((a) => a.effects.some((e) => e.kind === 'damage'));
@@ -44,7 +44,7 @@ export function planTurn(battle: Battle, unit: UnitState): BattleAction[] {
         const damage = ability.effects.find((e) => e.kind === 'damage');
         const power = damage && damage.kind === 'damage' ? damage.power : 0;
         // Puntuación simple: potencia, rematar bajos de vida y precisión.
-        const score = power + (100 - (enemy.hp / battle.zoidOf(enemy.zoidId).stats.maxHp) * 100) + ability.accuracy / 10;
+        const score = power + (100 - (enemy.hp / battle.definitionOf(enemy.unitTypeId).stats.maxHp) * 100) + ability.accuracy / 10;
         if (!best || score > best.score) {
           best = { to: option.to, abilityId: ability.id, target: { ...enemy.position }, score };
         }

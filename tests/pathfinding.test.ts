@@ -5,7 +5,7 @@ import type { UnitState } from '../src/core/types.js';
 
 function ghostUnit(id: string, x: number, y: number, team: 'player' | 'enemy'): UnitState {
   return {
-    id, name: id, zoidId: 'test', team,
+    id, name: id, unitTypeId: 'test', team,
     position: { x, y }, facing: 'east', hp: 10, ct: 0,
     statuses: [], hasMoved: false, hasActed: false,
   };

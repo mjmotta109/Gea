@@ -22,7 +22,7 @@ export interface Tile {
   height: number;
 }
 
-/** Clase de movimiento de un Zoid, determina cómo atraviesa el terreno. */
+/** Clase de movimiento de una unidad, determina cómo atraviesa el terreno. */
 export type MoveType = 'ground' | 'flying' | 'amphibious';
 
 /** Estadísticas base de una unidad. */
@@ -75,7 +75,7 @@ export interface AbilityDefinition {
 }
 
 export type StatusId =
-  | 'overheat'      // daño por turno (el núcleo del Zoid se sobrecalienta)
+  | 'overheat'      // daño por turno (los sistemas internos se sobrecalientan)
   | 'armor-up'      // +DEF temporal
   | 'evasion-up'    // +evasión temporal
   | 'stunned';      // pierde su próximo turno
@@ -87,24 +87,25 @@ export interface StatusInstance {
 }
 
 /**
- * Definición de un chasis de Zoid: hace el papel de los "jobs" de FFTA.
- * Todo es data-driven para poder añadir Zoids sin tocar el motor.
+ * Definición de un tipo de unidad: hace el papel de los "jobs" de FFTA.
+ * El motor es genérico — mechas, tanques, infantería o naves — y todo es
+ * data-driven: el contenido concreto vive en src/data/.
  */
-export interface ZoidDefinition {
+export interface UnitDefinition {
   id: string;
   name: string;
   /** Rol orientativo para IA y UI. */
   role: 'assault' | 'skirmisher' | 'tank' | 'sniper' | 'support' | 'flyer';
   moveType: MoveType;
   stats: Stats;
-  /** IDs de habilidades del catálogo que este chasis conoce. */
+  /** IDs de habilidades del catálogo que este tipo de unidad conoce. */
   abilityIds: string[];
 }
 
 export interface UnitState {
   id: string;
   name: string;
-  zoidId: string;
+  unitTypeId: string;
   team: Team;
   position: Position;
   facing: Facing;

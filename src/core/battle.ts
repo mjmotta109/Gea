@@ -21,14 +21,14 @@ import {
   type Stats,
   type Team,
   type UnitState,
-  type ZoidDefinition,
+  type UnitDefinition,
 } from './types.js';
 
 export interface UnitSpawn {
   id: string;
   /** Nombre del piloto/unidad concreta; el chasis pone el resto. */
   name: string;
-  zoidId: string;
+  unitTypeId: string;
   team: Team;
   position: Position;
   facing?: Facing;
@@ -37,7 +37,7 @@ export interface UnitSpawn {
 export interface BattleConfig {
   map: GameMap;
   spawns: UnitSpawn[];
-  zoidCatalog: Record<string, ZoidDefinition>;
+  unitCatalog: Record<string, UnitDefinition>;
   abilityCatalog: Record<string, AbilityDefinition>;
   seed: number;
 }
@@ -54,7 +54,7 @@ export interface BattleConfig {
 export class Battle {
   readonly map: GameMap;
   readonly units: UnitState[];
-  private zoids: Record<string, ZoidDefinition>;
+  private definitions: Record<string, UnitDefinition>;
   private abilities: Record<string, AbilityDefinition>;
   private rng: Rng;
   private activeUnitId: string | undefined;
@@ -62,23 +62,23 @@ export class Battle {
 
   constructor(config: BattleConfig) {
     this.map = config.map;
-    this.zoids = config.zoidCatalog;
+    this.definitions = config.unitCatalog;
     this.abilities = config.abilityCatalog;
     this.rng = new Rng(config.seed);
 
     this.units = config.spawns.map((spawn) => {
-      const zoid = this.zoidOf(spawn.zoidId);
+      const def = this.definitionOf(spawn.unitTypeId);
       if (!this.map.inBounds(spawn.position)) {
         throw new Error(`Spawn de ${spawn.id} fuera del mapa`);
       }
       return {
         id: spawn.id,
         name: spawn.name,
-        zoidId: spawn.zoidId,
+        unitTypeId: spawn.unitTypeId,
         team: spawn.team,
         position: { ...spawn.position },
         facing: spawn.facing ?? (spawn.team === 'player' ? 'east' : 'west'),
-        hp: zoid.stats.maxHp,
+        hp: def.stats.maxHp,
         ct: 0,
         statuses: [],
         hasMoved: false,
@@ -96,10 +96,10 @@ export class Battle {
 
   // ── Consultas ──────────────────────────────────────────────────────────
 
-  zoidOf(zoidId: string): ZoidDefinition {
-    const zoid = this.zoids[zoidId];
-    if (!zoid) throw new Error(`Zoid desconocido: ${zoidId}`);
-    return zoid;
+  definitionOf(unitTypeId: string): UnitDefinition {
+    const def = this.definitions[unitTypeId];
+    if (!def) throw new Error(`Tipo de unidad desconocido: ${unitTypeId}`);
+    return def;
   }
 
   abilityOf(abilityId: string): AbilityDefinition {
@@ -120,7 +120,7 @@ export class Battle {
 
   /** Stats efectivas de una unidad (base del chasis + estados). */
   effectiveStats(unit: UnitState): Stats {
-    const base = this.zoidOf(unit.zoidId).stats;
+    const base = this.definitionOf(unit.unitTypeId).stats;
     const defBonus = statusDefenseBonus(unit);
     return {
       ...base,
@@ -144,7 +144,7 @@ export class Battle {
 
   /** Timeline de próximos turnos para la UI. */
   forecast(count = 8): string[] {
-    return forecastTurnOrder(this.units, (u) => this.zoidOf(u.zoidId).stats.speed, count);
+    return forecastTurnOrder(this.units, (u) => this.definitionOf(u.unitTypeId).stats.speed, count);
   }
 
   // ── Avance de turnos ───────────────────────────────────────────────────
@@ -160,7 +160,7 @@ export class Battle {
 
     const events: BattleEvent[] = [];
     for (;;) {
-      const next = advanceToNextTurn(this.units, (u) => this.zoidOf(u.zoidId).stats.speed);
+      const next = advanceToNextTurn(this.units, (u) => this.definitionOf(u.unitTypeId).stats.speed);
       if (!next) return events;
 
       next.hasMoved = false;
@@ -183,11 +183,11 @@ export class Battle {
   legalMoves(unitId: string): ReachableTile[] {
     const unit = this.requireActive(unitId);
     if (unit.hasMoved) return [];
-    const zoid = this.zoidOf(unit.zoidId);
+    const def = this.definitionOf(unit.unitTypeId);
     return reachableTiles(this.map, unit.position, {
-      move: zoid.stats.move,
-      jump: zoid.stats.jump,
-      moveType: zoid.moveType,
+      move: def.stats.move,
+      jump: def.stats.jump,
+      moveType: def.moveType,
       team: unit.team,
     }, this.units).filter((t) => !samePos(t.pos, unit.position));
   }
@@ -295,7 +295,7 @@ export class Battle {
           break;
         }
         case 'heal': {
-          const maxHp = this.zoidOf(target.zoidId).stats.maxHp;
+          const maxHp = this.definitionOf(target.unitTypeId).stats.maxHp;
           const amount = Math.min(effect.power, maxHp - target.hp);
           if (amount <= 0) break;
           target.hp += amount;
@@ -330,7 +330,7 @@ export class Battle {
 
     // Efectos de fin de turno: sobrecalentamiento y expiración de estados.
     if (hasStatus(unit, 'overheat')) {
-      const damage = overheatDamage(this.zoidOf(unit.zoidId).stats.maxHp);
+      const damage = overheatDamage(this.definitionOf(unit.unitTypeId).stats.maxHp);
       unit.hp = Math.max(0, unit.hp - damage);
       events.push({ type: 'status-ticked', targetUnitId: unit.id, status: 'overheat', damage, targetHp: unit.hp });
       if (unit.hp === 0) {
@@ -368,7 +368,7 @@ export class Battle {
   }
 
   private assertKnowsAbility(unit: UnitState, abilityId: string): void {
-    if (!this.zoidOf(unit.zoidId).abilityIds.includes(abilityId)) {
+    if (!this.definitionOf(unit.unitTypeId).abilityIds.includes(abilityId)) {
       throw new Error(`${unit.id} no conoce la habilidad ${abilityId}`);
     }
   }

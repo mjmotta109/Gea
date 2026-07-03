@@ -33,18 +33,18 @@ export interface BattleRecord {
 export function runScriptedBattle(seed: number, maxTurns = 300): BattleRecord {
   const battle = new Battle({
     map: VALLEY_CROSSING,
-    zoidCatalog: ZOIDS,
+    unitCatalog: ZOIDS,
     abilityCatalog: ABILITIES,
     seed,
     spawns: [
-      { id: 'P1', name: 'Liger Zero', zoidId: 'liger-zero', team: 'player', position: { x: 1, y: 3 } },
-      { id: 'P2', name: 'Command Wolf', zoidId: 'command-wolf', team: 'player', position: { x: 0, y: 5 } },
-      { id: 'P3', name: 'Gun Sniper', zoidId: 'gun-sniper', team: 'player', position: { x: 1, y: 7 } },
-      { id: 'P4', name: 'Gustav', zoidId: 'gustav', team: 'player', position: { x: 0, y: 4 } },
-      { id: 'E1', name: 'Geno Saurer', zoidId: 'geno-saurer', team: 'enemy', position: { x: 10, y: 3 } },
-      { id: 'E2', name: 'Molga A', zoidId: 'molga', team: 'enemy', position: { x: 11, y: 5 } },
-      { id: 'E3', name: 'Molga B', zoidId: 'molga', team: 'enemy', position: { x: 10, y: 6 } },
-      { id: 'E4', name: 'Pteras', zoidId: 'pteras', team: 'enemy', position: { x: 11, y: 2 } },
+      { id: 'P1', name: 'Liger Zero', unitTypeId: 'liger-zero', team: 'player', position: { x: 1, y: 3 } },
+      { id: 'P2', name: 'Command Wolf', unitTypeId: 'command-wolf', team: 'player', position: { x: 0, y: 5 } },
+      { id: 'P3', name: 'Gun Sniper', unitTypeId: 'gun-sniper', team: 'player', position: { x: 1, y: 7 } },
+      { id: 'P4', name: 'Gustav', unitTypeId: 'gustav', team: 'player', position: { x: 0, y: 4 } },
+      { id: 'E1', name: 'Geno Saurer', unitTypeId: 'geno-saurer', team: 'enemy', position: { x: 10, y: 3 } },
+      { id: 'E2', name: 'Molga A', unitTypeId: 'molga', team: 'enemy', position: { x: 11, y: 5 } },
+      { id: 'E3', name: 'Molga B', unitTypeId: 'molga', team: 'enemy', position: { x: 10, y: 6 } },
+      { id: 'E4', name: 'Pteras', unitTypeId: 'pteras', team: 'enemy', position: { x: 11, y: 2 } },
     ],
   });
 

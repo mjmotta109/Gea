@@ -8,7 +8,7 @@ export type SpeedLookup = (unit: UnitState) => number;
  * umbral actúa. Empates se resuelven por CT, luego velocidad y luego id
  * para mantener el determinismo.
  *
- * La velocidad vive en la definición del Zoid, así que se recibe como
+ * La velocidad vive en la definición de la unidad, así que se recibe como
  * función de consulta para no acoplar este módulo al catálogo de datos.
  */
 export function advanceToNextTurn(units: UnitState[], speedOf: SpeedLookup): UnitState | undefined {

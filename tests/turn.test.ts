@@ -4,7 +4,7 @@ import { CT_THRESHOLD, type UnitState } from '../src/core/types.js';
 
 function unit(id: string, speed: number, hp = 10, ct = 0): UnitState & { speed: number } {
   return {
-    id, name: id, zoidId: 'test', team: 'player',
+    id, name: id, unitTypeId: 'test', team: 'player',
     position: { x: 0, y: 0 }, facing: 'east', hp, ct,
     statuses: [], hasMoved: false, hasActed: false, speed,
   };

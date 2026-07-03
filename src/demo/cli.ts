@@ -20,18 +20,18 @@ const seed = Number(process.env.SEED ?? 20260703);
 
 const battle = new Battle({
   map: VALLEY_CROSSING,
-  zoidCatalog: ZOIDS,
+  unitCatalog: ZOIDS,
   abilityCatalog: ABILITIES,
   seed,
   spawns: [
-    { id: 'P1', name: 'Liger Zero (Bit)', zoidId: 'liger-zero', team: 'player', position: { x: 1, y: 3 } },
-    { id: 'P2', name: 'Command Wolf (Irvine)', zoidId: 'command-wolf', team: 'player', position: { x: 0, y: 5 } },
-    { id: 'P3', name: 'Gun Sniper (Naomi)', zoidId: 'gun-sniper', team: 'player', position: { x: 1, y: 7 } },
-    { id: 'P4', name: 'Gustav (Moonbay)', zoidId: 'gustav', team: 'player', position: { x: 0, y: 4 } },
-    { id: 'E1', name: 'Geno Saurer', zoidId: 'geno-saurer', team: 'enemy', position: { x: 10, y: 3 } },
-    { id: 'E2', name: 'Molga', zoidId: 'molga', team: 'enemy', position: { x: 11, y: 5 } },
-    { id: 'E3', name: 'Molga', zoidId: 'molga', team: 'enemy', position: { x: 10, y: 6 } },
-    { id: 'E4', name: 'Pteras', zoidId: 'pteras', team: 'enemy', position: { x: 11, y: 2 } },
+    { id: 'P1', name: 'Liger Zero (Bit)', unitTypeId: 'liger-zero', team: 'player', position: { x: 1, y: 3 } },
+    { id: 'P2', name: 'Command Wolf (Irvine)', unitTypeId: 'command-wolf', team: 'player', position: { x: 0, y: 5 } },
+    { id: 'P3', name: 'Gun Sniper (Naomi)', unitTypeId: 'gun-sniper', team: 'player', position: { x: 1, y: 7 } },
+    { id: 'P4', name: 'Gustav (Moonbay)', unitTypeId: 'gustav', team: 'player', position: { x: 0, y: 4 } },
+    { id: 'E1', name: 'Geno Saurer', unitTypeId: 'geno-saurer', team: 'enemy', position: { x: 10, y: 3 } },
+    { id: 'E2', name: 'Molga', unitTypeId: 'molga', team: 'enemy', position: { x: 11, y: 5 } },
+    { id: 'E3', name: 'Molga', unitTypeId: 'molga', team: 'enemy', position: { x: 10, y: 6 } },
+    { id: 'E4', name: 'Pteras', unitTypeId: 'pteras', team: 'enemy', position: { x: 11, y: 2 } },
   ],
 });
 
@@ -62,7 +62,7 @@ function renderBoard(): string {
 function renderUnits(): string {
   return battle.units
     .map((u) => {
-      const zoid = battle.zoidOf(u.zoidId);
+      const zoid = battle.definitionOf(u.unitTypeId);
       const statuses = u.statuses.map((s) => STATUS_INFO[s.id].name).join(', ');
       const state = u.hp > 0 ? `${u.hp}/${zoid.stats.maxHp} HP` : 'DESTRUIDO';
       return `  [${u.team === 'player' ? 'P' : 'E'}] ${u.id} ${u.name}: ${state}${statuses ? ` (${statuses})` : ''}`;

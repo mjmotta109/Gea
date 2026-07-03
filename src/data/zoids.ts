@@ -1,4 +1,4 @@
-import type { ZoidDefinition } from '../core/types.js';
+import type { UnitDefinition } from '../core/types.js';
 
 /**
  * Catálogo de chasis de Zoids. Cumplen el papel de los jobs de FFTA:
@@ -7,7 +7,7 @@ import type { ZoidDefinition } from '../core/types.js';
  * Roles pensados para que el plantel base cubra el triángulo táctico:
  * asalto rápido, tanque, francotirador, soporte, volador y grunt barato.
  */
-export const ZOIDS: Record<string, ZoidDefinition> = {
+export const ZOIDS: Record<string, UnitDefinition> = {
   'liger-zero': {
     id: 'liger-zero',
     name: 'Liger Zero',
