@@ -1,6 +1,8 @@
-# Gea — Motor táctico estilo FFTA con temática Zoids
+# Gea — Motor de simulación táctica profunda
 
-Base de un RPG táctico por turnos inspirado en **Final Fantasy Tactics Advance**, donde los "jobs" son chasis de **Zoids**. Es un remake espiritual: tomamos las mecánicas de FFTA como punto de partida para luego evolucionar hacia un juego propio.
+Motor táctico por turnos que combina el flujo de **Final Fantasy Tactics** (CT, casillas, posicionamiento, facing) con la profundidad mecánica de **Armored Core / BattleTech**: unidades compuestas por módulos, daño localizado, energía y calor como recursos, munición finita y sensores. El contenido inicial usa temática **Zoids**, pero el núcleo es genérico.
+
+> 📐 La dirección del proyecto y el plan de migración por fases están en **[docs/DESIGN.md](docs/DESIGN.md)**. El estado actual del código corresponde a la base pre-fase-0 descrita abajo.
 
 El motor es **determinista y agnóstico del renderizado**: toda la simulación vive en TypeScript puro sin dependencias, se comunica mediante eventos, y cualquier cliente (PixiJS, Godot, terminal, servidor) puede consumirlo.
 
