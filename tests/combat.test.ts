@@ -5,7 +5,7 @@ import type { Stats } from '../src/core/types.js';
 
 const STATS: Stats = {
   maxHp: 100, atk: 40, energyAtk: 30, def: 30, energyDef: 20,
-  speed: 10, move: 4, jump: 1, evade: 10,
+  speed: 10, move: 4, jump: 1, evade: 10, accuracy: 0,
 };
 
 describe('facingTowards', () => {
@@ -30,11 +30,11 @@ describe('attackArc', () => {
 
 describe('hitChance', () => {
   it('bonifica flanco y espalda y se acota a [5, 100]', () => {
-    expect(hitChance({ accuracy: 80, arc: 'front', defenderEvade: 10 })).toBe(70);
-    expect(hitChance({ accuracy: 80, arc: 'side', defenderEvade: 10 })).toBe(80);
-    expect(hitChance({ accuracy: 80, arc: 'back', defenderEvade: 10 })).toBe(95);
-    expect(hitChance({ accuracy: 10, arc: 'front', defenderEvade: 90 })).toBe(5);
-    expect(hitChance({ accuracy: 100, arc: 'back', defenderEvade: 0 })).toBe(100);
+    expect(hitChance({ accuracy: 80, attackerAccuracy: 0, arc: 'front', defenderEvade: 10 })).toBe(70);
+    expect(hitChance({ accuracy: 80, attackerAccuracy: 0, arc: 'side', defenderEvade: 10 })).toBe(80);
+    expect(hitChance({ accuracy: 80, attackerAccuracy: 0, arc: 'back', defenderEvade: 10 })).toBe(95);
+    expect(hitChance({ accuracy: 10, attackerAccuracy: 0, arc: 'front', defenderEvade: 90 })).toBe(5);
+    expect(hitChance({ accuracy: 100, attackerAccuracy: 0, arc: 'back', defenderEvade: 0 })).toBe(100);
   });
 });
 

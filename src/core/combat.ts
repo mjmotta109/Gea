@@ -38,14 +38,18 @@ export interface CombatContext {
 }
 
 export interface HitCheckInput {
+  /** Precisión base de la habilidad/arma. */
   accuracy: number;
+  /** Corrección de puntería del atacante (stat `accuracy`, 0 = nominal). */
+  attackerAccuracy: number;
   arc: AttackArc;
   defenderEvade: number;
 }
 
 /** Probabilidad final de impacto (0-100), sin tirar el dado. */
 export function hitChance(input: HitCheckInput): number {
-  const raw = input.accuracy + ARC_ACCURACY_BONUS[input.arc] - input.defenderEvade;
+  const raw = input.accuracy + input.attackerAccuracy
+    + ARC_ACCURACY_BONUS[input.arc] - input.defenderEvade;
   return Math.max(5, Math.min(100, raw));
 }
 

@@ -15,7 +15,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
     moveType: 'ground',
     stats: {
       maxHp: 120, atk: 45, energyAtk: 55, def: 30, energyDef: 25,
-      speed: 16, move: 6, jump: 2, evade: 20,
+      speed: 16, move: 6, jump: 2, evade: 20, accuracy: 0,
     },
     abilityIds: ['strike-laser-claw', 'bite-crush', 'e-shield'],
   },
@@ -26,7 +26,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
     moveType: 'ground',
     stats: {
       maxHp: 100, atk: 40, energyAtk: 30, def: 25, energyDef: 20,
-      speed: 14, move: 5, jump: 2, evade: 15,
+      speed: 14, move: 5, jump: 2, evade: 15, accuracy: 0,
     },
     abilityIds: ['bite-crush', 'shock-cannon', 'smoke-discharger'],
   },
@@ -37,7 +37,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
     moveType: 'ground',
     stats: {
       maxHp: 200, atk: 60, energyAtk: 40, def: 50, energyDef: 40,
-      speed: 8, move: 3, jump: 1, evade: 0,
+      speed: 8, move: 3, jump: 1, evade: 0, accuracy: 0,
     },
     abilityIds: ['bite-crush', 'missile-pod', 'e-shield'],
   },
@@ -48,7 +48,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
     moveType: 'ground',
     stats: {
       maxHp: 80, atk: 50, energyAtk: 25, def: 15, energyDef: 15,
-      speed: 12, move: 4, jump: 1, evade: 10,
+      speed: 12, move: 4, jump: 1, evade: 10, accuracy: 0,
     },
     abilityIds: ['sniper-rifle', 'bite-crush'],
   },
@@ -59,7 +59,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
     moveType: 'flying',
     stats: {
       maxHp: 85, atk: 30, energyAtk: 35, def: 15, energyDef: 20,
-      speed: 15, move: 7, jump: 99, evade: 25,
+      speed: 15, move: 7, jump: 99, evade: 25, accuracy: 0,
     },
     abilityIds: ['shock-cannon', 'stun-blade'],
   },
@@ -70,7 +70,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
     moveType: 'ground',
     stats: {
       maxHp: 140, atk: 20, energyAtk: 15, def: 45, energyDef: 35,
-      speed: 10, move: 4, jump: 1, evade: 5,
+      speed: 10, move: 4, jump: 1, evade: 5, accuracy: 0,
     },
     abilityIds: ['repair-drones', 'smoke-discharger', 'e-shield'],
   },
@@ -81,7 +81,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
     moveType: 'ground',
     stats: {
       maxHp: 70, atk: 30, energyAtk: 20, def: 20, energyDef: 15,
-      speed: 11, move: 4, jump: 1, evade: 10,
+      speed: 11, move: 4, jump: 1, evade: 10, accuracy: 0,
     },
     abilityIds: ['bite-crush', 'shock-cannon'],
   },
@@ -92,7 +92,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
     moveType: 'ground',
     stats: {
       maxHp: 130, atk: 45, energyAtk: 65, def: 35, energyDef: 30,
-      speed: 12, move: 4, jump: 1, evade: 10,
+      speed: 12, move: 4, jump: 1, evade: 10, accuracy: 0,
     },
     abilityIds: ['charged-particle-gun', 'bite-crush', 'e-shield'],
   },

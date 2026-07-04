@@ -44,6 +44,87 @@ export interface Stats {
   jump: number;
   /** Evasión base (0-100). */
   evade: number;
+  /**
+   * Corrección de puntería (aditiva sobre la precisión de la habilidad).
+   * 0 = sensores nominales; se vuelve negativa con la cabeza/sensores
+   * dañados y positiva con equipamiento de puntería.
+   */
+  accuracy: number;
+}
+
+/**
+ * Modificador del pipeline de stats derivadas (docs/DESIGN.md §3.2).
+ * Los sistemas nunca tocan stats directamente: aportan modificadores y
+ * core/derived.ts los combina con orden determinista.
+ */
+export interface StatModifier {
+  /** Origen legible para depuración/UI: 'status:armor-up', 'module:leg-l'... */
+  source: string;
+  stat: keyof Stats;
+  /** Componente aditivo. */
+  add?: number;
+  /** Componente multiplicativo; se aplica después de TODOS los aditivos. */
+  mult?: number;
+}
+
+// ── Unidad compuesta: frames y módulos (fase 1) ─────────────────────────
+
+/**
+ * Identificador de hueco del chasis: 'head', 'torso', 'leg-l', 'weapon-1',
+ * 'backpack'... Es una string libre: cada frame define los suyos.
+ */
+export type SlotId = string;
+
+export interface ModuleDefinition {
+  id: string;
+  name: string;
+  hp: number;
+  /** Reducción plana de daño antes de tocar el HP del módulo. */
+  armor: number;
+  /** Masa del módulo; la consumen estabilidad/energía en fases futuras. */
+  weight: number;
+  /** Peso relativo en la tabla de localización de impactos (mayor = más fácil de golpear). */
+  hitWeight: number;
+  /** Si se destruye, la unidad entera queda fuera de combate. */
+  critical: boolean;
+  /** Modificadores aportados al pipeline mientras el módulo está operativo. */
+  contributions: StatModifier[];
+  /** Penalizaciones EXTRA al destruirse (además de perder contributions). */
+  onDestroyed: StatModifier[];
+  /**
+   * Etiquetas que sesgan la localización de impactos y clasifican el módulo:
+   * 'rear-exposed' (×2 al atacar por la espalda), 'high-profile' (×1.5 desde
+   * arriba), 'low-profile' (×1.5 desde abajo), 'weapon', 'locomotion',
+   * 'sensor'...
+   */
+  tags: string[];
+}
+
+/** Asignación de un módulo a un hueco del frame (orden = orden determinista). */
+export interface FrameSlotConfig {
+  slot: SlotId;
+  moduleId: string;
+}
+
+export interface ModuleState {
+  slot: SlotId;
+  moduleId: string;
+  hp: number;
+  destroyed: boolean;
+}
+
+export interface FrameState {
+  /** En el mismo orden que la configuración del frame. */
+  modules: ModuleState[];
+}
+
+/**
+ * Bolsa de componentes opcionales de una unidad (docs/DESIGN.md §3.1).
+ * Una unidad sin un componente es ignorada por el sistema correspondiente;
+ * así conviven unidades simples y unidades simuladas a fondo.
+ */
+export interface UnitComponents {
+  frame?: FrameState;
 }
 
 export type DamageType = 'physical' | 'energy';
@@ -100,12 +181,19 @@ export interface UnitDefinition {
   stats: Stats;
   /** IDs de habilidades del catálogo que este tipo de unidad conoce. */
   abilityIds: string[];
+  /**
+   * Chasis modular opcional (fase 1). Si se define, la unidad usa daño
+   * localizado y sus stats.maxHp deben coincidir con la suma de HP de los
+   * módulos. Sin frame, la unidad es un "monocasco": HP global clásico.
+   */
+  frame?: FrameSlotConfig[];
 }
 
 export interface UnitState {
   id: string;
   name: string;
   unitTypeId: string;
+  components: UnitComponents;
   team: Team;
   position: Position;
   facing: Facing;
@@ -134,6 +222,9 @@ export type BattleEvent =
   | { type: 'ability-used'; unitId: string; abilityId: string; target: Position }
   | { type: 'ability-missed'; unitId: string; targetUnitId: string }
   | { type: 'damage-dealt'; unitId: string; targetUnitId: string; amount: number; targetHp: number }
+  | { type: 'hit-location-rolled'; targetUnitId: string; slot: SlotId }
+  | { type: 'module-damaged'; targetUnitId: string; slot: SlotId; amount: number; moduleHp: number }
+  | { type: 'module-destroyed'; targetUnitId: string; slot: SlotId }
   | { type: 'unit-healed'; unitId: string; targetUnitId: string; amount: number; targetHp: number }
   | { type: 'status-applied'; targetUnitId: string; status: StatusId; duration: number }
   | { type: 'status-expired'; targetUnitId: string; status: StatusId }

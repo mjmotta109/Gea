@@ -10,6 +10,16 @@ export { advanceToNextTurn, forecastTurnOrder } from './core/turn.js';
 export { applyStatus, hasStatus, tickStatuses, STATUS_DEFINITIONS, STATUS_INFO } from './core/status.js';
 export { applyModifiers, type StatModifier } from './core/derived.js';
 export {
+  applyDamageToModule,
+  buildFrameState,
+  deriveUnitHp,
+  frameMaxHp,
+  frameModifiers,
+  repairFrame,
+  rollHitLocation,
+  type ModuleCatalog,
+} from './core/frame.js';
+export {
   defaultSystems,
   overheatSystem,
   type ActionVeto,

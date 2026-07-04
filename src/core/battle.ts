@@ -2,6 +2,16 @@ import { attackArc, computeDamage, facingTowards, hitChance } from './combat.js'
 import { GameMap, manhattan, posKey, samePos } from './grid.js';
 import { aoeTiles, reachableTiles, targetableTiles, type ReachableTile } from './pathfinding.js';
 import { applyModifiers } from './derived.js';
+import {
+  applyDamageToModule,
+  buildFrameState,
+  deriveUnitHp,
+  frameMaxHp,
+  frameModifiers,
+  repairFrame,
+  rollHitLocation,
+  type ModuleCatalog,
+} from './frame.js';
 import { Rng } from './rng.js';
 import { applyStatus, hasStatus, statusModifiers, tickStatuses } from './status.js';
 import { defaultSystems, type BattleSystem, type SystemContext } from './systems.js';
@@ -34,6 +44,8 @@ export interface BattleConfig {
   spawns: UnitSpawn[];
   unitCatalog: Record<string, UnitDefinition>;
   abilityCatalog: Record<string, AbilityDefinition>;
+  /** Catálogo de módulos; solo necesario si alguna unidad define frame. */
+  moduleCatalog?: ModuleCatalog;
   seed: number;
   /**
    * Sistemas activos, invocados en el orden del array (determinista).
@@ -56,6 +68,7 @@ export class Battle {
   readonly units: UnitState[];
   private definitions: Record<string, UnitDefinition>;
   private abilities: Record<string, AbilityDefinition>;
+  private modules: ModuleCatalog;
   private rng: Rng;
   private activeUnitId: string | undefined;
   private winnerTeam: Team | undefined;
@@ -66,6 +79,7 @@ export class Battle {
     this.map = config.map;
     this.definitions = config.unitCatalog;
     this.abilities = config.abilityCatalog;
+    this.modules = config.moduleCatalog ?? {};
     this.rng = new Rng(config.seed);
     this.systems = config.systems ?? defaultSystems();
     this.systemContext = {
@@ -77,6 +91,14 @@ export class Battle {
       const def = this.definitionOf(spawn.unitTypeId);
       if (!this.map.inBounds(spawn.position)) {
         throw new Error(`Spawn de ${spawn.id} fuera del mapa`);
+      }
+      if (def.frame) {
+        const sum = frameMaxHp(def.frame, this.modules);
+        if (sum !== def.stats.maxHp) {
+          throw new Error(
+            `maxHp de ${def.id} (${def.stats.maxHp}) no coincide con la suma de módulos (${sum})`,
+          );
+        }
       }
       return {
         id: spawn.id,
@@ -90,6 +112,7 @@ export class Battle {
         statuses: [],
         hasMoved: false,
         hasActed: false,
+        components: def.frame ? { frame: buildFrameState(def.frame, this.modules) } : {},
       };
     });
 
@@ -146,7 +169,11 @@ export class Battle {
    */
   effectiveStats(unit: UnitState): Stats {
     const base = this.definitionOf(unit.unitTypeId).stats;
-    return applyModifiers(base, statusModifiers(unit));
+    const frame = unit.components.frame;
+    const mods = frame
+      ? [...frameModifiers(frame, this.modules), ...statusModifiers(unit)]
+      : statusModifiers(unit);
+    return applyModifiers(base, mods);
   }
 
   get winner(): Team | undefined {
@@ -302,7 +329,12 @@ export class Battle {
         case 'damage': {
           const chance = friendly
             ? 100
-            : hitChance({ accuracy: ability.accuracy, arc, defenderEvade: targetStats.evade });
+            : hitChance({
+                accuracy: ability.accuracy,
+                attackerAccuracy: userStats.accuracy,
+                arc,
+                defenderEvade: targetStats.evade,
+              });
           if (!this.rng.roll(chance)) {
             events.push({ type: 'ability-missed', unitId: user.id, targetUnitId: target.id });
             break;
@@ -317,20 +349,56 @@ export class Battle {
             arc,
             heightAdvantage,
           }, this.rng);
-          target.hp = Math.max(0, target.hp - amount);
-          events.push({
-            type: 'damage-dealt',
-            unitId: user.id,
-            targetUnitId: target.id,
-            amount,
-            targetHp: target.hp,
-          });
+
+          const frame = target.components.frame;
+          if (frame) {
+            // Daño localizado: se elige el módulo golpeado y su armadura
+            // absorbe antes de tocar HP; el exceso desborda al núcleo.
+            const location = rollHitLocation(frame, this.modules, arc, heightAdvantage, this.rng);
+            events.push({ type: 'hit-location-rolled', targetUnitId: target.id, slot: location.slot });
+            events.push({
+              type: 'damage-dealt',
+              unitId: user.id,
+              targetUnitId: target.id,
+              amount,
+              targetHp: 0, // se corrige abajo, tras derivar el HP global
+            });
+            const damageEventIndex = events.length - 1;
+            events.push(...applyDamageToModule(frame, this.modules, location, amount, target.id));
+            target.hp = deriveUnitHp(frame, this.modules);
+            (events[damageEventIndex] as Extract<BattleEvent, { type: 'damage-dealt' }>).targetHp = target.hp;
+          } else {
+            target.hp = Math.max(0, target.hp - amount);
+            events.push({
+              type: 'damage-dealt',
+              unitId: user.id,
+              targetUnitId: target.id,
+              amount,
+              targetHp: target.hp,
+            });
+          }
           if (target.hp === 0) {
             events.push({ type: 'unit-destroyed', unitId: target.id });
           }
           break;
         }
         case 'heal': {
+          const frame = target.components.frame;
+          if (frame) {
+            // En unidades compuestas se repara el módulo más dañado; los
+            // destruidos no se recuperan en combate.
+            const repaired = repairFrame(frame, this.modules, effect.power);
+            if (!repaired || repaired.amount <= 0) break;
+            target.hp = deriveUnitHp(frame, this.modules);
+            events.push({
+              type: 'unit-healed',
+              unitId: user.id,
+              targetUnitId: target.id,
+              amount: repaired.amount,
+              targetHp: target.hp,
+            });
+            break;
+          }
           const maxHp = this.effectiveStats(target).maxHp;
           const amount = Math.min(effect.power, maxHp - target.hp);
           if (amount <= 0) break;

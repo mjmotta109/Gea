@@ -4,7 +4,7 @@ import type { Stats } from '../src/core/types.js';
 
 const BASE: Stats = {
   maxHp: 100, atk: 40, energyAtk: 30, def: 30, energyDef: 20,
-  speed: 10, move: 4, jump: 1, evade: 10,
+  speed: 10, move: 4, jump: 1, evade: 10, accuracy: 0,
 };
 
 describe('applyModifiers', () => {
