@@ -1,0 +1,187 @@
+<title>Gea — Consola táctica</title>
+<style>
+  /* Consola táctica: tema oscuro único, deliberado (pantalla de cabina). */
+  :root {
+    --bg: #0b1014;
+    --panel: #141c24;
+    --panel-2: #0f161d;
+    --line: #24313d;
+    --ink: #d9e2ea;
+    --muted: #8598a8;
+    --player: #53d1e0;
+    --player-dim: #1d4a52;
+    --enemy: #ff8a5c;
+    --enemy-dim: #59301f;
+    --energy: #5fd9a4;
+    --heat: #ff9f45;
+    --hp: #7ec96b;
+    --danger: #e5604c;
+    --mono: ui-monospace, 'Cascadia Mono', 'SF Mono', Menlo, Consolas, monospace;
+    --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--ink); font-family: var(--sans); margin: 0; }
+  #app { max-width: 1180px; margin: 0 auto; padding: 14px 16px 40px; }
+
+  header.gea {
+    display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+    border-bottom: 1px solid var(--line); padding-bottom: 10px; margin-bottom: 14px;
+  }
+  header.gea h1 {
+    font-size: 15px; margin: 0; letter-spacing: 0.28em; text-transform: uppercase;
+    color: var(--player); font-weight: 600;
+  }
+  header.gea .sub { color: var(--muted); font-size: 12px; letter-spacing: 0.08em; }
+  header.gea .spacer { flex: 1; }
+  header.gea label { color: var(--muted); font-size: 11px; font-family: var(--mono); }
+  #seed {
+    width: 90px; background: var(--panel-2); border: 1px solid var(--line); color: var(--ink);
+    font-family: var(--mono); font-size: 12px; padding: 4px 6px; border-radius: 3px;
+  }
+
+  main.gea { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 14px; }
+  @media (max-width: 900px) { main.gea { grid-template-columns: 1fr; } }
+
+  /* ── Tablero ── */
+  #board-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 12px; }
+  #board { display: grid; gap: 2px; width: fit-content; margin: 0 auto; }
+  .cell {
+    position: relative; width: 46px; height: 46px; border: 0; border-radius: 3px;
+    padding: 0; cursor: default; font-family: var(--mono);
+  }
+  .cell.actionable { cursor: pointer; }
+  .cell .h {
+    position: absolute; top: 1px; right: 3px; font-size: 9px; color: rgba(0,0,0,0.55);
+  }
+  .cell .hl-label {
+    position: absolute; bottom: 1px; right: 2px; font-size: 10px; font-weight: 700;
+    color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.9);
+  }
+  .cell.hl-move { outline: 2px solid var(--player); outline-offset: -2px; }
+  .cell.hl-boost { outline: 2px dashed var(--energy); outline-offset: -2px; }
+  .cell.hl-target { outline: 2px solid var(--danger); outline-offset: -2px; }
+  .cell:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
+
+  .chip {
+    position: absolute; inset: 6px; border-radius: 4px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; font-size: 11px; font-weight: 700;
+    font-family: var(--mono); color: #04181d; line-height: 1.1;
+  }
+  .chip.player { background: var(--player); }
+  .chip.enemy { background: var(--enemy); color: #2b1006; }
+  .chip.active-unit { box-shadow: 0 0 0 2px #fff, 0 0 10px 2px rgba(255,255,255,0.35); }
+  .chip .hpbar { width: 80%; height: 3px; background: rgba(0,0,0,0.35); border-radius: 2px; margin-top: 2px; }
+  .chip .hpbar i { display: block; height: 100%; background: #063; background: rgba(255,255,255,0.9); border-radius: 2px; }
+
+  #legend { color: var(--muted); font-size: 11px; font-family: var(--mono); margin-top: 10px; text-align: center; }
+
+  /* ── Columna lateral ── */
+  aside.gea { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; }
+  .panel h2 {
+    margin: 0 0 8px; font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--muted); font-weight: 600;
+  }
+
+  #forecast { display: flex; gap: 5px; flex-wrap: wrap; }
+  #forecast .fc {
+    font-family: var(--mono); font-size: 11px; font-weight: 700; padding: 3px 7px; border-radius: 3px;
+  }
+  #forecast .fc.player { background: var(--player-dim); color: var(--player); }
+  #forecast .fc.enemy { background: var(--enemy-dim); color: var(--enemy); }
+
+  #command .row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+  #command button {
+    background: var(--panel-2); color: var(--ink); border: 1px solid var(--line); border-radius: 4px;
+    font-family: var(--mono); font-size: 12px; padding: 6px 10px; cursor: pointer;
+  }
+  #command button:hover:not(:disabled) { border-color: var(--player); color: var(--player); }
+  #command button:disabled { opacity: 0.4; cursor: not-allowed; }
+  #command button.mode-on { border-color: var(--player); color: var(--player); background: var(--player-dim); }
+  #command .hint { color: var(--muted); font-size: 11px; font-family: var(--mono); margin-top: 4px; }
+
+  .ucard { border-top: 1px solid var(--line); padding: 7px 0; font-size: 12px; }
+  .ucard:first-of-type { border-top: 0; padding-top: 2px; }
+  .ucard .name { font-family: var(--mono); font-weight: 700; display: flex; gap: 6px; align-items: center; }
+  .ucard .name .tag { font-size: 10px; padding: 1px 5px; border-radius: 3px; }
+  .ucard.player .tag { background: var(--player-dim); color: var(--player); }
+  .ucard.enemy .tag { background: var(--enemy-dim); color: var(--enemy); }
+  .ucard .dead { color: var(--danger); font-weight: 700; }
+  .bars { display: grid; grid-template-columns: 14px 1fr 62px; gap: 4px 6px; align-items: center; margin-top: 4px; }
+  .bars .lbl { color: var(--muted); font-size: 10px; font-family: var(--mono); }
+  .bars .num { color: var(--muted); font-size: 10px; font-family: var(--mono); text-align: right; font-variant-numeric: tabular-nums; }
+  .bar { height: 5px; background: var(--panel-2); border-radius: 3px; overflow: hidden; }
+  .bar i { display: block; height: 100%; border-radius: 3px; }
+  .bar.hp i { background: var(--hp); }
+  .bar.en i { background: var(--energy); }
+  .bar.ht i { background: var(--heat); }
+  .mods { margin-top: 4px; display: flex; flex-wrap: wrap; gap: 3px; }
+  .mods span {
+    font-family: var(--mono); font-size: 9px; padding: 1px 4px; border-radius: 2px;
+    background: var(--panel-2); color: var(--muted); border: 1px solid var(--line);
+  }
+  .mods span.destroyed { color: var(--danger); border-color: var(--danger); text-decoration: line-through; }
+  .ucard .extra { color: var(--muted); font-size: 10px; font-family: var(--mono); margin-top: 3px; }
+
+  #log { max-height: 260px; overflow-y: auto; font-family: var(--mono); font-size: 11px; line-height: 1.5; }
+  #log div { color: var(--muted); }
+  #log div.turn { color: var(--ink); border-top: 1px dashed var(--line); margin-top: 3px; padding-top: 3px; }
+  #log div.hit { color: var(--enemy); }
+  #log div.good { color: var(--energy); }
+  #log div.warn { color: var(--heat); }
+
+  /* ── Overlay de fin ── */
+  #overlay {
+    display: none; position: fixed; inset: 0; background: rgba(4, 8, 11, 0.82);
+    align-items: center; justify-content: center; z-index: 10;
+  }
+  #overlay.show { display: flex; }
+  #overlay .box {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    padding: 28px 36px; text-align: center;
+  }
+  #overlay h2 { margin: 0 0 6px; letter-spacing: 0.2em; text-transform: uppercase; font-size: 18px; }
+  #overlay p { color: var(--muted); margin: 0 0 16px; font-family: var(--mono); font-size: 12px; }
+  #overlay button {
+    background: var(--player-dim); color: var(--player); border: 1px solid var(--player);
+    border-radius: 4px; font-family: var(--mono); font-size: 13px; padding: 8px 18px; cursor: pointer;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .chip.active-unit { animation: pulse 1.6s ease-in-out infinite; }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 2px #fff, 0 0 8px 1px rgba(255,255,255,0.25); }
+      50% { box-shadow: 0 0 0 2px #fff, 0 0 14px 4px rgba(255,255,255,0.45); }
+    }
+  }
+</style>
+
+<div id="app">
+  <header class="gea">
+    <h1>GEA</h1>
+    <span class="sub">consola táctica · escaramuza en el valle · tú llevas al equipo cian</span>
+    <span class="spacer"></span>
+    <label>semilla <input id="seed" type="number" value="42"></label>
+    <button id="restart" style="background:var(--panel-2);color:var(--ink);border:1px solid var(--line);border-radius:4px;font-family:var(--mono);font-size:12px;padding:5px 10px;cursor:pointer;">Nueva batalla</button>
+  </header>
+
+  <main class="gea">
+    <section id="board-panel">
+      <div id="board"></div>
+      <div id="legend">~ agua · ▒ abrupto (coste 2) · número = altura · flecha = orientación</div>
+    </section>
+
+    <aside class="gea">
+      <div class="panel"><h2>Próximos turnos</h2><div id="forecast"></div></div>
+      <div class="panel"><h2>Órdenes</h2><div id="command"></div></div>
+      <div class="panel"><h2>Unidades</h2><div id="roster"></div></div>
+      <div class="panel"><h2>Registro</h2><div id="log"></div></div>
+    </aside>
+  </main>
+
+  <div id="overlay"><div class="box"><h2 id="ov-title"></h2><p id="ov-sub"></p><button id="ov-restart">Nueva batalla</button></div></div>
+</div>
+
+<script>
+/*__BUNDLE__*/
+</script>

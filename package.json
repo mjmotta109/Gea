@@ -9,10 +9,13 @@
     "test:watch": "vitest",
     "golden:update": "UPDATE_GOLDEN=1 vitest run tests/golden.test.ts",
     "demo": "tsx src/demo/cli.ts",
-    "demo:auto": "tsx src/demo/cli.ts --auto"
+    "demo:auto": "tsx src/demo/cli.ts --auto",
+    "web": "node scripts/build-web.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
+    "esbuild": "^0.28.1",
+    "playwright-core": "^1.61.1",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
     "vitest": "^2.1.0"
