@@ -353,7 +353,7 @@ contenido framed). Golden master intacto en ambos. Desvíos anotados:
 
 ---
 
-### Fase 2 — Recursos activos: energía, calor y munición
+### ✅ Fase 2 — Recursos activos: energía, calor y munición — COMPLETADA
 
 *Objetivo: cada acción tiene un precio; gestionar recursos ES el juego.*
 
@@ -393,6 +393,30 @@ interface WeaponDefinition {
 **Hecho cuando**: en la demo se ve a un Geno Saurer gestionar el calor de su
 cañón de partículas y a un Gun Sniper quedarse sin munición y recargar; el
 golden master de unidades sin componentes sigue intacto.
+
+**Resultado (2026-07-04)**: completada en 2 commits (sistemas → contenido +
+IA). Golden master intacto. Desvíos anotados:
+- El movimiento cuesta energía PLANA por acción (5), no por casilla: el
+  coste por casilla exigía exponer el pathfinding a los vetos y no
+  aportaba decisión táctica proporcional. El boost (20) es el movimiento
+  "caro" real.
+- El cooldown se cuenta en turnos propios, no en ticks de CT: mucho más
+  simple de razonar para el jugador y para la IA; el conteo interno suma
+  +1 porque el decremento de inicio de turno consume primero el turno del
+  propio disparo.
+- Los costes se cobran en onActionResolved de cada sistema (como pedía el
+  diseño §3.4), pero reload/boost mantienen su mutación estructural en
+  Battle (munición repuesta, posición) — los sistemas cobran recursos, la
+  batalla resuelve acciones.
+- El estado 'overheat' (DoT del cañón de partículas) se mantiene separado
+  del recurso calor: son mecánicas distintas (daño interno persistente vs
+  presión térmica gestionable). El DoT ahora daña el núcleo en unidades
+  con frame.
+- Semilla 30 de la demo para ver recarga/boost/cooldown; la 42 sigue de
+  referencia para módulos.
+- Confirmado el desequilibrio del cañón de partículas (fase 1): en la
+  semilla 30 el Geno CP gana 4v4 sin un rasguño. La herramienta de
+  balance por lotes sube de prioridad para la fase 3.
 
 ---
 

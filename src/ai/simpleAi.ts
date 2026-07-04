@@ -1,31 +1,42 @@
 import type { Battle } from '../core/battle.js';
 import { manhattan, samePos } from '../core/grid.js';
+import { reachableTiles } from '../core/pathfinding.js';
 import type { BattleAction, Position, UnitState } from '../core/types.js';
 
 /**
  * IA básica para el turno de una unidad. Estrategia:
  *  1. Si desde alguna casilla alcanzable (incluida la actual) puede usar una
- *     habilidad ofensiva contra un rival, elige la combinación que más daño
- *     esperado promete y la ejecuta.
- *  2. Si no, avanza hacia el rival más cercano y espera.
+ *     habilidad ofensiva PAGABLE contra un rival, elige la combinación que
+ *     más daño esperado promete y la ejecuta.
+ *  2. Si no, avanza hacia el rival más cercano (boost incluido si hay
+ *     energía de sobra), recarga el arma vacía si la tiene, y espera.
  *
- * Devuelve la secuencia de acciones del turno completo (termina en wait).
- * Es deliberadamente simple: sirve de sparring y de referencia para IAs
- * más serias (evaluación de amenaza, coberturas, focus fire...).
+ * Consulta checkVetoes antes de planear: no intenta disparar sin energía
+ * ni munición. Devuelve la secuencia de acciones del turno completo
+ * (termina en wait). Es deliberadamente simple: sirve de sparring y de
+ * referencia para IAs más serias.
  */
 export function planTurn(battle: Battle, unit: UnitState): BattleAction[] {
   const enemies = battle.units.filter((u) => u.team !== unit.team && u.hp > 0);
   if (enemies.length === 0) return [{ type: 'wait', unitId: unit.id }];
 
-  const zoid = battle.definitionOf(unit.unitTypeId);
-  const offensiveAbilities = zoid.abilityIds
+  // Solo habilidades ofensivas que los sistemas no vetan (energía,
+  // munición, enfriamiento, montaje destruido...).
+  const offensiveAbilities = battle.knownAbilityIds(unit)
     .map((id) => battle.abilityOf(id))
-    .filter((a) => a.effects.some((e) => e.kind === 'damage'));
+    .filter((a) => a.effects.some((e) => e.kind === 'damage'))
+    .filter((a) => battle.checkVetoes({
+      type: 'ability', unitId: unit.id, abilityId: a.id, target: unit.position,
+    }) === null);
+
+  const canMove = battle.checkVetoes({
+    type: 'move', unitId: unit.id, to: unit.position,
+  }) === null;
 
   // Posiciones candidatas: quedarse quieto o cualquier tile alcanzable.
   const moveOptions: Array<{ to: Position | null; from: Position }> = [
     { to: null, from: unit.position },
-    ...battle.legalMoves(unit.id).map((t) => ({ to: t.pos, from: t.pos })),
+    ...(canMove ? battle.legalMoves(unit.id).map((t) => ({ to: t.pos, from: t.pos })) : []),
   ];
 
   let best:
@@ -61,23 +72,76 @@ export function planTurn(battle: Battle, unit: UnitState): BattleAction[] {
   }
 
   // Sin ataque posible: acercarse al enemigo más cercano.
+  const actions: BattleAction[] = [];
   const nearest = enemies.reduce((a, b) =>
     manhattan(unit.position, a.position) <= manhattan(unit.position, b.position) ? a : b);
-  const reachable = battle.legalMoves(unit.id);
-  let bestTile: Position | undefined;
-  let bestDist = manhattan(unit.position, nearest.position);
-  for (const tile of reachable) {
-    const d = manhattan(tile.pos, nearest.position);
-    if (d < bestDist) {
-      bestDist = d;
-      bestTile = tile.pos;
+
+  let standAt = unit.position;
+  if (canMove) {
+    const reachable = battle.legalMoves(unit.id);
+    let bestDist = manhattan(unit.position, nearest.position);
+    let bestTile: Position | undefined;
+    for (const tile of reachable) {
+      const d = manhattan(tile.pos, nearest.position);
+      if (d < bestDist) {
+        bestDist = d;
+        bestTile = tile.pos;
+      }
+    }
+    if (bestTile && !samePos(bestTile, unit.position)) {
+      actions.push({ type: 'move', unitId: unit.id, to: bestTile });
+      standAt = bestTile;
     }
   }
 
-  const actions: BattleAction[] = [];
-  if (bestTile && !samePos(bestTile, unit.position)) {
-    actions.push({ type: 'move', unitId: unit.id, to: bestTile });
+  // Boost para seguir cerrando distancia si hay energía y sigue lejos.
+  const boostTo = planBoost(battle, unit, standAt, nearest.position);
+  if (boostTo) actions.push({ type: 'boost', unitId: unit.id, to: boostTo });
+
+  // Sin tiro este turno: momento ideal para recargar el arma vacía.
+  const emptyWeapon = unit.components.arsenal?.weapons.find((w) => {
+    const def = battle.weaponOf(w.weaponId);
+    return def.magazine > 0 && w.ammo === 0 && w.reserves > 0;
+  });
+  if (emptyWeapon && !unit.hasActed) {
+    actions.push({ type: 'reload', unitId: unit.id, weaponId: emptyWeapon.weaponId });
   }
+
   actions.push({ type: 'wait', unitId: unit.id });
   return actions;
+}
+
+/** Tile de boost que más acerca al objetivo, o undefined si no compensa. */
+function planBoost(
+  battle: Battle,
+  unit: UnitState,
+  from: Position,
+  target: Position,
+): Position | undefined {
+  const energy = unit.components.energy;
+  if (!energy || energy.boostedThisTurn) return undefined;
+  if (battle.checkVetoes({ type: 'boost', unitId: unit.id, to: from })) return undefined;
+
+  const stats = battle.effectiveStats(unit);
+  const currentDist = manhattan(from, target);
+  if (currentDist <= 2) return undefined; // ya está encima; ahorra energía
+
+  const options = reachableTiles(battle.map, from, {
+    move: Math.max(1, Math.ceil(stats.move / 2)),
+    jump: stats.jump,
+    moveType: battle.definitionOf(unit.unitTypeId).moveType,
+    team: unit.team,
+  }, battle.units.filter((u) => u.id !== unit.id));
+
+  let bestTile: Position | undefined;
+  let bestDist = currentDist;
+  for (const option of options) {
+    if (samePos(option.pos, from)) continue;
+    const d = manhattan(option.pos, target);
+    if (d < bestDist) {
+      bestDist = d;
+      bestTile = option.pos;
+    }
+  }
+  return bestTile;
 }

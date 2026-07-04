@@ -242,11 +242,13 @@ describe('contenido: equivalencia framed vs monocasco', () => {
   it('liger-zero-cas y geno-saurer-cp intactos rinden igual que sus originales', async () => {
     const { ZOIDS } = await import('../src/data/zoids.js');
     const { MODULES } = await import('../src/data/modules.js');
+    const { WEAPONS } = await import('../src/data/weapons.js');
     const battle = new Battle({
       map: FLAT_ARENA,
       unitCatalog: ZOIDS,
       abilityCatalog: ABILITIES,
       moduleCatalog: MODULES,
+      weaponCatalog: WEAPONS,
       seed: 1,
       spawns: [
         { id: 'L0', name: 'Liger', unitTypeId: 'liger-zero', team: 'player', position: { x: 0, y: 0 } },

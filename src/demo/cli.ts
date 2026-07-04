@@ -12,6 +12,7 @@ import type { BattleEvent, UnitState } from '../core/types.js';
 import { ABILITIES } from '../data/abilities.js';
 import { VALLEY_CROSSING } from '../data/maps.js';
 import { MODULES } from '../data/modules.js';
+import { WEAPONS } from '../data/weapons.js';
 import { ZOIDS } from '../data/zoids.js';
 import { planTurn } from '../ai/simpleAi.js';
 import { STATUS_INFO } from '../core/status.js';
@@ -19,6 +20,8 @@ import { STATUS_INFO } from '../core/status.js';
 const auto = process.argv.includes('--auto');
 // La 42 luce especialmente bien el daño localizado: garras y tren
 // delantero del Liger, y cañón/cabeza/piernas del Geno, caen por partes.
+// La 30 (SEED=30 npm run demo:auto) luce la gestión de recursos: recarga
+// del rifle de Naomi, boost, y el cañón del Geno ciclando enfriamientos.
 const seed = Number(process.env.SEED ?? 42);
 
 const battle = new Battle({
@@ -26,12 +29,13 @@ const battle = new Battle({
   unitCatalog: ZOIDS,
   abilityCatalog: ABILITIES,
   moduleCatalog: MODULES,
+  weaponCatalog: WEAPONS,
   seed,
   spawns: [
     // P1 y E1 usan las versiones framed: daño localizado por módulos.
     { id: 'P1', name: 'Liger Zero CAS (Bit)', unitTypeId: 'liger-zero-cas', team: 'player', position: { x: 1, y: 3 } },
     { id: 'P2', name: 'Command Wolf (Irvine)', unitTypeId: 'command-wolf', team: 'player', position: { x: 0, y: 5 } },
-    { id: 'P3', name: 'Gun Sniper (Naomi)', unitTypeId: 'gun-sniper', team: 'player', position: { x: 1, y: 7 } },
+    { id: 'P3', name: 'Gun Sniper (Naomi)', unitTypeId: 'gun-sniper-naomi', team: 'player', position: { x: 1, y: 7 } },
     { id: 'P4', name: 'Gustav (Moonbay)', unitTypeId: 'gustav', team: 'player', position: { x: 0, y: 4 } },
     { id: 'E1', name: 'Geno Saurer CP', unitTypeId: 'geno-saurer-cp', team: 'enemy', position: { x: 10, y: 3 } },
     { id: 'E2', name: 'Molga', unitTypeId: 'molga', team: 'enemy', position: { x: 11, y: 5 } },
@@ -71,12 +75,25 @@ function renderUnits(): string {
       const statuses = u.statuses.map((s) => STATUS_INFO[s.id].name).join(', ');
       const state = u.hp > 0 ? `${u.hp}/${zoid.stats.maxHp} HP` : 'DESTRUIDO';
       let line = `  [${u.team === 'player' ? 'P' : 'E'}] ${u.id} ${u.name}: ${state}${statuses ? ` (${statuses})` : ''}`;
-      const frame = u.components.frame;
-      if (frame && u.hp > 0) {
-        const parts = frame.modules
-          .map((m) => (m.destroyed ? `✗${m.slot}` : `${m.slot} ${m.hp}`))
-          .join(' | ');
-        line += `\n        [${parts}]`;
+      if (u.hp > 0) {
+        const extras: string[] = [];
+        const { energy, heat, arsenal, frame } = u.components;
+        if (energy) extras.push(`⚡${energy.current}/${energy.capacity}`);
+        if (heat) extras.push(`🔥${heat.current}/${heat.max}`);
+        if (arsenal) {
+          for (const w of arsenal.weapons) {
+            const def = WEAPONS[w.weaponId]!;
+            if (def.magazine > 0) extras.push(`${def.name}: ${w.ammo}/${def.magazine} (+${w.reserves})`);
+            else if (w.cooldown > 0) extras.push(`${def.name}: enfriando ${w.cooldown}t`);
+          }
+        }
+        if (extras.length > 0) line += `  ${extras.join('  ')}`;
+        if (frame) {
+          const parts = frame.modules
+            .map((m) => (m.destroyed ? `✗${m.slot}` : `${m.slot} ${m.hp}`))
+            .join(' | ');
+          line += `\n        [${parts}]`;
+        }
       }
       return line;
     })
@@ -102,6 +119,20 @@ function describe(event: BattleEvent): string | undefined {
     case 'status-expired': return `  ${STATUS_INFO[event.status].name} expira en ${event.targetUnitId}`;
     case 'status-ticked': return `  ${event.targetUnitId} pierde ${event.damage} HP por ${STATUS_INFO[event.status].name}`;
     case 'hit-location-rolled': return undefined; // el module-damaged siguiente ya lo cuenta
+    case 'unit-boosted': {
+      const to = event.path[event.path.length - 1]!;
+      return `${event.unitId} hace BOOST hasta (${to.x},${to.y})`;
+    }
+    case 'energy-changed':
+      return event.reason === 'boost' || event.reason === 'ability'
+        ? `    ⚡ energía de ${event.unitId}: ${event.current} (${event.delta})`
+        : undefined;
+    case 'heat-changed':
+      return event.delta > 0
+        ? `    🔥 calor de ${event.unitId}: ${event.current} (+${event.delta})`
+        : undefined;
+    case 'weapon-reloaded': return `${event.unitId} recarga (${event.ammo} disparos)`;
+    case 'unit-shutdown': return `  ⚠️ ${unitLabel(event.unitId)} sufre APAGADO DE EMERGENCIA (${event.damage} daño interno)`;
     case 'module-damaged': return `    → impacto en ${event.slot} (${event.moduleHp} HP del módulo)`;
     case 'module-destroyed': return `    💔 ${event.slot} de ${event.targetUnitId} DESTRUIDO`;
     case 'unit-destroyed': return `  💥 ${unitLabel(event.unitId)} queda fuera de combate!`;

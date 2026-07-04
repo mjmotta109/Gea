@@ -97,6 +97,21 @@ export const ZOIDS: Record<string, UnitDefinition> = {
     abilityIds: ['charged-particle-gun', 'bite-crush', 'e-shield'],
   },
 
+  // La Gun Sniper de Naomi: monocasco, pero con munición finita — cuatro
+  // disparos por cargador y dos de repuesto (fase 2).
+  'gun-sniper-naomi': {
+    id: 'gun-sniper-naomi',
+    name: 'Gun Sniper (custom)',
+    role: 'sniper',
+    moveType: 'ground',
+    stats: {
+      maxHp: 80, atk: 50, energyAtk: 25, def: 15, energyDef: 15,
+      speed: 12, move: 4, jump: 1, evade: 10, accuracy: 0,
+    },
+    abilityIds: ['bite-crush'],
+    weapons: ['w-sniper-rifle'],
+  },
+
   // ── Versiones framed (fase 1): mismo rendimiento intacto que sus
   //    equivalentes monocasco, pero con daño localizado por módulos. ──
 
@@ -110,7 +125,10 @@ export const ZOIDS: Record<string, UnitDefinition> = {
       maxHp: 120, atk: 25, energyAtk: 25, def: 30, energyDef: 25,
       speed: 12, move: 0, jump: 0, evade: 0, accuracy: 0,
     },
-    abilityIds: ['strike-laser-claw', 'bite-crush', 'e-shield'],
+    abilityIds: ['bite-crush', 'e-shield'],
+    energy: { capacity: 80, outputPerTurn: 30 },
+    heat: { max: 100, dissipationPerTurn: 25 },
+    weapons: ['w-strike-laser-claw'],
     frame: [
       { slot: 'head', moduleId: 'liger-head' },
       { slot: 'torso', moduleId: 'liger-torso' },
@@ -129,7 +147,10 @@ export const ZOIDS: Record<string, UnitDefinition> = {
       maxHp: 130, atk: 35, energyAtk: 35, def: 35, energyDef: 30,
       speed: 8, move: 0, jump: 1, evade: 0, accuracy: 0,
     },
-    abilityIds: ['charged-particle-gun', 'bite-crush', 'e-shield'],
+    abilityIds: ['bite-crush', 'e-shield'],
+    energy: { capacity: 120, outputPerTurn: 25 },
+    heat: { max: 80, dissipationPerTurn: 15 },
+    weapons: ['w-charged-particle-gun'],
     frame: [
       { slot: 'head', moduleId: 'geno-head' },
       { slot: 'torso', moduleId: 'geno-torso' },
