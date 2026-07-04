@@ -118,6 +118,69 @@ export interface FrameState {
   modules: ModuleState[];
 }
 
+// ── Recursos activos: energía, calor y munición (fase 2) ────────────────
+
+/**
+ * Costes declarativos de una acción/arma (docs/DESIGN.md §3.4). Los
+ * sistemas los cobran: EnergySystem la energía, HeatSystem el calor,
+ * ArsenalSystem la munición y el enfriamiento.
+ */
+export interface ActionCosts {
+  energy?: number;
+  heat?: number;
+  /** Turnos propios que el arma queda en enfriamiento tras disparar. */
+  cooldownTurns?: number;
+}
+
+/**
+ * Un arma montada: envuelve una habilidad del catálogo (targeting y
+ * efectos) y añade costes, munición y punto de montaje. Las habilidades
+ * innatas (mordiscos, garras sin sistema) siguen siendo abilityIds de la
+ * unidad y no pasan por aquí.
+ */
+export interface WeaponDefinition {
+  id: string;
+  name: string;
+  abilityId: string;
+  costs: ActionCosts;
+  /** Disparos por cargador; 0 = no consume munición (armas de energía). */
+  magazine: number;
+  /** Cargadores de repuesto al empezar la batalla. */
+  reserves: number;
+  /**
+   * Slot del frame que monta el arma; si ese módulo se destruye, el arma
+   * queda inoperativa. Omitir en unidades sin frame.
+   */
+  mountSlot?: SlotId;
+}
+
+export interface EnergyState {
+  current: number;
+  capacity: number;
+  /** Producción del generador al inicio de cada turno propio. */
+  outputPerTurn: number;
+  boostedThisTurn: boolean;
+}
+
+export interface HeatState {
+  current: number;
+  max: number;
+  dissipationPerTurn: number;
+}
+
+export interface WeaponState {
+  weaponId: string;
+  /** Disparos restantes en el cargador actual. */
+  ammo: number;
+  reserves: number;
+  /** Turnos propios restantes de enfriamiento. */
+  cooldown: number;
+}
+
+export interface ArsenalState {
+  weapons: WeaponState[];
+}
+
 /**
  * Bolsa de componentes opcionales de una unidad (docs/DESIGN.md §3.1).
  * Una unidad sin un componente es ignorada por el sistema correspondiente;
@@ -125,6 +188,9 @@ export interface FrameState {
  */
 export interface UnitComponents {
   frame?: FrameState;
+  energy?: EnergyState;
+  heat?: HeatState;
+  arsenal?: ArsenalState;
 }
 
 export type DamageType = 'physical' | 'energy';
@@ -187,6 +253,12 @@ export interface UnitDefinition {
    * módulos. Sin frame, la unidad es un "monocasco": HP global clásico.
    */
   frame?: FrameSlotConfig[];
+  /** Sistema energético opcional (fase 2): generador y reservas. */
+  energy?: { capacity: number; outputPerTurn: number };
+  /** Sistema térmico opcional (fase 2): límite y disipación por turno. */
+  heat?: { max: number; dissipationPerTurn: number };
+  /** Armas montadas (fase 2): IDs del catálogo de armas. */
+  weapons?: string[];
 }
 
 export interface UnitState {
@@ -210,6 +282,10 @@ export interface UnitState {
 export type BattleAction =
   | { type: 'move'; unitId: string; to: Position }
   | { type: 'ability'; unitId: string; abilityId: string; target: Position }
+  /** Impulso extra de movimiento (una vez por turno, coste energético alto). */
+  | { type: 'boost'; unitId: string; to: Position }
+  /** Recargar un arma consume la acción del turno. */
+  | { type: 'reload'; unitId: string; weaponId: string }
   | { type: 'wait'; unitId: string; facing?: Facing };
 
 /**
@@ -230,6 +306,12 @@ export type BattleEvent =
   | { type: 'status-expired'; targetUnitId: string; status: StatusId }
   | { type: 'status-ticked'; targetUnitId: string; status: StatusId; damage: number; targetHp: number }
   | { type: 'unit-destroyed'; unitId: string }
+  | { type: 'unit-boosted'; unitId: string; path: Position[] }
+  | { type: 'energy-changed'; unitId: string; current: number; delta: number; reason: string }
+  | { type: 'heat-changed'; unitId: string; current: number; delta: number; reason: string }
+  | { type: 'weapon-reloaded'; unitId: string; weaponId: string; ammo: number }
+  /** Apagado de emergencia por exceso térmico: pierde el turno y sufre daño interno. */
+  | { type: 'unit-shutdown'; unitId: string; damage: number; targetHp: number }
   | { type: 'turn-ended'; unitId: string }
   | { type: 'battle-ended'; winner: Team };
 

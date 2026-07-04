@@ -14,7 +14,15 @@ import {
 } from './frame.js';
 import { Rng } from './rng.js';
 import { applyStatus, hasStatus, statusModifiers, tickStatuses } from './status.js';
-import { defaultSystems, type BattleSystem, type SystemContext } from './systems.js';
+import {
+  defaultSystems,
+  energyModifiers,
+  heatModifiers,
+  type ActionVeto,
+  type BattleSystem,
+  type SystemContext,
+  type WeaponEntry,
+} from './systems.js';
 import { advanceToNextTurn, forecastTurnOrder } from './turn.js';
 import {
   CT_THRESHOLD,
@@ -27,6 +35,7 @@ import {
   type Team,
   type UnitState,
   type UnitDefinition,
+  type WeaponDefinition,
 } from './types.js';
 
 export interface UnitSpawn {
@@ -46,6 +55,8 @@ export interface BattleConfig {
   abilityCatalog: Record<string, AbilityDefinition>;
   /** Catálogo de módulos; solo necesario si alguna unidad define frame. */
   moduleCatalog?: ModuleCatalog;
+  /** Catálogo de armas; solo necesario si alguna unidad define weapons. */
+  weaponCatalog?: Record<string, WeaponDefinition>;
   seed: number;
   /**
    * Sistemas activos, invocados en el orden del array (determinista).
@@ -69,6 +80,7 @@ export class Battle {
   private definitions: Record<string, UnitDefinition>;
   private abilities: Record<string, AbilityDefinition>;
   private modules: ModuleCatalog;
+  private weapons: Record<string, WeaponDefinition>;
   private rng: Rng;
   private activeUnitId: string | undefined;
   private winnerTeam: Team | undefined;
@@ -81,9 +93,14 @@ export class Battle {
     this.abilities = config.abilityCatalog;
     this.modules = config.moduleCatalog ?? {};
     this.rng = new Rng(config.seed);
+    this.weapons = config.weaponCatalog ?? {};
     this.systems = config.systems ?? defaultSystems();
     this.systemContext = {
+      map: this.map,
+      modules: this.modules,
       effectiveStats: (u) => this.effectiveStats(u),
+      definitionOf: (u) => this.definitionOf(u.unitTypeId),
+      weaponEntry: (u, abilityId) => this.weaponEntry(u, abilityId),
       units: [],
     };
 
@@ -112,7 +129,28 @@ export class Battle {
         statuses: [],
         hasMoved: false,
         hasActed: false,
-        components: def.frame ? { frame: buildFrameState(def.frame, this.modules) } : {},
+        components: {
+          ...(def.frame ? { frame: buildFrameState(def.frame, this.modules) } : {}),
+          ...(def.energy ? {
+            energy: {
+              current: def.energy.capacity,
+              capacity: def.energy.capacity,
+              outputPerTurn: def.energy.outputPerTurn,
+              boostedThisTurn: false,
+            },
+          } : {}),
+          ...(def.heat ? {
+            heat: { current: 0, max: def.heat.max, dissipationPerTurn: def.heat.dissipationPerTurn },
+          } : {}),
+          ...(def.weapons ? {
+            arsenal: {
+              weapons: def.weapons.map((weaponId) => {
+                const weapon = this.weaponOf(weaponId);
+                return { weaponId, ammo: weapon.magazine, reserves: weapon.reserves, cooldown: 0 };
+              }),
+            },
+          } : {}),
+        },
       };
     });
 
@@ -150,6 +188,46 @@ export class Battle {
     return ability;
   }
 
+  weaponOf(weaponId: string): WeaponDefinition {
+    const weapon = this.weapons[weaponId];
+    if (!weapon) throw new Error(`Arma desconocida: ${weaponId}`);
+    return weapon;
+  }
+
+  /** Arma del arsenal de la unidad que dispara esta habilidad, si existe. */
+  weaponEntry(unit: UnitState, abilityId: string): WeaponEntry | undefined {
+    const arsenal = unit.components.arsenal;
+    if (!arsenal) return undefined;
+    for (const state of arsenal.weapons) {
+      const def = this.weaponOf(state.weaponId);
+      if (def.abilityId === abilityId) return { def, state };
+    }
+    return undefined;
+  }
+
+  /** Habilidades utilizables: innatas de la definición + armas del arsenal. */
+  knownAbilityIds(unit: UnitState): string[] {
+    const def = this.definitionOf(unit.unitTypeId);
+    const fromWeapons = unit.components.arsenal?.weapons.map(
+      (w) => this.weaponOf(w.weaponId).abilityId,
+    ) ?? [];
+    return [...def.abilityIds, ...fromWeapons];
+  }
+
+  /**
+   * Consulta si algún sistema vetaría esta acción, sin ejecutarla. La IA
+   * y la UI la usan para ofrecer solo acciones pagables (sin energía, sin
+   * munición, montaje destruido...).
+   */
+  checkVetoes(action: BattleAction): ActionVeto | null {
+    const actor = this.unit(action.unitId);
+    for (const system of this.systems) {
+      const veto = system.onValidateAction?.(action, actor, this.systemContext);
+      if (veto) return veto;
+    }
+    return null;
+  }
+
   unit(unitId: string): UnitState {
     const unit = this.units.find((u) => u.id === unitId);
     if (!unit) throw new Error(`Unidad desconocida: ${unitId}`);
@@ -170,9 +248,13 @@ export class Battle {
   effectiveStats(unit: UnitState): Stats {
     const base = this.definitionOf(unit.unitTypeId).stats;
     const frame = unit.components.frame;
-    const mods = frame
-      ? [...frameModifiers(frame, this.modules), ...statusModifiers(unit)]
-      : statusModifiers(unit);
+    // Orden del pipeline (DESIGN §3.2): módulos → estados → energía → calor.
+    const mods = [
+      ...(frame ? frameModifiers(frame, this.modules) : []),
+      ...statusModifiers(unit),
+      ...energyModifiers(unit),
+      ...heatModifiers(unit),
+    ];
     return applyModifiers(base, mods);
   }
 
@@ -215,6 +297,14 @@ export class Battle {
       events.push({ type: 'turn-started', unitId: next.id });
       events.push(...this.runSystems((s) => s.onTurnStart?.(next, this.systemContext)));
       if (this.checkBattleEnd(events)) return events;
+
+      // Un sistema pudo destruir a la unidad al abrir su turno (daño
+      // interno por apagado de emergencia): se cierra sin acciones.
+      if (next.hp <= 0) {
+        this.activeUnitId = undefined;
+        events.push({ type: 'turn-ended', unitId: next.id });
+        continue;
+      }
 
       if (hasStatus(next, 'stunned')) {
         // El turno se consume sin poder hacer nada.
@@ -263,6 +353,8 @@ export class Battle {
       switch (action.type) {
         case 'move': return this.executeMove(action.unitId, action.to);
         case 'ability': return this.executeAbility(action.unitId, action.abilityId, action.target);
+        case 'boost': return this.executeBoost(action.unitId, action.to);
+        case 'reload': return this.executeReload(action.unitId, action.weaponId);
         case 'wait': return this.executeWait(action.unitId, action.facing);
       }
     })();
@@ -286,6 +378,52 @@ export class Battle {
       : unit.facing;
     unit.hasMoved = true;
     return [{ type: 'unit-moved', unitId, path: option.path }];
+  }
+
+  /**
+   * Boost: impulso de movimiento extra (la mitad del move, mínimo 1),
+   * independiente del movimiento normal, una vez por turno. El coste
+   * energético y el calor los cobran los sistemas.
+   */
+  private executeBoost(unitId: string, to: Position): BattleEvent[] {
+    const unit = this.requireActive(unitId);
+    const energy = unit.components.energy;
+    if (!energy) throw new Error(`${unitId} no tiene sistema de energía para boost`);
+    if (energy.boostedThisTurn) throw new Error(`${unitId} ya hizo boost este turno`);
+
+    const stats = this.effectiveStats(unit);
+    const option = reachableTiles(this.map, unit.position, {
+      move: Math.max(1, Math.ceil(stats.move / 2)),
+      jump: stats.jump,
+      moveType: this.definitionOf(unit.unitTypeId).moveType,
+      team: unit.team,
+    }, this.units).find((t) => !samePos(t.pos, unit.position) && samePos(t.pos, to));
+    if (!option) throw new Error(`Boost ilegal a ${to.x},${to.y}`);
+
+    unit.position = { ...to };
+    unit.facing = option.path.length > 1
+      ? facingTowards(option.path[option.path.length - 2]!, to)
+      : unit.facing;
+    energy.boostedThisTurn = true;
+    return [{ type: 'unit-boosted', unitId, path: option.path }];
+  }
+
+  /** Recargar consume la acción del turno y repone el cargador completo. */
+  private executeReload(unitId: string, weaponId: string): BattleEvent[] {
+    const unit = this.requireActive(unitId);
+    if (unit.hasActed) throw new Error(`${unitId} ya actuó este turno`);
+    const arsenal = unit.components.arsenal;
+    const state = arsenal?.weapons.find((w) => w.weaponId === weaponId);
+    if (!state) throw new Error(`${unitId} no monta el arma ${weaponId}`);
+    const def = this.weaponOf(weaponId);
+    if (def.magazine === 0) throw new Error(`${def.name} no usa munición`);
+    if (state.reserves <= 0) throw new Error(`${def.name} sin cargadores de repuesto`);
+    if (state.ammo === def.magazine) throw new Error(`${def.name} ya está cargada`);
+
+    unit.hasActed = true;
+    state.ammo = def.magazine;
+    state.reserves -= 1;
+    return [{ type: 'weapon-reloaded', unitId, weaponId, ammo: state.ammo }];
   }
 
   private executeAbility(unitId: string, abilityId: string, target: Position): BattleEvent[] {
@@ -467,7 +605,7 @@ export class Battle {
   }
 
   private assertKnowsAbility(unit: UnitState, abilityId: string): void {
-    if (!this.definitionOf(unit.unitTypeId).abilityIds.includes(abilityId)) {
+    if (!this.knownAbilityIds(unit).includes(abilityId)) {
       throw new Error(`${unit.id} no conoce la habilidad ${abilityId}`);
     }
   }

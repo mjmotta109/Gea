@@ -20,11 +20,22 @@ export {
   type ModuleCatalog,
 } from './core/frame.js';
 export {
+  arsenalSystem,
   defaultSystems,
+  energyModifiers,
+  energySystem,
+  heatModifiers,
+  heatSystem,
   overheatSystem,
+  BOOST_ENERGY_COST,
+  BOOST_HEAT,
+  HEAT_CRITICAL_THRESHOLD,
+  HEAT_HIGH_THRESHOLD,
+  MOVE_ENERGY_COST,
   type ActionVeto,
   type BattleSystem,
   type SystemContext,
+  type WeaponEntry,
 } from './core/systems.js';
 export { Rng } from './core/rng.js';
 export * from './core/types.js';
