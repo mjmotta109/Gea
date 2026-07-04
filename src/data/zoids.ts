@@ -96,4 +96,47 @@ export const ZOIDS: Record<string, UnitDefinition> = {
     },
     abilityIds: ['charged-particle-gun', 'bite-crush', 'e-shield'],
   },
+
+  // ── Versiones framed (fase 1): mismo rendimiento intacto que sus
+  //    equivalentes monocasco, pero con daño localizado por módulos. ──
+
+  'liger-zero-cas': {
+    id: 'liger-zero-cas',
+    name: 'Liger Zero CAS',
+    role: 'assault',
+    moveType: 'ground',
+    // Núcleo desnudo: los módulos aportan el resto (ver data/modules.ts).
+    stats: {
+      maxHp: 120, atk: 25, energyAtk: 25, def: 30, energyDef: 25,
+      speed: 12, move: 0, jump: 0, evade: 0, accuracy: 0,
+    },
+    abilityIds: ['strike-laser-claw', 'bite-crush', 'e-shield'],
+    frame: [
+      { slot: 'head', moduleId: 'liger-head' },
+      { slot: 'torso', moduleId: 'liger-torso' },
+      { slot: 'legs-front', moduleId: 'liger-legs-front' },
+      { slot: 'legs-rear', moduleId: 'liger-legs-rear' },
+      { slot: 'weapon-claws', moduleId: 'strike-claws' },
+      { slot: 'backpack', moduleId: 'ion-boosters' },
+    ],
+  },
+  'geno-saurer-cp': {
+    id: 'geno-saurer-cp',
+    name: 'Geno Saurer CP',
+    role: 'assault',
+    moveType: 'ground',
+    stats: {
+      maxHp: 130, atk: 35, energyAtk: 35, def: 35, energyDef: 30,
+      speed: 8, move: 0, jump: 1, evade: 0, accuracy: 0,
+    },
+    abilityIds: ['charged-particle-gun', 'bite-crush', 'e-shield'],
+    frame: [
+      { slot: 'head', moduleId: 'geno-head' },
+      { slot: 'torso', moduleId: 'geno-torso' },
+      { slot: 'leg-l', moduleId: 'geno-leg-l' },
+      { slot: 'leg-r', moduleId: 'geno-leg-r' },
+      { slot: 'weapon-cannon', moduleId: 'particle-intake' },
+      { slot: 'tail', moduleId: 'geno-tail' },
+    ],
+  },
 };

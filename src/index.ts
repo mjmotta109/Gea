@@ -30,6 +30,7 @@ export { Rng } from './core/rng.js';
 export * from './core/types.js';
 
 export { ZOIDS } from './data/zoids.js';
+export { MODULES } from './data/modules.js';
 export { ABILITIES } from './data/abilities.js';
 export { VALLEY_CROSSING, FLAT_ARENA } from './data/maps.js';
 

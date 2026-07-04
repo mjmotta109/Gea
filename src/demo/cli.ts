@@ -11,24 +11,29 @@ import { Battle } from '../core/battle.js';
 import type { BattleEvent, UnitState } from '../core/types.js';
 import { ABILITIES } from '../data/abilities.js';
 import { VALLEY_CROSSING } from '../data/maps.js';
+import { MODULES } from '../data/modules.js';
 import { ZOIDS } from '../data/zoids.js';
 import { planTurn } from '../ai/simpleAi.js';
 import { STATUS_INFO } from '../core/status.js';
 
 const auto = process.argv.includes('--auto');
-const seed = Number(process.env.SEED ?? 20260703);
+// La 42 luce especialmente bien el daño localizado: garras y tren
+// delantero del Liger, y cañón/cabeza/piernas del Geno, caen por partes.
+const seed = Number(process.env.SEED ?? 42);
 
 const battle = new Battle({
   map: VALLEY_CROSSING,
   unitCatalog: ZOIDS,
   abilityCatalog: ABILITIES,
+  moduleCatalog: MODULES,
   seed,
   spawns: [
-    { id: 'P1', name: 'Liger Zero (Bit)', unitTypeId: 'liger-zero', team: 'player', position: { x: 1, y: 3 } },
+    // P1 y E1 usan las versiones framed: daño localizado por módulos.
+    { id: 'P1', name: 'Liger Zero CAS (Bit)', unitTypeId: 'liger-zero-cas', team: 'player', position: { x: 1, y: 3 } },
     { id: 'P2', name: 'Command Wolf (Irvine)', unitTypeId: 'command-wolf', team: 'player', position: { x: 0, y: 5 } },
     { id: 'P3', name: 'Gun Sniper (Naomi)', unitTypeId: 'gun-sniper', team: 'player', position: { x: 1, y: 7 } },
     { id: 'P4', name: 'Gustav (Moonbay)', unitTypeId: 'gustav', team: 'player', position: { x: 0, y: 4 } },
-    { id: 'E1', name: 'Geno Saurer', unitTypeId: 'geno-saurer', team: 'enemy', position: { x: 10, y: 3 } },
+    { id: 'E1', name: 'Geno Saurer CP', unitTypeId: 'geno-saurer-cp', team: 'enemy', position: { x: 10, y: 3 } },
     { id: 'E2', name: 'Molga', unitTypeId: 'molga', team: 'enemy', position: { x: 11, y: 5 } },
     { id: 'E3', name: 'Molga', unitTypeId: 'molga', team: 'enemy', position: { x: 10, y: 6 } },
     { id: 'E4', name: 'Pteras', unitTypeId: 'pteras', team: 'enemy', position: { x: 11, y: 2 } },
@@ -65,7 +70,15 @@ function renderUnits(): string {
       const zoid = battle.definitionOf(u.unitTypeId);
       const statuses = u.statuses.map((s) => STATUS_INFO[s.id].name).join(', ');
       const state = u.hp > 0 ? `${u.hp}/${zoid.stats.maxHp} HP` : 'DESTRUIDO';
-      return `  [${u.team === 'player' ? 'P' : 'E'}] ${u.id} ${u.name}: ${state}${statuses ? ` (${statuses})` : ''}`;
+      let line = `  [${u.team === 'player' ? 'P' : 'E'}] ${u.id} ${u.name}: ${state}${statuses ? ` (${statuses})` : ''}`;
+      const frame = u.components.frame;
+      if (frame && u.hp > 0) {
+        const parts = frame.modules
+          .map((m) => (m.destroyed ? `✗${m.slot}` : `${m.slot} ${m.hp}`))
+          .join(' | ');
+        line += `\n        [${parts}]`;
+      }
+      return line;
     })
     .join('\n');
 }
@@ -88,6 +101,9 @@ function describe(event: BattleEvent): string | undefined {
     case 'status-applied': return `  ${event.targetUnitId} sufre ${STATUS_INFO[event.status].name} (${event.duration}t)`;
     case 'status-expired': return `  ${STATUS_INFO[event.status].name} expira en ${event.targetUnitId}`;
     case 'status-ticked': return `  ${event.targetUnitId} pierde ${event.damage} HP por ${STATUS_INFO[event.status].name}`;
+    case 'hit-location-rolled': return undefined; // el module-damaged siguiente ya lo cuenta
+    case 'module-damaged': return `    → impacto en ${event.slot} (${event.moduleHp} HP del módulo)`;
+    case 'module-destroyed': return `    💔 ${event.slot} de ${event.targetUnitId} DESTRUIDO`;
     case 'unit-destroyed': return `  💥 ${unitLabel(event.unitId)} queda fuera de combate!`;
     case 'battle-ended': return `\n★ Victoria del equipo ${event.winner === 'player' ? 'JUGADOR' : 'ENEMIGO'} ★`;
     case 'turn-ended': return undefined;

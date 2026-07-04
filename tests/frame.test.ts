@@ -162,17 +162,28 @@ describe('frame: daño localizado', () => {
     expect(legs.hp).toBe(11);
   });
 
-  it('el exceso desborda al módulo crítico', () => {
+  it('la mitad del exceso desborda al módulo crítico, menos su armadura', () => {
     const frame = buildFrameState(TEST_FRAME, TEST_MODULES);
     const head = frame.modules.find((m) => m.slot === 'head')!;
     const torso = frame.modules.find((m) => m.slot === 'torso')!;
-    const events = applyDamageToModule(frame, TEST_MODULES, head, 25, 'X');
-    // 25 dañan la cabeza (hp 10, armor 0): 10 absorbidos, 15 al torso.
+    const events = applyDamageToModule(frame, TEST_MODULES, head, 30, 'X');
+    // 30 a la cabeza (hp 10, armor 0): 10 absorbidos, exceso 20 →
+    // transfiere 10 (50%) − 2 de armadura del torso = 8.
     expect(head.destroyed).toBe(true);
-    expect(torso.hp).toBe(25);
+    expect(torso.hp).toBe(32);
     expect(events.map((e) => e.type)).toEqual([
       'module-damaged', 'module-destroyed', 'module-damaged',
     ]);
+  });
+
+  it('un exceso pequeño se disipa sin llegar al núcleo', () => {
+    const frame = buildFrameState(TEST_FRAME, TEST_MODULES);
+    const head = frame.modules.find((m) => m.slot === 'head')!;
+    const torso = frame.modules.find((m) => m.slot === 'torso')!;
+    // 14 a la cabeza: 10 absorbidos, exceso 4 → 2 (50%) − 2 armor = 0.
+    const events = applyDamageToModule(frame, TEST_MODULES, head, 14, 'X');
+    expect(torso.hp).toBe(40);
+    expect(events.map((e) => e.type)).toEqual(['module-damaged', 'module-destroyed']);
   });
 
   it('destruir el módulo crítico deja la unidad a 0 HP aunque queden piezas', () => {
@@ -224,5 +235,27 @@ describe('frame: integración en Battle', () => {
       TEST_MODULES,
     );
     expect(frameModifiers(frame, TEST_MODULES)).toEqual([]);
+  });
+});
+
+describe('contenido: equivalencia framed vs monocasco', () => {
+  it('liger-zero-cas y geno-saurer-cp intactos rinden igual que sus originales', async () => {
+    const { ZOIDS } = await import('../src/data/zoids.js');
+    const { MODULES } = await import('../src/data/modules.js');
+    const battle = new Battle({
+      map: FLAT_ARENA,
+      unitCatalog: ZOIDS,
+      abilityCatalog: ABILITIES,
+      moduleCatalog: MODULES,
+      seed: 1,
+      spawns: [
+        { id: 'L0', name: 'Liger', unitTypeId: 'liger-zero', team: 'player', position: { x: 0, y: 0 } },
+        { id: 'LC', name: 'Liger CAS', unitTypeId: 'liger-zero-cas', team: 'player', position: { x: 1, y: 0 } },
+        { id: 'G0', name: 'Geno', unitTypeId: 'geno-saurer', team: 'enemy', position: { x: 5, y: 0 } },
+        { id: 'GC', name: 'Geno CP', unitTypeId: 'geno-saurer-cp', team: 'enemy', position: { x: 6, y: 0 } },
+      ],
+    });
+    expect(battle.effectiveStats(battle.unit('LC'))).toEqual(battle.effectiveStats(battle.unit('L0')));
+    expect(battle.effectiveStats(battle.unit('GC'))).toEqual(battle.effectiveStats(battle.unit('G0')));
   });
 });

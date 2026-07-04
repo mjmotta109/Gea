@@ -119,9 +119,19 @@ export function rollHitLocation(
 }
 
 /**
+ * Fracción del daño excedente que se transfiere al módulo crítico cuando
+ * la pieza golpeada se destruye: el resto se disipa en la sección
+ * arrancada (regla de transferencia estilo BattleTech). Sin esta
+ * atenuación, cualquier impacto grande mataría a la unidad a través de
+ * su módulo más débil y el daño localizado dejaría de tener sentido.
+ */
+const OVERFLOW_TRANSFER = 0.5;
+
+/**
  * Aplica daño localizado a un módulo: la armadura del módulo reduce el
- * impacto (mínimo 1), el exceso sobre su HP restante desborda al módulo
- * crítico (la estructura interna encaja lo que la pieza no absorbe).
+ * impacto (mínimo 1) y, si la pieza se destruye, la mitad del exceso
+ * (menos la armadura del núcleo) desborda al módulo crítico. Un impacto
+ * directo al módulo crítico no desborda: su HP es el límite.
  * Devuelve los eventos de módulo generados; el llamador deriva el HP
  * global y emite damage-dealt / unit-destroyed.
  */
@@ -156,8 +166,10 @@ export function applyDamageToModule(
     const core = frame.modules.find(
       (m) => !m.destroyed && moduleDef(catalog, m.moduleId).critical,
     );
-    if (core) {
-      const coreHit = Math.min(overflow, core.hp);
+    const coreDef = core ? moduleDef(catalog, core.moduleId) : undefined;
+    const transferred = Math.max(0, Math.floor(overflow * OVERFLOW_TRANSFER) - (coreDef?.armor ?? 0));
+    if (core && transferred > 0) {
+      const coreHit = Math.min(transferred, core.hp);
       core.hp -= coreHit;
       events.push({
         type: 'module-damaged',

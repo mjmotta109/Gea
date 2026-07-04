@@ -275,7 +275,7 @@ tres pasos de refactor. Desvíos del plan, anotados:
 
 ---
 
-### Fase 1 — Unidad compuesta y daño localizado
+### ✅ Fase 1 — Unidad compuesta y daño localizado — COMPLETADA
 
 *Objetivo: la unidad deja de ser un bloque de stats; el daño golpea módulos.*
 
@@ -327,6 +327,29 @@ type Loadout = Record<SlotId, string /* moduleId */>;
 **Hecho cuando**: una batalla de la demo muestra piernas/armas destruidas
 con efectos visibles; los Zoids monocasco se comportan idéntico al golden
 master; tests de localización, overflow y contribuciones.
+
+**Resultado (2026-07-04)**: completada en 2 commits (motor de frames →
+contenido framed). Golden master intacto en ambos. Desvíos anotados:
+- El monocasco se implementó como *ausencia* de frame (ruta de HP global
+  clásica) en vez de materializar un frame de un módulo: mismo concepto,
+  cero riesgo para el golden master.
+- El overflow al núcleo transfiere solo el 50% del exceso menos la
+  armadura del núcleo (regla estilo BattleTech). Con transferencia total,
+  cualquier impacto grande mataba a la unidad a través de su módulo más
+  débil y el daño localizado perdía el sentido.
+- Nueva stat `accuracy` con signo (única exenta del clamp ≥0 del
+  pipeline): corrección de puntería, negativa con sensores destruidos.
+- El frame se define inline en la unidad (`frame: FrameSlotConfig[]`);
+  el FrameDefinition separado con slots válidos queda para cuando la
+  personalización (intercambio de módulos) lo necesite.
+- Las versiones framed son IDs nuevos (`liger-zero-cas`, `geno-saurer-cp`)
+  calibrados para rendir idéntico a sus monocascos intactos (test de
+  equivalencia); las referencias del golden master siguen usando los
+  monocascos originales.
+- Pendiente de balance para fase 2+: el cañón de partículas (~100 daño)
+  one-shotea torsos de 46-52 HP en impacto directo al núcleo; el daño de
+  las armas pesadas y el reparto de HP por módulo necesitan la herramienta
+  de simulación por lotes.
 
 ---
 
