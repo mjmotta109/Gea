@@ -253,3 +253,15 @@ arquitectura del motor van en DESIGN.md.)*
   gigantes por costo indie). El modo mercenario actual se reorienta:
   los contratos pasan de "menú de batallas" a "motivos para salir de
   expedición"; comprar/vender solo aplica a las máquinas de apoyo.
+- **2026-07-05** — Matices del usuario tras aceptar la redefinición:
+  (a) las MARCAS también pueden nacer de momentos excepcionales DEL
+  COMBATE (sobrevivir a un apagado rodeada, matar al comandante con el
+  último disparo del cargador) — el log determinista permite detectarlos;
+  referencia de tono: Darkest Dungeon, pero la hazaña marca a la máquina;
+  (b) el viaje es A→B con eventos y rodeos forzados (el puente roto), y
+  al completar la misión se ofrece la opción de seguir explorando... o
+  no (la curva de presión decide); (c) HERRAMIENTA COMPROMETIDA: editor
+  de mapas — primero el de mapas de combate (✅ hecho: pinta el formato
+  ASCII del motor, spawns, guardado local, selector en cabecera usado
+  por escaramuzas y contratos), después el del mapa de mundo cuando
+  exista la capa de viaje.

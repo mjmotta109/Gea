@@ -9,7 +9,7 @@
 import { planTurn } from '../ai/simpleAi.js';
 import { Battle, type UnitSpawn } from '../core/battle.js';
 import { attackArc, type AttackArc } from '../core/combat.js';
-import { posKey, terrainLabel, TERRAIN_COVER } from '../core/grid.js';
+import { GameMap, posKey, terrainLabel, TERRAIN_COVER } from '../core/grid.js';
 import { reachableTiles, type ReachableTile } from '../core/pathfinding.js';
 import {
   applyXp, awardXp, dominantTrack, newPilot, trackLevel, TRACK_LEVEL_THRESHOLDS,
@@ -200,29 +200,100 @@ let xpAwarded = false;
 const PLAYER_POSITIONS: Position[] = [{ x: 1, y: 3 }, { x: 0, y: 5 }, { x: 1, y: 7 }, { x: 0, y: 4 }];
 const ENEMY_POSITIONS: Position[] = [{ x: 10, y: 3 }, { x: 11, y: 5 }, { x: 10, y: 6 }, { x: 11, y: 2 }];
 
+// ── Mapas personalizados (editor) ────────────────────────────────────────
+
+/** Mapa de usuario: filas en el formato ASCII del motor + spawns. */
+interface CustomMap {
+  name: string;
+  rows: string[];
+  playerSpawns: Position[];
+  enemySpawns: Position[];
+}
+
+const MAPS_KEY = 'gea-maps-v1';
+const MAP_SEL_KEY = 'gea-map-sel';
+
+function loadCustomMaps(): Record<string, CustomMap> {
+  try {
+    const stored = JSON.parse(localStorage.getItem(MAPS_KEY) ?? '{}') as Record<string, CustomMap>;
+    const valid: Record<string, CustomMap> = {};
+    for (const [name, map] of Object.entries(stored)) {
+      try {
+        GameMap.fromAscii(map.rows); // valida el formato
+        if (map.playerSpawns.length === 4 && map.enemySpawns.length === 4) valid[name] = map;
+      } catch { /* mapa corrupto: se descarta */ }
+    }
+    return valid;
+  } catch {
+    return {};
+  }
+}
+
+let customMaps = loadCustomMaps();
+let currentMapName = localStorage.getItem(MAP_SEL_KEY) ?? '';
+
+function saveCustomMaps(): void {
+  try {
+    localStorage.setItem(MAPS_KEY, JSON.stringify(customMaps));
+    localStorage.setItem(MAP_SEL_KEY, currentMapName);
+  } catch { /* almacenamiento privado */ }
+}
+
+/** Campo de batalla activo: el mapa elegido en la cabecera, o el valle. */
+function battlefield(): { map: GameMap; playerPos: Position[]; enemyPos: Position[] } {
+  const custom = customMaps[currentMapName];
+  if (custom) {
+    try {
+      return {
+        map: GameMap.fromAscii(custom.rows),
+        playerPos: custom.playerSpawns,
+        enemyPos: custom.enemySpawns,
+      };
+    } catch { /* cae al valle */ }
+  }
+  return { map: VALLEY_CROSSING, playerPos: PLAYER_POSITIONS, enemyPos: ENEMY_POSITIONS };
+}
+
+function refreshMapSelect(): void {
+  const select = $('map-select') as HTMLSelectElement;
+  select.innerHTML = '';
+  const valley = document.createElement('option');
+  valley.value = '';
+  valley.textContent = 'Valle del cruce';
+  select.appendChild(valley);
+  for (const name of Object.keys(customMaps).sort()) {
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = name;
+    select.appendChild(opt);
+  }
+  select.value = customMaps[currentMapName] ? currentMapName : '';
+}
+
 /** Escaramuza libre: el equipo del garaje contra un equipo por semilla. */
 function newBattle(seed: number, weather: WeatherId): void {
   activeContract = null; // empezar escaramuza abandona el contrato en curso
   deployedSlots = [];
   returnToMerc = false;
+  const field = battlefield();
   const spawns: UnitSpawn[] = [
     ...garage.map((config, i) => ({
       id: PLAYER_IDS[i]!,
       name: ZOIDS[config.unitTypeId]!.name,
       unitTypeId: config.unitTypeId,
       team: 'player' as Team,
-      position: PLAYER_POSITIONS[i]!,
+      position: field.playerPos[i]!,
       loadout: spawnLoadout(config),
       ...(i === 0 ? { commander: true } : {}),
     })),
-    ...enemyTeam(seed),
+    ...enemyTeam(seed).map((s, i) => ({ ...s, position: field.enemyPos[i]! })),
   ];
-  startBattle(spawns, seed, weather);
+  startBattle(spawns, seed, weather, field.map);
 }
 
-function startBattle(spawns: UnitSpawn[], seed: number, weather: WeatherId): void {
+function startBattle(spawns: UnitSpawn[], seed: number, weather: WeatherId, map: GameMap): void {
   battle = new Battle({
-    map: VALLEY_CROSSING,
+    map,
     unitCatalog: ZOIDS,
     abilityCatalog: CATALOGS.abilityCatalog,
     moduleCatalog: MODULES,
@@ -505,6 +576,10 @@ document.addEventListener('keydown', (event) => {
   }
   if (mercOpen) {
     if (event.key === 'Escape') closeMerc();
+    return;
+  }
+  if (editorOpen) {
+    if (event.key === 'Escape') closeEditor();
     return;
   }
   if (document.activeElement === $('seed')) return;
@@ -1643,13 +1718,14 @@ function deployContract(): void {
     .filter(({ zoid }) => !zoid.destroyed);
   if (alive.length === 0) return;
 
+  const field = battlefield();
   const spawns: UnitSpawn[] = [
     ...alive.map(({ zoid, slot }, k) => ({
       id: `P${slot + 1}`,
       name: ZOIDS[zoid.unitTypeId]!.name,
       unitTypeId: zoid.unitTypeId,
       team: 'player' as Team,
-      position: PLAYER_POSITIONS[k]!,
+      position: field.playerPos[k]!,
       hp: zoid.hp,
       loadout: {
         weapons: [...zoid.weapons],
@@ -1662,7 +1738,7 @@ function deployContract(): void {
       name: ZOIDS[unitTypeId]!.name,
       unitTypeId,
       team: 'enemy' as Team,
-      position: ENEMY_POSITIONS[i]!,
+      position: field.enemyPos[i]!,
       ...(i === 0 ? { commander: true } : {}),
     })),
   ];
@@ -1674,7 +1750,7 @@ function deployContract(): void {
   // Semilla distinta por ciclo de contratos: reproducible, no farmeable.
   const seed = (Number(($('seed') as HTMLInputElement).value) || 42) + campaign.contractsDone * 1009;
   const weather = ($('weather') as HTMLSelectElement).value as WeatherId;
-  startBattle(spawns, seed, weather);
+  startBattle(spawns, seed, weather, field.map);
 }
 
 /** Liquida el contrato al terminar la batalla; devuelve el HTML del parte. */
@@ -1702,6 +1778,177 @@ function settleContract(): string {
   }
   lines.push(`<div class="pv-muted" style="color:var(--muted)">saldo: ⌾${campaign.credits}</div>`);
   return lines.join('');
+}
+
+// ── Editor de mapas ──────────────────────────────────────────────────────
+
+type EditorTool =
+  | { kind: 'terrain'; terrain: 'plain' | 'rough' | 'forest' | 'water' | 'wall' }
+  | { kind: 'spawn'; team: Team };
+
+let editorOpen = false;
+let edRows: string[] = [];
+let edPlayer: Position[] = [];
+let edEnemy: Position[] = [];
+let edTool: EditorTool = { kind: 'terrain', terrain: 'plain' };
+let edHeight = 0;
+let painting = false;
+
+/** Carácter ASCII del motor para un terreno con altura. */
+function charFor(terrain: string, height: number): string {
+  switch (terrain) {
+    case 'plain': return String(Math.min(9, height));
+    case 'rough': return String.fromCharCode(97 + Math.min(9, height));
+    case 'forest': return String.fromCharCode(65 + Math.min(9, height));
+    case 'water': return '~';
+    default: return '#';
+  }
+}
+
+function edNewMap(width: number, height: number): void {
+  edRows = Array.from({ length: height }, () => '0'.repeat(width));
+  // Spawns por defecto: columnas extremas, como el valle.
+  const clampY = (y: number): number => Math.min(height - 1, y);
+  edPlayer = [{ x: 1, y: clampY(3) }, { x: 0, y: clampY(5) }, { x: 1, y: clampY(height - 2) }, { x: 0, y: clampY(4) }];
+  edEnemy = [{ x: width - 2, y: clampY(3) }, { x: width - 1, y: clampY(5) }, { x: width - 2, y: clampY(6) }, { x: width - 1, y: clampY(2) }];
+  renderEditor();
+}
+
+function edPaint(x: number, y: number): void {
+  if (edTool.kind === 'terrain') {
+    const row = edRows[y]!;
+    edRows[y] = row.slice(0, x) + charFor(edTool.terrain, edHeight) + row.slice(x + 1);
+  } else {
+    // Colocar spawn: quita cualquier spawn previo en esa casilla y rota
+    // el más antiguo del bando para mantener exactamente 4.
+    const same = (p: Position): boolean => p.x === x && p.y === y;
+    edPlayer = edPlayer.filter((p) => !same(p));
+    edEnemy = edEnemy.filter((p) => !same(p));
+    const list = edTool.team === 'player' ? edPlayer : edEnemy;
+    list.push({ x, y });
+    while (list.length > 4) list.shift();
+  }
+  renderEditor();
+}
+
+function renderEditorTools(): void {
+  const host = $('ed-tools');
+  host.innerHTML = '';
+  const mk = (label: string, on: boolean, onClick: () => void): void => {
+    const btn = document.createElement('button');
+    btn.className = 'edtool' + (on ? ' on' : '');
+    btn.textContent = label;
+    btn.addEventListener('click', () => { onClick(); renderEditor(); });
+    host.appendChild(btn);
+  };
+  const terrains: Array<[EditorTool & { kind: 'terrain' }, string]> = [
+    [{ kind: 'terrain', terrain: 'plain' }, 'llanura'],
+    [{ kind: 'terrain', terrain: 'rough' }, '▒ abrupto'],
+    [{ kind: 'terrain', terrain: 'forest' }, '♣ bosque'],
+    [{ kind: 'terrain', terrain: 'water' }, '~ agua'],
+    [{ kind: 'terrain', terrain: 'wall' }, '# muro'],
+  ];
+  for (const [tool, label] of terrains) {
+    mk(label, edTool.kind === 'terrain' && edTool.terrain === tool.terrain, () => { edTool = tool; });
+  }
+  for (let h = 0; h <= 4; h++) {
+    mk(`altura ${h}`, edHeight === h && edTool.kind === 'terrain' && edTool.terrain !== 'water' && edTool.terrain !== 'wall',
+      () => { edHeight = h; });
+  }
+  mk('P spawn', edTool.kind === 'spawn' && edTool.team === 'player', () => { edTool = { kind: 'spawn', team: 'player' }; });
+  mk('E spawn', edTool.kind === 'spawn' && edTool.team === 'enemy', () => { edTool = { kind: 'spawn', team: 'enemy' }; });
+}
+
+function renderEditorBoard(): void {
+  const board = $('ed-board');
+  const width = edRows[0]!.length;
+  board.style.gridTemplateColumns = `repeat(${width}, 38px)`;
+  board.innerHTML = '';
+  let map: GameMap;
+  try {
+    map = GameMap.fromAscii(edRows);
+  } catch {
+    return;
+  }
+  for (let y = 0; y < map.height; y++) {
+    for (let x = 0; x < map.width; x++) {
+      const tile = map.tileAt({ x, y });
+      const cell = document.createElement('button');
+      cell.className = 'cell actionable';
+      cell.style.background = shade(TERRAIN_BASE[tile.terrain]!, tile.height);
+      if (tile.terrain === 'water') cell.textContent = '~';
+      if (tile.terrain === 'rough') cell.textContent = '▒';
+      if (tile.terrain === 'forest') cell.textContent = '♣';
+      cell.style.color = 'rgba(255,255,255,0.25)';
+      if (tile.height > 0 && tile.terrain !== 'wall') {
+        const h = document.createElement('span');
+        h.className = 'h';
+        h.textContent = String(tile.height);
+        cell.appendChild(h);
+      }
+      const pIdx = edPlayer.findIndex((p) => p.x === x && p.y === y);
+      const eIdx = edEnemy.findIndex((p) => p.x === x && p.y === y);
+      if (pIdx >= 0 || eIdx >= 0) {
+        const badge = document.createElement('span');
+        badge.className = `sp ${pIdx >= 0 ? 'p' : 'e'}`;
+        badge.textContent = pIdx >= 0 ? `P${pIdx + 1}` : `E${eIdx + 1}`;
+        cell.appendChild(badge);
+      }
+      cell.addEventListener('mousedown', (ev) => { ev.preventDefault(); painting = true; edPaint(x, y); });
+      cell.addEventListener('mouseenter', () => { if (painting && edTool.kind === 'terrain') edPaint(x, y); });
+      board.appendChild(cell);
+    }
+  }
+}
+
+function renderEditor(): void {
+  renderEditorTools();
+  renderEditorBoard();
+  const loadSelect = $('ed-load') as HTMLSelectElement;
+  const current = loadSelect.value;
+  loadSelect.innerHTML = '<option value="">— cargar mapa —</option>';
+  for (const name of Object.keys(customMaps).sort()) {
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = name;
+    loadSelect.appendChild(opt);
+  }
+  loadSelect.value = customMaps[current] ? current : '';
+}
+
+/** Valida y guarda el mapa del editor; devuelve el nombre o null. */
+function edSave(): string | null {
+  const name = ($('ed-name') as HTMLInputElement).value.trim();
+  if (!name) { window.alert('Ponle nombre al mapa.'); return null; }
+  const bad = [...edPlayer, ...edEnemy].find((p) => {
+    const ch = edRows[p.y]?.[p.x];
+    return ch === undefined || ch === '#';
+  });
+  if (bad) { window.alert(`Hay un spawn sobre un muro o fuera del mapa (${bad.x},${bad.y}).`); return null; }
+  customMaps[name] = {
+    name,
+    rows: [...edRows],
+    playerSpawns: edPlayer.map((p) => ({ ...p })),
+    enemySpawns: edEnemy.map((p) => ({ ...p })),
+  };
+  saveCustomMaps();
+  refreshMapSelect();
+  renderEditor();
+  return name;
+}
+
+function openEditor(): void {
+  editorOpen = true;
+  closeGarage();
+  closeMerc();
+  if (edRows.length === 0) edNewMap(12, 9);
+  renderEditor();
+  $('editor').classList.add('show');
+}
+
+function closeEditor(): void {
+  editorOpen = false;
+  $('editor').classList.remove('show');
 }
 
 // ── Arranque ─────────────────────────────────────────────────────────────
@@ -1732,6 +1979,50 @@ $('merc-reset').addEventListener('click', () => {
   saveCampaign();
   renderMerc();
 });
+window.addEventListener('mouseup', () => { painting = false; });
+$('editor-btn').addEventListener('click', openEditor);
+$('ed-close').addEventListener('click', closeEditor);
+$('ed-new').addEventListener('click', () => {
+  const width = Math.max(6, Math.min(18, Number(($('ed-w') as HTMLInputElement).value) || 12));
+  const height = Math.max(5, Math.min(14, Number(($('ed-h') as HTMLInputElement).value) || 9));
+  edNewMap(width, height);
+});
+$('ed-load').addEventListener('change', () => {
+  const map = customMaps[($('ed-load') as HTMLSelectElement).value];
+  if (!map) return;
+  edRows = [...map.rows];
+  edPlayer = map.playerSpawns.map((p) => ({ ...p }));
+  edEnemy = map.enemySpawns.map((p) => ({ ...p }));
+  ($('ed-name') as HTMLInputElement).value = map.name;
+  renderEditor();
+});
+$('ed-delete').addEventListener('click', () => {
+  const name = ($('ed-load') as HTMLSelectElement).value;
+  if (!name || !customMaps[name]) return;
+  if (!window.confirm(`¿Borrar el mapa "${name}"?`)) return;
+  delete customMaps[name];
+  if (currentMapName === name) currentMapName = '';
+  saveCustomMaps();
+  refreshMapSelect();
+  renderEditor();
+});
+$('ed-save').addEventListener('click', () => { edSave(); });
+$('ed-play').addEventListener('click', () => {
+  const name = edSave();
+  if (!name) return;
+  currentMapName = name;
+  saveCustomMaps();
+  refreshMapSelect();
+  closeEditor();
+  returnToMerc = false;
+  restart();
+});
+$('map-select').addEventListener('change', () => {
+  currentMapName = ($('map-select') as HTMLSelectElement).value;
+  saveCustomMaps();
+});
+
+refreshMapSelect();
 restart();
 // El primer contacto: la campaña si existe; si no, el garaje libre.
 if (campaign) openMerc();
