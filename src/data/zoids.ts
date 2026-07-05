@@ -118,6 +118,95 @@ export const ZOIDS: Record<string, UnitDefinition> = {
     aiProfile: { aggression: 0.35, selfPreservation: 0.8, riskTolerance: 0.2 },
   },
 
+  // ── Segunda generación del hangar (sesión nocturna): 12 chasis nuevos.
+  //    Los que montan armas 'lib-*' requieren catálogos mezclados con
+  //    withWeaponLibrary() — el cliente web ya los mezcla. ──
+
+  'shield-liger': {
+    id: 'shield-liger', name: 'Shield Liger', role: 'assault', moveType: 'ground',
+    stats: { maxHp: 130, atk: 42, energyAtk: 40, def: 38, energyDef: 42, speed: 14, move: 5, jump: 2, evade: 15, accuracy: 0 },
+    abilityIds: ['bite-crush', 'e-shield'],
+    weapons: ['lib-w-vibro-fang'],
+    aiProfile: { aggression: 0.7, selfPreservation: 0.5, riskTolerance: 0.5 },
+  },
+  'blade-liger': {
+    id: 'blade-liger', name: 'Blade Liger', role: 'assault', moveType: 'ground',
+    stats: { maxHp: 135, atk: 50, energyAtk: 52, def: 34, energyDef: 30, speed: 16, move: 6, jump: 2, evade: 18, accuracy: 0 },
+    abilityIds: ['bite-crush', 'e-shield'],
+    weapons: ['lib-w-thermal-saber'],
+    aiProfile: { aggression: 0.85, selfPreservation: 0.35, riskTolerance: 0.65 },
+  },
+  'zaber-fang': {
+    id: 'zaber-fang', name: 'Zaber Fang', role: 'skirmisher', moveType: 'ground',
+    stats: { maxHp: 115, atk: 44, energyAtk: 32, def: 30, energyDef: 24, speed: 14, move: 5, jump: 2, evade: 14, accuracy: 0 },
+    abilityIds: ['bite-crush'],
+    weapons: ['lib-w-twin-autocannon'],
+    aiProfile: { aggression: 0.65, selfPreservation: 0.45, riskTolerance: 0.55 },
+  },
+  'iron-kong': {
+    id: 'iron-kong', name: 'Iron Kong', role: 'tank', moveType: 'ground',
+    stats: { maxHp: 190, atk: 58, energyAtk: 35, def: 48, energyDef: 38, speed: 9, move: 3, jump: 2, evade: 4, accuracy: 0 },
+    abilityIds: ['bite-crush'],
+    weapons: ['lib-w-gauss-hammer', 'lib-w-micro-missile-swarm'],
+    aiProfile: { aggression: 0.6, selfPreservation: 0.5, riskTolerance: 0.4 },
+  },
+  'dibison': {
+    id: 'dibison', name: 'Dibison', role: 'tank', moveType: 'ground',
+    stats: { maxHp: 165, atk: 52, energyAtk: 28, def: 42, energyDef: 30, speed: 10, move: 4, jump: 1, evade: 6, accuracy: 0 },
+    abilityIds: ['bite-crush'],
+    weapons: ['lib-w-cluster-mortar', 'lib-w-flak-burst'],
+    aiProfile: { aggression: 0.5, selfPreservation: 0.55, riskTolerance: 0.45 },
+  },
+  'gordos': {
+    id: 'gordos', name: 'Gordos', role: 'sniper', moveType: 'ground',
+    stats: { maxHp: 150, atk: 40, energyAtk: 30, def: 40, energyDef: 32, speed: 8, move: 3, jump: 1, evade: 4, accuracy: 2 },
+    abilityIds: ['bite-crush'],
+    weapons: ['lib-w-rail-lance'],
+    aiProfile: { aggression: 0.3, selfPreservation: 0.7, riskTolerance: 0.25 },
+  },
+  'redler': {
+    id: 'redler', name: 'Redler', role: 'flyer', moveType: 'flying',
+    stats: { maxHp: 90, atk: 36, energyAtk: 34, def: 18, energyDef: 22, speed: 16, move: 7, jump: 99, evade: 26, accuracy: 0 },
+    abilityIds: ['stun-blade'],
+    weapons: ['lib-w-plasma-carbine'],
+    aiProfile: { aggression: 0.75, selfPreservation: 0.45, riskTolerance: 0.6 },
+  },
+  'storm-sworder': {
+    id: 'storm-sworder', name: 'Storm Sworder', role: 'flyer', moveType: 'flying',
+    stats: { maxHp: 100, atk: 46, energyAtk: 40, def: 20, energyDef: 24, speed: 17, move: 8, jump: 99, evade: 28, accuracy: 0 },
+    abilityIds: [],
+    weapons: ['lib-w-plasma-axe'],
+    aiProfile: { aggression: 0.9, selfPreservation: 0.3, riskTolerance: 0.7 },
+  },
+  'konig-wolf': {
+    id: 'konig-wolf', name: 'König Wolf', role: 'sniper', moveType: 'ground',
+    stats: { maxHp: 120, atk: 46, energyAtk: 34, def: 28, energyDef: 26, speed: 15, move: 6, jump: 2, evade: 20, accuracy: 2 },
+    abilityIds: ['bite-crush'],
+    weapons: ['lib-w-heat-needle'],
+    aiProfile: { aggression: 0.45, selfPreservation: 0.65, riskTolerance: 0.3 },
+  },
+  'rev-raptor': {
+    id: 'rev-raptor', name: 'Rev Raptor', role: 'skirmisher', moveType: 'ground',
+    stats: { maxHp: 85, atk: 38, energyAtk: 24, def: 20, energyDef: 16, speed: 15, move: 6, jump: 2, evade: 18, accuracy: 0 },
+    abilityIds: ['bite-crush'],
+    weapons: ['lib-w-monomolecular-claw'],
+    aiProfile: { aggression: 0.8, selfPreservation: 0.3, riskTolerance: 0.6 },
+  },
+  'guysak': {
+    id: 'guysak', name: 'Guysak', role: 'skirmisher', moveType: 'ground',
+    stats: { maxHp: 95, atk: 40, energyAtk: 20, def: 26, energyDef: 18, speed: 12, move: 4, jump: 1, evade: 12, accuracy: 0 },
+    abilityIds: ['bite-crush', 'stun-blade'],
+    weapons: ['lib-w-pile-bunker'],
+    aiProfile: { aggression: 0.6, selfPreservation: 0.4, riskTolerance: 0.5 },
+  },
+  'brachios': {
+    id: 'brachios', name: 'Brachios', role: 'support', moveType: 'amphibious',
+    stats: { maxHp: 145, atk: 34, energyAtk: 30, def: 36, energyDef: 34, speed: 9, move: 4, jump: 1, evade: 8, accuracy: 0 },
+    abilityIds: ['e-shield'],
+    weapons: ['lib-w-arc-emitter', 'lib-w-smoke-mortar'],
+    aiProfile: { aggression: 0.35, selfPreservation: 0.7, riskTolerance: 0.35 },
+  },
+
   // ── Versiones framed (fase 1): mismo rendimiento intacto que sus
   //    equivalentes monocasco, pero con daño localizado por módulos. ──
 
