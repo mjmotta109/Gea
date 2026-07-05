@@ -23,8 +23,8 @@ import { ZOIDS } from '../data/zoids.js';
 
 type Mode =
   | { kind: 'idle' }
-  | { kind: 'move'; tiles: Map<string, ReachableTile> }
-  | { kind: 'boost'; tiles: Map<string, ReachableTile> }
+  | { kind: 'move'; tiles: Map<string, ReachableTile>; shotsFrom: Map<string, string[]> }
+  | { kind: 'boost'; tiles: Map<string, ReachableTile>; shotsFrom: Map<string, string[]> }
   | { kind: 'ability'; abilityId: string; targets: Set<string> }
   | { kind: 'facing' };
 
@@ -136,12 +136,51 @@ function playerUnit(): UnitState | undefined {
   return active && active.team === 'player' && !busy ? active : undefined;
 }
 
+/**
+ * Enemigos a tiro desde una posición hipotética, con las armas que la
+ * unidad puede pagar ahora mismo (los vetos no dependen de la posición).
+ * Es el indicador ⌖ de "desde aquí tienes disparo" al planear movimiento.
+ */
+function shotsFromTile(unit: UnitState, from: Position): string[] {
+  if (unit.hasActed) return [];
+  const enemies = battle.units.filter((u) => u.team !== unit.team && u.hp > 0);
+  const abilities = battle.knownAbilityIds(unit)
+    .map((id) => battle.abilityOf(id))
+    .filter((a) => a.effects.some((e) => e.kind === 'damage'))
+    .filter((a) => battle.checkVetoes({
+      type: 'ability', unitId: unit.id, abilityId: a.id, target: unit.position,
+    }) === null);
+
+  const shots: string[] = [];
+  for (const enemy of enemies) {
+    const usable = abilities.filter((ability) => {
+      const dist = Math.abs(from.x - enemy.position.x) + Math.abs(from.y - enemy.position.y);
+      if (dist < ability.minRange || dist > ability.range) return false;
+      if (ability.shape === 'line' && from.x !== enemy.position.x && from.y !== enemy.position.y) return false;
+      return true;
+    });
+    if (usable.length > 0) {
+      shots.push(`${enemy.id} (${usable.map((a) => a.name).join(', ')})`);
+    }
+  }
+  return shots;
+}
+
+function computeShotsFrom(unit: UnitState, tiles: Map<string, ReachableTile>): Map<string, string[]> {
+  const result = new Map<string, string[]>();
+  for (const [key, tile] of tiles) {
+    const shots = shotsFromTile(unit, tile.pos);
+    if (shots.length > 0) result.set(key, shots);
+  }
+  return result;
+}
+
 function enterMove(): void {
   const unit = playerUnit();
   if (!unit || unit.hasMoved) return;
   const tiles = new Map<string, ReachableTile>();
   for (const tile of battle.legalMoves(unit.id)) tiles.set(posKey(tile.pos), tile);
-  mode = { kind: 'move', tiles };
+  mode = { kind: 'move', tiles, shotsFrom: computeShotsFrom(unit, tiles) };
   pending = null;
   renderAll();
 }
@@ -161,7 +200,7 @@ function enterBoost(): void {
   }, battle.units)) {
     if (!samePosition(tile.pos, unit.position)) tiles.set(posKey(tile.pos), tile);
   }
-  mode = { kind: 'boost', tiles };
+  mode = { kind: 'boost', tiles, shotsFrom: computeShotsFrom(unit, tiles) };
   pending = null;
   renderAll();
 }
@@ -397,8 +436,16 @@ function renderBoard(): void {
       }
 
       // Resaltados del modo actual.
-      if (mode.kind === 'move' && mode.tiles.has(key)) cell.classList.add('hl-move', 'actionable');
-      if (mode.kind === 'boost' && mode.tiles.has(key)) cell.classList.add('hl-boost', 'actionable');
+      if ((mode.kind === 'move' || mode.kind === 'boost') && mode.tiles.has(key)) {
+        cell.classList.add(mode.kind === 'move' ? 'hl-move' : 'hl-boost', 'actionable');
+        // ⌖ = desde esta casilla tendrías al menos un enemigo a tiro.
+        if (mode.shotsFrom.has(key)) {
+          const shot = document.createElement('span');
+          shot.className = 'hl-label shot';
+          shot.textContent = '⌖';
+          cell.appendChild(shot);
+        }
+      }
       if (mode.kind === 'ability' && mode.targets.has(key)) {
         cell.classList.add('hl-target', 'actionable');
         const label = targetLabel(unit, pos);
@@ -613,9 +660,15 @@ function renderPreview(): void {
       lines.push(`<div class="pv-muted">desde tu posición lo atacarías por: <b>${ARC_LABEL[arc]}</b></div>`);
     }
   }
-  if (unit && mode.kind === 'move') {
+  if (unit && (mode.kind === 'move' || mode.kind === 'boost')) {
     const reach = mode.tiles.get(posKey(cursor));
-    if (reach) lines.push(`<div class="pv-muted">coste de movimiento: ${reach.cost}</div>`);
+    if (reach) {
+      if (mode.kind === 'move') lines.push(`<div class="pv-muted">coste de movimiento: ${reach.cost}</div>`);
+      const shots = mode.shotsFrom.get(posKey(cursor));
+      lines.push(shots
+        ? `<div class="pv-good">⌖ a tiro desde aquí: ${shots.join(' · ')}</div>`
+        : '<div class="pv-muted">sin enemigos a tiro desde esta casilla</div>');
+    }
   }
   el.innerHTML = lines.join('');
 }
