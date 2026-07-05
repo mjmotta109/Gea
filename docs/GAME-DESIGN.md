@@ -112,3 +112,12 @@ arquitectura del motor van en DESIGN.md.)*
   existe desde la fase 0.
 - **2026-07-05** — Adoptado el criterio de evaluación del §5 como filtro
   obligatorio para aceptar mecánicas, tanto aquí como en el motor.
+- **2026-07-05** — Tras probar la línea de visión y la cobertura: el
+  combate "se siente bien" sin niebla de guerra. Sensores/niebla quedan
+  APLAZADOS hasta nueva orden; el clima entra ya (lluvia refrigera,
+  tormenta de arena degrada la puntería a distancia).
+- **2026-07-05** — Primer ciclo de balance con datos (npm run balance):
+  cañón de partículas 60→36 de potencia y alcance mínimo 2; el escenario
+  del valle pasa de 81.5% enemigo a 55/45 jugador. Detectados los
+  siguientes objetivos: rifle del francotirador sobre-rendido y Geno
+  demasiado frágil una vez nerfeado su cañón.
