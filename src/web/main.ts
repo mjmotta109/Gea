@@ -22,6 +22,7 @@ import type { BattleEvent, Facing, Position, Team, UnitState, WeatherId } from '
 import { ABILITIES } from '../data/abilities.js';
 import { BLUEPRINT_PRICES, CITY_TIERS, CONTRACT_ENEMY_POOL, DIFFICULTIES, ECONOMY, LEISURE_OPTIONS, STARTER_COMPANIONS, THERAPY } from '../data/economy.js';
 import { VALLEY_CROSSING } from '../data/maps.js';
+import { generateBattlefield } from '../game/mapgen.js';
 import { GARAGE_MODULE_OPTIONS, MODULES } from '../data/modules.js';
 import { PERKS } from '../data/progression.js';
 import { withWeaponLibrary } from '../data/weaponLibrary.js';
@@ -256,8 +257,21 @@ function saveCustomMaps(): void {
   } catch { /* almacenamiento privado */ }
 }
 
+/** Nombre reservado del modo procedural en el selector de mapas. */
+const GEN_MAP = '__gen__';
+
+/** Convierte un mapa generado al formato de campo listo para batalla. */
+function generatedField(key: string): { map: GameMap; playerPos: Position[]; enemyPos: Position[] } {
+  const gen = generateBattlefield(key);
+  return { map: GameMap.fromAscii(gen.rows), playerPos: gen.playerSpawns, enemyPos: gen.enemySpawns };
+}
+
 /** Campo de batalla activo: el mapa elegido en la cabecera, o el valle. */
-function battlefield(): { map: GameMap; playerPos: Position[]; enemyPos: Position[] } {
+function battlefield(genKey?: string): { map: GameMap; playerPos: Position[]; enemyPos: Position[] } {
+  if (currentMapName === GEN_MAP) {
+    // Procedural: la semilla de la cabecera manda — cámbiala y el campo cambia.
+    return generatedField(genKey ?? ($('seed') as HTMLInputElement).value);
+  }
   const custom = customMaps[currentMapName];
   if (custom) {
     try {
@@ -278,13 +292,18 @@ function refreshMapSelect(): void {
   valley.value = '';
   valley.textContent = 'Valle del cruce';
   select.appendChild(valley);
+  const gen = document.createElement('option');
+  gen.value = GEN_MAP;
+  gen.textContent = '🎲 Procedural (según semilla)';
+  select.appendChild(gen);
   for (const name of Object.keys(customMaps).sort()) {
     const opt = document.createElement('option');
     opt.value = name;
     opt.textContent = name;
     select.appendChild(opt);
   }
-  select.value = customMaps[currentMapName] ? currentMapName : '';
+  select.value = currentMapName === GEN_MAP ? GEN_MAP
+    : customMaps[currentMapName] ? currentMapName : '';
 }
 
 /** Escaramuza libre: el equipo del garaje contra un equipo por semilla. */
@@ -1204,10 +1223,203 @@ function logEvents(events: BattleEvent[]): void {
       case 'status-applied': spawnFloat(event.targetUnitId, STATUS_DEFINITIONS[event.status].name, 'stat'); break;
       default: break;
     }
+    // Efectos sobre el tablero: trazadoras, impactos, polvo, explosiones.
+    switch (event.type) {
+      case 'ability-used':
+        fxAttack = { unitId: event.unitId, hadProjectile: false };
+        break;
+      case 'projectile-fired':
+        if (fxAttack?.unitId === event.unitId) fxAttack.hadProjectile = true;
+        fxTracer(event.from, event.to, event.flightTime);
+        break;
+      case 'damage-dealt': {
+        const at = fxUnitPos(event.targetUnitId);
+        if (at) {
+          const heavy = event.amount >= 30;
+          if (fxAttack && !fxAttack.hadProjectile) fxSlash(at);
+          fxImpact(at, heavy);
+          if (heavy) fxShake(false);
+        }
+        break;
+      }
+      case 'unit-moved': fxDust(event.path); break;
+      case 'unit-boosted': fxDust(event.path); break;
+      case 'unit-pushed': {
+        fxDust([event.from, event.to]);
+        fxShake(false);
+        break;
+      }
+      case 'unit-healed': {
+        const at = fxUnitPos(event.targetUnitId);
+        if (at) fxHeal(at);
+        break;
+      }
+      case 'unit-destroyed': {
+        const at = fxUnitPos(event.unitId);
+        if (at) fxExplosion(at, true);
+        fxShake(true);
+        break;
+      }
+      case 'terrain-destroyed':
+        fxExplosion(event.pos, false);
+        fxShake(false);
+        break;
+      case 'module-destroyed': {
+        const at = fxUnitPos(event.targetUnitId);
+        if (at) fxExplosion(at, false);
+        break;
+      }
+      default: break;
+    }
     const line = describe(event);
     if (line) log(line.text, line.cls);
   }
 }
+
+/*
+ * ── Efectos de combate ─────────────────────────────────────────────────
+ * Capa #fx sobre el tablero: trazadoras, fogonazos, impactos, tajos,
+ * polvo y explosiones. Solo presentación: el estado ya está resuelto
+ * cuando estos elementos nacen, y con movimiento reducido no existen.
+ */
+
+/** Centro de una casilla en píxeles dentro del panel del tablero. */
+function fxCenter(pos: Position): { x: number; y: number } {
+  const board = $('board');
+  return {
+    x: board.offsetLeft + pos.x * CELL_PX + CELL_PX / 2,
+    y: board.offsetTop + pos.y * CELL_PX + CELL_PX / 2,
+  };
+}
+
+function fxSpawn(cls: string, pos: Position, keyframes: Keyframe[], opts: KeyframeAnimationOptions): void {
+  if (reducedMotion) return;
+  const at = fxCenter(pos);
+  const el = document.createElement('div');
+  el.className = `fx ${cls}`;
+  el.style.left = `${at.x}px`;
+  el.style.top = `${at.y}px`;
+  $('fx').appendChild(el);
+  el.animate(keyframes, { fill: 'forwards', ...opts });
+  const life = Number(opts.duration ?? 400) + Number(opts.delay ?? 0);
+  window.setTimeout(() => el.remove(), life + 60);
+}
+
+/** Trazadora del disparo: viaja del arma al objetivo siguiendo el evento. */
+function fxTracer(from: Position, to: Position, flightTime: number): void {
+  if (reducedMotion) return;
+  const a = fxCenter(from);
+  const b = fxCenter(to);
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+  const beam = flightTime < 0.15; // vuelo casi instantáneo: arma de energía
+  const el = document.createElement('div');
+  el.className = `fx fx-tracer${beam ? ' beam' : ''}`;
+  el.style.left = `${a.x}px`;
+  el.style.top = `${a.y}px`;
+  el.style.transform = `rotate(${angle}deg)`;
+  $('fx').appendChild(el);
+  const duration = Math.max(90, Math.min(380, flightTime * 1000));
+  el.animate([
+    { transform: `translate(0, 0) rotate(${angle}deg)`, opacity: 1 },
+    { transform: `translate(${dx}px, ${dy}px) rotate(${angle}deg)`, opacity: 0.9 },
+  ], { duration, easing: 'linear', fill: 'forwards' });
+  window.setTimeout(() => el.remove(), duration + 40);
+  // Fogonazo en la boca del arma.
+  fxSpawn('fx-muzzle', from, [
+    { opacity: 1, transform: 'translate(-50%, -50%) scale(0.4)' },
+    { opacity: 0, transform: 'translate(-50%, -50%) scale(1.6)' },
+  ], { duration: 160, easing: 'ease-out' });
+}
+
+/** Impacto: anillo expansivo + chispas radiales. */
+function fxImpact(pos: Position, heavy: boolean): void {
+  fxSpawn('fx-ring', pos, [
+    { opacity: 1, transform: 'translate(-50%, -50%) scale(0.5)' },
+    { opacity: 0, transform: `translate(-50%, -50%) scale(${heavy ? 4 : 2.6})` },
+  ], { duration: heavy ? 380 : 280, easing: 'ease-out' });
+  const sparks = heavy ? 8 : 5;
+  for (let i = 0; i < sparks; i++) {
+    const angle = (Math.PI * 2 * i) / sparks + Math.random() * 0.7;
+    const dist = (heavy ? 26 : 18) + Math.random() * 10;
+    fxSpawn(`fx-spark${Math.random() < 0.4 ? ' metal' : ''}`, pos, [
+      { opacity: 1, transform: 'translate(-50%, -50%)' },
+      { opacity: 0, transform: `translate(${Math.cos(angle) * dist - 6}px, ${Math.sin(angle) * dist - 6}px)` },
+    ], { duration: 300 + Math.random() * 160, easing: 'ease-out' });
+  }
+}
+
+/** Tajo cuerpo a cuerpo: arco blanco que barre el objetivo. */
+function fxSlash(pos: Position): void {
+  fxSpawn('fx-slash', pos, [
+    { opacity: 0, transform: 'translate(-50%, -50%) rotate(-160deg) scale(0.7)' },
+    { opacity: 1, transform: 'translate(-50%, -50%) rotate(-40deg) scale(1.05)', offset: 0.4 },
+    { opacity: 0, transform: 'translate(-50%, -50%) rotate(40deg) scale(1.15)' },
+  ], { duration: 260, easing: 'ease-in-out' });
+}
+
+/** Polvo bajo las patas: una nube por casilla del camino, escalonada. */
+function fxDust(path: Position[]): void {
+  path.forEach((pos, i) => {
+    fxSpawn('fx-dust', pos, [
+      { opacity: 0.9, transform: 'translate(-50%, -30%) scale(0.6)' },
+      { opacity: 0, transform: 'translate(-50%, -30%) scale(1.8)' },
+    ], { duration: 420, delay: i * 100, easing: 'ease-out' });
+  });
+}
+
+/** Explosión: núcleo brillante, humo y metralla. */
+function fxExplosion(pos: Position, big: boolean): void {
+  fxSpawn('fx-boom', pos, [
+    { opacity: 1, transform: 'translate(-50%, -50%) scale(0.5)' },
+    { opacity: 1, transform: `translate(-50%, -50%) scale(${big ? 2.6 : 1.7})`, offset: 0.35 },
+    { opacity: 0, transform: `translate(-50%, -50%) scale(${big ? 3.2 : 2.1})` },
+  ], { duration: big ? 520 : 380, easing: 'ease-out' });
+  const bits = big ? 10 : 6;
+  for (let i = 0; i < bits; i++) {
+    const angle = (Math.PI * 2 * i) / bits + Math.random();
+    const dist = 20 + Math.random() * (big ? 34 : 20);
+    fxSpawn('fx-spark metal', pos, [
+      { opacity: 1, transform: 'translate(-50%, -50%)' },
+      { opacity: 0, transform: `translate(${Math.cos(angle) * dist - 6}px, ${Math.sin(angle) * dist - 6}px)` },
+    ], { duration: 380 + Math.random() * 220, easing: 'ease-out' });
+  }
+  for (let i = 0; i < (big ? 4 : 2); i++) {
+    fxSpawn('fx-smoke', pos, [
+      { opacity: 0.8, transform: 'translate(-50%, -50%) scale(0.7)' },
+      { opacity: 0, transform: `translate(${(Math.random() - 0.5) * 26 - 10}px, ${-18 - Math.random() * 18}px) scale(2.2)` },
+    ], { duration: 700, delay: 120 + i * 130, easing: 'ease-out' });
+  }
+}
+
+/** Reparación: motas verdes que suben. */
+function fxHeal(pos: Position): void {
+  for (let i = 0; i < 4; i++) {
+    fxSpawn('fx-heal', pos, [
+      { opacity: 1, transform: `translate(${(i - 1.5) * 9 - 3}px, 6px)` },
+      { opacity: 0, transform: `translate(${(i - 1.5) * 9 - 3}px, -22px)` },
+    ], { duration: 480, delay: i * 90, easing: 'ease-out' });
+  }
+}
+
+/** Sacudida del tablero: los golpes serios se sienten en la cabina. */
+function fxShake(big: boolean): void {
+  if (reducedMotion) return;
+  const panel = $('board-panel');
+  panel.classList.remove('shake', 'shake-big');
+  void panel.offsetWidth; // reinicia la animación si ya estaba sonando
+  panel.classList.add(big ? 'shake-big' : 'shake');
+  window.setTimeout(() => panel.classList.remove('shake', 'shake-big'), big ? 500 : 320);
+}
+
+/** Posición actual de una unidad (para anclar efectos). */
+function fxUnitPos(unitId: string): Position | undefined {
+  return battle.units.find((u) => u.id === unitId)?.position;
+}
+
+/** El ataque en curso: para distinguir tiro (hubo trazadora) de garra. */
+let fxAttack: { unitId: string; hadProjectile: boolean } | null = null;
 
 /**
  * Número flotante sobre la unidad: vive en la capa #floats (fuera del
@@ -2500,12 +2712,12 @@ function fightTavernBattle(job: Contract, nodeId: string): void {
     .filter(({ zoid }) => !zoid.destroyed);
   if (alive.length === 0) return;
   const node = REGION.nodes.find((n) => n.id === nodeId)!;
-  let field = battlefield();
+  let field = generatedField(`${job.id}|${nodeId}|${expedition.day}`);
   const custom = customMaps[node.name];
   if (custom) {
     try {
       field = { map: GameMap.fromAscii(custom.rows), playerPos: custom.playerSpawns, enemyPos: custom.enemySpawns };
-    } catch { /* cae al de cabecera */ }
+    } catch { /* cae al generado */ }
   }
   const spawns: UnitSpawn[] = [
     ...alive.map(({ zoid, slot }, k) => ({
@@ -2612,14 +2824,15 @@ function fightExpeditionBattle(): void {
   if (alive.length === 0) return;
 
   // El lugar elige el mapa: un mapa del editor con el nombre del nodo
-  // manda; si no existe, el campo de batalla de la cabecera.
+  // manda; si no existe, se GENERA uno propio de este contrato, este
+  // lugar y este día — nunca dos batallas sobre el mismo terreno.
   const node = REGION.nodes.find((n) => n.id === expedition!.at)!;
-  let field = battlefield();
+  let field = generatedField(`${expedition.contractId}|${expedition.at}|${expedition.day}`);
   const custom = customMaps[node.name];
   if (custom) {
     try {
       field = { map: GameMap.fromAscii(custom.rows), playerPos: custom.playerSpawns, enemyPos: custom.enemySpawns };
-    } catch { /* mapa corrupto: cae al de cabecera */ }
+    } catch { /* mapa corrupto: cae al generado */ }
   }
 
   const spawns: UnitSpawn[] = [
@@ -3298,6 +3511,15 @@ $('ed-new').addEventListener('click', () => {
   const width = Math.max(6, Math.min(18, Number(($('ed-w') as HTMLInputElement).value) || 12));
   const height = Math.max(5, Math.min(14, Number(($('ed-h') as HTMLInputElement).value) || 9));
   edNewMap(width, height);
+});
+$('ed-gen').addEventListener('click', () => {
+  // Semilla nueva en cada pulsación: el generador propone, tú retocas.
+  const gen = generateBattlefield(`editor-${Date.now()}`);
+  edRows = [...gen.rows];
+  edPlayer = gen.playerSpawns.map((p) => ({ ...p }));
+  edEnemy = gen.enemySpawns.map((p) => ({ ...p }));
+  ($('ed-name') as HTMLInputElement).value = gen.name;
+  renderEditor();
 });
 $('ed-load').addEventListener('change', () => {
   const map = customMaps[($('ed-load') as HTMLSelectElement).value];

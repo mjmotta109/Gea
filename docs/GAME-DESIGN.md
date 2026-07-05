@@ -403,3 +403,27 @@ arquitectura del motor van en DESIGN.md.)*
   al taller cierra el viaje sin contar como abandono (missionDone
   nace en true). La clave de la expedición libre siembra los eventos
   y queda grabada en el estado: determinismo intacto a partir de ahí.
+- **2026-07-05** — EFECTOS DE COMBATE (dirección del usuario: "agrega
+  efectos en disparos golpes desplazamientos"). Capa #fx sobre el
+  tablero, SOLO presentación (el estado ya está resuelto cuando el
+  efecto nace): trazadoras que siguen el evento projectile-fired del
+  motor (energía = haz cian instantáneo, balística = trazo cálido con
+  tiempo de vuelo), fogonazo en la boca del arma, impactos con anillo
+  expansivo y chispas, tajo blanco en cuerpo a cuerpo (ataque sin
+  proyectil), polvo por casilla recorrida al moverse, explosión con
+  metralla y humo al caer una unidad o un muro, y sacudida del tablero
+  en golpes serios. prefers-reduced-motion lo apaga todo.
+- **2026-07-05** — GENERADOR PROCEDURAL DE CAMPOS DE BATALLA (el
+  usuario levanta el aplazamiento: "crea el tema para que sea
+  procedural", refinado vendrá después). src/game/mapgen.ts, capa de
+  juego sin motor, determinista por clave (misma clave → mismo campo).
+  5 biomas (Vega con río y vado, Dunas, Espesura con lago, Páramo,
+  Ruinas) que dictan densidades de bosque/abrupto/lomas/muros — sabor,
+  no reglas. Garantías: flancos de despliegue limpios, 4 spawns por
+  bando sobre llanura, y conectividad por tierra verificada con BFS
+  (pasillo de rescate si el terreno cercó). Cableado: la CAMPAÑA
+  genera el campo con contrato|lugar|día — nunca dos batallas sobre el
+  mismo terreno, y recargar la partida no lo cambia; en ESCARAMUZA hay
+  opción "🎲 Procedural (según semilla)"; el EDITOR gana el botón
+  "🎲 Generar" (el generador propone, el jugador retoca). Un mapa del
+  editor con el nombre del lugar sigue mandando sobre el generado.

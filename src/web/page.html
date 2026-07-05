@@ -822,6 +822,60 @@
   .slot.current { box-shadow: 0 0 14px rgba(83, 209, 224, 0.14); }
   .gbtn, .wroute, .abtn, .sbtns button, .gsub { transition: border-color 0.15s, color 0.15s, background 0.15s, box-shadow 0.2s, transform 0.06s; }
 
+  /* ── Efectos de combate: capa #fx sobre el tablero ── */
+  #fx { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 4; }
+  .fx { position: absolute; pointer-events: none; }
+  .fx-tracer {
+    width: 26px; height: 3px; border-radius: 2px; transform-origin: 0 50%;
+    background: linear-gradient(90deg, transparent, #ffe9a8 40%, #fff);
+    box-shadow: 0 0 8px 1px rgba(255, 220, 130, 0.7);
+  }
+  .fx-tracer.beam {
+    background: linear-gradient(90deg, transparent, #9be8ff 40%, #fff);
+    box-shadow: 0 0 10px 2px rgba(83, 209, 224, 0.8);
+  }
+  .fx-muzzle {
+    width: 18px; height: 18px; border-radius: 50%; transform: translate(-50%, -50%);
+    background: radial-gradient(circle, #fff 0%, #ffd98a 45%, transparent 70%);
+  }
+  .fx-ring {
+    width: 10px; height: 10px; border-radius: 50%; transform: translate(-50%, -50%);
+    border: 2px solid rgba(255, 200, 120, 0.9);
+  }
+  .fx-spark { width: 5px; height: 5px; border-radius: 50%; background: #ffd98a; transform: translate(-50%, -50%); }
+  .fx-spark.metal { background: #cfd8df; }
+  .fx-slash {
+    width: 34px; height: 34px; transform: translate(-50%, -50%) rotate(-45deg);
+    border-radius: 50%; border: 3px solid transparent; border-top-color: #fff;
+    box-shadow: 0 -2px 10px rgba(255, 255, 255, 0.5);
+  }
+  .fx-dust {
+    width: 12px; height: 12px; border-radius: 50%; transform: translate(-50%, -50%);
+    background: radial-gradient(circle, rgba(160, 150, 130, 0.5), transparent 70%);
+  }
+  .fx-boom {
+    width: 26px; height: 26px; border-radius: 50%; transform: translate(-50%, -50%);
+    background: radial-gradient(circle, #fff 0%, #ffb066 35%, #e5604c 60%, transparent 75%);
+  }
+  .fx-smoke {
+    width: 20px; height: 20px; border-radius: 50%; transform: translate(-50%, -50%);
+    background: radial-gradient(circle, rgba(70, 75, 80, 0.65), transparent 70%);
+  }
+  .fx-heal { width: 6px; height: 10px; border-radius: 2px; background: var(--energy); transform: translate(-50%, -50%); box-shadow: 0 0 6px rgba(95, 217, 164, 0.8); }
+  @keyframes gea-shake {
+    0%, 100% { transform: translate(0, 0); }
+    20% { transform: translate(-3px, 2px); } 40% { transform: translate(3px, -2px); }
+    60% { transform: translate(-2px, -2px); } 80% { transform: translate(2px, 2px); }
+  }
+  @keyframes gea-shake-big {
+    0%, 100% { transform: translate(0, 0); }
+    15% { transform: translate(-6px, 3px); } 30% { transform: translate(6px, -4px); }
+    45% { transform: translate(-5px, -3px); } 60% { transform: translate(4px, 4px); }
+    75% { transform: translate(-3px, 2px); } 90% { transform: translate(2px, -1px); }
+  }
+  #board-panel.shake { animation: gea-shake 0.28s ease-out; }
+  #board-panel.shake-big { animation: gea-shake-big 0.45s ease-out; }
+
   /* Movimiento reducido: quietud para quien la pide. */
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; }
@@ -859,6 +913,7 @@
       <div id="turn-banner"></div>
       <section id="board-panel">
         <div id="board"></div>
+        <div id="fx"></div>
         <div id="floats"></div>
         <div id="legend">
           WASD/flechas mueven el cursor · E/Enter confirma · Esc cancela ·
@@ -945,6 +1000,7 @@
         <label class="edlbl">ancho <input id="ed-w" type="number" value="12" min="6" max="18"></label>
         <label class="edlbl">alto <input id="ed-h" type="number" value="9" min="5" max="14"></label>
         <button id="ed-new" class="gsub">nuevo</button>
+        <button id="ed-gen" class="gsub">🎲 Generar</button>
         <select id="ed-load"></select>
         <button id="ed-delete" class="gsub">borrar</button>
         <span class="spacer" style="flex:1"></span>
