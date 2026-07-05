@@ -587,6 +587,10 @@ function afterAction(): void {
 // ── Teclado ──────────────────────────────────────────────────────────────
 
 document.addEventListener('keydown', (event) => {
+  if (startOpen) {
+    if ((event.key === 'Enter' || event.key === 'Escape') && hasLiveGame()) closeStart();
+    return;
+  }
   if (garageOpen) {
     if (event.key === 'Escape') closeGarage();
     return;
@@ -2639,6 +2643,7 @@ function applySave(save: SaveGame): void {
     if (client['maps'] && typeof client['maps'] === 'object') localStorage.setItem(MAPS_KEY, JSON.stringify(client['maps']));
     localStorage.setItem(MAP_SEL_KEY, typeof client['selectedMap'] === 'string' ? client['selectedMap'] : '');
   } catch { /* almacenamiento privado */ }
+  try { sessionStorage.setItem(SKIP_MENU_FLAG, '1'); } catch { /* privado */ }
   window.location.reload();
 }
 
@@ -3016,6 +3021,53 @@ function closeEditor(): void {
   $('editor').classList.remove('show');
 }
 
+// ── Menú de inicio ───────────────────────────────────────────────────────
+
+let startOpen = false;
+const SKIP_MENU_FLAG = 'gea-skip-menu';
+
+function hasLiveGame(): boolean {
+  return campaign !== null ||
+    Object.values(pilots).some((p) => Object.values(p.tracks).some((xp) => xp > 0));
+}
+
+function openStart(): void {
+  startOpen = true;
+  const live = hasLiveGame();
+  ($('st-continue') as HTMLButtonElement).disabled = !live;
+  $('st-info').innerHTML = campaign
+    ? `Partida en curso: ⌾${campaign.credits} · ${campaign.contractsDone} contratos` +
+      (expedition ? ` · expedición día ${expedition.day}` : ' · en el cuartel')
+    : live ? 'Hay progreso de escaramuzas y pilotos.' : 'Sin partida en curso.';
+  $('start').classList.add('show');
+}
+
+function closeStart(): void {
+  startOpen = false;
+  $('start').classList.remove('show');
+}
+
+/** Juego nuevo: borra la partida viva (las ranuras y los mapas quedan). */
+function newGame(): void {
+  if (hasLiveGame() &&
+      !window.confirm('¿Empezar un JUEGO NUEVO? La partida en curso se borra (las ranuras guardadas y tus mapas del editor se conservan — expórtala antes desde 💾 si quieres).')) {
+    return;
+  }
+  try {
+    localStorage.removeItem(CAMPAIGN_KEY);
+    localStorage.removeItem(EXPEDITION_KEY);
+    localStorage.removeItem(PILOTS_KEY);
+    localStorage.removeItem(GARAGE_KEY);
+    // Arranque directo del juego nuevo en el cuartel, sin pasar por el menú.
+    const freshPilots: Record<string, PilotState> = {};
+    PILOT_IDS.forEach((id, i) => { freshPilots[id] = newPilot(id, DEFAULT_PILOT_NAMES[i]!); });
+    localStorage.setItem(PILOTS_KEY, JSON.stringify(freshPilots));
+    localStorage.setItem(CAMPAIGN_KEY, JSON.stringify(newCampaign(ECONOMY, factoryLoadout)));
+    sessionStorage.setItem(SKIP_MENU_FLAG, '1');
+  } catch { /* privado */ }
+  window.location.reload();
+}
+
 // ── Arranque ─────────────────────────────────────────────────────────────
 
 function restart(): void {
@@ -3113,6 +3165,11 @@ $('map-select').addEventListener('change', () => {
   saveCustomMaps();
 });
 
+$('menu-btn').addEventListener('click', openStart);
+$('st-continue').addEventListener('click', closeStart);
+$('st-new').addEventListener('click', newGame);
+$('st-load').addEventListener('click', () => { closeStart(); openSaves(); });
+
 refreshMapSelect();
 restart();
 // El primer contacto: la expedición en curso; si no, la campaña; si no,
@@ -3120,3 +3177,10 @@ restart();
 if (expedition && campaign) openWorld();
 else if (campaign) openMerc();
 else openGarage();
+// Y encima de todo, el menú de inicio (salvo tras "juego nuevo"/carga).
+try {
+  if (sessionStorage.getItem(SKIP_MENU_FLAG)) sessionStorage.removeItem(SKIP_MENU_FLAG);
+  else openStart();
+} catch {
+  openStart();
+}

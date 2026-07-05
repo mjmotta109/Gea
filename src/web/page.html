@@ -458,6 +458,35 @@
   }
   .pquirk.empty { border-color: var(--line); color: var(--muted); border-style: dashed; }
 
+  /* ── Menú de inicio ── */
+  #start {
+    display: none; position: fixed; inset: 0; z-index: 30;
+    background: radial-gradient(ellipse at 50% 30%, #10202a 0%, var(--bg) 70%);
+    align-items: center; justify-content: center;
+  }
+  #start.show { display: flex; }
+  #start .sbox { text-align: center; padding: 20px; }
+  #start .stitle {
+    margin: 0; font-size: 64px; letter-spacing: 0.55em; text-indent: 0.55em;
+    color: var(--player); font-weight: 700;
+    text-shadow: 0 0 30px rgba(83, 209, 224, 0.4);
+  }
+  #start .ssub {
+    color: var(--muted); font-family: var(--mono); font-size: 12px;
+    letter-spacing: 0.3em; text-transform: uppercase; margin: 6px 0 34px;
+  }
+  #start .sbtns { display: flex; flex-direction: column; gap: 10px; width: 280px; margin: 0 auto; }
+  #start .sbtns button {
+    background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 6px;
+    font-family: var(--mono); font-size: 14px; font-weight: 700; padding: 13px 18px; cursor: pointer;
+    letter-spacing: 0.06em; transition: border-color 0.15s, color 0.15s;
+  }
+  #start .sbtns button:hover:not(:disabled) { border-color: var(--player); color: var(--player); }
+  #start .sbtns button:disabled { opacity: 0.35; cursor: not-allowed; }
+  #start .sbtns #st-continue:not(:disabled) { border-color: var(--player-dim); }
+  #start .sinfo { color: var(--muted); font-family: var(--mono); font-size: 11px; margin-top: 18px; line-height: 1.6; }
+  #start .sver { color: #3a4a58; font-family: var(--mono); font-size: 10px; margin-top: 30px; letter-spacing: 0.2em; }
+
   /* ── Pantalla de ciudad ── */
   #city {
     display: none; position: fixed; inset: 0; background: rgba(4, 8, 11, 0.94);
@@ -585,6 +614,7 @@
         <option value="sandstorm">tormenta de arena</option>
       </select>
     </label>
+    <button id="menu-btn" title="menú principal" style="background:var(--panel-2);color:var(--ink);border:1px solid var(--line);border-radius:4px;font-family:var(--mono);font-size:12px;padding:5px 10px;cursor:pointer;">☰</button>
     <label>mapa
       <select id="map-select" style="background:var(--panel-2);border:1px solid var(--line);color:var(--ink);font-family:var(--mono);font-size:12px;padding:4px 6px;border-radius:3px;max-width:150px;"></select>
     </label>
@@ -617,6 +647,21 @@
       <div class="panel"><h2>Registro</h2><div id="log"></div></div>
     </aside>
   </main>
+
+  <div id="start">
+    <div class="sbox">
+      <h1 class="stitle">GEA</h1>
+      <div class="ssub">crónicas de la bestia mecánica</div>
+      <div class="sbtns">
+        <button id="st-continue">⌁ Continuar</button>
+        <button id="st-new">▶ Juego nuevo</button>
+        <button id="st-load">📂 Cargar partida</button>
+        <button id="st-config" disabled title="próximamente">⚙ Configuración</button>
+      </div>
+      <div class="sinfo" id="st-info"></div>
+      <div class="sver">motor Gea · prototipo</div>
+    </div>
+  </div>
 
   <div id="overlay"><div class="box"><h2 id="ov-title"></h2><p id="ov-sub"></p><div id="ov-merc"></div><div id="ov-xp"></div><button id="ov-restart">Nueva batalla</button></div></div>
 
