@@ -1,15 +1,15 @@
 import type { BattleEvent, Position, StatModifier, Team } from './types.js';
 
 /**
- * Progresión piloto/Zoid (decisiones de diseño en GAME-DESIGN.md):
+ * Progresión de pilotos (las decisiones de diseño viven en GAME-DESIGN.md):
  *
- *  - EL ZOID NO GANA EXPERIENCIA. Solo el piloto.
+ *  - LA UNIDAD NO GANA EXPERIENCIA. Solo quien la tripula.
  *  - El piloto gana XP por PISTAS DE ESPECIALIZACIÓN según lo que hace en
  *    batalla: daño a corta distancia → asalto; a larga → tirador;
  *    reparar aliados → soporte; encajar daño y sobrevivir → defensa.
  *  - Cada pista sube por umbrales y otorga bonificaciones vía el pipeline
- *    de StatModifier (datos en src/data/progression.ts).
- *  - El Zoid "se especializa hacia el mismo lado" por la vía material:
+ *    de StatModifier (la tabla concreta es dato del juego, no del motor).
+ *  - La unidad "se especializa hacia el mismo lado" por la vía material:
  *    armas y módulos etiquetados con una especialización (`spec`) dan un
  *    BONUS DE SINERGIA cuando los lleva un piloto con nivel en esa pista.
  *
