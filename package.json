@@ -11,14 +11,23 @@
     "demo": "tsx src/demo/cli.ts",
     "demo:auto": "tsx src/demo/cli.ts --auto",
     "web": "node scripts/build-web.mjs",
-    "balance": "tsx scripts/balance.ts"
+    "balance": "tsx scripts/balance.ts",
+    "web3d": "node scripts/build-web3d.mjs"
   },
   "devDependencies": {
+    "@gltf-transform/core": "^4.4.1",
+    "@gltf-transform/extensions": "^4.4.1",
+    "@gltf-transform/functions": "^4.4.1",
     "@types/node": "^22.10.0",
+    "@types/three": "^0.185.0",
     "esbuild": "^0.28.1",
+    "meshoptimizer": "^1.2.0",
     "playwright-core": "^1.61.1",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
     "vitest": "^2.1.0"
+  },
+  "dependencies": {
+    "three": "^0.185.1"
   }
 }
