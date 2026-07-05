@@ -68,6 +68,28 @@ export interface ExpeditionState {
   log: string[];
   /** Lugares ya explorados en esta expedición (una vez por sitio). */
   explored?: string[];
+  /** Ciudades cuyo trabajo de taberna ya se hizo en esta expedición. */
+  tavernJobsDone?: string[];
+}
+
+/**
+ * Sin suministros, la tripulación solo acepta moverse HACIA la
+ * civilización: tramos que reducen la distancia a la ciudad (o taller)
+ * más cercana.
+ */
+export function edgesTowardCivilization(
+  expedition: ExpeditionState,
+  region: WorldRegion,
+): WorldEdge[] {
+  const civilized = new Set(
+    region.nodes.filter((n) => n.city || n.id === region.hq).map((n) => n.id));
+  const distToCiv = (from: string): number => {
+    const dist = distancesFrom(region, from);
+    return Math.min(...[...civilized].map((id) => dist[id] ?? 99));
+  };
+  const here = distToCiv(expedition.at);
+  return availableEdges(expedition, region)
+    .filter((edge) => distToCiv(otherEnd(edge, expedition.at)) < here);
 }
 
 export function edgeKey(a: string, b: string): string {

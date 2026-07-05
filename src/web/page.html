@@ -458,6 +458,43 @@
   }
   .pquirk.empty { border-color: var(--line); color: var(--muted); border-style: dashed; }
 
+  /* ── Pantalla de ciudad ── */
+  #city {
+    display: none; position: fixed; inset: 0; background: rgba(4, 8, 11, 0.94);
+    z-index: 21; overflow-y: auto; padding: 20px 14px;
+  }
+  #city.show { display: block; }
+  #city .gbox {
+    max-width: 1220px; margin: 0 auto; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px 20px;
+  }
+  #city .gtop { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+  #city .gtop h2 { margin: 0; font-size: 14px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--energy); }
+  #city-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 10px; }
+  @media (max-width: 900px) { #city-body { grid-template-columns: 1fr; } }
+  .csec { background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; }
+  .csec h3 {
+    margin: 0 0 8px; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--muted); font-weight: 600; border-bottom: 1px dashed var(--line); padding-bottom: 6px;
+  }
+  .csec .gbtn {
+    display: block; width: 100%; text-align: left; margin-bottom: 4px;
+    background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 4px;
+    font-family: var(--mono); font-size: 10px; padding: 6px 8px; cursor: pointer;
+  }
+  .csec .gbtn:hover:not(:disabled) { border-color: var(--energy); }
+  .csec .gbtn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .csec .cnote { font-family: var(--mono); font-size: 10px; color: var(--muted); margin: 2px 0 6px; line-height: 1.5; }
+  .csec .crow { display: flex; gap: 4px; align-items: center; margin-bottom: 4px; flex-wrap: wrap; }
+  .csec .crow .lbl { flex: 1; min-width: 130px; font-family: var(--mono); font-size: 10px; color: var(--ink); }
+  .csec .crow .gbtn { display: inline-block; width: auto; margin: 0; }
+  .csec select {
+    width: 100%; background: var(--panel); border: 1px solid var(--line); color: var(--ink);
+    font-family: var(--mono); font-size: 10px; padding: 4px 5px; border-radius: 3px; margin-bottom: 4px;
+  }
+  .wroute.locked { opacity: 0.35; cursor: not-allowed; }
+  .wwarn { font-family: var(--mono); font-size: 11px; color: var(--danger); font-weight: 700; margin-bottom: 6px; }
+
   /* ── Modo mercenario ── */
   #merc-btn {
     background: #3a2a12; color: var(--heat); border: 1px solid var(--heat);
@@ -652,6 +689,18 @@
         <button id="pilots-close" class="gsub">cerrar</button>
       </div>
       <div id="pilots-body"></div>
+    </div>
+  </div>
+
+  <div id="city">
+    <div class="gbox">
+      <div class="gtop">
+        <h2 id="city-name">Ciudad</h2>
+        <span class="gnote" id="city-desc"></span>
+        <span id="city-status" style="font-family:var(--mono);font-size:12px;font-weight:700;color:var(--energy)"></span>
+        <button id="city-close" class="gsub">← volver al mapa</button>
+      </div>
+      <div id="city-body"></div>
     </div>
   </div>
 

@@ -347,23 +347,75 @@ export function sellCargo(state: CampaignState, rate = 1): { state: CampaignStat
   return { state: { ...state, credits: state.credits + earned, cargo: [] }, earned };
 }
 
-/** Reparación en taller ajeno: coste/HP y tope de reparación propios. */
+/**
+ * Reparación en taller ajeno: coste/HP y tope propios, y el cliente
+ * elige CUÁNTO gastar (fraction 0-1 de lo reparable hasta el tope).
+ */
 export function cityRepair(
   state: CampaignState,
   slot: number,
   maxHp: number,
   costPerHp: number,
   capRatio: number,
+  fraction = 1,
 ): CampaignState {
   const zoid = state.roster[slot];
   if (!zoid || zoid.destroyed) return state;
   const cap = Math.round(maxHp * capRatio);
-  const target = Math.max(Math.min(zoid.hp, maxHp), cap);
-  const healed = target - Math.min(zoid.hp, maxHp);
+  const current = Math.min(zoid.hp, maxHp);
+  const healable = Math.max(0, cap - current);
+  const healed = Math.max(0, Math.round(healable * Math.max(0, Math.min(1, fraction))));
   const cost = Math.round(healed * costPerHp);
   if (healed <= 0 || state.credits < cost) return state;
-  const roster = state.roster.map((z, i) => (i === slot ? { ...z, hp: target } : z));
+  const roster = state.roster.map((z, i) => (i === slot ? { ...z, hp: current + healed } : z));
   return { ...state, roster, credits: state.credits - cost };
+}
+
+/**
+ * Trabajo de taberna: el encargo NO oficial de una ciudad — un combate
+ * local por dinero rápido. Determinista por (ciudad, ciclo); más pobre
+ * que un contrato del gremio y sin chatarra garantizada.
+ */
+export function tavernJob(
+  nodeId: string,
+  cityLevel: number,
+  cycle: number,
+  economy: EconomyTable,
+  enemyPool: string[],
+): Contract {
+  const rand = mulberry32(hashStr(`${nodeId}|tab|${cycle}`));
+  const budget = 2200 + cityLevel * 900;
+  const squad: string[] = [];
+  let remaining = budget;
+  for (let i = 0; i < 3; i++) {
+    const slotBudget = remaining / (3 - i);
+    const affordable = enemyPool.filter((id) => (economy.zoidPrices[id] ?? 0) <= slotBudget * 1.3);
+    const pick = affordable.length > 0
+      ? affordable[Math.floor(rand() * affordable.length)]!
+      : enemyPool.reduce((a, b) => ((economy.zoidPrices[a] ?? 0) <= (economy.zoidPrices[b] ?? 0) ? a : b));
+    squad.push(pick);
+    remaining -= economy.zoidPrices[pick] ?? 0;
+  }
+  squad.sort((a, b) => (economy.zoidPrices[b] ?? 0) - (economy.zoidPrices[a] ?? 0));
+  const names = ['Deuda de juego ajena', 'Espantar a los recaudadores', 'El silo en disputa', 'Un rival del tabernero'];
+  return {
+    id: `tav-${nodeId}-${cycle}`,
+    name: names[cycle % names.length]!,
+    tier: 'escolta',
+    enemySquad: squad,
+    reward: 350 + cityLevel * 120,
+    salvagePerKill: 45,
+  };
+}
+
+/** hash FNV local para semillas de texto. */
+function hashStr(text: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
 }
 
 /** Comprar el plano de un módulo (una sola vez; desbloquea montarlo). */

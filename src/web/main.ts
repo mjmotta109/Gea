@@ -30,11 +30,12 @@ import { ZOIDS } from '../data/zoids.js';
 import {
   buyBlueprint, buySupplies, buyWeapon, buyZoid, cityRepair, consumeSupplies,
   contractOffers, mountedCount, newCampaign, rebuildCost, rebuildZoid, repairCost,
-  repairZoid, resolveContract, sellCargo, sellWeapon, setMountedWeapons, stashCargo,
+  repairZoid, resolveContract, sellCargo, sellWeapon, setMountedWeapons, stashCargo, tavernJob,
   type CampaignState, type Contract,
 } from '../game/mercenary.js';
 import {
-  availableEdges, canExplore, exploreSite, otherEnd, startExpedition, travel, edgeKey,
+  availableEdges, canExplore, edgesTowardCivilization, exploreSite, otherEnd,
+  startExpedition, travel, edgeKey,
   type ExpeditionState, type WorldEdge,
 } from '../game/expedition.js';
 import { SALT_PASS_REGION } from '../data/world.js';
@@ -604,6 +605,10 @@ document.addEventListener('keydown', (event) => {
   }
   if (savesOpen) {
     if (event.key === 'Escape') closeSaves();
+    return;
+  }
+  if (cityOpen) {
+    if (event.key === 'Escape') closeCity();
     return;
   }
   if (worldOpen) {
@@ -1843,6 +1848,7 @@ function startContractExpedition(): void {
 function settleContract(): string {
   const contract = activeContract!;
   activeContract = null;
+  const isTavern = contract.id.startsWith('tav-');
   // La compañera (hueco 1) registra la batalla en su núcleo.
   companionMarkLines = [];
   if (campaign && deployedSlots.includes(0)) {
@@ -1858,6 +1864,37 @@ function settleContract(): string {
           `<div>❤ La compañera graba una marca: <b class="lvlup">${mark.name}</b> — <span style="color:var(--muted)">${mark.description}</span></div>`);
       }
     }
+  }
+  // Trabajo de taberna: paga y daña, pero no toca la misión oficial ni
+  // el ciclo de contratos; gane o pierda, se vuelve al mapa.
+  if (isTavern && expedition && campaign) {
+    const finalHpT = campaign.roster.map((_, slot) =>
+      deployedSlots.includes(slot) ? battle.unit(`P${slot + 1}`).hp : undefined);
+    const enemiesDownT = battle.units.filter((u) => u.team === 'enemy' && u.hp <= 0).length;
+    const settled = resolveContract(campaign, contract, {
+      winner: battle.winner, finalHp: finalHpT, enemiesDestroyed: enemiesDownT,
+    });
+    // resolveContract avanza el ciclo oficial: lo devolvemos a su sitio.
+    campaign = { ...settled.state, contractsDone: campaign.contractsDone };
+    expedition = {
+      ...expedition,
+      tavernJobsDone: [...(expedition.tavernJobsDone ?? []), expedition.at],
+      log: [...expedition.log,
+        `Día ${expedition.day} — Trabajo de taberna "${contract.name}": ${settled.report.rewardPaid ? `cumplido, +⌾${settled.report.creditsEarned}` : `salió mal (+⌾${settled.report.creditsEarned} de chatarra)`}.`],
+    };
+    returnToWorld = true;
+    returnToMerc = false;
+    saveCampaign();
+    saveExpedition();
+    const lines = [
+      ...companionMarkLines,
+      `<div><b>${contract.name}</b> — trabajo de taberna</div>`,
+      `<div class="mgain">+⌾${settled.report.creditsEarned}${settled.report.rewardPaid ? '' : ' (sin paga: solo chatarra)'}</div>`,
+    ];
+    if (settled.report.lost.length > 0) {
+      lines.push(`<div class="mloss">bajas: ${settled.report.lost.map((id) => ZOIDS[id]!.name).join(', ')}</div>`);
+    }
+    return lines.join('');
   }
   // Con expedición en curso: la victoria devuelve al mapa (decidir si
   // seguir o volver); la derrota es retirada — la expedición se acaba.
@@ -1991,15 +2028,26 @@ function renderWorld(): void {
     nodesHost.appendChild(el);
   }
 
-  // Rutas disponibles desde aquí.
+  // Rutas disponibles desde aquí. Sin suministros, la tripulación solo
+  // acepta moverse hacia la civilización.
   const routes = $('world-routes');
   routes.innerHTML = '';
+  const starving = campaign.supplies <= 0;
+  const allowed = starving
+    ? new Set(edgesTowardCivilization(expedition, REGION).map((e) => edgeKey(e.a, e.b)))
+    : null;
+  if (starving) {
+    routes.insertAdjacentHTML('beforeend',
+      '<div class="wwarn">⚠ SIN SUMINISTROS: la tripulación solo acepta rutas hacia la ciudad más cercana.</div>');
+  }
   for (const edge of availableEdges(expedition, REGION)) {
     const destination = REGION.nodes.find((n) => n.id === otherEnd(edge, expedition!.at))!;
+    const locked = allowed !== null && !allowed.has(edgeKey(edge.a, edge.b));
     const btn = document.createElement('button');
-    btn.className = 'wroute';
-    btn.innerHTML = `→ <b>${destination.name}</b> · ${edge.flavor} · <span class="cost">${edge.days} jornada${edge.days > 1 ? 's' : ''}</span>`;
-    btn.addEventListener('click', () => doTravel(edge));
+    btn.className = 'wroute' + (locked ? ' locked' : '');
+    btn.disabled = locked;
+    btn.innerHTML = `${locked ? '🔒 ' : '→ '}<b>${destination.name}</b> · ${edge.flavor} · <span class="cost">${edge.days} jornada${edge.days > 1 ? 's' : ''}</span>`;
+    if (!locked) btn.addEventListener('click', () => doTravel(edge));
     routes.appendChild(btn);
   }
 
@@ -2027,7 +2075,13 @@ function renderWorld(): void {
     explore.addEventListener('click', doExplore);
     actions.appendChild(explore);
   }
-  renderCityPanel(here);
+  if (here.city) {
+    const enter = document.createElement('button');
+    enter.className = 'calm';
+    enter.textContent = `🏙 Entrar a ${here.name} (nivel ${here.city.level}${here.city.factory ? ` · fábrica de ${here.city.factory}` : ''})`;
+    enter.addEventListener('click', () => openCity());
+    actions.appendChild(enter);
+  }
   $('world-cargo').innerHTML = campaign.cargo.length > 0
     ? campaign.cargo.map((c) => `<div>${c.name} · ⌾${c.value}</div>`).join('') +
       `<div>(${campaign.cargo.length}/${CARGO_CAPACITY})</div>`
@@ -2037,50 +2091,279 @@ function renderWorld(): void {
   void here;
 }
 
-/** Servicios de la ciudad en la que estamos (si es ciudad). */
-function renderCityPanel(node: (typeof REGION.nodes)[number]): void {
-  const actions = $('world-actions');
-  const city = node.city;
-  if (!campaign || !expedition || !city) return;
-  const tier = CITY_TIERS[city.level];
-  const box = document.createElement('div');
-  box.className = 'citybox';
-  box.innerHTML = `<div class="ctitle">🏙 ${node.name} — nivel ${city.level}${city.factory ? ` · fábrica de ${city.factory}` : ''}</div>`;
+// ── La ciudad: una pantalla propia, agrupada por establecimientos ───────
 
-  const mk = (label: string, disabled: boolean, onClick: () => void): void => {
-    const btn = document.createElement('button');
-    btn.className = 'gbtn';
-    btn.textContent = label;
-    btn.disabled = disabled;
-    btn.addEventListener('click', onClick);
-    box.appendChild(btn);
+let cityOpen = false;
+
+function cityNode(): (typeof REGION.nodes)[number] | undefined {
+  if (!expedition) return undefined;
+  const node = REGION.nodes.find((n) => n.id === expedition!.at);
+  return node?.city ? node : undefined;
+}
+
+function openCity(): void {
+  if (!cityNode()) return;
+  cityOpen = true;
+  renderCity();
+  $('city').classList.add('show');
+}
+
+function closeCity(): void {
+  cityOpen = false;
+  $('city').classList.remove('show');
+  renderWorld();
+}
+
+/** Un establecimiento de la ciudad (sección de la pantalla). */
+function citySection(title: string): HTMLElement {
+  const sec = document.createElement('div');
+  sec.className = 'csec';
+  sec.innerHTML = `<h3>${title}</h3>`;
+  $('city-body').appendChild(sec);
+  return sec;
+}
+
+function cityButton(host: HTMLElement, label: string, disabled: boolean, onClick: () => void): void {
+  const btn = document.createElement('button');
+  btn.className = 'gbtn';
+  btn.textContent = label;
+  btn.disabled = disabled;
+  btn.addEventListener('click', () => { onClick(); renderCity(); });
+  host.appendChild(btn);
+}
+
+/** Un día pasa en la ciudad (descansos, jornales, terapias). */
+function cityDay(days: number, line: string): void {
+  expedition = {
+    ...expedition!,
+    day: expedition!.day + days,
+    log: [...expedition!.log, `Día ${expedition!.day + days} — ${line}`],
   };
+  saveExpedition();
+}
 
-  // Desahogos: de la vela gratuita a la casa de placer. Todos cuestan
-  // un día y alivian a todo el equipo; cada uno con su carácter.
+function renderCity(): void {
+  const node = cityNode();
+  if (!campaign || !expedition || !node?.city) return;
+  const city = node.city;
+  const tier = CITY_TIERS[city.level];
+  $('city-name').textContent = `${node.name} — nivel ${city.level}`;
+  $('city-desc').textContent = node.description;
+  $('city-status').textContent = `⌾${campaign.credits} · suministros ${campaign.supplies} · día ${expedition.day}`;
+  $('city-body').innerHTML = '';
+
+  // ⚒ TALLER — arreglos básicos, siempre; eliges cuánto gastar.
+  const taller = citySection('⚒ Taller — arreglos básicos');
+  taller.insertAdjacentHTML('beforeend',
+    `<div class="cnote">Repara hasta el ${Math.round(tier.repairCapRatio * 100)}% del casco a ⌾${tier.repairCostPerHp}/HP. La munición se repone al desplegar (incluida).</div>`);
+  let anyRepair = false;
+  campaign.roster.forEach((zoid, slot) => {
+    if (zoid.destroyed) {
+      taller.insertAdjacentHTML('beforeend',
+        `<div class="cnote">💥 ${ZOIDS[zoid.unitTypeId]!.name}: destruido — la reconstrucción es cosa del cuartel.</div>`);
+      return;
+    }
+    const maxHp = campaignMaxHp(slot);
+    const cap = Math.round(maxHp * tier.repairCapRatio);
+    const current = Math.min(zoid.hp, maxHp);
+    const healable = Math.max(0, cap - current);
+    if (healable <= 0) return;
+    anyRepair = true;
+    const row = document.createElement('div');
+    row.className = 'crow';
+    row.innerHTML = `<span class="lbl">${ZOIDS[zoid.unitTypeId]!.name} · ${current}/${maxHp} HP</span>`;
+    for (const fraction of [0.25, 0.5, 1]) {
+      const heal = Math.max(0, Math.round(healable * fraction));
+      const cost = Math.round(heal * tier.repairCostPerHp);
+      if (heal <= 0) continue;
+      const btn = document.createElement('button');
+      btn.className = 'gbtn';
+      btn.textContent = `+${heal} HP (⌾${cost})`;
+      btn.disabled = campaign!.credits < cost;
+      btn.addEventListener('click', () => {
+        campaign = cityRepair(campaign!, slot, campaignMaxHp(slot), tier.repairCostPerHp, tier.repairCapRatio, fraction);
+        saveCampaign(); renderCity();
+      });
+      row.appendChild(btn);
+    }
+    taller.appendChild(row);
+  });
+  if (!anyRepair) taller.insertAdjacentHTML('beforeend', '<div class="cnote">Todo el metal en pie está dentro del tope de este taller.</div>');
+
+  // 🏪 MERCADER — suministros, bodega, jornal y armas de segunda mano.
+  const store = citySection('🏪 Mercader');
+  for (const count of [1, 5]) {
+    cityButton(store, `📦 +${count} suministro${count > 1 ? 's' : ''} (⌾${tier.supplyPrice * count})`,
+      campaign.credits < tier.supplyPrice * count,
+      () => { campaign = buySupplies(campaign!, count, ECONOMY, tier.supplyPrice); saveCampaign(); });
+  }
+  if (campaign.cargo.length > 0) {
+    const total = Math.round(campaign.cargo.reduce((n, c) => n + c.value, 0) * tier.cargoRate);
+    cityButton(store, `💰 Vender bodega (${campaign.cargo.length} objetos) — ⌾${total} al ${Math.round(tier.cargoRate * 100)}%`, false, () => {
+      const sold = sellCargo(campaign!, tier.cargoRate);
+      campaign = sold.state;
+      cityDay(0, `Bodega vendida en ${node.name}: +⌾${sold.earned}.`);
+      saveCampaign();
+    });
+  }
+  for (const [weaponId, owned] of Object.entries(campaign.armory)) {
+    const spare = owned - mountedCount(campaign, weaponId);
+    const price = ECONOMY.weaponPrices[weaponId];
+    if (spare <= 0 || price === undefined) continue;
+    const weapon = CATALOGS.weaponCatalog[weaponId];
+    if (!weapon) continue;
+    cityButton(store, `♻ Vender ${weapon.name} (libre ×${spare}) — ⌾${Math.round(price * ECONOMY.sellFactor)}`, false,
+      () => { campaign = sellWeapon(campaign!, weaponId, ECONOMY); saveCampaign(); });
+  }
+  cityButton(store, '🧰 Jornal en el muelle (+⌾40, 1 día)', false, () => {
+    campaign = { ...campaign!, credits: campaign!.credits + 40 };
+    cityDay(1, `Un día de jornal honrado en ${node.name}: +⌾40.`);
+    saveCampaign();
+  });
+
+  // 🏭 FÁBRICA — armas con descuento o planos de piezas.
+  if (city.factory === 'armas') {
+    const factory = citySection(`🏭 Fábrica de armas (−${Math.round(tier.factoryDiscount * 100)}%)`);
+    for (const [weaponId, price] of Object.entries(ECONOMY.weaponPrices)) {
+      const weapon = CATALOGS.weaponCatalog[weaponId];
+      if (!weapon || !weapon.spec) continue;
+      const local = Math.round(price * (1 - tier.factoryDiscount));
+      cityButton(factory, `${weapon.name} [${SPEC_LABEL[weapon.spec]}] — ⌾${local} (cat. ⌾${price})`,
+        campaign!.credits < local,
+        () => {
+          campaign = { ...buyWeapon({ ...campaign!, credits: campaign!.credits + price - local }, weaponId, ECONOMY) };
+          saveCampaign();
+        });
+    }
+  }
+  if (city.factory === 'piezas') {
+    const factory = citySection(`🏭 Fábrica de piezas — planos (−${Math.round(tier.factoryDiscount * 100)}%)`);
+    for (const [moduleId, price] of Object.entries(BLUEPRINT_PRICES)) {
+      const module = MODULES[moduleId];
+      if (!module) continue;
+      const owned = campaign.moduleBlueprints.includes(moduleId);
+      const local = Math.round(price * (1 - tier.factoryDiscount));
+      cityButton(factory, owned ? `📐 ${module.name} — adquirido ✓` : `📐 Plano: ${module.name} — ⌾${local}`,
+        owned || campaign!.credits < local,
+        () => { campaign = buyBlueprint(campaign!, moduleId, local); saveCampaign(); });
+    }
+  }
+
+  // 🏗 FABRICACIÓN DE ZOIDS — encargar chasis (nivel 2+).
+  if (city.level >= 2) {
+    const yard = citySection('🏗 Fabricación de Zoids — encargo con retoma');
+    campaign.roster.forEach((zoid, slot) => {
+      const maxHp = campaignMaxHp(slot);
+      const select = document.createElement('select');
+      const keep = document.createElement('option');
+      keep.value = '';
+      keep.textContent = `P${slot + 1} ${ZOIDS[zoid.unitTypeId]!.name}${slot === 0 ? ' ❤' : ''} (mantener)`;
+      select.appendChild(keep);
+      for (const unit of Object.values(ZOIDS)) {
+        if (unit.id === zoid.unitTypeId) continue;
+        const price = ECONOMY.zoidPrices[unit.id];
+        if (price === undefined) continue;
+        const probe = buyZoid(campaign!, slot, unit.id, maxHp, ECONOMY, factoryLoadout);
+        const net = campaign!.credits - probe.credits;
+        const opt = document.createElement('option');
+        opt.value = unit.id;
+        opt.textContent = `${unit.name} · neto ⌾${net}`;
+        opt.disabled = probe === campaign;
+        select.appendChild(opt);
+      }
+      select.addEventListener('change', () => {
+        if (!select.value) return;
+        if (slot === 0 && (campaign!.companion.markIds.length > 0 || campaign!.companion.rapport > 0)) {
+          if (!window.confirm('Es tu COMPAÑERA. Cambiar de chasis borra sus marcas y la compenetración. ¿Seguro?')) {
+            renderCity();
+            return;
+          }
+        }
+        const before = campaign!;
+        campaign = buyZoid(campaign!, slot, select.value, maxHp, ECONOMY, factoryLoadout);
+        if (slot === 0 && campaign !== before) campaign = { ...campaign, companion: newCompanion() };
+        saveCampaign(); renderCity();
+      });
+      yard.appendChild(select);
+    });
+  }
+
+  // 🔧 MODIFICACIÓN — tunear: armas del arsenal y módulos con plano.
+  const mod = citySection('🔧 Modificación (tunear)');
+  campaign.roster.forEach((zoid, slot) => {
+    if (zoid.destroyed) return;
+    const def = ZOIDS[zoid.unitTypeId]!;
+    mod.insertAdjacentHTML('beforeend',
+      `<div class="cnote"><b style="color:var(--ink)">P${slot + 1} ${def.name}${slot === 0 ? ' ❤' : ''}</b></div>`);
+    const legal = compatibleWeapons(zoid.unitTypeId);
+    for (let wSlot = 0; wSlot < 3; wSlot++) {
+      const current = zoid.weapons[wSlot] ?? '';
+      const select = document.createElement('select');
+      select.innerHTML = '<option value="">— sin arma —</option>';
+      for (const weaponId of legal) {
+        const owned = campaign!.armory[weaponId] ?? 0;
+        if (owned === 0) continue;
+        const spare = owned - mountedCount(campaign!, weaponId) + (current === weaponId ? 1 : 0);
+        if (spare <= 0) continue;
+        const weapon = CATALOGS.weaponCatalog[weaponId]!;
+        const opt = document.createElement('option');
+        opt.value = weaponId;
+        opt.textContent = weapon.spec ? `${weapon.name} [${SPEC_LABEL[weapon.spec]}]` : weapon.name;
+        if (current === weaponId) opt.selected = true;
+        select.appendChild(opt);
+      }
+      select.addEventListener('change', () => {
+        const picked = [0, 1, 2].map((i) => (i === wSlot ? select.value : zoid.weapons[i] ?? '')).filter(Boolean);
+        campaign = setMountedWeapons(campaign!, slot, picked);
+        saveCampaign(); renderCity();
+      });
+      mod.appendChild(select);
+    }
+    for (const entry of def.frame ?? []) {
+      const options = (GARAGE_MODULE_OPTIONS[entry.slot] ?? [])
+        .filter((id) => MODULES[id] && campaign!.moduleBlueprints.includes(id));
+      if (options.length === 0) continue;
+      const select = document.createElement('select');
+      for (const moduleId of [entry.moduleId, ...options]) {
+        const module = MODULES[moduleId]!;
+        const opt = document.createElement('option');
+        opt.value = moduleId;
+        opt.textContent = moduleId === entry.moduleId ? `${module.name} (fábrica)` : module.name;
+        if ((zoid.slots[entry.slot] ?? entry.moduleId) === moduleId) opt.selected = true;
+        select.appendChild(opt);
+      }
+      select.addEventListener('change', () => {
+        const slots = { ...zoid.slots };
+        if (select.value === entry.moduleId) delete slots[entry.slot];
+        else slots[entry.slot] = select.value;
+        campaign = { ...campaign!, roster: campaign!.roster.map((z, i) => (i === slot ? { ...z, slots } : z)) };
+        saveCampaign(); renderCity();
+      });
+      mod.appendChild(select);
+    }
+  });
+
+  // 😴 DESCANSOS — de la vela al Farol Rojo, y el consultorio.
+  const rest = citySection('😴 Descansos y consultorio');
   const maxStress = Math.max(...PILOT_IDS.map((id) => pilots[id]!.stress ?? 0));
   const restDay = (relief: number, cost: number, line: string): void => {
     campaign = { ...campaign!, credits: campaign!.credits - cost };
     for (const id of PILOT_IDS) pilots[id] = adjustStress(pilots[id]!, -relief);
-    expedition = {
-      ...expedition!,
-      day: expedition!.day + 1,
-      log: [...expedition!.log, `Día ${expedition!.day + 1} — ${line}`],
-    };
-    savePilots(); saveCampaign(); saveExpedition(); renderWorld();
+    cityDay(1, line);
+    savePilots(); saveCampaign();
   };
-  mk(`😴 Pensión: descansar 1 día (−${tier.restRelief} estrés, ⌾${tier.restCost})`,
+  cityButton(rest, `😴 Pensión (−${tier.restRelief} estrés, ⌾${tier.restCost}, 1 día)`,
     campaign.credits < tier.restCost || maxStress === 0,
-    () => restDay(tier.restRelief, tier.restCost, `Descanso en ${node.name}. Los pilotos respiran.`));
+    () => restDay(tier.restRelief, tier.restCost, `Descanso en ${node.name}.`));
   for (const leisure of LEISURE_OPTIONS) {
     if (city.level < leisure.minLevel) continue;
-    mk(`${leisure.id === 'vela' ? '🕯' : leisure.id === 'cantina' ? '🍺' : '🏮'} ${leisure.name} (−${leisure.relief}, ⌾${leisure.cost})`,
+    const icon = leisure.id === 'vela' ? '🕯' : leisure.id === 'cantina' ? '🍺' : '🏮';
+    cityButton(rest, `${icon} ${leisure.name} (−${leisure.relief}, ⌾${leisure.cost}, 1 día)`,
       campaign.credits < leisure.cost || maxStress === 0,
       () => {
         let cost = leisure.cost;
         let line = `${leisure.name} en ${node.name}.`;
         if (leisure.rowdy) {
-          // La ronda a veces se alarga (determinista por día y lugar).
           const roll = (Math.imul(expedition!.day * 2654435761 ^ node.id.length * 97, 668265263) >>> 0) / 4294967296;
           if (roll < 0.3 && campaign!.credits >= Math.round(cost * 1.5)) {
             cost = Math.round(cost * 1.5);
@@ -2089,17 +2372,12 @@ function renderCityPanel(node: (typeof REGION.nodes)[number]): void {
           for (const id of PILOT_IDS) {
             const marked = recordPilotEvent(pilots[id]!, 'parrandas', PERKS);
             pilots[id] = marked.pilot;
-            for (const quirk of marked.gained) {
-              line += ` ${pilots[id]!.name} vuelve con la manía ${quirk.name}.`;
-            }
+            for (const quirk of marked.gained) line += ` ${pilots[id]!.name} vuelve con la manía ${quirk.name}.`;
           }
         }
         restDay(leisure.relief, cost, line);
       });
   }
-
-  // Consultorio (nivel 2+): la terapia reencuadra una manía — el trauma
-  // no se borra, se aprende a vivir con él. Sin dados.
   if (city.level >= THERAPY.minLevel) {
     for (const pilotId of PILOT_IDS) {
       const pilot = pilots[pilotId]!;
@@ -2107,85 +2385,84 @@ function renderCityPanel(node: (typeof REGION.nodes)[number]): void {
         const quirk = PERKS.quirks?.[quirkId];
         const target = quirk?.reframedTo ? PERKS.quirks?.[quirk.reframedTo] : undefined;
         if (!quirk || !target) continue;
-        mk(`🛋 Terapia — ${escapeHtml(pilot.name)}: "${quirk.name}" → "${target.name}" (⌾${THERAPY.cost}, ${THERAPY.days} días)`,
+        cityButton(rest, `🛋 Terapia — ${pilot.name}: "${quirk.name}" → "${target.name}" (⌾${THERAPY.cost}, ${THERAPY.days} días)`,
           campaign!.credits < THERAPY.cost,
           () => {
             const reframed = reframeQuirk(pilots[pilotId]!, quirkId, PERKS);
             if (!reframed) return;
             pilots[pilotId] = adjustStress(reframed, -THERAPY.stressRelief);
             campaign = { ...campaign!, credits: campaign!.credits - THERAPY.cost };
-            expedition = {
-              ...expedition!,
-              day: expedition!.day + THERAPY.days,
-              log: [...expedition!.log,
-                `Día ${expedition!.day + THERAPY.days} — ${pilots[pilotId]!.name} sale del consultorio de ${node.name}: "${quirk.name}" ya no manda — ahora es "${target.name}".`],
-            };
-            savePilots(); saveCampaign(); saveExpedition(); renderWorld();
+            cityDay(THERAPY.days, `${pilots[pilotId]!.name} sale del consultorio: "${quirk.name}" ahora es "${target.name}".`);
+            savePilots(); saveCampaign();
           });
       }
     }
   }
 
-  // Taller local: repara cada máquina dañada según el nivel.
-  campaign.roster.forEach((zoid, slot) => {
-    if (zoid.destroyed) return;
-    const maxHp = campaignMaxHp(slot);
-    const cap = Math.round(maxHp * tier.repairCapRatio);
-    const current = Math.min(zoid.hp, maxHp);
-    const healed = Math.max(0, cap - current);
-    if (healed <= 0) return;
-    const cost = Math.round(healed * tier.repairCostPerHp);
-    mk(`🔧 Reparar ${ZOIDS[zoid.unitTypeId]!.name} +${healed} HP (⌾${cost})`,
-      campaign!.credits < cost,
-      () => {
-        campaign = cityRepair(campaign!, slot, campaignMaxHp(slot), tier.repairCostPerHp, tier.repairCapRatio);
-        saveCampaign(); renderWorld();
-      });
-  });
+  // 🍻 TABERNA / GREMIO — misiones oficiales y no tan oficiales.
+  const tavern = citySection('🍻 Taberna y gremio');
+  tavern.insertAdjacentHTML('beforeend',
+    '<div class="cnote">Los contratos OFICIALES del gremio se firman en el cuartel (Base Arcadia). Aquí, entre jarras, se consiguen otros encargos…</div>');
+  const jobDone = (expedition.tavernJobsDone ?? []).includes(node.id);
+  const job = tavernJob(node.id, city.level, campaign.contractsDone, ECONOMY, CONTRACT_ENEMY_POOL);
+  if (jobDone) {
+    tavern.insertAdjacentHTML('beforeend', '<div class="cnote">✓ Ya hiciste el trabajo sucio de esta ciudad. El tabernero te sirve gratis la primera.</div>');
+  } else {
+    cityButton(tavern,
+      `🤫 "${job.name}" — contra ${job.enemySquad.map((id) => ZOIDS[id]!.name).join(', ')} · paga ⌾${job.reward} + chatarra`,
+      !campaign.roster.some((z) => !z.destroyed),
+      () => fightTavernBattle(job, node.id));
+  }
+}
 
-  // Comercio: suministros al precio local y compra de la bodega.
-  mk(`📦 +2 suministros (⌾${tier.supplyPrice * 2})`, campaign.credits < tier.supplyPrice * 2, () => {
-    campaign = buySupplies(campaign!, 2, ECONOMY, tier.supplyPrice);
-    saveCampaign(); renderWorld();
-  });
-  if (campaign.cargo.length > 0) {
-    const total = Math.round(campaign.cargo.reduce((n, c) => n + c.value, 0) * tier.cargoRate);
-    mk(`💰 Vender bodega aquí (⌾${total} al ${Math.round(tier.cargoRate * 100)}%)`, false, () => {
-      const sold = sellCargo(campaign!, tier.cargoRate);
-      campaign = sold.state;
-      expedition = { ...expedition!, log: [...expedition!.log, `Día ${expedition!.day} — Bodega vendida en ${node.name}: +⌾${sold.earned}.`] };
-      saveCampaign(); saveExpedition(); renderWorld();
-    });
+/** El trabajo no oficial: un combate local, aquí y ahora. */
+function fightTavernBattle(job: Contract, nodeId: string): void {
+  if (!campaign || !expedition) return;
+  const alive = campaign.roster
+    .map((zoid, slot) => ({ zoid, slot }))
+    .filter(({ zoid }) => !zoid.destroyed);
+  if (alive.length === 0) return;
+  const node = REGION.nodes.find((n) => n.id === nodeId)!;
+  let field = battlefield();
+  const custom = customMaps[node.name];
+  if (custom) {
+    try {
+      field = { map: GameMap.fromAscii(custom.rows), playerPos: custom.playerSpawns, enemyPos: custom.enemySpawns };
+    } catch { /* cae al de cabecera */ }
   }
-
-  // Fábricas: armas con descuento / planos de piezas.
-  if (city.factory === 'armas') {
-    for (const [weaponId, price] of Object.entries(ECONOMY.weaponPrices).slice(0, 24)) {
-      const weapon = CATALOGS.weaponCatalog[weaponId];
-      if (!weapon || !weapon.spec) continue; // la fábrica exhibe lo especializado
-      const local = Math.round(price * (1 - tier.factoryDiscount));
-      mk(`🏭 ${weapon.name} ⌾${local} (cat. ⌾${price})`, campaign!.credits < local, () => {
-        campaign = { ...buyWeapon({ ...campaign!, credits: campaign!.credits + price - local }, weaponId, ECONOMY) };
-        saveCampaign(); renderWorld();
-      });
-    }
-  }
-  if (city.factory === 'piezas') {
-    for (const [moduleId, price] of Object.entries(BLUEPRINT_PRICES)) {
-      const module = MODULES[moduleId];
-      if (!module) continue;
-      const owned = campaign.moduleBlueprints.includes(moduleId);
-      const local = Math.round(price * (1 - tier.factoryDiscount));
-      mk(owned ? `📐 ${module.name} — plano adquirido ✓` : `📐 Plano: ${module.name} ⌾${local}`,
-        owned || campaign!.credits < local,
-        () => {
-          campaign = buyBlueprint(campaign!, moduleId, local);
-          saveCampaign(); renderWorld();
-        });
-    }
-  }
-  $('world-actions').appendChild(box);
-  void actions;
+  const spawns: UnitSpawn[] = [
+    ...alive.map(({ zoid, slot }, k) => ({
+      id: `P${slot + 1}`,
+      name: ZOIDS[zoid.unitTypeId]!.name,
+      unitTypeId: zoid.unitTypeId,
+      team: 'player' as Team,
+      position: field.playerPos[k]!,
+      hp: zoid.hp,
+      loadout: {
+        weapons: [...zoid.weapons],
+        ...(Object.keys(zoid.slots).length > 0 ? { slots: { ...zoid.slots } } : {}),
+      },
+      ...(slot === 0 ? { modifiers: companionModifiers(campaign!.companion, COMPANION_TABLE) } : {}),
+      ...(k === 0 ? { commander: true } : {}),
+    })),
+    ...job.enemySquad.map((unitTypeId, i) => ({
+      id: `E${i + 1}`,
+      name: ZOIDS[unitTypeId]!.name,
+      unitTypeId,
+      team: 'enemy' as Team,
+      position: field.enemyPos[i]!,
+      ...(i === 0 ? { commander: true } : {}),
+    })),
+  ];
+  deployedSlots = alive.map(({ slot }) => slot);
+  activeContract = job;
+  returnToMerc = false;
+  returnToWorld = false;
+  closeCity();
+  closeWorld();
+  const seed = (Number(($('seed') as HTMLInputElement).value) || 42) + expedition.day * 131 + nodeId.length * 17;
+  const weather = expedition.forcedWeather ?? (($('weather') as HTMLSelectElement).value as WeatherId);
+  startBattle(spawns, seed, weather, field.map);
 }
 
 /** Explorar las ruinas: un día, y lo que haya dentro. */
@@ -2761,6 +3038,7 @@ $('ov-restart').addEventListener('click', restart);
 $('garage-btn').addEventListener('click', openGarage);
 $('deploy').addEventListener('click', () => { closeGarage(); returnToMerc = false; restart(); });
 $('merc-btn').addEventListener('click', () => { if (expedition) openWorld(); else openMerc(); });
+$('city-close').addEventListener('click', closeCity);
 $('merc-deploy').addEventListener('click', startContractExpedition);
 $('merc-skirmish').addEventListener('click', () => { closeMerc(); openGarage(); });
 $('merc-reset').addEventListener('click', () => {

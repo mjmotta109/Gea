@@ -341,3 +341,24 @@ arquitectura del motor van en DESIGN.md.)*
   manías reencuadradas solo se alcanzan por terapia (umbral infinito).
   Pendiente: desahogos con preferencias por piloto (a quien no le gusta
   la cantina), terapia de grupo, y el consultorio del taller propio.
+- **2026-07-05** — LA CIUDAD ES UNA PANTALLA PROPIA + HAMBRE DE
+  SUMINISTROS (dirección del usuario):
+  - Sin suministros, la tripulación SOLO acepta rutas que acerquen a la
+    civilización (ciudad o taller más cercano, por Dijkstra); las demás
+    se bloquean con candado. La marcha forzada sigue castigando. Válvula
+    anti-quiebra: el jornal del muelle (+⌾40 por día) garantiza que
+    siempre se puede remontar.
+  - Entrar a una ciudad abre SU PANTALLA, agrupada por establecimientos:
+    ⚒ Taller (arreglos básicos SIEMPRE, eligiendo cuánto gastar: 25/50/
+    100% de lo reparable hasta el tope del nivel; la munición se repone
+    al desplegar), 🏪 Mercader (suministros, bodega, armas de segunda
+    mano, jornal), 🏭 Fábrica (armas o planos, según especialidad),
+    🏗 Fabricación de Zoids (encargo con retoma, nivel 2+), 🔧
+    Modificación/tunear (armas del arsenal y módulos con plano), 😴
+    Descansos y consultorio (pensión, vela, cantina, Farol Rojo,
+    terapia), y 🍻 Taberna y gremio.
+  - TABERNA: encargos NO oficiales — un combate local (3 enemigos,
+    determinista por ciudad y ciclo) que paga menos que el gremio, no
+    toca la misión oficial ni el ciclo de contratos, se hace una vez por
+    ciudad por expedición, y perderlo no cancela la expedición. Los
+    contratos oficiales siguen firmándose en el cuartel.

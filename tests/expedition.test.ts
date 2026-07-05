@@ -7,7 +7,7 @@ import {
 } from '../src/game/mercenary.js';
 import { canExplore, exploreSite } from '../src/game/expedition.js';
 import { adjustStress, newPilot, observeBattle, pilotModifiers } from '../src/core/progression.js';
-import { CITY_TIERS } from '../src/data/economy.js';
+import { CITY_TIERS, CONTRACT_ENEMY_POOL } from '../src/data/economy.js';
 import { PERKS } from '../src/data/progression.js';
 import { ECONOMY } from '../src/data/economy.js';
 import { SALT_PASS_REGION } from '../src/data/world.js';
@@ -232,3 +232,43 @@ describe('desahogos y terapia', () => {
     expect(reframeQuirk(fourth.pilot, 'juerguista', PERKS)!.quirks).toEqual(['alma-de-la-compania']);
   });
 });
+
+describe('ciudad: pantalla y reglas nuevas', () => {
+  it('sin suministros solo hay rutas hacia la civilización', async () => {
+    const { edgesTowardCivilization } = await import('../src/game/expedition.js');
+    // En el Nido del Grande (lo más lejano), las salidas civilizadas
+    // apuntan a Puesto Cardo o hacia las ruinas (camino a Porto Azul).
+    const exp = { ...startExpedition(SALT_PASS_REGION, 'c3-caza', 'caza'), at: 'nido-del-grande' };
+    const toward = edgesTowardCivilization(exp, SALT_PASS_REGION);
+    expect(toward.length).toBeGreaterThan(0);
+    expect(toward.length).toBeLessThanOrEqual(availableEdges(exp, SALT_PASS_REGION).length);
+    // Desde un paraje junto a ciudad, la ruta a la ciudad está incluida.
+    const exp2 = { ...exp, at: 'dunas-rotas' };
+    const toward2 = edgesTowardCivilization(exp2, SALT_PASS_REGION);
+    expect(toward2.some((e) => otherEnd2(e, 'dunas-rotas') === 'villa-brasa')).toBe(true);
+  });
+
+  it('reparación parcial: eliges cuánto gastar', () => {
+    let state = newCampaign(ECONOMY, factoryLoadout);
+    state = { ...state, roster: state.roster.map((z, i) => (i === 0 ? { ...z, hp: 40 } : z)) };
+    const tier = CITY_TIERS[2];
+    const half = cityRepair(state, 0, 140, tier.repairCostPerHp, tier.repairCapRatio, 0.5);
+    expect(half.roster[0]!.hp).toBe(90); // 40 + 50 (la mitad de 100 reparables)
+    expect(half.credits).toBe(state.credits - Math.round(50 * tier.repairCostPerHp));
+  });
+
+  it('el trabajo de taberna es determinista y escala con el nivel', async () => {
+    const { tavernJob } = await import('../src/game/mercenary.js');
+    const a = tavernJob('puesto-cardo', 1, 3, ECONOMY, CONTRACT_ENEMY_POOL);
+    const b = tavernJob('puesto-cardo', 1, 3, ECONOMY, CONTRACT_ENEMY_POOL);
+    expect(a).toEqual(b);
+    expect(a.enemySquad).toHaveLength(3); // más pequeño que un contrato
+    expect(a.id.startsWith('tav-')).toBe(true);
+    const big = tavernJob('porto-azul', 2, 3, ECONOMY, CONTRACT_ENEMY_POOL);
+    expect(big.reward).toBeGreaterThan(a.reward);
+  });
+});
+
+function otherEnd2(edge: { a: string; b: string }, from: string): string {
+  return edge.a === from ? edge.b : edge.a;
+}
