@@ -290,3 +290,26 @@ arquitectura del motor van en DESIGN.md.)*
   entre máquinas; será el formato nativo cuando haya build de
   escritorio. Cargar aplica el documento y rearranca por el camino
   normal de inicio (un solo código de carga).
+- **2026-07-05** — ESTRÉS DE PILOTOS, CIUDADES Y RUINAS (dirección del
+  usuario):
+  - Estrés (0-100, temporal — las manías son lo permanente): sube con
+    el castigo encajado, los apagados, ver caer aliados, perder la
+    máquina y las marchas forzadas; la victoria alivia un poco. Tramos
+    con síntoma (solo aplica el más alto): Tenso 50+ (−2 PUNT), Al
+    límite 75+ (−4 PUNT −3 EVA), Quebrado 95+ (−6/−5/−1 MOV). Se
+    descansa en las ciudades.
+  - Ciudades con NIVELES (1 aldea → 3 capital): menos nivel = barato
+    pero peor (el taller de aldea solo repara al 70%, el catre alivia
+    poco, la bodega se malvende al 80%); más nivel = eficaz y caro.
+    Especializaciones: FÁBRICAS de armas (catálogo especializado con
+    descuento) y de piezas (venden PLANOS de módulos aftermarket — se
+    compran una vez y desbloquean el montaje en campaña; ya no son
+    gratis). Tres ciudades en el Paso de Sal: Villa Brasa (aldea),
+    Puesto Cardo (aldea + fábrica de piezas), Porto Azul (ciudad +
+    fábrica de armas).
+  - Ruinas EXPLORABLES: un día por exploración, determinista por
+    contrato/lugar, una vez por expedición: hallazgo valioso (45%),
+    polvo (25%) o susto (+12 estrés a todos, a veces con botín).
+  Pendiente: capital nivel 3 en la próxima región, manías ligadas al
+  estrés (quebrarse debería dejar cicatriz), descanso en el taller
+  propio.

@@ -32,8 +32,19 @@ export const SALT_PASS_REGION: WorldRegion = {
       description: 'Una ciudad de antes de la guerra. Nadie vuelve con las manos vacías. Nadie vuelve entero.',
     },
     {
-      id: 'puesto-cardo', name: 'Puesto Cardo', kind: 'puesto', x: 80, y: 68,
-      description: 'Último puesto avanzado con bandera. Café malo, información buena.',
+      id: 'puesto-cardo', name: 'Puesto Cardo', kind: 'ciudad', x: 80, y: 68,
+      description: 'Último puesto con bandera. Café malo, información buena, y un taller de piezas que hace milagros baratos.',
+      city: { level: 1, factory: 'piezas' },
+    },
+    {
+      id: 'villa-brasa', name: 'Villa Brasa', kind: 'ciudad', x: 16, y: 84,
+      description: 'Aldea minera al borde de las dunas. Catres duros, manos honradas, precios de pueblo.',
+      city: { level: 1 },
+    },
+    {
+      id: 'porto-azul', name: 'Porto Azul', kind: 'ciudad', x: 36, y: 10,
+      description: 'La ciudad del río: armerías con vitrina, talleres certificados y camas que no crujen. Todo tiene precio.',
+      city: { level: 2, factory: 'armas' },
     },
     {
       id: 'nido-del-grande', name: 'Nido del Grande', kind: 'nido', x: 90, y: 35,
@@ -50,5 +61,9 @@ export const SALT_PASS_REGION: WorldRegion = {
     { a: 'paso-de-sal', b: 'puesto-cardo', days: 1, flavor: 'La bajada oriental' },
     { a: 'ruinas-de-helio', b: 'nido-del-grande', days: 1, flavor: 'El sendero de huesos' },
     { a: 'puesto-cardo', b: 'nido-del-grande', days: 2, flavor: 'La cornisa del acantilado' },
+    { a: 'base-arcadia', b: 'villa-brasa', days: 1, flavor: 'El camino de las carretas' },
+    { a: 'villa-brasa', b: 'dunas-rotas', days: 1, flavor: 'La linde del mar de arena' },
+    { a: 'cruce-del-rio', b: 'porto-azul', days: 1, flavor: 'La ribera navegable' },
+    { a: 'porto-azul', b: 'ruinas-de-helio', days: 2, flavor: 'La calzada del norte' },
   ],
 };

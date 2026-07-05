@@ -12,14 +12,14 @@ import { attackArc, type AttackArc } from '../core/combat.js';
 import { GameMap, posKey, terrainLabel, TERRAIN_COVER } from '../core/grid.js';
 import { reachableTiles, type ReachableTile } from '../core/pathfinding.js';
 import {
-  applyXp, awardXp, dominantTrack, newPilot, observeBattle, trackLevel,
+  adjustStress, applyXp, awardXp, dominantTrack, newPilot, observeBattle, trackLevel,
   TRACK_LEVEL_THRESHOLDS, SPECIALIZATIONS,
   type PilotState, type SpecializationId,
 } from '../core/progression.js';
 import { STATUS_DEFINITIONS } from '../core/status.js';
 import type { BattleEvent, Facing, Position, Team, UnitState, WeatherId } from '../core/types.js';
 import { ABILITIES } from '../data/abilities.js';
-import { CONTRACT_ENEMY_POOL, ECONOMY } from '../data/economy.js';
+import { BLUEPRINT_PRICES, CITY_TIERS, CONTRACT_ENEMY_POOL, ECONOMY } from '../data/economy.js';
 import { VALLEY_CROSSING } from '../data/maps.js';
 import { GARAGE_MODULE_OPTIONS, MODULES } from '../data/modules.js';
 import { PERKS } from '../data/progression.js';
@@ -27,13 +27,13 @@ import { withWeaponLibrary } from '../data/weaponLibrary.js';
 import { WEAPONS } from '../data/weapons.js';
 import { ZOIDS } from '../data/zoids.js';
 import {
-  buySupplies, buyWeapon, buyZoid, consumeSupplies, contractOffers, mountedCount,
-  newCampaign, rebuildCost, rebuildZoid, repairCost, repairZoid, resolveContract,
-  sellCargo, sellWeapon, setMountedWeapons, stashCargo,
+  buyBlueprint, buySupplies, buyWeapon, buyZoid, cityRepair, consumeSupplies,
+  contractOffers, mountedCount, newCampaign, rebuildCost, rebuildZoid, repairCost,
+  repairZoid, resolveContract, sellCargo, sellWeapon, setMountedWeapons, stashCargo,
   type CampaignState, type Contract,
 } from '../game/mercenary.js';
 import {
-  availableEdges, otherEnd, startExpedition, travel, edgeKey,
+  availableEdges, canExplore, exploreSite, otherEnd, startExpedition, travel, edgeKey,
   type ExpeditionState, type WorldEdge,
 } from '../game/expedition.js';
 import { SALT_PASS_REGION } from '../data/world.js';
@@ -151,6 +151,7 @@ function loadPilots(): Record<string, PilotState> {
     }
     if (Array.isArray(raw?.quirks)) pilot.quirks = raw.quirks.filter((q) => typeof q === 'string');
     if (raw?.memory && typeof raw.memory === 'object') pilot.memory = { ...raw.memory };
+    if (typeof raw?.stress === 'number') pilot.stress = Math.max(0, Math.min(100, Math.round(raw.stress)));
     pilots[id] = pilot;
   });
   return pilots;
@@ -1195,13 +1196,24 @@ function renderXpSummary(): string {
 
     // Memoria y manías: lo vivido deja huella en cada piloto desplegado.
     const quirkLines: string[] = [];
-    for (const unit of battle.units.filter((u) => u.team === 'player')) {
+    const playerUnits = battle.units.filter((u) => u.team === 'player');
+    const alliesLostTotal = playerUnits.filter((u) => u.hp <= 0).length;
+    for (const unit of playerUnits) {
       const pilotId = PILOT_IDS[Number(unit.id.slice(1)) - 1];
       const pilot = pilotId ? pilots[pilotId] : undefined;
       if (!pilot) continue;
       const ratio = unit.hp / Math.max(1, battle.effectiveStats(unit).maxHp);
-      const observed = observeBattle(pilot, { events: allEvents, unitId: unit.id, finalHpRatio: ratio }, PERKS);
+      const before = pilot.stress ?? 0;
+      const observed = observeBattle(pilot, {
+        events: allEvents, unitId: unit.id, finalHpRatio: ratio,
+        victory: battle.winner === 'player',
+        alliesLost: alliesLostTotal - (unit.hp <= 0 ? 1 : 0),
+      }, PERKS);
       pilots = { ...pilots, [pilot.id]: observed.pilot };
+      const after = observed.pilot.stress;
+      if (Math.abs(after - before) >= 5 || after >= 50) {
+        quirkLines.push(`<div>💢 <b>${escapeHtml(observed.pilot.name)}</b>: estrés ${before}→${after}${stressLabel(after) ? ` <span style="color:var(--heat)">(${stressLabel(after)})</span>` : ''}</div>`);
+      }
       for (const quirk of observed.gained) {
         quirkLines.push(`<div>🧠 <b>${escapeHtml(observed.pilot.name)}</b> adquiere la manía <b class="lvlup">${quirk.name}</b> — <span style="color:var(--muted)">${quirk.description}</span></div>`);
       }
@@ -1287,6 +1299,12 @@ function synergyPieces(config: SlotConfig, pilot: PilotState): { spec: Specializ
   ];
   const count = Math.min(PERKS.synergyCap, specs.filter((s) => s === dominant).length);
   return count > 0 ? { spec: dominant, count } : undefined;
+}
+
+/** Etiqueta del tramo de estrés alcanzado ('' si está entero). */
+function stressLabel(stress: number): string {
+  const tier = [...(PERKS.stressTiers ?? [])].sort((a, b) => b.min - a.min).find((t) => stress >= t.min);
+  return tier?.label ?? '';
 }
 
 function pilotSummary(pilot: PilotState): string {
@@ -1454,6 +1472,7 @@ function loadCampaign(): CampaignState | null {
     // Campañas anteriores a la capa de viaje: dotarlas de intendencia.
     if (typeof state.supplies !== 'number') state.supplies = ECONOMY.startingSupplies;
     if (!Array.isArray(state.cargo)) state.cargo = [];
+    if (!Array.isArray(state.moduleBlueprints)) state.moduleBlueprints = [];
     return state;
   } catch {
     return null;
@@ -1656,9 +1675,11 @@ function renderMercHangar(): void {
         mkRow(`Arma ${wSlot + 1}`, weaponSelect);
       }
 
-      // Módulos por slot del frame (recambios gratis en esta rebanada).
+      // Módulos por slot del frame: solo la pieza de fábrica y los
+      // planos comprados en fábricas de piezas.
       for (const entry of def.frame ?? []) {
-        const options = (GARAGE_MODULE_OPTIONS[entry.slot] ?? []).filter((id) => MODULES[id]);
+        const options = (GARAGE_MODULE_OPTIONS[entry.slot] ?? [])
+          .filter((id) => MODULES[id] && campaign!.moduleBlueprints.includes(id));
         if (options.length === 0) continue;
         const moduleSelect = document.createElement('select');
         for (const moduleId of [entry.moduleId, ...options]) {
@@ -1941,6 +1962,13 @@ function renderWorld(): void {
     home.addEventListener('click', endExpedition);
     actions.appendChild(home);
   }
+  if (canExplore(expedition, REGION)) {
+    const explore = document.createElement('button');
+    explore.textContent = '🔦 Explorar las ruinas (1 día)';
+    explore.addEventListener('click', doExplore);
+    actions.appendChild(explore);
+  }
+  renderCityPanel(here);
   $('world-cargo').innerHTML = campaign.cargo.length > 0
     ? campaign.cargo.map((c) => `<div>${c.name} · ⌾${c.value}</div>`).join('') +
       `<div>(${campaign.cargo.length}/${CARGO_CAPACITY})</div>`
@@ -1948,6 +1976,121 @@ function renderWorld(): void {
   $('world-log').innerHTML = [...expedition.log].reverse()
     .map((line) => `<div${line.includes('⚠') ? ' class="warn"' : ''}>${line}</div>`).join('');
   void here;
+}
+
+/** Servicios de la ciudad en la que estamos (si es ciudad). */
+function renderCityPanel(node: (typeof REGION.nodes)[number]): void {
+  const actions = $('world-actions');
+  const city = node.city;
+  if (!campaign || !expedition || !city) return;
+  const tier = CITY_TIERS[city.level];
+  const box = document.createElement('div');
+  box.className = 'citybox';
+  box.innerHTML = `<div class="ctitle">🏙 ${node.name} — nivel ${city.level}${city.factory ? ` · fábrica de ${city.factory}` : ''}</div>`;
+
+  const mk = (label: string, disabled: boolean, onClick: () => void): void => {
+    const btn = document.createElement('button');
+    btn.className = 'gbtn';
+    btn.textContent = label;
+    btn.disabled = disabled;
+    btn.addEventListener('click', onClick);
+    box.appendChild(btn);
+  };
+
+  // Descanso: alivia estrés a todo el equipo, cuesta un día.
+  const maxStress = Math.max(...PILOT_IDS.map((id) => pilots[id]!.stress ?? 0));
+  mk(`😴 Descansar 1 día (−${tier.restRelief} estrés, ⌾${tier.restCost})`,
+    campaign.credits < tier.restCost || maxStress === 0,
+    () => {
+      campaign = { ...campaign!, credits: campaign!.credits - tier.restCost };
+      for (const id of PILOT_IDS) pilots[id] = adjustStress(pilots[id]!, -tier.restRelief);
+      expedition = {
+        ...expedition!,
+        day: expedition!.day + 1,
+        log: [...expedition!.log, `Día ${expedition!.day + 1} — Descanso en ${node.name}. Los pilotos respiran.`],
+      };
+      savePilots(); saveCampaign(); saveExpedition(); renderWorld();
+    });
+
+  // Taller local: repara cada máquina dañada según el nivel.
+  campaign.roster.forEach((zoid, slot) => {
+    if (zoid.destroyed) return;
+    const maxHp = campaignMaxHp(slot);
+    const cap = Math.round(maxHp * tier.repairCapRatio);
+    const current = Math.min(zoid.hp, maxHp);
+    const healed = Math.max(0, cap - current);
+    if (healed <= 0) return;
+    const cost = Math.round(healed * tier.repairCostPerHp);
+    mk(`🔧 Reparar ${ZOIDS[zoid.unitTypeId]!.name} +${healed} HP (⌾${cost})`,
+      campaign!.credits < cost,
+      () => {
+        campaign = cityRepair(campaign!, slot, campaignMaxHp(slot), tier.repairCostPerHp, tier.repairCapRatio);
+        saveCampaign(); renderWorld();
+      });
+  });
+
+  // Comercio: suministros al precio local y compra de la bodega.
+  mk(`📦 +2 suministros (⌾${tier.supplyPrice * 2})`, campaign.credits < tier.supplyPrice * 2, () => {
+    campaign = buySupplies(campaign!, 2, ECONOMY, tier.supplyPrice);
+    saveCampaign(); renderWorld();
+  });
+  if (campaign.cargo.length > 0) {
+    const total = Math.round(campaign.cargo.reduce((n, c) => n + c.value, 0) * tier.cargoRate);
+    mk(`💰 Vender bodega aquí (⌾${total} al ${Math.round(tier.cargoRate * 100)}%)`, false, () => {
+      const sold = sellCargo(campaign!, tier.cargoRate);
+      campaign = sold.state;
+      expedition = { ...expedition!, log: [...expedition!.log, `Día ${expedition!.day} — Bodega vendida en ${node.name}: +⌾${sold.earned}.`] };
+      saveCampaign(); saveExpedition(); renderWorld();
+    });
+  }
+
+  // Fábricas: armas con descuento / planos de piezas.
+  if (city.factory === 'armas') {
+    for (const [weaponId, price] of Object.entries(ECONOMY.weaponPrices).slice(0, 24)) {
+      const weapon = CATALOGS.weaponCatalog[weaponId];
+      if (!weapon || !weapon.spec) continue; // la fábrica exhibe lo especializado
+      const local = Math.round(price * (1 - tier.factoryDiscount));
+      mk(`🏭 ${weapon.name} ⌾${local} (cat. ⌾${price})`, campaign!.credits < local, () => {
+        campaign = { ...buyWeapon({ ...campaign!, credits: campaign!.credits + price - local }, weaponId, ECONOMY) };
+        saveCampaign(); renderWorld();
+      });
+    }
+  }
+  if (city.factory === 'piezas') {
+    for (const [moduleId, price] of Object.entries(BLUEPRINT_PRICES)) {
+      const module = MODULES[moduleId];
+      if (!module) continue;
+      const owned = campaign.moduleBlueprints.includes(moduleId);
+      const local = Math.round(price * (1 - tier.factoryDiscount));
+      mk(owned ? `📐 ${module.name} — plano adquirido ✓` : `📐 Plano: ${module.name} ⌾${local}`,
+        owned || campaign!.credits < local,
+        () => {
+          campaign = buyBlueprint(campaign!, moduleId, local);
+          saveCampaign(); renderWorld();
+        });
+    }
+  }
+  $('world-actions').appendChild(box);
+  void actions;
+}
+
+/** Explorar las ruinas: un día, y lo que haya dentro. */
+function doExplore(): void {
+  if (!campaign || !expedition) return;
+  const result = exploreSite(expedition, REGION);
+  expedition = result.expedition;
+  if (result.cargo) {
+    const before = campaign.cargo.length;
+    campaign = stashCargo(campaign, result.cargo, CARGO_CAPACITY);
+    if (campaign.cargo.length === before) {
+      expedition = { ...expedition, log: [...expedition.log, `⚠ La bodega está llena: ${result.cargo.name} se quedó atrás.`] };
+    }
+  }
+  if (result.stressDelta > 0) {
+    for (const id of PILOT_IDS) pilots[id] = adjustStress(pilots[id]!, result.stressDelta);
+    savePilots();
+  }
+  saveCampaign(); saveExpedition(); renderWorld();
 }
 
 function doTravel(edge: WorldEdge): void {
@@ -1968,9 +2111,11 @@ function doTravel(edge: WorldEdge): void {
         return { ...zoid, hp };
       }),
     };
+    for (const id of PILOT_IDS) pilots[id] = adjustStress(pilots[id]!, 5 * consumed.shortage);
+    savePilots();
     expedition = {
       ...expedition,
-      log: [...expedition.log, `⚠ Día ${expedition.day} — Sin suministros: marcha forzada. Las máquinas sufren.`],
+      log: [...expedition.log, `⚠ Día ${expedition.day} — Sin suministros: marcha forzada. Máquinas y pilotos sufren.`],
     };
   }
   if (result.cargo) {
@@ -2266,6 +2411,16 @@ function renderPilots(): void {
       track.appendChild(nodes);
       card.appendChild(track);
     }
+
+    const stress = pilot.stress ?? 0;
+    const label = stressLabel(stress);
+    const stressBox = document.createElement('div');
+    stressBox.className = 'pstress';
+    stressBox.innerHTML =
+      `<span class="qtitle">Estrés</span>` +
+      `<span class="bar ht"><i style="width:${stress}%"></i></span>` +
+      `<span class="pxp">${stress}/100${label ? ` · ${label}` : ''}</span>`;
+    card.appendChild(stressBox);
 
     const quirksBox = document.createElement('div');
     quirksBox.className = 'pquirks';

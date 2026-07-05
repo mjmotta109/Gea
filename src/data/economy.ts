@@ -1,5 +1,41 @@
 import type { EconomyTable } from '../game/mercenary.js';
 
+/** Parámetros de servicio por nivel de ciudad (1 = aldea, 3 = capital). */
+export interface CityTier {
+  /** Coste de reparación por HP (el taller propio cobra 2). */
+  repairCostPerHp: number;
+  /** Hasta qué fracción del maxHp sabe reparar este taller. */
+  repairCapRatio: number;
+  /** Estrés que alivia un día de descanso, y su precio (equipo entero). */
+  restRelief: number;
+  restCost: number;
+  /** Precio del suministro y tasa de venta de la bodega. */
+  supplyPrice: number;
+  cargoRate: number;
+  /** Descuento de fábrica sobre el precio de catálogo (0.25 = −25%). */
+  factoryDiscount: number;
+}
+
+export const CITY_TIERS: Record<1 | 2 | 3, CityTier> = {
+  // Aldea: barata y voluntariosa, pero el taller no hace milagros y el
+  // catre es duro.
+  1: { repairCostPerHp: 1.5, repairCapRatio: 0.7, restRelief: 15, restCost: 40, supplyPrice: 50, cargoRate: 0.8, factoryDiscount: 0.15 },
+  // Ciudad: servicio completo a precio justo.
+  2: { repairCostPerHp: 2.5, repairCapRatio: 1, restRelief: 30, restCost: 110, supplyPrice: 40, cargoRate: 1, factoryDiscount: 0.25 },
+  // Capital: lo mejor de lo mejor, y lo cobra.
+  3: { repairCostPerHp: 3.5, repairCapRatio: 1, restRelief: 50, restCost: 240, supplyPrice: 35, cargoRate: 1.15, factoryDiscount: 0.3 },
+};
+
+/** Planos de módulos aftermarket (se compran una vez, en fábricas de piezas). */
+export const BLUEPRINT_PRICES: Record<string, number> = {
+  'am-sniper-sensor': 380,
+  'am-armored-head': 350,
+  'am-assault-boosters': 400,
+  'am-shield-pack': 320,
+  'am-recoil-dampers': 300,
+  'am-heavy-claws': 450,
+};
+
 /**
  * Tabla económica del modo mercenario. Los precios NO son arbitrarios:
  * derivan del ciclo de balance del hangar (npm run balance:hangar,

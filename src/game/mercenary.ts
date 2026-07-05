@@ -47,6 +47,8 @@ export interface CampaignState {
   supplies: number;
   /** Bodega: hallazgos de ruta que se venden al volver al taller. */
   cargo: Array<{ name: string; value: number }>;
+  /** Planos de módulos comprados en fábricas (desbloquean el montaje). */
+  moduleBlueprints: string[];
 }
 
 /**
@@ -81,7 +83,7 @@ export function newCampaign(
     }
     return { unitTypeId, hp: FULL_HP, destroyed: false, ...loadout };
   });
-  return { credits: economy.startingCredits, roster, armory, contractsDone: 0, supplies: economy.startingSupplies, cargo: [] };
+  return { credits: economy.startingCredits, roster, armory, contractsDone: 0, supplies: economy.startingSupplies, cargo: [], moduleBlueprints: [] };
 }
 
 // ── Contratos deterministas ──────────────────────────────────────────────
@@ -310,8 +312,8 @@ export function setMountedWeapons(state: CampaignState, slot: number, weapons: s
 
 // ── Expedición: suministros y bodega ─────────────────────────────────────
 
-export function buySupplies(state: CampaignState, count: number, economy: EconomyTable): CampaignState {
-  const cost = count * economy.supplyPrice;
+export function buySupplies(state: CampaignState, count: number, economy: EconomyTable, unitPrice?: number): CampaignState {
+  const cost = count * (unitPrice ?? economy.supplyPrice);
   if (count <= 0 || state.credits < cost) return state;
   return { ...state, credits: state.credits - cost, supplies: state.supplies + count };
 }
@@ -334,8 +336,37 @@ export function stashCargo(state: CampaignState, item: { name: string; value: nu
   return { ...state, cargo: [...state.cargo, item] };
 }
 
-/** Vender toda la bodega al volver al taller. */
-export function sellCargo(state: CampaignState): { state: CampaignState; earned: number } {
-  const earned = state.cargo.reduce((n, c) => n + c.value, 0);
+/** Vender toda la bodega (la tasa depende de dónde: taller = 1). */
+export function sellCargo(state: CampaignState, rate = 1): { state: CampaignState; earned: number } {
+  const earned = Math.round(state.cargo.reduce((n, c) => n + c.value, 0) * rate);
   return { state: { ...state, credits: state.credits + earned, cargo: [] }, earned };
+}
+
+/** Reparación en taller ajeno: coste/HP y tope de reparación propios. */
+export function cityRepair(
+  state: CampaignState,
+  slot: number,
+  maxHp: number,
+  costPerHp: number,
+  capRatio: number,
+): CampaignState {
+  const zoid = state.roster[slot];
+  if (!zoid || zoid.destroyed) return state;
+  const cap = Math.round(maxHp * capRatio);
+  const target = Math.max(Math.min(zoid.hp, maxHp), cap);
+  const healed = target - Math.min(zoid.hp, maxHp);
+  const cost = Math.round(healed * costPerHp);
+  if (healed <= 0 || state.credits < cost) return state;
+  const roster = state.roster.map((z, i) => (i === slot ? { ...z, hp: target } : z));
+  return { ...state, roster, credits: state.credits - cost };
+}
+
+/** Comprar el plano de un módulo (una sola vez; desbloquea montarlo). */
+export function buyBlueprint(state: CampaignState, moduleId: string, price: number): CampaignState {
+  if (state.moduleBlueprints.includes(moduleId) || state.credits < price) return state;
+  return {
+    ...state,
+    credits: state.credits - price,
+    moduleBlueprints: [...state.moduleBlueprints, moduleId],
+  };
 }

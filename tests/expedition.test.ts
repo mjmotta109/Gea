@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest';
 import {
   assignTarget, availableEdges, distancesFrom, edgeKey, startExpedition, travel,
 } from '../src/game/expedition.js';
-import { buySupplies, consumeSupplies, newCampaign, sellCargo, stashCargo } from '../src/game/mercenary.js';
+import {
+  buyBlueprint, buySupplies, cityRepair, consumeSupplies, newCampaign, sellCargo, stashCargo,
+} from '../src/game/mercenary.js';
+import { canExplore, exploreSite } from '../src/game/expedition.js';
+import { adjustStress, newPilot, observeBattle, pilotModifiers } from '../src/core/progression.js';
+import { CITY_TIERS } from '../src/data/economy.js';
+import { PERKS } from '../src/data/progression.js';
 import { ECONOMY } from '../src/data/economy.js';
 import { SALT_PASS_REGION } from '../src/data/world.js';
 import { ZOIDS } from '../src/data/zoids.js';
@@ -83,5 +89,75 @@ describe('capa de viaje: la región y las expediciones', () => {
     const sold = sellCargo(state);
     expect(sold.earned).toBe(300);
     expect(sold.state.cargo).toHaveLength(0);
+  });
+});
+
+describe('ciudades: servicios por nivel', () => {
+  it('el taller de aldea es barato pero no repara del todo', () => {
+    let state = newCampaign(ECONOMY, factoryLoadout);
+    state = { ...state, roster: state.roster.map((z, i) => (i === 0 ? { ...z, hp: 40 } : z)) };
+    const tier = CITY_TIERS[1];
+    const repaired = cityRepair(state, 0, 140, tier.repairCostPerHp, tier.repairCapRatio);
+    expect(repaired.roster[0]!.hp).toBe(98); // 70% de 140
+    expect(repaired.credits).toBe(state.credits - Math.round(58 * tier.repairCostPerHp));
+    // La capital repara a tope, más caro.
+    const capital = cityRepair(state, 0, 140, CITY_TIERS[3].repairCostPerHp, CITY_TIERS[3].repairCapRatio);
+    expect(capital.roster[0]!.hp).toBe(140);
+  });
+
+  it('vender la bodega a tasa de aldea paga menos; planos solo una vez', () => {
+    let state = newCampaign(ECONOMY, factoryLoadout);
+    state = stashCargo(state, { name: 'Chatarra', value: 100 }, 4);
+    const village = sellCargo(state, CITY_TIERS[1].cargoRate);
+    expect(village.earned).toBe(80);
+    state = buyBlueprint(state, 'am-heavy-claws', 450);
+    expect(state.moduleBlueprints).toEqual(['am-heavy-claws']);
+    const again = buyBlueprint(state, 'am-heavy-claws', 450);
+    expect(again).toEqual(state); // ya lo tiene: sin cambios
+  });
+});
+
+describe('estrés de pilotos', () => {
+  it('el combate estresa, la victoria alivia y los tramos penalizan', () => {
+    let pilot = newPilot('s', 'Sudoroso');
+    const events = [
+      { type: 'damage-dealt', unitId: 'E', targetUnitId: 'U', amount: 60, targetHp: 40 },
+    ];
+    // Derrota + castigo + aliado perdido + roce: estrés considerable.
+    let result = observeBattle(pilot, {
+      events: events as never, unitId: 'U', finalHpRatio: 0.15, victory: false, alliesLost: 1,
+    }, PERKS);
+    // castigo 60/15=4 + aliado 6 + roce 6 + derrota 4 = 20
+    expect(result.pilot.stress).toBe(20);
+    // La victoria alivia.
+    result = observeBattle(result.pilot, {
+      events: [] as never, unitId: 'U', finalHpRatio: 1, victory: true,
+    }, PERKS);
+    expect(result.pilot.stress).toBe(12);
+    // Tramos: a 80 de estrés, "Al límite" entra al pipeline.
+    pilot = adjustStress(result.pilot, 68);
+    expect(pilot.stress).toBe(80);
+    const mods = pilotModifiers(pilot, [], PERKS);
+    expect(mods.some((m) => m.source === 'stress:al-limite' && m.stat === 'accuracy' && m.add === -4)).toBe(true);
+    // Y solo el tramo más alto (no se apilan Tenso + Al límite).
+    expect(mods.some((m) => m.source === 'stress:tenso')).toBe(false);
+    // El descanso acota a [0, 100].
+    expect(adjustStress(pilot, -500).stress).toBe(0);
+  });
+});
+
+describe('ruinas: exploración', () => {
+  it('explorar cuesta un día, es determinista y solo una vez por sitio', () => {
+    let exp = startExpedition(SALT_PASS_REGION, 'c9-caza', 'caza');
+    exp = { ...exp, at: 'ruinas-de-helio' };
+    expect(canExplore(exp, SALT_PASS_REGION)).toBe(true);
+    const a = exploreSite(exp, SALT_PASS_REGION);
+    const b = exploreSite(exp, SALT_PASS_REGION);
+    expect(a).toEqual(b); // determinista
+    expect(a.expedition.day).toBe(exp.day + 1);
+    expect(['find', 'dust', 'scare']).toContain(a.outcome);
+    expect(canExplore(a.expedition, SALT_PASS_REGION)).toBe(false); // ya explorado
+    // En un paraje no hay nada que explorar.
+    expect(canExplore({ ...exp, at: 'paso-de-sal' }, SALT_PASS_REGION)).toBe(false);
   });
 });

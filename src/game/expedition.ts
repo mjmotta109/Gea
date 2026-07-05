@@ -14,11 +14,20 @@
 export interface WorldNode {
   id: string;
   name: string;
-  kind: 'taller' | 'paraje' | 'ruinas' | 'paso' | 'nido' | 'puesto';
+  kind: 'taller' | 'paraje' | 'ruinas' | 'paso' | 'nido' | 'puesto' | 'ciudad';
   description: string;
   /** Posición en el mapa del cliente (0-100, solo presentación). */
   x: number;
   y: number;
+  /** Servicios urbanos, si el lugar es (o tiene) una ciudad. */
+  city?: CitySpec;
+}
+
+export interface CitySpec {
+  /** Nivel 1 (aldea) a 3 (capital): mejor servicio, mayor precio. */
+  level: 1 | 2 | 3;
+  /** Fábrica local: catálogo con descuento y exclusivas. */
+  factory?: 'armas' | 'piezas';
 }
 
 export interface WorldEdge {
@@ -57,6 +66,8 @@ export interface ExpeditionState {
   forcedWeather?: 'rain' | 'sandstorm';
   /** Diario de la expedición, línea a línea. */
   log: string[];
+  /** Lugares ya explorados en esta expedición (una vez por sitio). */
+  explored?: string[];
 }
 
 export function edgeKey(a: string, b: string): string {
@@ -237,4 +248,75 @@ export function travel(
 export function availableEdges(expedition: ExpeditionState, region: WorldRegion): WorldEdge[] {
   return neighbors(region, expedition.at)
     .filter((e) => !expedition.blockedEdges.includes(edgeKey(e.a, e.b)));
+}
+
+// ── Exploración de sitios (ruinas): riesgo y recompensa ──────────────────
+
+export interface ExploreResult {
+  expedition: ExpeditionState;
+  outcome: 'find' | 'dust' | 'scare';
+  eventText: string;
+  cargo?: CargoItem;
+  /** Estrés que el susto añade a TODOS los pilotos (0 si no hubo). */
+  stressDelta: number;
+}
+
+const RUIN_FINDS: CargoItem[] = [
+  { name: 'Reliquia de antes de la guerra', value: 420 },
+  { name: 'Banco de memoria corrupto', value: 300 },
+  { name: 'Aleación irrepetible', value: 360 },
+  { name: 'Sello de una casa extinta', value: 500 },
+];
+
+/** ¿El lugar admite exploración (y aún no se exploró en este viaje)? */
+export function canExplore(expedition: ExpeditionState, region: WorldRegion): boolean {
+  const node = region.nodes.find((n) => n.id === expedition.at);
+  return node?.kind === 'ruinas' && !(expedition.explored ?? []).includes(node.id);
+}
+
+/**
+ * Explorar las ruinas: cuesta un día, y lo que pase es determinista por
+ * (contrato, lugar). Nadie vuelve con las manos vacías... casi nadie.
+ */
+export function exploreSite(expedition: ExpeditionState, region: WorldRegion): ExploreResult {
+  const node = region.nodes.find((n) => n.id === expedition.at)!;
+  const rand = mulberry32(hashString(`${expedition.contractId}|explore|${node.id}`));
+  const roll = rand();
+  const day = expedition.day + 1;
+  const explored = [...(expedition.explored ?? []), node.id];
+
+  let outcome: ExploreResult['outcome'];
+  let eventText: string;
+  let cargo: CargoItem | undefined;
+  let stressDelta = 0;
+
+  if (roll < 0.45) {
+    outcome = 'find';
+    cargo = RUIN_FINDS[Math.floor(rand() * RUIN_FINDS.length)]!;
+    eventText = `Bajo los escombros: ${cargo.name} (⌾${cargo.value}).`;
+  } else if (roll < 0.7) {
+    outcome = 'dust';
+    eventText = 'Solo polvo y ecos. Alguien llegó antes.';
+  } else {
+    outcome = 'scare';
+    stressDelta = 12;
+    eventText = 'Algo se movió entre las vigas. Nadie lo vio bien. Nadie quiere volver a mirar.';
+    if (rand() < 0.5) {
+      cargo = RUIN_FINDS[Math.floor(rand() * RUIN_FINDS.length)]!;
+      eventText += ` Aun así, salió con ${cargo.name} (⌾${cargo.value}).`;
+    }
+  }
+
+  return {
+    expedition: {
+      ...expedition,
+      day,
+      explored,
+      log: [...expedition.log, `Día ${day} — Exploramos ${node.name}. ${eventText}`],
+    },
+    outcome,
+    eventText,
+    cargo,
+    stressDelta,
+  };
 }

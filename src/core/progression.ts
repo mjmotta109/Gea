@@ -31,6 +31,8 @@ export interface PilotState {
   quirks: string[];
   /** Memoria vivida: contadores de experiencias que engendran manías. */
   memory: Record<string, number>;
+  /** Estrés acumulado (0-100): sube en combate, baja descansando. */
+  stress: number;
 }
 
 export function newPilot(id: string, name: string): PilotState {
@@ -39,6 +41,7 @@ export function newPilot(id: string, name: string): PilotState {
     tracks: { assault: 0, sniper: 0, support: 0, defense: 0 },
     quirks: [],
     memory: {},
+    stress: 0,
   };
 }
 
@@ -199,6 +202,12 @@ export interface PerkTable {
   quirks?: Record<string, QuirkDefinition>;
   /** Máximo de manías por piloto (las siguientes ya no se graban). */
   quirkCap?: number;
+  /**
+   * Tramos de estrés: al alcanzar `min`, sus modificadores entran al
+   * pipeline (solo aplica el tramo más alto alcanzado). El estrés es
+   * temporal: se descansa; las manías son para siempre.
+   */
+  stressTiers?: Array<{ min: number; label: string; modifiers: StatModifier[] }>;
 }
 
 /**
@@ -247,7 +256,19 @@ export function pilotModifiers(
     const quirk = table.quirks?.[quirkId];
     if (quirk) mods.push(...quirk.modifiers);
   }
+  // El estrés pasa factura: solo el tramo más alto alcanzado.
+  const stress = pilot.stress ?? 0;
+  const tier = [...(table.stressTiers ?? [])]
+    .sort((a, b) => b.min - a.min)
+    .find((t) => stress >= t.min);
+  if (tier) mods.push(...tier.modifiers);
   return mods;
+}
+
+/** Ajusta el estrés de un piloto, acotado a [0, 100]. Sin mutar. */
+export function adjustStress(pilot: PilotState, delta: number): PilotState {
+  const stress = Math.max(0, Math.min(100, Math.round((pilot.stress ?? 0) + delta)));
+  return { ...pilot, stress };
 }
 
 // ── Memoria y manías: lo vivido deja huella ─────────────────────────────
@@ -258,6 +279,10 @@ export interface BattleObservation {
   unitId: string;
   /** hp final / maxHp de su máquina (0 si quedó destruida). */
   finalHpRatio: number;
+  /** ¿Ganó su equipo? Alivia el estrés; perder lo agrava. */
+  victory?: boolean;
+  /** Aliados destruidos en la batalla (ver caer a los tuyos pesa). */
+  alliesLost?: number;
 }
 
 /**
@@ -307,6 +332,17 @@ export function observeBattle(
   }
   if (observation.finalHpRatio > 0 && observation.finalHpRatio <= 0.2) add('roces', 1);
 
+  // Estrés de la batalla: el castigo, los apagados, ver caer aliados y
+  // perder la máquina pesan; la victoria alivia un poco.
+  let stressDelta = 0;
+  stressDelta += Math.ceil(((memory['castigo'] ?? 0) - (pilot.memory?.['castigo'] ?? 0)) / 15);
+  const newShutdowns = (memory['apagados'] ?? 0) - (pilot.memory?.['apagados'] ?? 0);
+  stressDelta += newShutdowns * 8;
+  stressDelta += (observation.alliesLost ?? 0) * 6;
+  if (observation.finalHpRatio <= 0) stressDelta += 18;
+  else if (observation.finalHpRatio <= 0.2) stressDelta += 6;
+  stressDelta += observation.victory ? -8 : 4;
+
   const quirks = [...(pilot.quirks ?? [])];
   const gained: QuirkDefinition[] = [];
   const cap = table.quirkCap ?? 4;
@@ -320,5 +356,6 @@ export function observeBattle(
     }
   }
 
-  return { pilot: { ...pilot, memory, quirks }, gained };
+  const stress = Math.max(0, Math.min(100, Math.round((pilot.stress ?? 0) + stressDelta)));
+  return { pilot: { ...pilot, memory, quirks, stress }, gained };
 }

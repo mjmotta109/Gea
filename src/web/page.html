@@ -367,6 +367,18 @@
     font-family: var(--mono); font-size: 13px; font-weight: 700; padding: 9px 12px; cursor: pointer;
   }
   #world-actions button.calm { background: var(--player-dim); color: var(--player); border-color: var(--player); }
+  .citybox { margin-top: 10px; border-top: 1px dashed var(--line); padding-top: 8px; }
+  .citybox .ctitle { font-family: var(--mono); font-size: 11px; font-weight: 700; color: var(--energy); margin-bottom: 6px; }
+  .citybox .gbtn {
+    display: block; width: 100%; text-align: left; margin-bottom: 4px;
+    background: var(--panel-2); color: var(--ink); border: 1px solid var(--line); border-radius: 4px;
+    font-family: var(--mono); font-size: 10px; padding: 6px 8px; cursor: pointer;
+  }
+  .citybox .gbtn:hover:not(:disabled) { border-color: var(--energy); }
+  .citybox .gbtn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .pstress { display: flex; align-items: center; gap: 8px; margin: 8px 0 0; }
+  .pstress .bar { flex: 1; height: 6px; }
+  .pstress .pxp { font-family: var(--mono); font-size: 10px; color: var(--muted); }
   .wlog { font-family: var(--mono); font-size: 11px; color: var(--muted); line-height: 1.6; max-height: 170px; overflow-y: auto; }
   .wlog .warn { color: var(--heat); }
 

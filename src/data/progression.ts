@@ -77,6 +77,29 @@ export const PERKS: PerkTable = {
     defense: { source: 'synergy:defense', stat: 'def', add: 3 },
   },
   synergyCap: 2,
+  // ── Estrés: temporal, se descansa en las ciudades. Solo aplica el
+  //    tramo más alto alcanzado; a 95+ el piloto está para pocas guerras.
+  stressTiers: [
+    {
+      min: 50, label: 'Tenso',
+      modifiers: [{ source: 'stress:tenso', stat: 'accuracy', add: -2 }],
+    },
+    {
+      min: 75, label: 'Al límite',
+      modifiers: [
+        { source: 'stress:al-limite', stat: 'accuracy', add: -4 },
+        { source: 'stress:al-limite', stat: 'evade', add: -3 },
+      ],
+    },
+    {
+      min: 95, label: 'Quebrado',
+      modifiers: [
+        { source: 'stress:quebrado', stat: 'accuracy', add: -6 },
+        { source: 'stress:quebrado', stat: 'evade', add: -5 },
+        { source: 'stress:quebrado', stat: 'move', add: -1 },
+      ],
+    },
+  ],
   // ── Manías: lo vivido deja huella (bendiciones, cicatrices o ambas).
   //    Números modestos: son personalidad, no poder.
   quirkCap: 4,
