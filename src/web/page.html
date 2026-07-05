@@ -64,7 +64,17 @@
   #turn-banner .kbd-hint { flex: 1; text-align: right; color: var(--muted); font-weight: 400; font-size: 10px; }
 
   /* ── Tablero ── */
-  #board-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 12px; }
+  #board-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 12px; position: relative; }
+  #floats { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 5; }
+  #floats .float {
+    position: absolute; transform: translate(-50%, -100%);
+    font-family: var(--mono); font-weight: 700; font-size: 14px;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.6);
+  }
+  #floats .float.dmg { color: #ff6b4d; }
+  #floats .float.heal { color: var(--energy); }
+  #floats .float.miss { color: #cfd8df; font-size: 11px; letter-spacing: 0.08em; }
+  #floats .float.stat { color: var(--heat); font-size: 11px; }
   #board { display: grid; gap: 2px; width: fit-content; margin: 0 auto; }
   .cell {
     position: relative; width: 46px; height: 46px; border: 0; border-radius: 3px;
@@ -354,6 +364,7 @@
       <div id="turn-banner"></div>
       <section id="board-panel">
         <div id="board"></div>
+        <div id="floats"></div>
         <div id="legend">
           WASD/flechas mueven el cursor · E/Enter confirma · Esc cancela ·
           ⌖ = enemigos a tiro desde esa casilla · ~ agua · ▒ abrupto · número = altura

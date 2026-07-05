@@ -1026,9 +1026,45 @@ function logEvents(events: BattleEvent[]): void {
       pendingHits.add(event.type === 'damage-dealt' ? event.targetUnitId
         : event.type === 'status-ticked' ? event.targetUnitId : event.unitId);
     }
+    // Números flotantes sobre el tablero (game feel).
+    switch (event.type) {
+      case 'damage-dealt': spawnFloat(event.targetUnitId, `−${event.amount}`, 'dmg'); break;
+      case 'status-ticked': spawnFloat(event.targetUnitId, `−${event.damage}`, 'dmg'); break;
+      case 'ability-missed': spawnFloat(event.targetUnitId, 'ESQUIVA', 'miss'); break;
+      case 'unit-healed': spawnFloat(event.targetUnitId, `+${event.amount}`, 'heal'); break;
+      case 'status-applied': spawnFloat(event.targetUnitId, STATUS_DEFINITIONS[event.status].name, 'stat'); break;
+      default: break;
+    }
     const line = describe(event);
     if (line) log(line.text, line.cls);
   }
+}
+
+/**
+ * Número flotante sobre la unidad: vive en la capa #floats (fuera del
+ * tablero, que se reconstruye en cada render) y se limpia solo.
+ */
+let floatStagger = 0;
+function spawnFloat(unitId: string, text: string, cls: string): void {
+  if (reducedMotion) return;
+  const unit = battle.units.find((u) => u.id === unitId);
+  if (!unit) return;
+  const board = $('board');
+  const span = document.createElement('span');
+  span.className = `float ${cls}`;
+  span.textContent = text;
+  span.style.left = `${board.offsetLeft + unit.position.x * CELL_PX + CELL_PX / 2}px`;
+  span.style.top = `${board.offsetTop + unit.position.y * CELL_PX + 6}px`;
+  $('floats').appendChild(span);
+  const delay = (floatStagger++ % 3) * 110; // varios impactos no se pisan
+  span.style.opacity = '0';
+  span.animate([
+    { opacity: 0, transform: 'translate(-50%, -100%) translateY(6px)' },
+    { opacity: 1, transform: 'translate(-50%, -100%) translateY(-6px)', offset: 0.25 },
+    { opacity: 1, transform: 'translate(-50%, -100%) translateY(-18px)', offset: 0.75 },
+    { opacity: 0, transform: 'translate(-50%, -100%) translateY(-30px)' },
+  ], { duration: 820, delay, easing: 'ease-out', fill: 'forwards' });
+  window.setTimeout(() => span.remove(), 900 + delay);
 }
 
 function showOverlay(): void {
