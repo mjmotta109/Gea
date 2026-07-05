@@ -280,3 +280,13 @@ arquitectura del motor van en DESIGN.md.)*
   nombre coincida con el del lugar se convierte en su campo de batalla.
   Pendiente: marcas/compenetración, eventos de combate opcionales en
   ruta, editor del mapa de mundo, más regiones.
+- **2026-07-05** — SISTEMA DE GUARDADO con mentalidad de juego de PC:
+  la partida completa (pilotos con manías, campaña, expedición, garaje,
+  mapas del editor) es UN documento versionado (src/game/save.ts, puro
+  y con migraciones previstas). Tres ranuras en el navegador con
+  metadatos (nombre, fecha, créditos, contratos, día de expedición,
+  niveles de pilotos) + EXPORTAR a archivo .json e IMPORTAR desde
+  archivo — la partida sobrevive a limpiezas del navegador y viaja
+  entre máquinas; será el formato nativo cuando haya build de
+  escritorio. Cargar aplica el documento y rearranca por el camino
+  normal de inicio (un solo código de carga).

@@ -37,6 +37,7 @@ import {
   type ExpeditionState, type WorldEdge,
 } from '../game/expedition.js';
 import { SALT_PASS_REGION } from '../data/world.js';
+import { createSave, describeSave, serializeSave, validateSave, type SaveGame } from '../game/save.js';
 
 // Catálogos completos del cliente: base + anexo de la librería de armas.
 // Los Zoids de segunda generación montan armas 'lib-*' y los necesitan.
@@ -593,6 +594,10 @@ document.addEventListener('keydown', (event) => {
   }
   if (pilotsOpen) {
     if (event.key === 'Escape') closePilots();
+    return;
+  }
+  if (savesOpen) {
+    if (event.key === 'Escape') closeSaves();
     return;
   }
   if (worldOpen) {
@@ -2054,6 +2059,164 @@ function endExpedition(): void {
   }
 }
 
+// ── Sistema de guardado: ranuras + archivo (mentalidad de juego de PC) ──
+
+const SAVE_SLOT_KEYS = ['gea-save-slot-1', 'gea-save-slot-2', 'gea-save-slot-3'];
+let savesOpen = false;
+
+/** Fotografía de la partida viva (todo lo que hay en memoria). */
+function collectSave(name: string): SaveGame {
+  return createSave({
+    name,
+    pilots,
+    campaign,
+    expedition,
+    client: {
+      garage,
+      maps: customMaps,
+      selectedMap: currentMapName,
+    },
+  });
+}
+
+/**
+ * Aplica una partida: vuelca todas las claves vivas y recarga la
+ * página — el arranque normal reconstruye el estado completo, que es
+ * exactamente el camino ya probado.
+ */
+function applySave(save: SaveGame): void {
+  try {
+    localStorage.setItem(PILOTS_KEY, JSON.stringify(save.pilots));
+    if (save.campaign) localStorage.setItem(CAMPAIGN_KEY, JSON.stringify(save.campaign));
+    else localStorage.removeItem(CAMPAIGN_KEY);
+    if (save.expedition) localStorage.setItem(EXPEDITION_KEY, JSON.stringify(save.expedition));
+    else localStorage.removeItem(EXPEDITION_KEY);
+    const client = save.client;
+    if (Array.isArray(client['garage'])) localStorage.setItem(GARAGE_KEY, JSON.stringify(client['garage']));
+    if (client['maps'] && typeof client['maps'] === 'object') localStorage.setItem(MAPS_KEY, JSON.stringify(client['maps']));
+    localStorage.setItem(MAP_SEL_KEY, typeof client['selectedMap'] === 'string' ? client['selectedMap'] : '');
+  } catch { /* almacenamiento privado */ }
+  window.location.reload();
+}
+
+function slotSave(index: number): SaveGame | null {
+  try {
+    return validateSave(localStorage.getItem(SAVE_SLOT_KEYS[index]!) ?? '');
+  } catch {
+    return null;
+  }
+}
+
+function downloadSave(save: SaveGame): void {
+  const blob = new Blob([serializeSave(save)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `gea-${save.name.toLowerCase().replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '') || 'partida'}.json`;
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+function fmtDate(iso: string): string {
+  const date = new Date(iso);
+  return `${date.toLocaleDateString()} ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+}
+
+function renderSaves(): void {
+  const host = $('save-slots');
+  host.innerHTML = '';
+
+  // La partida viva: exportable directamente.
+  const live = document.createElement('div');
+  live.className = 'slot current';
+  const liveName = campaign ? 'Partida en curso' : 'Estado actual (sin campaña)';
+  live.innerHTML =
+    `<div class="sinfo"><b>▶ ${liveName}</b><br>` +
+    (campaign ? `⌾${campaign.credits} · ${campaign.contractsDone} contratos` : 'garaje y pilotos') +
+    (expedition ? ` · expedición día ${expedition.day}` : '') + '</div>';
+  const liveBtns = document.createElement('div');
+  liveBtns.className = 'sbtns';
+  const exportLive = document.createElement('button');
+  exportLive.textContent = '⇩ Exportar a archivo';
+  exportLive.addEventListener('click', () => {
+    const name = window.prompt('Nombre de la partida para el archivo:', 'Mi campaña') ?? 'Mi campaña';
+    downloadSave(collectSave(name));
+  });
+  liveBtns.appendChild(exportLive);
+  live.appendChild(liveBtns);
+  host.appendChild(live);
+
+  SAVE_SLOT_KEYS.forEach((key, index) => {
+    const save = slotSave(index);
+    const row = document.createElement('div');
+    row.className = 'slot';
+    if (save) {
+      const summary = describeSave(save, trackLevel);
+      row.innerHTML =
+        `<div class="sinfo"><b>${index + 1}. ${escapeHtml(summary.name)}</b><br>` +
+        `${fmtDate(summary.savedAt)}` +
+        (summary.credits !== undefined ? ` · ⌾${summary.credits} · ${summary.contractsDone} contratos` : ' · sin campaña') +
+        (summary.expeditionDay !== undefined ? ` · expedición día ${summary.expeditionDay}` : '') +
+        `<br>pilotos: ${summary.pilotNames.map(escapeHtml).join(', ')} · ${summary.totalPilotLevels} niveles</div>`;
+    } else {
+      row.innerHTML = `<div class="sinfo"><b>${index + 1}.</b> <span class="sempty">ranura vacía</span></div>`;
+    }
+    const btns = document.createElement('div');
+    btns.className = 'sbtns';
+
+    const saveBtn = document.createElement('button');
+    saveBtn.textContent = '💾 Guardar aquí';
+    saveBtn.addEventListener('click', () => {
+      if (save && !window.confirm(`¿Sobrescribir "${save.name}"?`)) return;
+      const name = window.prompt('Nombre de la partida:', save?.name ?? `Campaña ${index + 1}`);
+      if (name === null) return;
+      try {
+        localStorage.setItem(key, serializeSave(collectSave(name.trim() || `Campaña ${index + 1}`)));
+      } catch { /* privado */ }
+      renderSaves();
+    });
+    btns.appendChild(saveBtn);
+
+    if (save) {
+      const loadBtn = document.createElement('button');
+      loadBtn.textContent = '⌁ Cargar';
+      loadBtn.addEventListener('click', () => {
+        if (!window.confirm(`¿Cargar "${save.name}"? La partida en curso se reemplaza (expórtala antes si quieres conservarla).`)) return;
+        applySave(save);
+      });
+      btns.appendChild(loadBtn);
+
+      const exportBtn = document.createElement('button');
+      exportBtn.textContent = '⇩ Exportar';
+      exportBtn.addEventListener('click', () => downloadSave(save));
+      btns.appendChild(exportBtn);
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'danger';
+      deleteBtn.textContent = '✕ Borrar';
+      deleteBtn.addEventListener('click', () => {
+        if (!window.confirm(`¿Borrar la ranura "${save.name}"?`)) return;
+        localStorage.removeItem(key);
+        renderSaves();
+      });
+      btns.appendChild(deleteBtn);
+    }
+    row.appendChild(btns);
+    host.appendChild(row);
+  });
+}
+
+function openSaves(): void {
+  savesOpen = true;
+  renderSaves();
+  $('saves').classList.add('show');
+}
+
+function closeSaves(): void {
+  savesOpen = false;
+  $('saves').classList.remove('show');
+}
+
 // ── Ficha de pilotos: árbol de especialización y manías ─────────────────
 
 let pilotsOpen = false;
@@ -2334,6 +2497,23 @@ $('merc-reset').addEventListener('click', () => {
   renderMerc();
 });
 window.addEventListener('mouseup', () => { painting = false; });
+$('saves-btn').addEventListener('click', openSaves);
+$('saves-close').addEventListener('click', closeSaves);
+$('save-import').addEventListener('click', () => { ($('save-file') as HTMLInputElement).click(); });
+$('save-file').addEventListener('change', () => {
+  const input = $('save-file') as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = '';
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const save = validateSave(String(reader.result ?? ''));
+    if (!save) { window.alert('Ese archivo no es una partida de Gea válida.'); return; }
+    if (!window.confirm(`¿Cargar "${save.name}" (${fmtDate(save.savedAt)})? La partida en curso se reemplaza.`)) return;
+    applySave(save);
+  };
+  reader.readAsText(file);
+});
 $('pilots-btn-g').addEventListener('click', openPilots);
 $('pilots-btn-m').addEventListener('click', openPilots);
 $('pilots-close').addEventListener('click', closePilots);

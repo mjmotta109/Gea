@@ -370,6 +370,40 @@
   .wlog { font-family: var(--mono); font-size: 11px; color: var(--muted); line-height: 1.6; max-height: 170px; overflow-y: auto; }
   .wlog .warn { color: var(--heat); }
 
+  /* ── Partidas guardadas ── */
+  #saves-btn {
+    background: var(--panel-2); color: var(--ink); border: 1px solid var(--line);
+    border-radius: 4px; font-family: var(--mono); font-size: 12px; padding: 5px 10px; cursor: pointer;
+  }
+  #saves {
+    display: none; position: fixed; inset: 0; background: rgba(4, 8, 11, 0.92);
+    z-index: 24; overflow-y: auto; padding: 20px 14px;
+  }
+  #saves.show { display: block; }
+  #saves .gbox {
+    max-width: 900px; margin: 0 auto; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px 20px;
+  }
+  #saves .gtop { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  #saves .gtop h2 { margin: 0; font-size: 13px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--player); }
+  .slot {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px;
+    padding: 10px 14px; margin-bottom: 8px;
+  }
+  .slot .sinfo { flex: 1; min-width: 220px; font-family: var(--mono); font-size: 11px; color: var(--muted); line-height: 1.6; }
+  .slot .sinfo b { color: var(--ink); font-size: 13px; }
+  .slot .sinfo .sempty { color: var(--muted); font-style: italic; }
+  .slot .sbtns { display: flex; gap: 6px; flex-wrap: wrap; }
+  .slot .sbtns button {
+    background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 4px;
+    font-family: var(--mono); font-size: 11px; padding: 6px 10px; cursor: pointer;
+  }
+  .slot .sbtns button:hover:not(:disabled) { border-color: var(--player); color: var(--player); }
+  .slot .sbtns button:disabled { opacity: 0.35; cursor: not-allowed; }
+  .slot .sbtns button.danger:hover { border-color: var(--danger); color: var(--danger); }
+  .slot.current { border-color: var(--player); }
+
   /* ── Ficha de pilotos (árbol + manías) ── */
   #pilots {
     display: none; position: fixed; inset: 0; background: rgba(4, 8, 11, 0.92);
@@ -502,6 +536,7 @@
       <select id="map-select" style="background:var(--panel-2);border:1px solid var(--line);color:var(--ink);font-family:var(--mono);font-size:12px;padding:4px 6px;border-radius:3px;max-width:150px;"></select>
     </label>
     <label>semilla <input id="seed" type="number" value="42"></label>
+    <button id="saves-btn">💾 Partidas</button>
     <button id="editor-btn">🗺 Editor</button>
     <button id="merc-btn">🏴 Campaña</button>
     <button id="garage-btn">⚙ Garaje</button>
@@ -577,6 +612,19 @@
           <div id="world-log" class="wlog"></div>
         </aside>
       </div>
+    </div>
+  </div>
+
+  <div id="saves">
+    <div class="gbox">
+      <div class="gtop">
+        <h2>Partidas guardadas</h2>
+        <span class="gnote">las ranuras viven en este navegador · EXPORTA a archivo para tener tu partida a salvo y llevarla a otra máquina</span>
+        <button id="save-import" class="gsub">📂 Importar archivo…</button>
+        <input id="save-file" type="file" accept=".json,application/json" style="display:none">
+        <button id="saves-close" class="gsub">cerrar</button>
+      </div>
+      <div id="save-slots"></div>
     </div>
   </div>
 
