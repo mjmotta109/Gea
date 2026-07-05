@@ -78,3 +78,25 @@ describe('computeDamage', () => {
     expect(computeDamage({ ...base, defenderStats: wall }, new Rng(1))).toBe(1);
   });
 });
+
+describe('damageRange', () => {
+  const base = {
+    attackerStats: STATS,
+    defenderStats: STATS,
+    power: 40,
+    damageType: 'physical' as const,
+    arc: 'front' as const,
+    heightAdvantage: 0,
+  };
+
+  it('acota siempre a computeDamage', async () => {
+    const { damageRange } = await import('../src/core/combat.js');
+    const range = damageRange(base);
+    expect(range.min).toBeLessThanOrEqual(range.max);
+    for (let seed = 0; seed < 50; seed++) {
+      const dmg = computeDamage(base, new Rng(seed));
+      expect(dmg).toBeGreaterThanOrEqual(range.min);
+      expect(dmg).toBeLessThanOrEqual(range.max);
+    }
+  });
+});

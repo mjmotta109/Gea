@@ -1,15 +1,16 @@
 /**
- * Cliente web jugable del motor: tú controlas al equipo jugador con clics
- * y la IA de sparring lleva al enemigo. Consume la misma API pública que
- * cualquier otro renderer (Battle + BattleEvent), sin tocar el core.
+ * Cliente web jugable del motor, con flujo estilo XCOM:
+ * seleccionar → previsualizar → confirmar, manejable por completo con
+ * teclado (WASD/flechas + E/Enter) o ratón sobre el mismo cursor.
  *
+ * Consume solo la API pública del motor (Battle + BattleEvent).
  * Build: npm run web  →  dist/web/gea.html (autocontenido).
  */
 import { planTurn } from '../ai/simpleAi.js';
 import { Battle } from '../core/battle.js';
-import { attackArc, hitChance } from '../core/combat.js';
-import { posKey } from '../core/grid.js';
-import { reachableTiles } from '../core/pathfinding.js';
+import { attackArc, damageRange, hitChance, type AttackArc } from '../core/combat.js';
+import { posKey, terrainLabel } from '../core/grid.js';
+import { reachableTiles, type ReachableTile } from '../core/pathfinding.js';
 import { STATUS_DEFINITIONS } from '../core/status.js';
 import type { BattleEvent, Facing, Position, UnitState } from '../core/types.js';
 import { ABILITIES } from '../data/abilities.js';
@@ -22,20 +23,27 @@ import { ZOIDS } from '../data/zoids.js';
 
 type Mode =
   | { kind: 'idle' }
-  | { kind: 'move' }
-  | { kind: 'boost' }
-  | { kind: 'ability'; abilityId: string };
+  | { kind: 'move'; tiles: Map<string, ReachableTile> }
+  | { kind: 'boost'; tiles: Map<string, ReachableTile> }
+  | { kind: 'ability'; abilityId: string; targets: Set<string> }
+  | { kind: 'facing' };
 
 let battle: Battle;
 let mode: Mode = { kind: 'idle' };
-/** Casillas resaltadas para el modo actual: clase CSS + etiqueta opcional. */
-let highlights = new Map<string, { cls: string; label?: string }>();
+/** Posición del cursor de tablero (compartido por ratón y teclado). */
+let cursor: Position = { x: 0, y: 0 };
+/** Objetivo seleccionado pendiente de confirmación (flujo en dos pasos). */
+let pending: Position | null = null;
 /** true mientras la IA enemiga anima su turno: bloquea la entrada. */
 let busy = false;
 
 const $ = (id: string): HTMLElement => document.getElementById(id)!;
 
 const FACING_ARROW: Record<Facing, string> = { north: '▲', east: '▶', south: '▼', west: '◀' };
+const ARC_LABEL: Record<AttackArc, string> = { front: 'FRENTE', side: 'FLANCO', back: 'ESPALDA' };
+const FACING_OFFSET: Record<Facing, Position> = {
+  north: { x: 0, y: -1 }, east: { x: 1, y: 0 }, south: { x: 0, y: 1 }, west: { x: -1, y: 0 },
+};
 
 function newBattle(seed: number): void {
   battle = new Battle({
@@ -57,7 +65,7 @@ function newBattle(seed: number): void {
     ],
   });
   mode = { kind: 'idle' };
-  highlights.clear();
+  pending = null;
   busy = false;
   $('log').innerHTML = '';
   $('overlay').classList.remove('show');
@@ -75,14 +83,23 @@ function advance(): void {
   if (battle.isOver) { renderAll(); showOverlay(); return; }
 
   const active = battle.getActiveUnit();
-  renderAll();
-  if (!active) return;
+  if (!active) { renderAll(); return; }
+
   if (active.team === 'enemy') {
+    mode = { kind: 'idle' };
+    pending = null;
+    renderAll();
     runEnemyTurn(active);
   } else {
-    mode = { kind: 'idle' };
-    highlights.clear();
-    renderAll();
+    cursor = { ...active.position };
+    pending = null;
+    // Estilo XCOM: el turno abre directamente en modo movimiento.
+    if (!active.hasMoved && battle.checkVetoes({ type: 'move', unitId: active.id, to: active.position }) === null) {
+      enterMove();
+    } else {
+      mode = { kind: 'idle' };
+      renderAll();
+    }
   }
 }
 
@@ -107,12 +124,12 @@ function runEnemyTurn(unit: UnitState): void {
     }
     i++;
     renderAll();
-    window.setTimeout(step, 360);
+    window.setTimeout(step, 320);
   };
-  window.setTimeout(step, 360);
+  window.setTimeout(step, 320);
 }
 
-// ── Acciones del jugador ─────────────────────────────────────────────────
+// ── Modos de acción ──────────────────────────────────────────────────────
 
 function playerUnit(): UnitState | undefined {
   const active = battle.getActiveUnit();
@@ -121,94 +138,69 @@ function playerUnit(): UnitState | undefined {
 
 function enterMove(): void {
   const unit = playerUnit();
-  if (!unit) return;
-  mode = { kind: 'move' };
-  highlights.clear();
-  for (const tile of battle.legalMoves(unit.id)) {
-    highlights.set(posKey(tile.pos), { cls: 'hl-move' });
-  }
+  if (!unit || unit.hasMoved) return;
+  const tiles = new Map<string, ReachableTile>();
+  for (const tile of battle.legalMoves(unit.id)) tiles.set(posKey(tile.pos), tile);
+  mode = { kind: 'move', tiles };
+  pending = null;
   renderAll();
 }
 
 function enterBoost(): void {
   const unit = playerUnit();
-  if (!unit) return;
-  mode = { kind: 'boost' };
-  highlights.clear();
+  const energy = unit?.components.energy;
+  if (!unit || !energy || energy.boostedThisTurn) return;
+  if (battle.checkVetoes({ type: 'boost', unitId: unit.id, to: unit.position })) return;
   const stats = battle.effectiveStats(unit);
-  const tiles = reachableTiles(battle.map, unit.position, {
+  const tiles = new Map<string, ReachableTile>();
+  for (const tile of reachableTiles(battle.map, unit.position, {
     move: Math.max(1, Math.ceil(stats.move / 2)),
     jump: stats.jump,
     moveType: battle.definitionOf(unit.unitTypeId).moveType,
     team: unit.team,
-  }, battle.units);
-  for (const tile of tiles) {
-    if (tile.pos.x === unit.position.x && tile.pos.y === unit.position.y) continue;
-    highlights.set(posKey(tile.pos), { cls: 'hl-boost' });
+  }, battle.units)) {
+    if (!samePosition(tile.pos, unit.position)) tiles.set(posKey(tile.pos), tile);
   }
+  mode = { kind: 'boost', tiles };
+  pending = null;
   renderAll();
 }
 
 function enterAbility(abilityId: string): void {
   const unit = playerUnit();
-  if (!unit) return;
-  mode = { kind: 'ability', abilityId };
-  highlights.clear();
-  const ability = battle.abilityOf(abilityId);
-  const stats = battle.effectiveStats(unit);
-  const damaging = ability.effects.some((e) => e.kind === 'damage');
-  for (const pos of battle.legalTargets(unit.id, abilityId)) {
-    const target = battle.unitAt(pos);
-    let label: string | undefined;
-    if (target && target.team !== unit.team && damaging) {
-      const arc = attackArc(unit.position, target.position, target.facing);
-      const chance = hitChance({
-        accuracy: ability.accuracy,
-        attackerAccuracy: stats.accuracy,
-        arc,
-        defenderEvade: battle.effectiveStats(target).evade,
-      });
-      label = `${chance}%`;
-    } else if (target && target.team === unit.team && ability.targetsAllies) {
-      label = '✚';
-    }
-    highlights.set(posKey(pos), { cls: 'hl-target', label });
-  }
+  if (!unit || unit.hasActed) return;
+  if (battle.checkVetoes({ type: 'ability', unitId: unit.id, abilityId, target: unit.position })) return;
+  const targets = new Set<string>();
+  for (const pos of battle.legalTargets(unit.id, abilityId)) targets.add(posKey(pos));
+  mode = { kind: 'ability', abilityId, targets };
+  pending = null;
   renderAll();
 }
 
-function onTileClick(pos: Position): void {
-  const unit = playerUnit();
-  if (!unit || mode.kind === 'idle') return;
-  if (!highlights.has(posKey(pos))) return;
+function enterFacing(): void {
+  if (!playerUnit()) return;
+  mode = { kind: 'facing' };
+  pending = null;
+  renderAll();
+}
 
+function cancel(): void {
+  if (!playerUnit()) return;
+  if (pending) { pending = null; renderAll(); return; }
+  if (mode.kind !== 'idle') { mode = { kind: 'idle' }; renderAll(); }
+}
+
+function doReload(): void {
+  const unit = playerUnit();
+  if (!unit || unit.hasActed) return;
+  const weapon = firstReloadable(unit);
+  if (!weapon) return;
   try {
-    if (mode.kind === 'move') {
-      logEvents(battle.execute({ type: 'move', unitId: unit.id, to: pos }));
-    } else if (mode.kind === 'boost') {
-      logEvents(battle.execute({ type: 'boost', unitId: unit.id, to: pos }));
-    } else {
-      logEvents(battle.execute({ type: 'ability', unitId: unit.id, abilityId: mode.abilityId, target: pos }));
-    }
+    logEvents(battle.execute({ type: 'reload', unitId: unit.id, weaponId: weapon }));
   } catch (error) {
     log(`⚠ ${(error as Error).message}`, 'warn');
   }
   mode = { kind: 'idle' };
-  highlights.clear();
-  if (battle.isOver) { renderAll(); showOverlay(); return; }
-  renderAll();
-}
-
-function doReload(weaponId: string): void {
-  const unit = playerUnit();
-  if (!unit) return;
-  try {
-    logEvents(battle.execute({ type: 'reload', unitId: unit.id, weaponId }));
-  } catch (error) {
-    log(`⚠ ${(error as Error).message}`, 'warn');
-  }
-  mode = { kind: 'idle' };
-  highlights.clear();
   renderAll();
 }
 
@@ -217,9 +209,126 @@ function doWait(facing?: Facing): void {
   if (!unit) return;
   logEvents(battle.execute({ type: 'wait', unitId: unit.id, facing }));
   mode = { kind: 'idle' };
-  highlights.clear();
+  pending = null;
   advance();
 }
+
+function firstReloadable(unit: UnitState): string | undefined {
+  return unit.components.arsenal?.weapons.find((w) => {
+    const def = battle.weaponOf(w.weaponId);
+    return def.magazine > 0 && w.ammo < def.magazine && w.reserves > 0;
+  })?.weaponId;
+}
+
+// ── Cursor y confirmación (ratón y teclado convergen aquí) ──────────────
+
+function samePosition(a: Position, b: Position): boolean {
+  return a.x === b.x && a.y === b.y;
+}
+
+function setCursor(pos: Position): void {
+  if (samePosition(cursor, pos)) return;
+  cursor = pos;
+  renderBoard();
+  renderPreview();
+}
+
+function moveCursor(dx: number, dy: number): void {
+  setCursor({
+    x: Math.max(0, Math.min(battle.map.width - 1, cursor.x + dx)),
+    y: Math.max(0, Math.min(battle.map.height - 1, cursor.y + dy)),
+  });
+}
+
+/** Confirmación en el cursor: mover/boost ejecutan; atacar pide 2 pasos. */
+function confirm(): void {
+  const unit = playerUnit();
+  if (!unit) return;
+  const key = posKey(cursor);
+
+  try {
+    if (mode.kind === 'move' && mode.tiles.has(key)) {
+      logEvents(battle.execute({ type: 'move', unitId: unit.id, to: cursor }));
+      afterAction();
+    } else if (mode.kind === 'boost' && mode.tiles.has(key)) {
+      logEvents(battle.execute({ type: 'boost', unitId: unit.id, to: cursor }));
+      afterAction();
+    } else if (mode.kind === 'ability' && mode.targets.has(key)) {
+      if (pending && samePosition(pending, cursor)) {
+        logEvents(battle.execute({ type: 'ability', unitId: unit.id, abilityId: mode.abilityId, target: cursor }));
+        pending = null;
+        afterAction();
+      } else {
+        pending = { ...cursor }; // primer paso: seleccionar y analizar
+        renderAll();
+      }
+    } else if (mode.kind === 'facing') {
+      doWait();
+    }
+  } catch (error) {
+    log(`⚠ ${(error as Error).message}`, 'warn');
+    mode = { kind: 'idle' };
+    pending = null;
+    renderAll();
+  }
+}
+
+/** Tras mover/atacar: decide el siguiente modo útil sin cerrar el turno. */
+function afterAction(): void {
+  if (battle.isOver) { renderAll(); showOverlay(); return; }
+  const unit = playerUnit();
+  if (!unit) { advance(); return; }
+  cursor = { ...unit.position };
+  mode = { kind: 'idle' };
+  pending = null;
+  renderAll();
+}
+
+// ── Teclado ──────────────────────────────────────────────────────────────
+
+document.addEventListener('keydown', (event) => {
+  if (document.activeElement === $('seed')) return;
+  if (battle.isOver) {
+    if (event.key === 'Enter') restart();
+    return;
+  }
+
+  const facingByKey: Record<string, Facing> = {
+    ArrowUp: 'north', ArrowRight: 'east', ArrowDown: 'south', ArrowLeft: 'west',
+    w: 'north', d: 'east', s: 'south', a: 'west',
+    W: 'north', D: 'east', S: 'south', A: 'west',
+  };
+
+  // En modo orientación, las direcciones cierran el turno mirando ahí.
+  if (mode.kind === 'facing' && facingByKey[event.key]) {
+    event.preventDefault();
+    doWait(facingByKey[event.key]);
+    return;
+  }
+
+  switch (event.key) {
+    case 'ArrowUp': case 'w': case 'W': event.preventDefault(); moveCursor(0, -1); return;
+    case 'ArrowDown': case 's': case 'S': event.preventDefault(); moveCursor(0, 1); return;
+    case 'ArrowLeft': case 'a': case 'A': event.preventDefault(); moveCursor(-1, 0); return;
+    case 'ArrowRight': case 'd': case 'D': event.preventDefault(); moveCursor(1, 0); return;
+    case 'Enter': case 'e': case 'E': event.preventDefault(); confirm(); return;
+    case 'Escape': case 'q': case 'Q': event.preventDefault(); cancel(); return;
+    case 'm': case 'M': enterMove(); return;
+    case 'b': case 'B': enterBoost(); return;
+    case 'r': case 'R': doReload(); return;
+    case 'f': case 'F': enterFacing(); return;
+    case ' ': event.preventDefault(); enterFacing(); return;
+    default: {
+      const index = Number(event.key);
+      if (index >= 1 && index <= 9) {
+        const unit = playerUnit();
+        if (!unit) return;
+        const abilityId = battle.knownAbilityIds(unit)[index - 1];
+        if (abilityId) enterAbility(abilityId);
+      }
+    }
+  }
+});
 
 // ── Renderizado ──────────────────────────────────────────────────────────
 
@@ -239,15 +348,39 @@ function shade(hex: string, height: number): string {
   return `rgb(${r},${g},${b})`;
 }
 
+/** Camino previsualizado: hasta el cursor en modo move/boost. */
+function previewPath(): Set<string> {
+  if (mode.kind !== 'move' && mode.kind !== 'boost') return new Set();
+  const tile = mode.tiles.get(posKey(cursor));
+  if (!tile) return new Set();
+  return new Set(tile.path.slice(1, -1).map(posKey));
+}
+
+function facingCells(): Map<string, Facing> {
+  const cells = new Map<string, Facing>();
+  const unit = playerUnit();
+  if (mode.kind !== 'facing' || !unit) return cells;
+  for (const facing of ['north', 'east', 'south', 'west'] as Facing[]) {
+    const offset = FACING_OFFSET[facing];
+    const pos = { x: unit.position.x + offset.x, y: unit.position.y + offset.y };
+    if (battle.map.inBounds(pos)) cells.set(posKey(pos), facing);
+  }
+  return cells;
+}
+
 function renderBoard(): void {
   const board = $('board');
   board.style.gridTemplateColumns = `repeat(${battle.map.width}, 46px)`;
   board.innerHTML = '';
   const active = battle.getActiveUnit();
+  const unit = playerUnit();
+  const path = previewPath();
+  const faces = facingCells();
 
   for (let y = 0; y < battle.map.height; y++) {
     for (let x = 0; x < battle.map.width; x++) {
       const pos = { x, y };
+      const key = posKey(pos);
       const tile = battle.map.tileAt(pos);
       const cell = document.createElement('button');
       cell.className = 'cell';
@@ -263,36 +396,228 @@ function renderBoard(): void {
         cell.appendChild(h);
       }
 
-      const hl = highlights.get(posKey(pos));
-      if (hl) {
-        cell.classList.add(hl.cls, 'actionable');
-        if (hl.label) {
-          const label = document.createElement('span');
-          label.className = 'hl-label';
-          label.textContent = hl.label;
-          cell.appendChild(label);
+      // Resaltados del modo actual.
+      if (mode.kind === 'move' && mode.tiles.has(key)) cell.classList.add('hl-move', 'actionable');
+      if (mode.kind === 'boost' && mode.tiles.has(key)) cell.classList.add('hl-boost', 'actionable');
+      if (mode.kind === 'ability' && mode.targets.has(key)) {
+        cell.classList.add('hl-target', 'actionable');
+        const label = targetLabel(unit, pos);
+        if (label) {
+          const span = document.createElement('span');
+          span.className = 'hl-label';
+          span.textContent = label;
+          cell.appendChild(span);
         }
       }
+      const face = faces.get(key);
+      if (face) {
+        cell.classList.add('hl-face', 'actionable');
+        const span = document.createElement('span');
+        span.className = 'hl-label';
+        span.textContent = FACING_ARROW[face];
+        cell.appendChild(span);
+      }
+      if (path.has(key)) cell.classList.add('path');
+      if (pending && samePosition(pending, pos)) cell.classList.add('pending');
+      if (samePosition(cursor, pos) && playerUnit()) cell.classList.add('cursor');
 
-      const unit = battle.unitAt(pos);
-      if (unit) {
+      const occupant = battle.unitAt(pos);
+      if (occupant) {
         const chip = document.createElement('div');
-        chip.className = `chip ${unit.team}`;
-        if (active?.id === unit.id) chip.classList.add('active-unit');
-        chip.innerHTML = `<span>${unit.id}${FACING_ARROW[unit.facing]}</span>`;
+        chip.className = `chip ${occupant.team}`;
+        if (active?.id === occupant.id) chip.classList.add('active-unit');
+        chip.innerHTML = `<span>${occupant.id}${FACING_ARROW[occupant.facing]}</span>`;
         const bar = document.createElement('div');
         bar.className = 'hpbar';
         const fill = document.createElement('i');
-        fill.style.width = `${Math.round((unit.hp / battle.effectiveStats(unit).maxHp) * 100)}%`;
+        fill.style.width = `${Math.round((occupant.hp / battle.effectiveStats(occupant).maxHp) * 100)}%`;
         bar.appendChild(fill);
         chip.appendChild(bar);
         cell.appendChild(chip);
       }
 
-      cell.addEventListener('click', () => onTileClick(pos));
+      cell.addEventListener('mousemove', () => setCursor(pos));
+      cell.addEventListener('click', () => {
+        setCursor(pos);
+        const facing = facingCells().get(key);
+        if (facing) { doWait(facing); return; }
+        confirm();
+      });
       board.appendChild(cell);
     }
   }
+}
+
+/** % de impacto (o ✚ para aliados) mostrado sobre un objetivo. */
+function targetLabel(unit: UnitState | undefined, pos: Position): string | undefined {
+  if (!unit || mode.kind !== 'ability') return undefined;
+  const target = battle.unitAt(pos);
+  if (!target) return undefined;
+  const ability = battle.abilityOf(mode.abilityId);
+  if (target.team === unit.team) return ability.targetsAllies ? '✚' : undefined;
+  if (!ability.effects.some((e) => e.kind === 'damage')) return undefined;
+  const arc = attackArc(unit.position, target.position, target.facing);
+  const chance = hitChance({
+    accuracy: ability.accuracy,
+    attackerAccuracy: battle.effectiveStats(unit).accuracy,
+    arc,
+    defenderEvade: battle.effectiveStats(target).evade,
+  });
+  return `${chance}%`;
+}
+
+function renderBanner(): void {
+  const banner = $('turn-banner');
+  const active = battle.getActiveUnit();
+  if (!active) {
+    banner.className = '';
+    banner.innerHTML = 'Resolviendo...';
+    return;
+  }
+  const isPlayer = active.team === 'player' && !busy;
+  banner.className = isPlayer ? '' : 'enemy';
+  const modeText = {
+    idle: 'elige una acción',
+    move: 'elige casilla de movimiento',
+    boost: 'elige casilla de boost',
+    ability: pending ? 'confirma el disparo [E]' : 'elige objetivo',
+    facing: 'elige orientación final (WASD) o confirma [E]',
+  }[mode.kind];
+  banner.innerHTML = isPlayer
+    ? `▶ ${active.id} ${active.name} — ${modeText}<span class="kbd-hint">M mover · B boost · 1-9 armas · R recargar · F/espacio fin de turno</span>`
+    : `■ Turno enemigo: ${active.id} ${active.name}`;
+}
+
+function renderActionbar(): void {
+  const bar = $('actionbar');
+  bar.innerHTML = '';
+  const unit = playerUnit();
+  if (!unit) return;
+
+  const mkBtn = (
+    label: string, kbd: string, onClick: () => void,
+    opts: { disabled?: boolean; title?: string; on?: boolean } = {},
+  ): void => {
+    const btn = document.createElement('button');
+    btn.className = 'abtn';
+    btn.innerHTML = `<kbd>${kbd}</kbd><span>${label}</span>`;
+    btn.disabled = Boolean(opts.disabled);
+    if (opts.title) btn.title = opts.title;
+    if (opts.on) btn.classList.add('mode-on');
+    btn.addEventListener('click', onClick);
+    bar.appendChild(btn);
+  };
+
+  const moveVeto = battle.checkVetoes({ type: 'move', unitId: unit.id, to: unit.position });
+  mkBtn('Mover', 'M', enterMove, {
+    disabled: unit.hasMoved || moveVeto !== null,
+    title: moveVeto?.reason ?? (unit.hasMoved ? 'ya se movió' : undefined),
+    on: mode.kind === 'move',
+  });
+
+  const energy = unit.components.energy;
+  if (energy) {
+    const boostVeto = battle.checkVetoes({ type: 'boost', unitId: unit.id, to: unit.position });
+    mkBtn('Boost ⚡20', 'B', enterBoost, {
+      disabled: energy.boostedThisTurn || boostVeto !== null,
+      title: boostVeto?.reason ?? (energy.boostedThisTurn ? 'ya hizo boost' : undefined),
+      on: mode.kind === 'boost',
+    });
+  }
+
+  battle.knownAbilityIds(unit).forEach((abilityId, index) => {
+    const ability = battle.abilityOf(abilityId);
+    const veto = battle.checkVetoes({ type: 'ability', unitId: unit.id, abilityId, target: unit.position });
+    const entry = battle.weaponEntry(unit, abilityId);
+    const cost = entry?.def.costs;
+    const bits = [
+      cost?.energy ? `⚡${cost.energy}` : '',
+      cost?.heat ? `🔥${cost.heat}` : '',
+      entry && entry.def.magazine > 0 ? `${entry.state.ammo}/${entry.def.magazine}` : '',
+    ].filter(Boolean).join(' ');
+    mkBtn(bits ? `${ability.name} ${bits}` : ability.name, String(index + 1), () => enterAbility(abilityId), {
+      disabled: unit.hasActed || veto !== null,
+      title: veto?.reason ?? (unit.hasActed ? 'ya actuó' : ability.description),
+      on: mode.kind === 'ability' && mode.abilityId === abilityId,
+    });
+  });
+
+  const reloadable = firstReloadable(unit);
+  if (reloadable) {
+    mkBtn(`Recargar ${battle.weaponOf(reloadable).name}`, 'R', doReload, { disabled: unit.hasActed });
+  }
+
+  mkBtn('Fin de turno', 'F', enterFacing, { on: mode.kind === 'facing' });
+}
+
+/** Panel de análisis: contexto del cursor y pronóstico de ataque. */
+function renderPreview(): void {
+  const el = $('preview');
+  const unit = playerUnit();
+  const tile = battle.map.tileAt(cursor);
+  const occupant = battle.unitAt(cursor);
+  const lines: string[] = [];
+
+  // Pronóstico de disparo (el corazón del flujo XCOM).
+  if (unit && mode.kind === 'ability' && occupant && mode.targets.has(posKey(cursor))) {
+    const ability = battle.abilityOf(mode.abilityId);
+    const damaging = ability.effects.find((e) => e.kind === 'damage');
+    if (damaging && damaging.kind === 'damage' && occupant.team !== unit.team) {
+      const userStats = battle.effectiveStats(unit);
+      const targetStats = battle.effectiveStats(occupant);
+      const arc = attackArc(unit.position, occupant.position, occupant.facing);
+      const heightAdvantage = battle.map.tileAt(unit.position).height - tile.height;
+      const chance = hitChance({
+        accuracy: ability.accuracy, attackerAccuracy: userStats.accuracy,
+        arc, defenderEvade: targetStats.evade,
+      });
+      const range = damageRange({
+        attackerStats: userStats, defenderStats: targetStats,
+        power: damaging.power, damageType: damaging.damageType,
+        arc, heightAdvantage,
+      });
+      lines.push(`<div class="pv-title">${ability.name} → ${occupant.id} ${occupant.name}</div>`);
+      lines.push(`<div>impacto <b>${chance}%</b> · daño <b>${range.min}–${range.max}</b> · arco <b class="${arc === 'back' ? 'pv-good' : arc === 'side' ? 'pv-warn' : ''}">${ARC_LABEL[arc]}</b>${heightAdvantage !== 0 ? ` · altura ${heightAdvantage > 0 ? '+' : ''}${heightAdvantage}` : ''}</div>`);
+      const entry = battle.weaponEntry(unit, mode.abilityId);
+      if (entry) {
+        const cost = entry.def.costs;
+        const costs: string[] = [];
+        if (cost.energy) costs.push(`⚡${cost.energy}`);
+        if (cost.heat) costs.push(`🔥+${cost.heat}`);
+        if (entry.def.magazine > 0) costs.push(`munición ${entry.state.ammo}→${entry.state.ammo - 1}`);
+        if (cost.cooldownTurns) costs.push(`enfría ${cost.cooldownTurns}t`);
+        if (costs.length > 0) lines.push(`<div class="pv-muted">coste: ${costs.join(' · ')}</div>`);
+        const heat = unit.components.heat;
+        if (heat && cost.heat) {
+          const after = heat.current + cost.heat;
+          if (after > heat.max) lines.push('<div class="pv-danger">⚠ superará el límite térmico: APAGADO el próximo turno</div>');
+          else if (after >= heat.max * 0.7) lines.push('<div class="pv-warn">⚠ calor alto tras el disparo: puntería degradada</div>');
+        }
+      }
+      lines.push(pending && samePosition(pending, cursor)
+        ? '<div class="pv-confirm">pulsa E / clic de nuevo para DISPARAR</div>'
+        : '<div class="pv-muted">E / clic: seleccionar objetivo</div>');
+      el.innerHTML = lines.join('');
+      return;
+    }
+  }
+
+  // Contexto general del cursor.
+  lines.push(`<div class="pv-muted">(${cursor.x},${cursor.y}) · ${terrainLabel(tile.terrain)} · altura ${tile.height}</div>`);
+  if (occupant) {
+    const stats = battle.effectiveStats(occupant);
+    lines.push(`<div class="pv-title">${occupant.id} ${occupant.name} ${FACING_ARROW[occupant.facing]}</div>`);
+    lines.push(`<div>HP ${occupant.hp}/${stats.maxHp} · evasión ${stats.evade} · mov ${stats.move}</div>`);
+    if (unit && occupant.team !== unit.team) {
+      const arc = attackArc(unit.position, occupant.position, occupant.facing);
+      lines.push(`<div class="pv-muted">desde tu posición lo atacarías por: <b>${ARC_LABEL[arc]}</b></div>`);
+    }
+  }
+  if (unit && mode.kind === 'move') {
+    const reach = mode.tiles.get(posKey(cursor));
+    if (reach) lines.push(`<div class="pv-muted">coste de movimiento: ${reach.cost}</div>`);
+  }
+  el.innerHTML = lines.join('');
 }
 
 function renderForecast(): void {
@@ -305,106 +630,6 @@ function renderForecast(): void {
     chip.textContent = id;
     el.appendChild(chip);
   }
-}
-
-function renderCommand(): void {
-  const el = $('command');
-  el.innerHTML = '';
-  const unit = playerUnit();
-
-  if (!unit) {
-    const active = battle.getActiveUnit();
-    el.innerHTML = `<div class="hint">${busy || active ? 'Turno enemigo en curso...' : 'Resolviendo...'}</div>`;
-    return;
-  }
-
-  const mkRow = (): HTMLDivElement => {
-    const row = document.createElement('div');
-    row.className = 'row';
-    el.appendChild(row);
-    return row;
-  };
-  const mkBtn = (
-    row: HTMLElement, text: string, onClick: () => void,
-    opts: { disabled?: boolean; title?: string; on?: boolean } = {},
-  ): void => {
-    const btn = document.createElement('button');
-    btn.textContent = text;
-    btn.disabled = Boolean(opts.disabled);
-    if (opts.title) btn.title = opts.title;
-    if (opts.on) btn.classList.add('mode-on');
-    btn.addEventListener('click', onClick);
-    row.appendChild(btn);
-  };
-
-  const title = document.createElement('div');
-  title.className = 'hint';
-  title.style.marginBottom = '6px';
-  title.textContent = `Turno de ${unit.id} ${unit.name}`;
-  el.appendChild(title);
-
-  // Movimiento y boost.
-  const moveRow = mkRow();
-  const moveVeto = battle.checkVetoes({ type: 'move', unitId: unit.id, to: unit.position });
-  mkBtn(moveRow, 'Mover', enterMove, {
-    disabled: unit.hasMoved || moveVeto !== null,
-    title: moveVeto?.reason ?? (unit.hasMoved ? 'ya se movió' : undefined),
-    on: mode.kind === 'move',
-  });
-  if (unit.components.energy) {
-    const boostVeto = battle.checkVetoes({ type: 'boost', unitId: unit.id, to: unit.position });
-    mkBtn(moveRow, 'Boost ⚡20', enterBoost, {
-      disabled: unit.components.energy.boostedThisTurn || boostVeto !== null,
-      title: boostVeto?.reason ?? (unit.components.energy.boostedThisTurn ? 'ya hizo boost' : undefined),
-      on: mode.kind === 'boost',
-    });
-  }
-
-  // Habilidades y armas.
-  const abilityRow = mkRow();
-  for (const abilityId of battle.knownAbilityIds(unit)) {
-    const ability = battle.abilityOf(abilityId);
-    const veto = battle.checkVetoes({ type: 'ability', unitId: unit.id, abilityId, target: unit.position });
-    const entry = battle.weaponEntry(unit, abilityId);
-    const cost = entry?.def.costs;
-    const costText = [
-      cost?.energy ? `⚡${cost.energy}` : '',
-      cost?.heat ? `🔥${cost.heat}` : '',
-      entry && entry.def.magazine > 0 ? `${entry.state.ammo}/${entry.def.magazine}` : '',
-    ].filter(Boolean).join(' ');
-    mkBtn(abilityRow, costText ? `${ability.name} ${costText}` : ability.name, () => enterAbility(abilityId), {
-      disabled: unit.hasActed || veto !== null,
-      title: veto?.reason ?? (unit.hasActed ? 'ya actuó' : ability.description),
-      on: mode.kind === 'ability' && mode.abilityId === abilityId,
-    });
-  }
-
-  // Recargas disponibles.
-  const reloadable = unit.components.arsenal?.weapons.filter((w) => {
-    const def = battle.weaponOf(w.weaponId);
-    return def.magazine > 0 && w.ammo < def.magazine && w.reserves > 0;
-  }) ?? [];
-  if (reloadable.length > 0) {
-    const row = mkRow();
-    for (const weapon of reloadable) {
-      mkBtn(row, `Recargar ${battle.weaponOf(weapon.weaponId).name} (+${weapon.reserves})`,
-        () => doReload(weapon.weaponId), { disabled: unit.hasActed });
-    }
-  }
-
-  // Esperar, con orientación opcional.
-  const waitRow = mkRow();
-  mkBtn(waitRow, 'Esperar', () => doWait());
-  for (const facing of ['north', 'east', 'south', 'west'] as Facing[]) {
-    mkBtn(waitRow, FACING_ARROW[facing], () => doWait(facing), { title: `esperar mirando al ${facing}` });
-  }
-
-  const hint = document.createElement('div');
-  hint.className = 'hint';
-  hint.textContent = mode.kind === 'idle'
-    ? 'Elige una orden; mover y actuar, en cualquier orden. Terminar sin gastar todo devuelve CT.'
-    : 'Pulsa una casilla resaltada (o elige otra orden).';
-  el.appendChild(hint);
 }
 
 function renderRoster(): void {
@@ -467,9 +692,11 @@ function renderRoster(): void {
 }
 
 function renderAll(): void {
+  renderBanner();
   renderBoard();
+  renderActionbar();
+  renderPreview();
   renderForecast();
-  renderCommand();
   renderRoster();
 }
 
@@ -533,10 +760,10 @@ function logEvents(events: BattleEvent[]): void {
 function showOverlay(): void {
   const won = battle.winner === 'player';
   $('ov-title').textContent = won ? 'Victoria' : 'Derrota';
-  ($('ov-title').style as CSSStyleDeclaration).color = won ? 'var(--player)' : 'var(--enemy)';
+  $('ov-title').style.color = won ? 'var(--player)' : 'var(--enemy)';
   $('ov-sub').textContent = won
-    ? 'El equipo cian controla el valle.'
-    : 'Tus Zoids quedan fuera de combate.';
+    ? 'El equipo cian controla el valle. [Enter] para otra batalla.'
+    : 'Tus Zoids quedan fuera de combate. [Enter] para reintentar.';
   $('overlay').classList.add('show');
 }
 

@@ -21,7 +21,7 @@
   }
   * { box-sizing: border-box; }
   body { background: var(--bg); color: var(--ink); font-family: var(--sans); margin: 0; }
-  #app { max-width: 1180px; margin: 0 auto; padding: 14px 16px 40px; }
+  #app { max-width: 1220px; margin: 0 auto; padding: 14px 16px 40px; }
 
   header.gea {
     display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
@@ -31,16 +31,37 @@
     font-size: 15px; margin: 0; letter-spacing: 0.28em; text-transform: uppercase;
     color: var(--player); font-weight: 600;
   }
-  header.gea .sub { color: var(--muted); font-size: 12px; letter-spacing: 0.08em; }
+  header.gea .sub { color: var(--muted); font-size: 12px; letter-spacing: 0.05em; }
   header.gea .spacer { flex: 1; }
   header.gea label { color: var(--muted); font-size: 11px; font-family: var(--mono); }
   #seed {
     width: 90px; background: var(--panel-2); border: 1px solid var(--line); color: var(--ink);
     font-family: var(--mono); font-size: 12px; padding: 4px 6px; border-radius: 3px;
   }
+  #restart {
+    background: var(--panel-2); color: var(--ink); border: 1px solid var(--line); border-radius: 4px;
+    font-family: var(--mono); font-size: 12px; padding: 5px 10px; cursor: pointer;
+  }
 
-  main.gea { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 14px; }
-  @media (max-width: 900px) { main.gea { grid-template-columns: 1fr; } }
+  main.gea { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 14px; }
+  @media (max-width: 920px) { main.gea { grid-template-columns: 1fr; } }
+  .col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; }
+  .panel h2 {
+    margin: 0 0 8px; font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--muted); font-weight: 600;
+  }
+
+  /* ── Banner de turno ── */
+  #turn-banner {
+    display: flex; align-items: center; gap: 10px;
+    font-family: var(--mono); font-size: 13px; font-weight: 700;
+    border-left: 3px solid var(--player); padding: 8px 12px;
+    background: var(--panel); border-radius: 4px;
+  }
+  #turn-banner.enemy { border-left-color: var(--enemy); color: var(--enemy); }
+  #turn-banner .kbd-hint { flex: 1; text-align: right; color: var(--muted); font-weight: 400; font-size: 10px; }
 
   /* ── Tablero ── */
   #board-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 12px; }
@@ -50,59 +71,76 @@
     padding: 0; cursor: default; font-family: var(--mono);
   }
   .cell.actionable { cursor: pointer; }
-  .cell .h {
-    position: absolute; top: 1px; right: 3px; font-size: 9px; color: rgba(0,0,0,0.55);
-  }
+  .cell .h { position: absolute; top: 1px; right: 3px; font-size: 9px; color: rgba(0,0,0,0.55); }
   .cell .hl-label {
     position: absolute; bottom: 1px; right: 2px; font-size: 10px; font-weight: 700;
-    color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.9);
+    color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.9); pointer-events: none;
   }
   .cell.hl-move { outline: 2px solid var(--player); outline-offset: -2px; }
   .cell.hl-boost { outline: 2px dashed var(--energy); outline-offset: -2px; }
   .cell.hl-target { outline: 2px solid var(--danger); outline-offset: -2px; }
-  .cell:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
+  .cell.hl-face { outline: 2px solid var(--muted); outline-offset: -2px; }
+  .cell.path::before {
+    content: ''; position: absolute; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--player); opacity: 0.75; top: 50%; left: 50%; margin: -4px 0 0 -4px;
+    pointer-events: none;
+  }
+  .cell.pending { outline: 3px solid #fff; outline-offset: -2px; }
+  .cell.cursor::after {
+    content: ''; position: absolute; inset: 0; border: 2px solid #fff; border-radius: 3px;
+    pointer-events: none; opacity: 0.9;
+  }
 
   .chip {
     position: absolute; inset: 6px; border-radius: 4px; display: flex; flex-direction: column;
     align-items: center; justify-content: center; font-size: 11px; font-weight: 700;
-    font-family: var(--mono); color: #04181d; line-height: 1.1;
+    font-family: var(--mono); color: #04181d; line-height: 1.1; pointer-events: none;
   }
   .chip.player { background: var(--player); }
   .chip.enemy { background: var(--enemy); color: #2b1006; }
   .chip.active-unit { box-shadow: 0 0 0 2px #fff, 0 0 10px 2px rgba(255,255,255,0.35); }
   .chip .hpbar { width: 80%; height: 3px; background: rgba(0,0,0,0.35); border-radius: 2px; margin-top: 2px; }
-  .chip .hpbar i { display: block; height: 100%; background: #063; background: rgba(255,255,255,0.9); border-radius: 2px; }
+  .chip .hpbar i { display: block; height: 100%; background: rgba(255,255,255,0.9); border-radius: 2px; }
 
-  #legend { color: var(--muted); font-size: 11px; font-family: var(--mono); margin-top: 10px; text-align: center; }
+  #legend { color: var(--muted); font-size: 10px; font-family: var(--mono); margin-top: 10px; text-align: center; }
+
+  /* ── Barra de acciones ── */
+  #actionbar { display: flex; gap: 6px; flex-wrap: wrap; }
+  .abtn {
+    display: flex; align-items: center; gap: 7px;
+    background: var(--panel-2); color: var(--ink); border: 1px solid var(--line); border-radius: 4px;
+    font-family: var(--mono); font-size: 12px; padding: 7px 10px; cursor: pointer;
+  }
+  .abtn:hover:not(:disabled) { border-color: var(--player); }
+  .abtn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .abtn.mode-on { border-color: var(--player); color: var(--player); background: var(--player-dim); }
+  .abtn kbd {
+    font-family: var(--mono); font-size: 9px; background: var(--line); color: var(--ink);
+    border-radius: 3px; padding: 1px 5px; letter-spacing: 0.05em;
+  }
+  .abtn:focus-visible, .cell:focus-visible, #restart:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
+
+  /* ── Previsualización ── */
+  #preview { font-family: var(--mono); font-size: 12px; line-height: 1.55; min-height: 40px; }
+  #preview .pv-title { font-weight: 700; }
+  #preview .pv-danger { color: var(--danger); }
+  #preview .pv-good { color: var(--energy); }
+  #preview .pv-warn { color: var(--heat); }
+  #preview .pv-muted { color: var(--muted); }
+  #preview .pv-confirm {
+    margin-top: 6px; display: inline-block; border: 1px solid var(--danger); color: var(--danger);
+    padding: 3px 10px; border-radius: 3px; font-weight: 700;
+  }
 
   /* ── Columna lateral ── */
-  aside.gea { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; }
-  .panel h2 {
-    margin: 0 0 8px; font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase;
-    color: var(--muted); font-weight: 600;
-  }
-
   #forecast { display: flex; gap: 5px; flex-wrap: wrap; }
-  #forecast .fc {
-    font-family: var(--mono); font-size: 11px; font-weight: 700; padding: 3px 7px; border-radius: 3px;
-  }
+  #forecast .fc { font-family: var(--mono); font-size: 11px; font-weight: 700; padding: 3px 7px; border-radius: 3px; }
   #forecast .fc.player { background: var(--player-dim); color: var(--player); }
   #forecast .fc.enemy { background: var(--enemy-dim); color: var(--enemy); }
 
-  #command .row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
-  #command button {
-    background: var(--panel-2); color: var(--ink); border: 1px solid var(--line); border-radius: 4px;
-    font-family: var(--mono); font-size: 12px; padding: 6px 10px; cursor: pointer;
-  }
-  #command button:hover:not(:disabled) { border-color: var(--player); color: var(--player); }
-  #command button:disabled { opacity: 0.4; cursor: not-allowed; }
-  #command button.mode-on { border-color: var(--player); color: var(--player); background: var(--player-dim); }
-  #command .hint { color: var(--muted); font-size: 11px; font-family: var(--mono); margin-top: 4px; }
-
   .ucard { border-top: 1px solid var(--line); padding: 7px 0; font-size: 12px; }
   .ucard:first-of-type { border-top: 0; padding-top: 2px; }
-  .ucard .name { font-family: var(--mono); font-weight: 700; display: flex; gap: 6px; align-items: center; }
+  .ucard .name { font-family: var(--mono); font-weight: 700; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
   .ucard .name .tag { font-size: 10px; padding: 1px 5px; border-radius: 3px; }
   .ucard.player .tag { background: var(--player-dim); color: var(--player); }
   .ucard.enemy .tag { background: var(--enemy-dim); color: var(--enemy); }
@@ -123,7 +161,7 @@
   .mods span.destroyed { color: var(--danger); border-color: var(--danger); text-decoration: line-through; }
   .ucard .extra { color: var(--muted); font-size: 10px; font-family: var(--mono); margin-top: 3px; }
 
-  #log { max-height: 260px; overflow-y: auto; font-family: var(--mono); font-size: 11px; line-height: 1.5; }
+  #log { max-height: 240px; overflow-y: auto; font-family: var(--mono); font-size: 11px; line-height: 1.5; }
   #log div { color: var(--muted); }
   #log div.turn { color: var(--ink); border-top: 1px dashed var(--line); margin-top: 3px; padding-top: 3px; }
   #log div.hit { color: var(--enemy); }
@@ -136,10 +174,7 @@
     align-items: center; justify-content: center; z-index: 10;
   }
   #overlay.show { display: flex; }
-  #overlay .box {
-    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
-    padding: 28px 36px; text-align: center;
-  }
+  #overlay .box { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 28px 36px; text-align: center; }
   #overlay h2 { margin: 0 0 6px; letter-spacing: 0.2em; text-transform: uppercase; font-size: 18px; }
   #overlay p { color: var(--muted); margin: 0 0 16px; font-family: var(--mono); font-size: 12px; }
   #overlay button {
@@ -159,21 +194,28 @@
 <div id="app">
   <header class="gea">
     <h1>GEA</h1>
-    <span class="sub">consola táctica · escaramuza en el valle · tú llevas al equipo cian</span>
+    <span class="sub">consola táctica · tú llevas al equipo cian</span>
     <span class="spacer"></span>
     <label>semilla <input id="seed" type="number" value="42"></label>
-    <button id="restart" style="background:var(--panel-2);color:var(--ink);border:1px solid var(--line);border-radius:4px;font-family:var(--mono);font-size:12px;padding:5px 10px;cursor:pointer;">Nueva batalla</button>
+    <button id="restart">Nueva batalla</button>
   </header>
 
   <main class="gea">
-    <section id="board-panel">
-      <div id="board"></div>
-      <div id="legend">~ agua · ▒ abrupto (coste 2) · número = altura · flecha = orientación</div>
-    </section>
+    <div class="col">
+      <div id="turn-banner"></div>
+      <section id="board-panel">
+        <div id="board"></div>
+        <div id="legend">
+          WASD/flechas mueven el cursor · E/Enter confirma · Esc cancela ·
+          ~ agua · ▒ abrupto · número = altura · flecha = orientación
+        </div>
+      </section>
+      <div class="panel"><div id="actionbar"></div></div>
+      <div class="panel"><h2>Análisis</h2><div id="preview"></div></div>
+    </div>
 
-    <aside class="gea">
+    <aside class="col">
       <div class="panel"><h2>Próximos turnos</h2><div id="forecast"></div></div>
-      <div class="panel"><h2>Órdenes</h2><div id="command"></div></div>
       <div class="panel"><h2>Unidades</h2><div id="roster"></div></div>
       <div class="panel"><h2>Registro</h2><div id="log"></div></div>
     </aside>

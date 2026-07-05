@@ -64,11 +64,11 @@ export interface DamageInput {
 }
 
 /**
- * Fórmula de daño base del motor:
- *   base = (atk del tipo + power) * mitigación por defensa del tipo
- *   luego multiplicadores por arco y ventaja de altura, y varianza ±10%.
+ * Daño antes de la varianza: (atk del tipo + power) mitigado por la
+ * defensa del tipo, con multiplicadores por arco y ventaja de altura.
+ * El orden de multiplicación es parte del contrato (golden master).
  */
-export function computeDamage(input: DamageInput, rng: Rng): number {
+function baseDamage(input: DamageInput): number {
   const attackStat = input.damageType === 'physical'
     ? input.attackerStats.atk
     : input.attackerStats.energyAtk;
@@ -78,7 +78,25 @@ export function computeDamage(input: DamageInput, rng: Rng): number {
 
   const base = (attackStat + input.power) * (100 / (100 + defenseStat));
   const heightMult = 1 + Math.max(-0.2, Math.min(0.2, input.heightAdvantage * 0.1));
+  return base * ARC_DAMAGE_MULT[input.arc] * heightMult;
+}
+
+/**
+ * Fórmula de daño del motor: baseDamage con varianza ±10%.
+ */
+export function computeDamage(input: DamageInput, rng: Rng): number {
   const variance = 0.9 + rng.next() * 0.2;
-  const total = base * ARC_DAMAGE_MULT[input.arc] * heightMult * variance;
-  return Math.max(1, Math.round(total));
+  return Math.max(1, Math.round(baseDamage(input) * variance));
+}
+
+/**
+ * Pronóstico de daño para UI/IA: los extremos de la varianza, sin tirar
+ * el dado. computeDamage siempre cae dentro de [min, max].
+ */
+export function damageRange(input: DamageInput): { min: number; max: number } {
+  const base = baseDamage(input);
+  return {
+    min: Math.max(1, Math.round(base * 0.9)),
+    max: Math.max(1, Math.round(base * 1.1)),
+  };
 }
