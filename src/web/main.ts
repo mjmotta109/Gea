@@ -18,7 +18,8 @@ import {
   type PilotState, type SpecializationId,
 } from '../core/progression.js';
 import { STATUS_DEFINITIONS } from '../core/status.js';
-import type { BattleEvent, Facing, Position, Team, UnitState, WeatherId } from '../core/types.js';
+import type { BattleEvent, Facing, Position, Team, UnitState, WeatherId, FrameState,
+} from '../core/types.js';
 import { ABILITIES } from '../data/abilities.js';
 import { BLUEPRINT_PRICES, CITY_TIERS, CONTRACT_ENEMY_POOL, DIFFICULTIES, ECONOMY, LEISURE_OPTIONS, STARTER_COMPANIONS, THERAPY } from '../data/economy.js';
 import { VALLEY_CROSSING } from '../data/maps.js';
@@ -1123,19 +1124,64 @@ function renderRoster(): void {
         }
       }
       if (frame) {
-        const mods = document.createElement('div');
-        mods.className = 'mods';
-        for (const module of frame.modules) {
-          const span = document.createElement('span');
-          if (module.destroyed) span.classList.add('destroyed');
-          span.textContent = module.destroyed ? module.slot : `${module.slot} ${module.hp}`;
-          mods.appendChild(span);
-        }
-        card.appendChild(mods);
+        card.insertAdjacentHTML('beforeend', moduleDiagram(frame));
       }
     }
     el.appendChild(card);
   }
+}
+
+/*
+ * Diagrama de estado del Zoid: silueta lateral genérica (morro a la
+ * derecha) con cada módulo como pieza coloreada por su HP. Los slots
+ * son cadenas libres del frame: se asignan a regiones por patrón y lo
+ * que no encaje se apila como bloque extra a la izquierda.
+ */
+const DIAGRAM_REGIONS: Array<{ match: RegExp; x: number; y: number; w: number; h: number }> = [
+  { match: /head/, x: 118, y: 12, w: 34, h: 22 },
+  { match: /torso|body|core/, x: 50, y: 26, w: 64, h: 26 },
+  { match: /weapon|cannon|claws|gun/, x: 62, y: 6, w: 40, h: 16 },
+  { match: /backpack|tail|booster/, x: 10, y: 20, w: 34, h: 18 },
+  { match: /front|-r$/, x: 100, y: 56, w: 20, h: 18 },
+  { match: /rear|-l$/, x: 58, y: 56, w: 20, h: 18 },
+];
+
+function moduleColor(ratio: number): string {
+  if (ratio >= 0.7) return 'var(--hp)';
+  if (ratio >= 0.35) return 'var(--heat)';
+  return 'var(--danger)';
+}
+
+function moduleDiagram(frame: FrameState): string {
+  const used = new Set<number>();
+  let extraY = 44; // bloques sin región conocida, apilados al fondo
+  const pieces: string[] = [];
+  for (const module of frame.modules) {
+    const def = MODULES[module.moduleId];
+    const maxHp = def?.hp ?? Math.max(1, module.hp);
+    const idx = DIAGRAM_REGIONS.findIndex((r, i) => !used.has(i) && r.match.test(module.slot));
+    let box: { x: number; y: number; w: number; h: number };
+    if (idx >= 0) {
+      used.add(idx);
+      box = DIAGRAM_REGIONS[idx]!;
+    } else {
+      box = { x: 10, y: extraY, w: 22, h: 14 };
+      extraY += 16;
+    }
+    const ratio = Math.max(0, Math.min(1, module.hp / maxHp));
+    const fill = module.destroyed ? '#3a3f45' : moduleColor(ratio);
+    const label = module.destroyed ? '✕' : String(module.hp);
+    const title = `${def?.name ?? module.slot} — ${module.destroyed ? 'DESTRUIDO' : `${module.hp}/${maxHp}`}`;
+    pieces.push(
+      `<g class="mpart${module.destroyed ? ' broken' : ''}"><title>${escapeHtml(title)}</title>` +
+      `<rect x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" rx="4" fill="${fill}" fill-opacity="${module.destroyed ? 0.5 : 0.28}" stroke="${fill}"/>` +
+      `<text x="${box.x + box.w / 2}" y="${box.y + box.h / 2 + 3}">${label}</text></g>`);
+  }
+  return `<svg class="mdiag" viewBox="0 0 162 80" role="img">` +
+    // línea de tierra y espinazo: pura silueta, sin significado mecánico
+    `<line x1="6" y1="76" x2="156" y2="76" class="ground"/>` +
+    `<path d="M 44 39 H 118" class="spine"/>` +
+    pieces.join('') + '</svg>';
 }
 
 function renderAll(): void {

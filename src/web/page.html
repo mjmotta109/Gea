@@ -822,6 +822,18 @@
   .slot.current { box-shadow: 0 0 14px rgba(83, 209, 224, 0.14); }
   .gbtn, .wroute, .abtn, .sbtns button, .gsub { transition: border-color 0.15s, color 0.15s, background 0.15s, box-shadow 0.2s, transform 0.06s; }
 
+  /* ── Diagrama de módulos del Zoid (tarjeta de unidad) ── */
+  .mdiag { display: block; width: 100%; max-width: 190px; margin: 6px 0 2px; }
+  .mdiag .ground { stroke: var(--line); stroke-width: 1; stroke-dasharray: 3 3; }
+  .mdiag .spine { stroke: var(--line); stroke-width: 2; fill: none; }
+  .mdiag .mpart rect { stroke-width: 1.2; transition: fill-opacity 0.2s; }
+  .mdiag .mpart text {
+    fill: var(--ink); font-family: var(--mono); font-size: 9px; font-weight: 700;
+    text-anchor: middle; pointer-events: none;
+  }
+  .mdiag .mpart.broken text { fill: var(--muted); }
+  .mdiag .mpart:hover rect { fill-opacity: 0.55; }
+
   /* ── Efectos de combate: capa #fx sobre el tablero ── */
   #fx { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 4; }
   .fx { position: absolute; pointer-events: none; }
