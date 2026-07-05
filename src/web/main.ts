@@ -12,14 +12,15 @@ import { attackArc, type AttackArc } from '../core/combat.js';
 import { GameMap, posKey, terrainLabel, TERRAIN_COVER } from '../core/grid.js';
 import { reachableTiles, type ReachableTile } from '../core/pathfinding.js';
 import {
-  adjustStress, applyXp, awardXp, dominantTrack, newPilot, observeBattle, trackLevel,
+  adjustStress, applyXp, awardXp, dominantTrack, newPilot, observeBattle,
+  recordPilotEvent, reframeQuirk, trackLevel,
   TRACK_LEVEL_THRESHOLDS, SPECIALIZATIONS,
   type PilotState, type SpecializationId,
 } from '../core/progression.js';
 import { STATUS_DEFINITIONS } from '../core/status.js';
 import type { BattleEvent, Facing, Position, Team, UnitState, WeatherId } from '../core/types.js';
 import { ABILITIES } from '../data/abilities.js';
-import { BLUEPRINT_PRICES, CITY_TIERS, CONTRACT_ENEMY_POOL, ECONOMY } from '../data/economy.js';
+import { BLUEPRINT_PRICES, CITY_TIERS, CONTRACT_ENEMY_POOL, ECONOMY, LEISURE_OPTIONS, THERAPY } from '../data/economy.js';
 import { VALLEY_CROSSING } from '../data/maps.js';
 import { GARAGE_MODULE_OPTIONS, MODULES } from '../data/modules.js';
 import { PERKS } from '../data/progression.js';
@@ -2055,20 +2056,75 @@ function renderCityPanel(node: (typeof REGION.nodes)[number]): void {
     box.appendChild(btn);
   };
 
-  // Descanso: alivia estrés a todo el equipo, cuesta un día.
+  // Desahogos: de la vela gratuita a la casa de placer. Todos cuestan
+  // un día y alivian a todo el equipo; cada uno con su carácter.
   const maxStress = Math.max(...PILOT_IDS.map((id) => pilots[id]!.stress ?? 0));
-  mk(`😴 Descansar 1 día (−${tier.restRelief} estrés, ⌾${tier.restCost})`,
+  const restDay = (relief: number, cost: number, line: string): void => {
+    campaign = { ...campaign!, credits: campaign!.credits - cost };
+    for (const id of PILOT_IDS) pilots[id] = adjustStress(pilots[id]!, -relief);
+    expedition = {
+      ...expedition!,
+      day: expedition!.day + 1,
+      log: [...expedition!.log, `Día ${expedition!.day + 1} — ${line}`],
+    };
+    savePilots(); saveCampaign(); saveExpedition(); renderWorld();
+  };
+  mk(`😴 Pensión: descansar 1 día (−${tier.restRelief} estrés, ⌾${tier.restCost})`,
     campaign.credits < tier.restCost || maxStress === 0,
-    () => {
-      campaign = { ...campaign!, credits: campaign!.credits - tier.restCost };
-      for (const id of PILOT_IDS) pilots[id] = adjustStress(pilots[id]!, -tier.restRelief);
-      expedition = {
-        ...expedition!,
-        day: expedition!.day + 1,
-        log: [...expedition!.log, `Día ${expedition!.day + 1} — Descanso en ${node.name}. Los pilotos respiran.`],
-      };
-      savePilots(); saveCampaign(); saveExpedition(); renderWorld();
-    });
+    () => restDay(tier.restRelief, tier.restCost, `Descanso en ${node.name}. Los pilotos respiran.`));
+  for (const leisure of LEISURE_OPTIONS) {
+    if (city.level < leisure.minLevel) continue;
+    mk(`${leisure.id === 'vela' ? '🕯' : leisure.id === 'cantina' ? '🍺' : '🏮'} ${leisure.name} (−${leisure.relief}, ⌾${leisure.cost})`,
+      campaign.credits < leisure.cost || maxStress === 0,
+      () => {
+        let cost = leisure.cost;
+        let line = `${leisure.name} en ${node.name}.`;
+        if (leisure.rowdy) {
+          // La ronda a veces se alarga (determinista por día y lugar).
+          const roll = (Math.imul(expedition!.day * 2654435761 ^ node.id.length * 97, 668265263) >>> 0) / 4294967296;
+          if (roll < 0.3 && campaign!.credits >= Math.round(cost * 1.5)) {
+            cost = Math.round(cost * 1.5);
+            line += ' La ronda se alargó: la cuenta también.';
+          }
+          for (const id of PILOT_IDS) {
+            const marked = recordPilotEvent(pilots[id]!, 'parrandas', PERKS);
+            pilots[id] = marked.pilot;
+            for (const quirk of marked.gained) {
+              line += ` ${pilots[id]!.name} vuelve con la manía ${quirk.name}.`;
+            }
+          }
+        }
+        restDay(leisure.relief, cost, line);
+      });
+  }
+
+  // Consultorio (nivel 2+): la terapia reencuadra una manía — el trauma
+  // no se borra, se aprende a vivir con él. Sin dados.
+  if (city.level >= THERAPY.minLevel) {
+    for (const pilotId of PILOT_IDS) {
+      const pilot = pilots[pilotId]!;
+      for (const quirkId of pilot.quirks ?? []) {
+        const quirk = PERKS.quirks?.[quirkId];
+        const target = quirk?.reframedTo ? PERKS.quirks?.[quirk.reframedTo] : undefined;
+        if (!quirk || !target) continue;
+        mk(`🛋 Terapia — ${escapeHtml(pilot.name)}: "${quirk.name}" → "${target.name}" (⌾${THERAPY.cost}, ${THERAPY.days} días)`,
+          campaign!.credits < THERAPY.cost,
+          () => {
+            const reframed = reframeQuirk(pilots[pilotId]!, quirkId, PERKS);
+            if (!reframed) return;
+            pilots[pilotId] = adjustStress(reframed, -THERAPY.stressRelief);
+            campaign = { ...campaign!, credits: campaign!.credits - THERAPY.cost };
+            expedition = {
+              ...expedition!,
+              day: expedition!.day + THERAPY.days,
+              log: [...expedition!.log,
+                `Día ${expedition!.day + THERAPY.days} — ${pilots[pilotId]!.name} sale del consultorio de ${node.name}: "${quirk.name}" ya no manda — ahora es "${target.name}".`],
+            };
+            savePilots(); saveCampaign(); saveExpedition(); renderWorld();
+          });
+      }
+    }
+  }
 
   // Taller local: repara cada máquina dañada según el nivel.
   campaign.roster.forEach((zoid, slot) => {

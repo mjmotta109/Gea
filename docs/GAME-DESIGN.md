@@ -326,3 +326,18 @@ arquitectura del motor van en DESIGN.md.)*
   el chasis de la compañera pide confirmación y BORRA la biografía (la
   nueva llega verde). El parte de batalla anuncia cada marca grabada;
   la biografía se ve en el hangar (núcleo, huecos libres, tramo).
+- **2026-07-05** — DESAHOGOS Y PSICOLOGÍA (dirección del usuario). Los
+  tipos de descanso en ciudad, cada uno con carácter: Vela junto al
+  núcleo (gratis, −8, y es un momento con la compañera), Pensión (por
+  nivel de ciudad), Cantina — alcohol y parranda (−25 por ⌾60, pero la
+  ronda a veces se alarga +50% y CUENTA PARRANDAS: 4 → manía Juerguista,
+  mixta) y Casa Farol Rojo (nivel 2+, −40 por ⌾180, discreta). Y el
+  CONSULTORIO (nivel 2+): terapia que trata el trauma con una regla de
+  diseño deliberada — **la terapia no borra la manía: la REENCUADRA en
+  su versión aprendida** (Paranoia→Vigilancia, Miedo al calor→Templanza,
+  Gatillo fácil→Fuego disciplinado, Juerguista→Alma de la compañía),
+  cuesta ⌾350 y 2 días, y funciona SIEMPRE: con la salud mental no se
+  juega a los dados — el coste en tiempo y dinero es el balance. Las
+  manías reencuadradas solo se alcanzan por terapia (umbral infinito).
+  Pendiente: desahogos con preferencias por piloto (a quien no le gusta
+  la cantina), terapia de grupo, y el consultorio del taller propio.

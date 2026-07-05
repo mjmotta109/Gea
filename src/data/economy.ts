@@ -26,6 +26,48 @@ export const CITY_TIERS: Record<1 | 2 | 3, CityTier> = {
   3: { repairCostPerHp: 3.5, repairCapRatio: 1, restRelief: 50, restCost: 240, supplyPrice: 35, cargoRate: 1.15, factoryDiscount: 0.3 },
 };
 
+/**
+ * Desahogos disponibles en las ciudades (además de la pensión por nivel).
+ * Cada uno alivia estrés a TODO el equipo, cuesta un día, y tiene su
+ * carácter: la vela es gratis y humilde; la cantina es barata pero
+ * cuenta parrandas (4 → manía Juerguista) y a veces la ronda se alarga;
+ * la casa de placer es cara, discreta y muy eficaz.
+ */
+export interface LeisureOption {
+  id: string;
+  name: string;
+  minLevel: 1 | 2 | 3;
+  cost: number;
+  relief: number;
+  flavor: string;
+  /** La cantina: cuenta parrandas y puede alargarse la ronda (+50%). */
+  rowdy?: boolean;
+}
+
+export const LEISURE_OPTIONS: LeisureOption[] = [
+  {
+    id: 'vela', name: 'Vela junto al núcleo', minLevel: 1, cost: 0, relief: 8,
+    flavor: 'Una noche en silencio junto a la máquina. Gratis, y a veces basta.',
+  },
+  {
+    id: 'cantina', name: 'Cantina: alcohol y parranda', minLevel: 1, cost: 60, relief: 25,
+    flavor: 'Barato y ruidoso. La cuenta a veces crece sola, y las costumbres también.',
+    rowdy: true,
+  },
+  {
+    id: 'farol', name: 'Casa Farol Rojo', minLevel: 2, cost: 180, relief: 40,
+    flavor: 'Discreción, sábanas limpias y nadie pregunta por la guerra.',
+  },
+];
+
+/** El consultorio: terapia que REENCUADRA una manía (no la borra). */
+export const THERAPY = {
+  minLevel: 2 as 1 | 2 | 3,
+  cost: 350,
+  days: 2,
+  stressRelief: 20,
+};
+
 /** Planos de módulos aftermarket (se compran una vez, en fábricas de piezas). */
 export const BLUEPRINT_PRICES: Record<string, number> = {
   'am-sniper-sensor': 380,

@@ -113,7 +113,7 @@ export const PERKS: PerkTable = {
     'miedo-al-calor': {
       id: 'miedo-al-calor', name: 'Miedo al calor',
       description: 'El olor a refrigerante quemado no se olvida. Apunta peor, pero no se queda quieto.',
-      counter: 'apagados', threshold: 2,
+      counter: 'apagados', threshold: 2, reframedTo: 'templanza',
       modifiers: [
         { source: 'quirk:miedo-al-calor', stat: 'accuracy', add: -3 },
         { source: 'quirk:miedo-al-calor', stat: 'evade', add: 4 },
@@ -122,7 +122,7 @@ export const PERKS: PerkTable = {
     'gatillo-facil': {
       id: 'gatillo-facil', name: 'Gatillo fácil',
       description: 'Una docena de bajas y las ganas de más. Dispara fuerte, apunta rápido.',
-      counter: 'bajas', threshold: 12,
+      counter: 'bajas', threshold: 12, reframedTo: 'fuego-disciplinado',
       modifiers: [
         { source: 'quirk:gatillo-facil', stat: 'atk', add: 3 },
         { source: 'quirk:gatillo-facil', stat: 'accuracy', add: -2 },
@@ -152,7 +152,7 @@ export const PERKS: PerkTable = {
     'paranoia': {
       id: 'paranoia', name: 'Paranoia',
       description: 'Tanto castigo encajado deja secuelas: no deja de mirar los retrovisores.',
-      counter: 'castigo', threshold: 900,
+      counter: 'castigo', threshold: 900, reframedTo: 'vigilancia',
       modifiers: [
         { source: 'quirk:paranoia', stat: 'evade', add: 4 },
         { source: 'quirk:paranoia', stat: 'move', add: -1 },
@@ -163,6 +163,50 @@ export const PERKS: PerkTable = {
       description: 'Encajó una paliza histórica y siguió dando órdenes con voz plana.',
       counter: 'castigo', threshold: 1800,
       modifiers: [{ source: 'quirk:sangre-fria', stat: 'accuracy', add: 3 }],
+    },
+    'juerguista': {
+      id: 'juerguista', name: 'Juerguista',
+      description: 'Demasiadas noches de cantina: llega a la batalla bailando, pero apunta regular.',
+      counter: 'parrandas', threshold: 4, reframedTo: 'alma-de-la-compania',
+      modifiers: [
+        { source: 'quirk:juerguista', stat: 'evade', add: 2 },
+        { source: 'quirk:juerguista', stat: 'accuracy', add: -2 },
+      ],
+    },
+    // ── Reencuadres: SOLO se alcanzan con terapia (umbral inalcanzable).
+    //    El trauma no se borra; se aprende a vivir con él.
+    'templanza': {
+      id: 'templanza', name: 'Templanza',
+      description: 'El fuego se respeta, no se teme. Aprendió a leer el calor antes de que muerda.',
+      counter: 'terapia', threshold: Number.POSITIVE_INFINITY,
+      modifiers: [
+        { source: 'quirk:templanza', stat: 'evade', add: 2 },
+        { source: 'quirk:templanza', stat: 'accuracy', add: 1 },
+      ],
+    },
+    'vigilancia': {
+      id: 'vigilancia', name: 'Vigilancia',
+      description: 'Sigue mirando los retrovisores. Ahora sabe qué busca.',
+      counter: 'terapia', threshold: Number.POSITIVE_INFINITY,
+      modifiers: [{ source: 'quirk:vigilancia', stat: 'evade', add: 4 }],
+    },
+    'fuego-disciplinado': {
+      id: 'fuego-disciplinado', name: 'Fuego disciplinado',
+      description: 'Las ganas siguen ahí. Ahora esperan la orden.',
+      counter: 'terapia', threshold: Number.POSITIVE_INFINITY,
+      modifiers: [
+        { source: 'quirk:fuego-disciplinado', stat: 'atk', add: 3 },
+        { source: 'quirk:fuego-disciplinado', stat: 'accuracy', add: 1 },
+      ],
+    },
+    'alma-de-la-compania': {
+      id: 'alma-de-la-compania', name: 'Alma de la compañía',
+      description: 'La fiesta le enseñó a leer una sala. Y un campo de batalla es una sala.',
+      counter: 'terapia', threshold: Number.POSITIVE_INFINITY,
+      modifiers: [
+        { source: 'quirk:alma-de-la-compania', stat: 'evade', add: 2 },
+        { source: 'quirk:alma-de-la-compania', stat: 'speed', add: 1 },
+      ],
     },
   },
 };

@@ -223,6 +223,11 @@ export interface QuirkDefinition {
   counter: string;
   threshold: number;
   modifiers: StatModifier[];
+  /**
+   * Reencuadre terapéutico: id de la manía en la que puede transformarse
+   * con tratamiento. El trauma no se borra — se aprende a vivir con él.
+   */
+  reframedTo?: string;
 }
 
 /**
@@ -358,4 +363,45 @@ export function observeBattle(
 
   const stress = Math.max(0, Math.min(100, Math.round((pilot.stress ?? 0) + stressDelta)));
   return { pilot: { ...pilot, memory, quirks, stress }, gained };
+}
+
+/**
+ * Terapia: transforma una manía en su versión reencuadrada (definida en
+ * la tabla). Devuelve null si la manía no se tiene o no es tratable.
+ * Determinista y sin azar: con la salud mental no se juega a los dados.
+ */
+export function reframeQuirk(
+  pilot: PilotState,
+  quirkId: string,
+  table: PerkTable,
+): PilotState | null {
+  const quirk = table.quirks?.[quirkId];
+  const targetId = quirk?.reframedTo;
+  if (!quirk || !targetId || !table.quirks?.[targetId]) return null;
+  if (!(pilot.quirks ?? []).includes(quirkId)) return null;
+  return { ...pilot, quirks: pilot.quirks.map((q) => (q === quirkId ? targetId : q)) };
+}
+
+/**
+ * Registra un suceso de campaña fuera de batalla (una parranda, una
+ * pérdida...) y graba las manías cuyos umbrales se crucen.
+ */
+export function recordPilotEvent(
+  pilot: PilotState,
+  counter: string,
+  table: PerkTable,
+): { pilot: PilotState; gained: QuirkDefinition[] } {
+  const memory = { ...(pilot.memory ?? {}), [counter]: ((pilot.memory ?? {})[counter] ?? 0) + 1 };
+  const quirks = [...(pilot.quirks ?? [])];
+  const gained: QuirkDefinition[] = [];
+  const cap = table.quirkCap ?? 4;
+  for (const quirk of Object.values(table.quirks ?? {}).sort((a, b) => a.id.localeCompare(b.id))) {
+    if (quirks.length >= cap) break;
+    if (quirks.includes(quirk.id)) continue;
+    if ((memory[quirk.counter] ?? 0) >= quirk.threshold) {
+      quirks.push(quirk.id);
+      gained.push(quirk);
+    }
+  }
+  return { pilot: { ...pilot, memory, quirks }, gained };
 }

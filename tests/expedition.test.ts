@@ -210,3 +210,25 @@ describe('la compañera: marcas y compenetración', () => {
     expect(battle.effectiveStats(battle.unit('B')).atk).toBe(30);
   });
 });
+
+describe('desahogos y terapia', () => {
+  it('la terapia reencuadra la manía (no la borra) y es determinista', async () => {
+    const { newPilot: mk, recordPilotEvent, reframeQuirk } = await import('../src/core/progression.js');
+    let pilot = mk('t', 'Terapiado');
+    pilot = { ...pilot, quirks: ['paranoia'] };
+    const reframed = reframeQuirk(pilot, 'paranoia', PERKS);
+    expect(reframed).not.toBeNull();
+    expect(reframed!.quirks).toEqual(['vigilancia']); // transformada, no borrada
+    // Una manía sin reencuadre definido no es tratable.
+    expect(reframeQuirk({ ...pilot, quirks: ['curtido'] }, 'curtido', PERKS)).toBeNull();
+    // Las reencuadradas jamás se adquieren por contadores (umbral infinito).
+    let party = mk('p', 'Parrandero');
+    for (let i = 0; i < 3; i++) party = recordPilotEvent(party, 'parrandas', PERKS).pilot;
+    expect(party.quirks).toEqual([]);
+    const fourth = recordPilotEvent(party, 'parrandas', PERKS);
+    expect(fourth.gained.map((q) => q.id)).toEqual(['juerguista']); // 4 parrandas
+    expect(fourth.pilot.quirks).not.toContain('alma-de-la-compania');
+    // Y la Juerguista también tiene salida terapéutica.
+    expect(reframeQuirk(fourth.pilot, 'juerguista', PERKS)!.quirks).toEqual(['alma-de-la-compania']);
+  });
+});
