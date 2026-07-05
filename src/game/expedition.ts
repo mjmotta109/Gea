@@ -219,6 +219,26 @@ export function startExpedition(
   };
 }
 
+/**
+ * Expedición LIBRE: sin contrato ni objetivo. Se sale a recorrer la
+ * región por cuenta propia — ruinas, ciudades, trabajos de taberna —
+ * y se cierra volviendo al taller. `key` siembra los eventos de ruta
+ * y queda grabado en el estado: a partir de ahí todo es determinista.
+ */
+export function startFreeExpedition(region: WorldRegion, key: string): ExpeditionState {
+  return {
+    contractId: `libre|${key}`,
+    targetNodeId: region.hq,
+    at: region.hq,
+    day: 0,
+    // Sin misión pendiente: volver al taller cierra la expedición sin
+    // abandonar nada.
+    missionDone: true,
+    blockedEdges: [],
+    log: ['Día 0 — Salimos a recorrer la región por cuenta propia, sin contrato.'],
+  };
+}
+
 export interface TravelResult {
   expedition: ExpeditionState;
   /** Suministros consumidos por el tramo (0 si el tramo se frustró). */

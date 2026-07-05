@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  assignTarget, availableEdges, distancesFrom, edgeKey, startExpedition, travel,
+  assignTarget, availableEdges, distancesFrom, edgeKey, startExpedition, startFreeExpedition, travel,
 } from '../src/game/expedition.js';
 import {
   buyBlueprint, buySupplies, cityRepair, consumeSupplies, newCampaign, sellCargo, stashCargo,
@@ -89,6 +89,24 @@ describe('capa de viaje: la región y las expediciones', () => {
     const sold = sellCargo(state);
     expect(sold.earned).toBe(300);
     expect(sold.state.cargo).toHaveLength(0);
+  });
+});
+
+describe('expedición libre: salir a explorar sin contrato', () => {
+  it('arranca en el cuartel, sin misión pendiente y sin tramos rotos', () => {
+    const exp = startFreeExpedition(SALT_PASS_REGION, 'clave-1');
+    expect(exp.at).toBe(SALT_PASS_REGION.hq);
+    expect(exp.missionDone).toBe(true); // volver al taller cierra sin abandonar nada
+    expect(exp.targetNodeId).toBe(SALT_PASS_REGION.hq);
+    expect(exp.day).toBe(0);
+    expect(exp.blockedEdges).toEqual([]);
+  });
+
+  it('la misma clave produce exactamente el mismo viaje (determinismo)', () => {
+    const route = availableEdges(startFreeExpedition(SALT_PASS_REGION, 'x'), SALT_PASS_REGION)[0]!;
+    const a = travel(startFreeExpedition(SALT_PASS_REGION, 'x'), SALT_PASS_REGION, route);
+    const b = travel(startFreeExpedition(SALT_PASS_REGION, 'x'), SALT_PASS_REGION, route);
+    expect(a).toEqual(b);
   });
 });
 

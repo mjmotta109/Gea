@@ -35,7 +35,7 @@ import {
 } from '../game/mercenary.js';
 import {
   canExplore, edgesTowardCivilization, exploreSite, neighbors, otherEnd,
-  startExpedition, travel, edgeKey,
+  startExpedition, startFreeExpedition, travel, edgeKey,
   type ExpeditionState, type WorldEdge,
 } from '../game/expedition.js';
 import { SALT_PASS_REGION } from '../data/world.js';
@@ -1605,7 +1605,10 @@ function renderMerc(): void {
   renderMercHangar();
   renderMercStore();
   const anyAlive = campaign.roster.some((z) => !z.destroyed);
-  ($('merc-deploy') as HTMLButtonElement).disabled = !selectedContractId || !anyAlive;
+  const deploy = $('merc-deploy') as HTMLButtonElement;
+  deploy.disabled = !selectedContractId || !anyAlive;
+  deploy.textContent = selectedContractId ? '⚑ Partir al contrato' : '⚑ Partir al contrato (elige uno)';
+  ($('merc-freeroam') as HTMLButtonElement).disabled = !anyAlive;
 }
 
 function renderContracts(): void {
@@ -1901,6 +1904,16 @@ function startContractExpedition(): void {
   if (!contract) return;
   if (!campaign.roster.some((z) => !z.destroyed)) return;
   expedition = startExpedition(REGION, contract.id, contract.tier);
+  saveExpedition();
+  closeMerc();
+  openWorld();
+}
+
+/** Sale a recorrer la región sin contrato: explorar es un fin en sí. */
+function startFreeRoam(): void {
+  if (!campaign) return;
+  if (!campaign.roster.some((z) => !z.destroyed)) return;
+  expedition = startFreeExpedition(REGION, String(Date.now()));
   saveExpedition();
   closeMerc();
   openWorld();
@@ -3249,6 +3262,7 @@ $('merc-btn').addEventListener('click', () => {
 });
 $('city-close').addEventListener('click', closeCity);
 $('merc-deploy').addEventListener('click', startContractExpedition);
+$('merc-freeroam').addEventListener('click', startFreeRoam);
 $('merc-skirmish').addEventListener('click', enterSandbox);
 $('merc-reset').addEventListener('click', async () => {
   if (!(await uiConfirm('¿Empezar una campaña nueva? Se pierden créditos, hangar y arsenal (los pilotos se conservan).'))) return;

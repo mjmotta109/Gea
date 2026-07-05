@@ -390,3 +390,16 @@ arquitectura del motor van en DESIGN.md.)*
   cuartel sin pasar por el menú. Motor y capa de juego intactos:
   `newCampaign` solo ganó un parámetro opcional de overrides
   (créditos/suministros/roster), el contenido vive en `src/data`.
+- **2026-07-05** — EXPLORACIÓN LIBRE (bug de diseño detectado por el
+  usuario al estrenar el asistente: "¿por qué no puedo salir de
+  expedición al iniciar partida?"). La ley decía "explorar libremente
+  O tomar un contrato", pero la única salida del cuartel era el
+  contrato: el botón quedaba apagado hasta elegir uno, sin explicación.
+  Arreglo en dos partes: (1) el botón de contrato ahora se llama
+  "⚑ Partir al contrato" y cuando está apagado dice "(elige uno)";
+  (2) nuevo botón "🧭 Explorar libremente" — sale de expedición SIN
+  contrato ni objetivo: mismo mapa, mismos suministros, mismos
+  eventos de ruta, ruinas, ciudades y trabajos de taberna, y volver
+  al taller cierra el viaje sin contar como abandono (missionDone
+  nace en true). La clave de la expedición libre siembra los eventos
+  y queda grabada en el estado: determinismo intacto a partir de ahí.

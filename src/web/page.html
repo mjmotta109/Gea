@@ -615,6 +615,13 @@
   }
   #merc-deploy:hover:not(:disabled) { background: var(--heat); color: #1d1206; }
   #merc-deploy:disabled { opacity: 0.4; cursor: not-allowed; }
+  #merc-freeroam {
+    background: #122a1c; color: var(--player); border: 1px solid var(--player);
+    border-radius: 4px; font-family: var(--mono); font-size: 14px; font-weight: 700;
+    padding: 9px 22px; cursor: pointer;
+  }
+  #merc-freeroam:hover:not(:disabled) { background: var(--player); color: #04181d; }
+  #merc-freeroam:disabled { opacity: 0.4; cursor: not-allowed; }
   .gsub {
     background: var(--panel-2); color: var(--muted); border: 1px solid var(--line);
     border-radius: 4px; font-family: var(--mono); font-size: 11px; padding: 5px 9px; cursor: pointer;
@@ -873,7 +880,8 @@
         <button id="pilots-btn-m" class="gsub">🧠 Pilotos</button>
         <button id="merc-skirmish" class="gsub">modo escaramuza</button>
         <button id="merc-reset" class="gsub">nueva campaña</button>
-        <button id="merc-deploy">🧭 Salir de expedición</button>
+        <button id="merc-freeroam">🧭 Explorar libremente</button>
+        <button id="merc-deploy">⚑ Partir al contrato</button>
       </div>
       <h3 class="msec">Contratos disponibles</h3>
       <div id="contracts"></div>
