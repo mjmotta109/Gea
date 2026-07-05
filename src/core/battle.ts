@@ -1,5 +1,13 @@
-import { attackArc, computeDamage, facingTowards, hitChance } from './combat.js';
-import { GameMap, manhattan, posKey, samePos } from './grid.js';
+import {
+  attackArc,
+  computeDamage,
+  damageRange,
+  facingTowards,
+  hitChance,
+  type AttackArc,
+} from './combat.js';
+import { GameMap, manhattan, posKey, samePos, TERRAIN_COVER } from './grid.js';
+import { hasLineOfSight } from './los.js';
 import { aoeTiles, reachableTiles, targetableTiles, type ReachableTile } from './pathfinding.js';
 import { applyModifiers } from './derived.js';
 import {
@@ -335,7 +343,66 @@ export class Battle {
     if (unit.hasActed) return [];
     const ability = this.abilityOf(abilityId);
     this.assertKnowsAbility(unit, abilityId);
-    return targetableTiles(this.map, unit.position, ability.range, ability.minRange, ability.shape);
+    return targetableTiles(this.map, unit.position, ability.range, ability.minRange, ability.shape)
+      .filter((pos) => hasLineOfSight(this.map, unit.position, pos));
+  }
+
+  /**
+   * ¿Podría esta unidad apuntar con la habilidad a `target` DESDE `from`?
+   * Respeta alcance mín/máx, alineación de las armas en línea y línea de
+   * visión. Es la consulta compartida por la IA y el indicador ⌖ de la UI
+   * al planear movimiento (posiciones hipotéticas).
+   */
+  canTargetFrom(unit: UnitState, from: Position, abilityId: string, target: Position): boolean {
+    const ability = this.abilityOf(abilityId);
+    const dist = manhattan(from, target);
+    if (dist < ability.minRange || dist > ability.range) return false;
+    if (ability.shape === 'line' && from.x !== target.x && from.y !== target.y) return false;
+    if (!this.map.inBounds(target) || this.map.tileAt(target).terrain === 'wall') return false;
+    return hasLineOfSight(this.map, from, target);
+  }
+
+  /**
+   * Pronóstico completo de un ataque para UI/IA: probabilidad (con arco,
+   * cobertura del terreno del defensor y puntería), rango de daño y
+   * contexto. undefined si no hay efecto de daño o no hay unidad objetivo.
+   */
+  attackPreview(unitId: string, abilityId: string, target: Position): {
+    chance: number;
+    min: number;
+    max: number;
+    arc: AttackArc;
+    heightAdvantage: number;
+    cover: number;
+  } | undefined {
+    const unit = this.unit(unitId);
+    const victim = this.unitAt(target);
+    if (!victim) return undefined;
+    const ability = this.abilityOf(abilityId);
+    const damaging = ability.effects.find((e) => e.kind === 'damage');
+    if (!damaging || damaging.kind !== 'damage') return undefined;
+
+    const userStats = this.effectiveStats(unit);
+    const targetStats = this.effectiveStats(victim);
+    const arc = attackArc(unit.position, victim.position, victim.facing);
+    const cover = TERRAIN_COVER[this.map.tileAt(victim.position).terrain];
+    const heightAdvantage =
+      this.map.tileAt(unit.position).height - this.map.tileAt(victim.position).height;
+    const chance = hitChance({
+      accuracy: ability.accuracy,
+      attackerAccuracy: userStats.accuracy,
+      arc,
+      defenderEvade: targetStats.evade + cover,
+    });
+    const range = damageRange({
+      attackerStats: userStats,
+      defenderStats: targetStats,
+      power: damaging.power,
+      damageType: damaging.damageType,
+      arc,
+      heightAdvantage,
+    });
+    return { chance, min: range.min, max: range.max, arc, heightAdvantage, cover };
   }
 
   // ── Ejecución de acciones ──────────────────────────────────────────────
@@ -471,7 +538,10 @@ export class Battle {
                 accuracy: ability.accuracy,
                 attackerAccuracy: userStats.accuracy,
                 arc,
-                defenderEvade: targetStats.evade,
+                // La cobertura del terreno que ocupa el defensor cuenta
+                // como evasión extra (fase 3).
+                defenderEvade: targetStats.evade
+                  + TERRAIN_COVER[this.map.tileAt(target.position).terrain],
               });
           if (!this.rng.roll(chance)) {
             events.push({ type: 'ability-missed', unitId: user.id, targetUnitId: target.id });

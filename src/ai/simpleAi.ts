@@ -46,11 +46,8 @@ export function planTurn(battle: Battle, unit: UnitState): BattleAction[] {
   for (const option of moveOptions) {
     for (const ability of offensiveAbilities) {
       for (const enemy of enemies) {
-        const dist = manhattan(option.from, enemy.position);
-        if (dist < ability.minRange || dist > ability.range) continue;
-        if (ability.shape === 'line'
-          && option.from.x !== enemy.position.x
-          && option.from.y !== enemy.position.y) continue;
+        // Alcance, alineación y línea de visión, igual que el motor.
+        if (!battle.canTargetFrom(unit, option.from, ability.id, enemy.position)) continue;
 
         const damage = ability.effects.find((e) => e.kind === 'damage');
         const power = damage && damage.kind === 'damage' ? damage.power : 0;

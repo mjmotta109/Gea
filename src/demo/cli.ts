@@ -60,6 +60,7 @@ function renderBoard(): string {
       const glyph = tile.terrain === 'wall' ? ' #'
         : tile.terrain === 'water' ? ' ~'
         : tile.terrain === 'rough' ? ' *'
+        : tile.terrain === 'forest' ? ' ♣'
         : tile.height > 0 ? ' ' + String(tile.height) : ' .';
       row += glyph;
     }

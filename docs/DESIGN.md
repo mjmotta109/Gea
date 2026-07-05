@@ -428,7 +428,7 @@ IA). Golden master intacto. Desvíos anotados:
 
 ---
 
-### Fase 3 — Percepción y terreno rico
+### 🔶 Fase 3 — Percepción y terreno rico — EN CURSO (LOS y cobertura ✅)
 
 *Objetivo: dejar de ver el mapa como costes de movimiento; dejar de ver al
 enemigo gratis.*
@@ -451,6 +451,23 @@ enemigo gratis.*
 **Hecho cuando**: en la demo, un Gun Sniper detrás de una colina es
 inalcanzable e invisible hasta que alguien gana línea de visión; con niebla
 la batalla se decide a corta distancia.
+
+**Progreso (2026-07-05)**: completados los puntos 1-2 (terreno y LOS):
+- Terreno 'forest' + TERRAIN_COVER (la cobertura del tile del defensor
+  suma a su evasión): la versión simplificada acordada en GAME-DESIGN
+  (bonus por terreno ocupado, no cobertura direccional XCOM). El
+  MaterialProfile completo (§3.6) queda para cuando un sistema lo pida.
+- LOS por muestreo del segmento a altura de sensores, bloqueada por
+  muros, relieve y copas de bosque; dentro del bosque hay cobertura pero
+  no ocultación (la ocultación llegará con los sensores).
+- legalTargets filtra por LOS; attackPreview y canTargetFrom centralizan
+  pronóstico y "¿puedo apuntar desde ahí?" para IA y UI (que dejaron de
+  duplicar fórmulas).
+- Golden master regenerado en el commit que introdujo el cambio de
+  comportamiento, como manda la regla transversal 1.
+
+Pendiente de la fase: sensores/niebla de guerra (punto 3), clima (4) y
+la herramienta de balance por lotes.
 
 ---
 

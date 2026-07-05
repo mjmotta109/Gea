@@ -8,8 +8,8 @@
  */
 import { planTurn } from '../ai/simpleAi.js';
 import { Battle } from '../core/battle.js';
-import { attackArc, damageRange, hitChance, type AttackArc } from '../core/combat.js';
-import { posKey, terrainLabel } from '../core/grid.js';
+import { attackArc, type AttackArc } from '../core/combat.js';
+import { posKey, terrainLabel, TERRAIN_COVER } from '../core/grid.js';
 import { reachableTiles, type ReachableTile } from '../core/pathfinding.js';
 import { STATUS_DEFINITIONS } from '../core/status.js';
 import type { BattleEvent, Facing, Position, UnitState } from '../core/types.js';
@@ -153,12 +153,8 @@ function shotsFromTile(unit: UnitState, from: Position): string[] {
 
   const shots: string[] = [];
   for (const enemy of enemies) {
-    const usable = abilities.filter((ability) => {
-      const dist = Math.abs(from.x - enemy.position.x) + Math.abs(from.y - enemy.position.y);
-      if (dist < ability.minRange || dist > ability.range) return false;
-      if (ability.shape === 'line' && from.x !== enemy.position.x && from.y !== enemy.position.y) return false;
-      return true;
-    });
+    const usable = abilities.filter((ability) =>
+      battle.canTargetFrom(unit, from, ability.id, enemy.position));
     if (usable.length > 0) {
       shots.push(`${enemy.id} (${usable.map((a) => a.name).join(', ')})`);
     }
@@ -375,6 +371,7 @@ const TERRAIN_BASE: Record<string, string> = {
   plain: '#2b3d31',
   rough: '#4a4433',
   water: '#1d3a52',
+  forest: '#1e4527',
   wall: '#11161b',
 };
 
@@ -426,6 +423,7 @@ function renderBoard(): void {
       cell.style.background = shade(TERRAIN_BASE[tile.terrain]!, tile.height);
       if (tile.terrain === 'water') cell.textContent = '~';
       if (tile.terrain === 'rough') cell.textContent = '▒';
+      if (tile.terrain === 'forest') cell.textContent = '♣';
       cell.style.color = 'rgba(255,255,255,0.25)';
 
       if (tile.height > 0 && tile.terrain !== 'wall') {
@@ -502,15 +500,8 @@ function targetLabel(unit: UnitState | undefined, pos: Position): string | undef
   if (!target) return undefined;
   const ability = battle.abilityOf(mode.abilityId);
   if (target.team === unit.team) return ability.targetsAllies ? '✚' : undefined;
-  if (!ability.effects.some((e) => e.kind === 'damage')) return undefined;
-  const arc = attackArc(unit.position, target.position, target.facing);
-  const chance = hitChance({
-    accuracy: ability.accuracy,
-    attackerAccuracy: battle.effectiveStats(unit).accuracy,
-    arc,
-    defenderEvade: battle.effectiveStats(target).evade,
-  });
-  return `${chance}%`;
+  const preview = battle.attackPreview(unit.id, mode.abilityId, pos);
+  return preview ? `${preview.chance}%` : undefined;
 }
 
 function renderBanner(): void {
@@ -608,23 +599,13 @@ function renderPreview(): void {
   // Pronóstico de disparo (el corazón del flujo XCOM).
   if (unit && mode.kind === 'ability' && occupant && mode.targets.has(posKey(cursor))) {
     const ability = battle.abilityOf(mode.abilityId);
-    const damaging = ability.effects.find((e) => e.kind === 'damage');
-    if (damaging && damaging.kind === 'damage' && occupant.team !== unit.team) {
-      const userStats = battle.effectiveStats(unit);
-      const targetStats = battle.effectiveStats(occupant);
-      const arc = attackArc(unit.position, occupant.position, occupant.facing);
-      const heightAdvantage = battle.map.tileAt(unit.position).height - tile.height;
-      const chance = hitChance({
-        accuracy: ability.accuracy, attackerAccuracy: userStats.accuracy,
-        arc, defenderEvade: targetStats.evade,
-      });
-      const range = damageRange({
-        attackerStats: userStats, defenderStats: targetStats,
-        power: damaging.power, damageType: damaging.damageType,
-        arc, heightAdvantage,
-      });
+    const preview = occupant.team !== unit.team
+      ? battle.attackPreview(unit.id, mode.abilityId, cursor)
+      : undefined;
+    if (preview) {
+      const { chance, min, max, arc, heightAdvantage, cover } = preview;
       lines.push(`<div class="pv-title">${ability.name} → ${occupant.id} ${occupant.name}</div>`);
-      lines.push(`<div>impacto <b>${chance}%</b> · daño <b>${range.min}–${range.max}</b> · arco <b class="${arc === 'back' ? 'pv-good' : arc === 'side' ? 'pv-warn' : ''}">${ARC_LABEL[arc]}</b>${heightAdvantage !== 0 ? ` · altura ${heightAdvantage > 0 ? '+' : ''}${heightAdvantage}` : ''}</div>`);
+      lines.push(`<div>impacto <b>${chance}%</b> · daño <b>${min}–${max}</b> · arco <b class="${arc === 'back' ? 'pv-good' : arc === 'side' ? 'pv-warn' : ''}">${ARC_LABEL[arc]}</b>${heightAdvantage !== 0 ? ` · altura ${heightAdvantage > 0 ? '+' : ''}${heightAdvantage}` : ''}${cover > 0 ? ` · <span class="pv-warn">cobertura −${cover}</span>` : ''}</div>`);
       const entry = battle.weaponEntry(unit, mode.abilityId);
       if (entry) {
         const cost = entry.def.costs;
@@ -650,7 +631,8 @@ function renderPreview(): void {
   }
 
   // Contexto general del cursor.
-  lines.push(`<div class="pv-muted">(${cursor.x},${cursor.y}) · ${terrainLabel(tile.terrain)} · altura ${tile.height}</div>`);
+  const cover = TERRAIN_COVER[tile.terrain];
+  lines.push(`<div class="pv-muted">(${cursor.x},${cursor.y}) · ${terrainLabel(tile.terrain)} · altura ${tile.height}${cover > 0 ? ` · <span class="pv-good">cobertura +${cover}</span>` : ''}</div>`);
   if (occupant) {
     const stats = battle.effectiveStats(occupant);
     lines.push(`<div class="pv-title">${occupant.id} ${occupant.name} ${FACING_ARROW[occupant.facing]}</div>`);

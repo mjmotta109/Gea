@@ -3,9 +3,10 @@
  * debería poder trabajar solo con lo exportado aquí.
  */
 export { Battle, type BattleConfig, type UnitSpawn } from './core/battle.js';
-export { GameMap, manhattan, posKey, samePos } from './core/grid.js';
+export { GameMap, manhattan, posKey, samePos, terrainLabel, TERRAIN_COVER } from './core/grid.js';
+export { hasLineOfSight } from './core/los.js';
 export { reachableTiles, targetableTiles, aoeTiles, type ReachableTile } from './core/pathfinding.js';
-export { attackArc, computeDamage, facingTowards, hitChance, type AttackArc } from './core/combat.js';
+export { attackArc, computeDamage, damageRange, facingTowards, hitChance, type AttackArc } from './core/combat.js';
 export { advanceToNextTurn, forecastTurnOrder } from './core/turn.js';
 export { applyStatus, hasStatus, tickStatuses, STATUS_DEFINITIONS, STATUS_INFO } from './core/status.js';
 export { applyModifiers, type StatModifier } from './core/derived.js';
