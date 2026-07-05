@@ -312,6 +312,8 @@ export interface UnitState {
   unitTypeId: string;
   /** Comandante de su equipo: si cae, la red de mando se degrada (fase 5). */
   isCommander: boolean;
+  /** maxHp real cuando el garaje montó módulos distintos de fábrica. */
+  maxHpOverride?: number;
   components: UnitComponents;
   team: Team;
   position: Position;

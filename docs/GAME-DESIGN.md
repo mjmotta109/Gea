@@ -97,7 +97,7 @@ Pendientes de pasar el filtro del §5 con una propuesta concreta:
 |---|---|---|
 | Controles de teclado (WASD + confirmación) y flujo de UI estilo XCOM: seleccionar → previsualizar → confirmar | feedback del primer playtest | explorando |
 | Bonus defensivo/sensorial por tipo de terreno ocupado (bosque, agua somera) en lugar de cobertura direccional XCOM | feedback del primer playtest | encaja con fase 3 del motor (terreno rico); pendiente de números |
-| Ensamblaje de Zoids ("garaje"): intercambiar módulos y armas por unidad entre batallas | visión original | el motor ya tiene slots y puntos de montaje; falta la capa de loadout intercambiable y sus reglas (peso, energía) |
+| Ensamblaje de Zoids ("garaje"): intercambiar módulos y armas por unidad entre batallas | visión original | ✅ rebanada de motor hecha (UnitSpawn.loadout: sustituir módulos por slot y arsenal completo, con maxHp derivado de lo montado). Pendiente: UI de garaje, reglas de peso/energía, persistencia entre batallas |
 | Progresión piloto ↔ Zoid separadas; árbol de habilidades con especializaciones | visión original | por diseñar; se apoya en el pipeline de modificadores existente |
 | Generador de mapas/escenarios (aleatorio y dirigido) | feedback | aplazado explícitamente ("ahora no") |
 | Gráficos: investigar punto dulce estilizado + game feel satisfactorio | feedback | investigación pendiente |

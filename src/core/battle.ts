@@ -44,6 +44,7 @@ import {
   type Team,
   type UnitState,
   type UnitDefinition,
+  type SlotId,
   type WeaponDefinition,
   type WeatherId,
 } from './types.js';
@@ -58,6 +59,16 @@ export interface UnitSpawn {
   facing?: Facing;
   /** Comandante del equipo: su caída degrada a todos sus aliados (fase 5). */
   commander?: boolean;
+  /**
+   * Garaje: personalización del chasis al desplegar. `slots` sustituye
+   * módulos del frame por otros del catálogo (mismo slot); `weapons`
+   * reemplaza el arsenal completo. El maxHp real deriva de los módulos
+   * montados. Sin loadout, la unidad sale de fábrica.
+   */
+  loadout?: {
+    slots?: Record<SlotId, string>;
+    weapons?: string[];
+  };
 }
 
 export interface BattleConfig {
@@ -130,14 +141,32 @@ export class Battle {
       if (!this.map.inBounds(spawn.position)) {
         throw new Error(`Spawn de ${spawn.id} fuera del mapa`);
       }
-      if (def.frame) {
-        const sum = frameMaxHp(def.frame, this.modules);
-        if (sum !== def.stats.maxHp) {
+      // Garaje: aplicar el loadout sobre el frame de fábrica.
+      let frameConfig = def.frame;
+      if (spawn.loadout?.slots) {
+        if (!frameConfig) throw new Error(`${spawn.id}: loadout de slots sin frame`);
+        frameConfig = frameConfig.map((entry) => {
+          const replacement = spawn.loadout!.slots![entry.slot];
+          return replacement ? { slot: entry.slot, moduleId: replacement } : entry;
+        });
+        const unknown = Object.keys(spawn.loadout.slots)
+          .find((slot) => !def.frame!.some((e) => e.slot === slot));
+        if (unknown) throw new Error(`${spawn.id}: el chasis no tiene el slot ${unknown}`);
+      }
+
+      let maxHp = def.stats.maxHp;
+      if (frameConfig) {
+        const sum = frameMaxHp(frameConfig, this.modules);
+        if (!spawn.loadout?.slots && sum !== def.stats.maxHp) {
           throw new Error(
             `maxHp de ${def.id} (${def.stats.maxHp}) no coincide con la suma de módulos (${sum})`,
           );
         }
+        // Con módulos personalizados, el HP real es el de lo montado.
+        maxHp = sum;
       }
+
+      const weaponIds = spawn.loadout?.weapons ?? def.weapons;
       return {
         id: spawn.id,
         name: spawn.name,
@@ -146,13 +175,14 @@ export class Battle {
         team: spawn.team,
         position: { ...spawn.position },
         facing: spawn.facing ?? (spawn.team === 'player' ? 'east' : 'west'),
-        hp: def.stats.maxHp,
+        hp: maxHp,
+        maxHpOverride: spawn.loadout?.slots ? maxHp : undefined,
         ct: 0,
         statuses: [],
         hasMoved: false,
         hasActed: false,
         components: {
-          ...(def.frame ? { frame: buildFrameState(def.frame, this.modules) } : {}),
+          ...(frameConfig ? { frame: buildFrameState(frameConfig, this.modules) } : {}),
           ...(def.energy ? {
             energy: {
               current: def.energy.capacity,
@@ -164,9 +194,9 @@ export class Battle {
           ...(def.heat ? {
             heat: { current: 0, max: def.heat.max, dissipationPerTurn: def.heat.dissipationPerTurn },
           } : {}),
-          ...(def.weapons ? {
+          ...(weaponIds ? {
             arsenal: {
-              weapons: def.weapons.map((weaponId) => {
+              weapons: weaponIds.map((weaponId) => {
                 const weapon = this.weaponOf(weaponId);
                 return { weaponId, ammo: weapon.magazine, reserves: weapon.reserves, cooldown: 0 };
               }),
@@ -268,7 +298,10 @@ export class Battle {
    * dañados, el calor y la energía).
    */
   effectiveStats(unit: UnitState): Stats {
-    const base = this.definitionOf(unit.unitTypeId).stats;
+    const def = this.definitionOf(unit.unitTypeId);
+    const base = unit.maxHpOverride !== undefined
+      ? { ...def.stats, maxHp: unit.maxHpOverride }
+      : def.stats;
     const frame = unit.components.frame;
     // Orden del pipeline (DESIGN §3.2): módulos → estados → energía →
     // calor → red de mando.
