@@ -67,6 +67,30 @@ describe('progresión: XP del piloto (el Zoid no gana nada)', () => {
     expect(battle.effectiveStats(battle.unit('M')).atk).toBe(30);
   });
 
+  it('buffar a OTRO aliado puntúa como soporte; a uno mismo no', () => {
+    const events: BattleEvent[] = [
+      { type: 'turn-started', unitId: 'A' },
+      { type: 'ability-used', unitId: 'A', abilityId: 'smoke-discharger', target: { x: 1, y: 0 } },
+      { type: 'status-applied', targetUnitId: 'B', status: 'evasion-up', duration: 3 },
+      { type: 'turn-started', unitId: 'B' },
+      { type: 'ability-used', unitId: 'B', abilityId: 'e-shield', target: { x: 1, y: 0 } },
+      { type: 'status-applied', targetUnitId: 'B', status: 'armor-up', duration: 3 },
+      // Un estado aplicado sin habilidad previa en el turno (p. ej. stun
+      // por apagado térmico) no se atribuye a nadie.
+      { type: 'turn-started', unitId: 'A' },
+      { type: 'status-applied', targetUnitId: 'A', status: 'stunned', duration: 1 },
+    ];
+    const gains = awardXp(
+      events,
+      { A: 'p1', B: 'p2' },
+      { A: 'player', B: 'player' },
+      { A: { x: 0, y: 0 }, B: { x: 1, y: 0 } },
+      undefined,
+      new Set(),
+    );
+    expect(gains).toEqual([{ pilotId: 'p1', track: 'support', amount: 12 }]);
+  });
+
   it('pilotModifiers respeta el tope de sinergia', () => {
     const ace = newPilot('a', 'As');
     ace.tracks.sniper = 150;

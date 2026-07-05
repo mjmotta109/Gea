@@ -59,6 +59,7 @@ export function dominantTrack(pilot: PilotState): SpecializationId {
 /** XP por unidad de acción; números de partida, calibrables con datos. */
 const XP_PER_DAMAGE = 0.5;          // por punto de daño infligido
 const XP_PER_HEAL = 0.8;            // por punto reparado a un aliado
+const XP_PER_ALLY_BUFF = 12;        // por estado aplicado a OTRO aliado
 const XP_PER_KILL = 30;
 const XP_PER_DAMAGE_TAKEN = 0.3;    // encajar castigo forja defensas
 const XP_SURVIVE_VICTORY = 40;      // sobrevivir a una batalla ganada
@@ -73,8 +74,6 @@ export interface XpGain {
 
 /**
  * Reparte la XP de una batalla terminada entre los pilotos.
- * Nota de la rebanada mínima: los buffs a aliados aún no puntúan como
- * soporte (solo las reparaciones); anotado en GAME-DESIGN.
  */
 export function awardXp(
   events: BattleEvent[],
@@ -101,8 +100,26 @@ export function awardXp(
     a && b ? Math.abs(a.x - b.x) + Math.abs(a.y - b.y) : 1;
 
   let lastAttacker: string | undefined;
+  /** Quien usó la última habilidad del turno: atribuye sus estados. Se
+   *  limpia al abrir turno para no colarle el stun de un apagado. */
+  let lastAbilityUser: string | undefined;
   for (const event of events) {
     switch (event.type) {
+      case 'turn-started':
+        lastAbilityUser = undefined;
+        break;
+      case 'ability-used':
+        lastAbilityUser = event.unitId;
+        break;
+      case 'status-applied':
+        // Buff a OTRO aliado = trabajo de soporte (cubrirse a uno mismo
+        // es autoconservación y no puntúa).
+        if (lastAbilityUser !== undefined &&
+            lastAbilityUser !== event.targetUnitId &&
+            unitTeams[lastAbilityUser] === unitTeams[event.targetUnitId]) {
+          add(lastAbilityUser, 'support', XP_PER_ALLY_BUFF);
+        }
+        break;
       case 'unit-moved':
       case 'unit-boosted':
         positions.set(event.unitId, event.path[event.path.length - 1]!);
