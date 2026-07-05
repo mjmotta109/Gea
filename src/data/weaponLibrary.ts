@@ -234,7 +234,7 @@ export const WEAPON_LIBRARY_ABILITIES: Record<string, AbilityDefinition> = {
     targetsAllies: false,
     effects: [
       { kind: 'damage', power: 30, damageType: 'energy' },
-      { kind: 'status', status: 'overheat', duration: 2, chance: 45 },
+      { kind: 'status', status: 'overheat', duration: 2, chance: 30 },
     ],
   },
   'lib-smoke-mortar': {
@@ -429,7 +429,7 @@ export const WEAPON_LIBRARY_WEAPONS: Record<string, WeaponDefinition> = {
     name: 'Aguja termica',
     abilityId: 'lib-heat-needle',
     costs: { energy: 10, heat: 10 },
-    magazine: 4,
+    magazine: 3,
     reserves: 3,
     projectile: { velocity: 20, dispersion: 0, penetration: 2, caliber: 25, mass: 1, ricochet: false },
   },

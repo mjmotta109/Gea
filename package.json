@@ -12,7 +12,8 @@
     "demo:auto": "tsx src/demo/cli.ts --auto",
     "web": "node scripts/build-web.mjs",
     "balance": "tsx scripts/balance.ts",
-    "web3d": "node scripts/build-web3d.mjs"
+    "web3d": "node scripts/build-web3d.mjs",
+    "balance:hangar": "tsx scripts/balance-hangar.ts"
   },
   "devDependencies": {
     "@gltf-transform/core": "^4.4.1",

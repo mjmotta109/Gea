@@ -27,14 +27,20 @@ export function planTurn(battle: Battle, unit: UnitState): BattleAction[] {
   const enemies = battle.units.filter((u) => u.team !== unit.team && u.hp > 0);
   if (enemies.length === 0) return [{ type: 'wait', unitId: unit.id }];
 
-  // Solo habilidades ofensivas que los sistemas no vetan (energía,
-  // munición, enfriamiento, montaje destruido...).
-  const offensiveAbilities = battle.knownAbilityIds(unit)
+  // Habilidades pagables (los sistemas no vetan: energía, munición,
+  // enfriamiento, montaje destruido...), separadas por intención.
+  const usableAbilities = battle.knownAbilityIds(unit)
     .map((id) => battle.abilityOf(id))
-    .filter((a) => a.effects.some((e) => e.kind === 'damage'))
     .filter((a) => battle.checkVetoes({
       type: 'ability', unitId: unit.id, abilityId: a.id, target: unit.position,
     }) === null);
+  const offensiveAbilities = usableAbilities.filter((a) => a.effects.some((e) => e.kind === 'damage'));
+  // Soporte puro: curaciones y buffs a aliados (incluido uno mismo).
+  const supportAbilities = usableAbilities.filter((a) =>
+    a.targetsAllies &&
+    !a.effects.some((e) => e.kind === 'damage') &&
+    a.effects.some((e) => e.kind === 'heal' || e.kind === 'status'));
+  const allies = battle.units.filter((u) => u.team === unit.team && u.hp > 0);
 
   const canMove = battle.checkVetoes({
     type: 'move', unitId: unit.id, to: unit.position,
@@ -71,6 +77,36 @@ export function planTurn(battle: Battle, unit: UnitState): BattleAction[] {
         score -= nearbyThreat * profile.selfPreservation * 12;
         if (!best || score > best.score) {
           best = { to: option.to, abilityId: ability.id, target: { ...enemy.position }, score };
+        }
+      }
+    }
+
+    // Soporte: curar al herido o cubrir al que está en peligro. Utilidad
+    // moderada a propósito — un buen disparo casi siempre gana; el soporte
+    // entra cuando no hay tiro que valga la pena.
+    for (const ability of supportAbilities) {
+      for (const ally of allies) {
+        const allyPos = ally.id === unit.id ? option.from : ally.position;
+        if (!battle.canTargetFrom(unit, option.from, ability.id, allyPos)) continue;
+
+        let score = 0;
+        const heal = ability.effects.find((e) => e.kind === 'heal');
+        if (heal && heal.kind === 'heal') {
+          const missing = battle.effectiveStats(ally).maxHp - ally.hp;
+          if (missing < 15) continue; // no gastes el turno en un rasguño
+          score = Math.min(heal.power, missing) + 20;
+        } else {
+          const buff = ability.effects.find((e) => e.kind === 'status');
+          if (!buff || buff.kind !== 'status') continue;
+          if (ally.statuses.some((s) => s.id === buff.status)) continue; // ya lo tiene
+          // Solo merece la pena si el aliado está bajo amenaza real.
+          const danger = enemies.filter((e) => manhattan(allyPos, e.position) <= 4).length;
+          if (danger === 0) continue;
+          score = 28 + danger * 10;
+        }
+        score -= nearbyThreat * profile.selfPreservation * 12;
+        if (!best || score > best.score) {
+          best = { to: option.to, abilityId: ability.id, target: { ...allyPos }, score };
         }
       }
     }

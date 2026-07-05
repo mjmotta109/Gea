@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Battle } from '../src/core/battle.js';
 import { GameMap } from '../src/core/grid.js';
 import { ABILITIES } from '../src/data/abilities.js';
+import { WEAPONS } from '../src/data/weapons.js';
 import { ZOIDS } from '../src/data/zoids.js';
 
 /** Pasillo llano con un muro/colina central configurable. */
@@ -10,6 +11,9 @@ function corridor(middle: string) {
     map: GameMap.fromAscii([`00${middle}00`, '00000', '00000']),
     unitCatalog: ZOIDS,
     abilityCatalog: ABILITIES,
+    // El rifle del gun-sniper es un arma montada desde el ciclo de
+    // balance del hangar (antes era habilidad innata).
+    weaponCatalog: WEAPONS,
     seed: 9,
     spawns: [
       // Gun sniper clásico: rifle en línea, alcance 3-7.

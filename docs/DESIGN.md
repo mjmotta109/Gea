@@ -551,6 +551,14 @@ UnitSpawn.commander, evento command-link-lost (una vez por equipo) y
 targetPriority y discipline quedan declarados sin consumir; las
 muertes por calor/DoT no disparan el evento de mando (anotado).
 
+**Ampliación (2026-07-05, ciclo de balance del hangar)**: la IA valora
+también habilidades de SOPORTE — curar al aliado herido (utilidad ≈ HP
+restaurado) y buffs de estado sobre aliados bajo amenaza (utilidad
+moderada: un buen disparo casi siempre gana). Antes, las unidades con
+kit de apoyo (mortero de humo, cortina, drones de reparación, escudo)
+jamás pulsaban esos botones, lo que hacía imposible balancear el
+arquetipo. Sigue siendo determinista y sin estado.
+
 ---
 
 ## 5. Reglas transversales (aplican a todas las fases)

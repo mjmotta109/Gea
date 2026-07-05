@@ -126,3 +126,24 @@ arquitectura del motor van en DESIGN.md.)*
   del valle pasa de 81.5% enemigo a 55/45 jugador. Detectados los
   siguientes objetivos: rifle del francotirador sobre-rendido y Geno
   demasiado frágil una vez nerfeado su cañón.
+- **2026-07-05** — Ciclo de balance del HANGAR COMPLETO (nueva herramienta
+  `npm run balance:hangar`: 4v4 aleatorios deterministas, 1500 batallas,
+  ±2pp de error). Lecciones y cambios:
+  - Con 300 batallas (±10pp) se persigue ruido; las decisiones se toman
+    solo con la muestra grande.
+  - El rifle innato gratuito del Gun Sniper stock era la unidad más
+    fuerte del juego (69.6%): pasó a arma montada con munición, como
+    su variante custom. El golden master se regeneró declarándolo.
+  - La IA aprendió a usar SOPORTE (curas y buffs a aliados bajo amenaza,
+    con utilidad menor que un buen disparo): el arquetipo de apoyo por
+    fin pulsa sus botones y se vuelve balanceable.
+  - Ajustados: König Wolf (5 nerfs; su patrón de fuego a distancia 6 se
+    asienta en ~59.6% — VIGILAR: es un límite de la IA greedy, que no
+    sabe castigar el standoff, tanto como un problema de números),
+    aguja térmica (cargador 4→3, proc de calor 45%→30%), Zaber Fang,
+    Dibison, y buffs a Storm Sworder, Guysak, Gordos, Gojulas, Brachios.
+  - Aceptados como débiles POR DISEÑO: Molga (carne de cañón) y Gustav
+    (transporte). Anotado: las variantes framed pagan ~7pp de "impuesto
+    de módulos" frente a sus gemelas monocasco.
+  - Banda final: 21 de 23 chasis en 42–58% de victoria; el valle queda
+    en 55.5% jugador (el soporte nuevo favorece a su composición).
