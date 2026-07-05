@@ -362,3 +362,14 @@ arquitectura del motor van en DESIGN.md.)*
     toca la misión oficial ni el ciclo de contratos, se hace una vez por
     ciudad por expedición, y perderlo no cancela la expedición. Los
     contratos oficiales siguen firmándose en el cuartel.
+- **2026-07-05** — SEPARACIÓN JUEGO / SANDBOX (dirección del usuario):
+  el JUEGO arranca SIEMPRE en ciudad — el cuartel, o el lugar de la
+  expedición en curso (con su pantalla urbana si es ciudad) — y el
+  tablero de batalla solo se alcanza JUGANDO: llegar al objetivo de un
+  contrato, un trabajo de taberna, o exploración. Esc en las pantallas
+  raíz abre el menú principal, nunca revela un tablero suelto. Todo el
+  sandbox de batallas (semilla, mapa, clima, garaje libre, editor,
+  "Nueva batalla") vive en su propio modo ⚔ ESCARAMUZA, accesible solo
+  desde el menú de inicio o el enlace del cuartel; en modo campaña esos
+  controles desaparecen de la interfaz. No se guarda en medio de una
+  batalla: cargar siempre aterriza en ciudad/mundo.
