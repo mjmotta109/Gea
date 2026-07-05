@@ -20,6 +20,9 @@
     --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
   }
   * { box-sizing: border-box; }
+  /* Modo campaña: el sandbox de batallas (semilla, mapa, clima, garaje,
+     editor, nueva batalla) se esconde — se juega desde el mundo. */
+  body.mode-campaign #sandbox-ctl { display: none !important; }
   body { background: var(--bg); color: var(--ink); font-family: var(--sans); margin: 0; }
   #app { max-width: 1220px; margin: 0 auto; padding: 14px 16px 40px; }
 
@@ -607,6 +610,7 @@
     <h1>GEA</h1>
     <span class="sub">consola táctica · tú llevas al equipo cian</span>
     <span class="spacer"></span>
+    <span id="sandbox-ctl" style="display:contents">
     <label>clima
       <select id="weather" style="background:var(--panel-2);border:1px solid var(--line);color:var(--ink);font-family:var(--mono);font-size:12px;padding:4px 6px;border-radius:3px;">
         <option value="clear">despejado</option>
@@ -614,16 +618,17 @@
         <option value="sandstorm">tormenta de arena</option>
       </select>
     </label>
-    <button id="menu-btn" title="menú principal" style="background:var(--panel-2);color:var(--ink);border:1px solid var(--line);border-radius:4px;font-family:var(--mono);font-size:12px;padding:5px 10px;cursor:pointer;">☰</button>
     <label>mapa
       <select id="map-select" style="background:var(--panel-2);border:1px solid var(--line);color:var(--ink);font-family:var(--mono);font-size:12px;padding:4px 6px;border-radius:3px;max-width:150px;"></select>
     </label>
     <label>semilla <input id="seed" type="number" value="42"></label>
-    <button id="saves-btn">💾 Partidas</button>
     <button id="editor-btn">🗺 Editor</button>
-    <button id="merc-btn">🏴 Campaña</button>
     <button id="garage-btn">⚙ Garaje</button>
     <button id="restart">Nueva batalla</button>
+    </span>
+    <button id="saves-btn">💾 Partidas</button>
+    <button id="merc-btn">🏴 Campaña</button>
+    <button id="menu-btn" title="menú principal" style="background:var(--panel-2);color:var(--ink);border:1px solid var(--line);border-radius:4px;font-family:var(--mono);font-size:12px;padding:5px 10px;cursor:pointer;">☰</button>
   </header>
 
   <main class="gea">
@@ -656,6 +661,7 @@
         <button id="st-continue">⌁ Continuar</button>
         <button id="st-new">▶ Juego nuevo</button>
         <button id="st-load">📂 Cargar partida</button>
+        <button id="st-sandbox">⚔ Escaramuza (sandbox)</button>
         <button id="st-config" disabled title="próximamente">⚙ Configuración</button>
       </div>
       <div class="sinfo" id="st-info"></div>
@@ -694,6 +700,8 @@
       <div class="gtop">
         <h2 id="world-title">Expedición</h2>
         <span id="world-status" class="gnote"></span>
+        <button id="world-saves" class="gsub">💾</button>
+        <button id="world-menu" class="gsub">☰ menú</button>
       </div>
       <div id="world-body">
         <div id="world-map">
@@ -743,6 +751,7 @@
         <h2 id="city-name">Ciudad</h2>
         <span class="gnote" id="city-desc"></span>
         <span id="city-status" style="font-family:var(--mono);font-size:12px;font-weight:700;color:var(--energy)"></span>
+        <button id="city-saves" class="gsub">💾</button>
         <button id="city-close" class="gsub">← volver al mapa</button>
       </div>
       <div id="city-body"></div>
@@ -754,6 +763,8 @@
       <div class="gtop">
         <h2>Compañía mercenaria</h2>
         <span class="gnote" id="merc-status"></span>
+        <button id="merc-saves" class="gsub">💾</button>
+        <button id="merc-menu" class="gsub">☰ menú</button>
         <button id="pilots-btn-m" class="gsub">🧠 Pilotos</button>
         <button id="merc-skirmish" class="gsub">modo escaramuza</button>
         <button id="merc-reset" class="gsub">nueva campaña</button>

@@ -596,7 +596,7 @@ document.addEventListener('keydown', (event) => {
     return;
   }
   if (mercOpen) {
-    if (event.key === 'Escape') closeMerc();
+    if (event.key === 'Escape') { if (inCampaign()) openStart(); else closeMerc(); }
     return;
   }
   if (editorOpen) {
@@ -616,7 +616,7 @@ document.addEventListener('keydown', (event) => {
     return;
   }
   if (worldOpen) {
-    if (event.key === 'Escape') closeWorld();
+    if (event.key === 'Escape') { if (inCampaign()) openStart(); else closeWorld(); }
     return;
   }
   if (document.activeElement === $('seed')) return;
@@ -3025,6 +3025,27 @@ function closeEditor(): void {
 
 let startOpen = false;
 const SKIP_MENU_FLAG = 'gea-skip-menu';
+/** Sandbox de batallas (escaramuza libre); false = modo campaña/juego. */
+let sandboxMode = false;
+
+function inCampaign(): boolean {
+  return campaign !== null && !sandboxMode;
+}
+
+/** Refleja el modo en la UI: la campaña esconde el sandbox de batallas. */
+function applyModeUi(): void {
+  document.body.classList.toggle('mode-campaign', inCampaign());
+}
+
+function enterSandbox(): void {
+  sandboxMode = true;
+  applyModeUi();
+  closeStart();
+  closeMerc();
+  closeWorld();
+  closeCity();
+  openGarage();
+}
 
 function hasLiveGame(): boolean {
   return campaign !== null ||
@@ -3091,10 +3112,15 @@ $('restart').addEventListener('click', () => { returnToMerc = false; restart(); 
 $('ov-restart').addEventListener('click', restart);
 $('garage-btn').addEventListener('click', openGarage);
 $('deploy').addEventListener('click', () => { closeGarage(); returnToMerc = false; restart(); });
-$('merc-btn').addEventListener('click', () => { if (expedition) openWorld(); else openMerc(); });
+$('merc-btn').addEventListener('click', () => {
+  sandboxMode = false;
+  applyModeUi();
+  if (expedition) openWorld();
+  else openMerc();
+});
 $('city-close').addEventListener('click', closeCity);
 $('merc-deploy').addEventListener('click', startContractExpedition);
-$('merc-skirmish').addEventListener('click', () => { closeMerc(); openGarage(); });
+$('merc-skirmish').addEventListener('click', enterSandbox);
 $('merc-reset').addEventListener('click', () => {
   if (!window.confirm('¿Empezar una campaña nueva? Se pierden créditos, hangar y arsenal (los pilotos se conservan).')) return;
   campaign = newCampaign(ECONOMY, factoryLoadout);
@@ -3166,17 +3192,33 @@ $('map-select').addEventListener('change', () => {
 });
 
 $('menu-btn').addEventListener('click', openStart);
-$('st-continue').addEventListener('click', closeStart);
+$('world-menu').addEventListener('click', openStart);
+$('merc-menu').addEventListener('click', openStart);
+$('world-saves').addEventListener('click', openSaves);
+$('merc-saves').addEventListener('click', openSaves);
+$('city-saves').addEventListener('click', openSaves);
+$('st-continue').addEventListener('click', () => {
+  if (!campaign) { enterSandbox(); return; }
+  sandboxMode = false;
+  applyModeUi();
+  closeStart();
+});
+$('st-sandbox').addEventListener('click', enterSandbox);
 $('st-new').addEventListener('click', newGame);
 $('st-load').addEventListener('click', () => { closeStart(); openSaves(); });
 
 refreshMapSelect();
 restart();
-// El primer contacto: la expedición en curso; si no, la campaña; si no,
-// el garaje libre.
-if (expedition && campaign) openWorld();
-else if (campaign) openMerc();
-else openGarage();
+// Arranque del JUEGO: siempre en ciudad — el cuartel, o el lugar de la
+// expedición (con su pantalla urbana si es ciudad). El tablero de
+// batalla solo se alcanza jugando: contrato o exploración.
+applyModeUi();
+if (expedition && campaign) {
+  openWorld();
+  if (cityNode()) openCity();
+} else if (campaign) {
+  openMerc();
+}
 // Y encima de todo, el menú de inicio (salvo tras "juego nuevo"/carga).
 try {
   if (sessionStorage.getItem(SKIP_MENU_FLAG)) sessionStorage.removeItem(SKIP_MENU_FLAG);
