@@ -44,13 +44,25 @@ export interface HitCheckInput {
   attackerAccuracy: number;
   arc: AttackArc;
   defenderEvade: number;
+  /** Bonus por cercanía (0 = nominal); lo calcula quien conoce el mapa. */
+  proximityBonus?: number;
 }
 
-/** Probabilidad final de impacto (0-100), sin tirar el dado. */
+/**
+ * Bonus de puntería por cercanía: +4% por cada casilla por debajo de 5,
+ * hasta +16 a bocajarro. Acercarse siempre paga, alejarse nunca castiga
+ * por sí solo (la dispersión balística ya lo hace por arma).
+ */
+export function proximityBonus(distance: number): number {
+  return Math.max(0, (5 - distance) * 4);
+}
+
+/** Probabilidad final de impacto (5-99): la certeza no existe. */
 export function hitChance(input: HitCheckInput): number {
   const raw = input.accuracy + input.attackerAccuracy
-    + ARC_ACCURACY_BONUS[input.arc] - input.defenderEvade;
-  return Math.max(5, Math.min(100, raw));
+    + ARC_ACCURACY_BONUS[input.arc] - input.defenderEvade
+    + (input.proximityBonus ?? 0);
+  return Math.max(5, Math.min(99, raw));
 }
 
 export interface DamageInput {

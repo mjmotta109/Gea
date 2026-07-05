@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { attackArc, computeDamage, facingTowards, hitChance } from '../src/core/combat.js';
+import { attackArc, computeDamage, facingTowards, hitChance, proximityBonus } from '../src/core/combat.js';
 import { Rng } from '../src/core/rng.js';
 import type { Stats } from '../src/core/types.js';
 
@@ -29,12 +29,27 @@ describe('attackArc', () => {
 });
 
 describe('hitChance', () => {
-  it('bonifica flanco y espalda y se acota a [5, 100]', () => {
+  it('bonifica flanco y espalda y se acota a [5, 99]', () => {
     expect(hitChance({ accuracy: 80, attackerAccuracy: 0, arc: 'front', defenderEvade: 10 })).toBe(70);
     expect(hitChance({ accuracy: 80, attackerAccuracy: 0, arc: 'side', defenderEvade: 10 })).toBe(80);
     expect(hitChance({ accuracy: 80, attackerAccuracy: 0, arc: 'back', defenderEvade: 10 })).toBe(95);
     expect(hitChance({ accuracy: 10, attackerAccuracy: 0, arc: 'front', defenderEvade: 90 })).toBe(5);
-    expect(hitChance({ accuracy: 100, attackerAccuracy: 0, arc: 'back', defenderEvade: 0 })).toBe(100);
+  });
+
+  it('la certeza no existe: el techo es 99 aunque los números den más', () => {
+    expect(hitChance({ accuracy: 100, attackerAccuracy: 0, arc: 'back', defenderEvade: 0 })).toBe(99);
+    expect(hitChance({ accuracy: 200, attackerAccuracy: 50, arc: 'back', defenderEvade: 0, proximityBonus: 16 })).toBe(99);
+  });
+
+  it('acercarse paga: +4% por casilla por debajo de 5, tope a bocajarro', () => {
+    expect(proximityBonus(1)).toBe(16);
+    expect(proximityBonus(2)).toBe(12);
+    expect(proximityBonus(4)).toBe(4);
+    expect(proximityBonus(5)).toBe(0);
+    expect(proximityBonus(9)).toBe(0);
+    const far = hitChance({ accuracy: 70, attackerAccuracy: 0, arc: 'front', defenderEvade: 10, proximityBonus: proximityBonus(6) });
+    const near = hitChance({ accuracy: 70, attackerAccuracy: 0, arc: 'front', defenderEvade: 10, proximityBonus: proximityBonus(1) });
+    expect(near).toBe(far + 16);
   });
 });
 

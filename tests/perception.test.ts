@@ -60,12 +60,14 @@ describe('fase 3: cobertura por terreno', () => {
       spawns: [
         { id: 'P1', name: 'Wolf', unitTypeId: 'command-wolf', team: 'player', position: { x: 0, y: 0 } },
         { id: 'E1', name: 'Molga en bosque', unitTypeId: 'molga', team: 'enemy', position: { x: 4, y: 0 } },
-        { id: 'E2', name: 'Molga expuesta', unitTypeId: 'molga', team: 'enemy', position: { x: 4, y: 1 } },
+        // A la misma distancia (4) que E1: la comparación aísla la cobertura
+        // del bonus de proximidad.
+        { id: 'E2', name: 'Molga expuesta', unitTypeId: 'molga', team: 'enemy', position: { x: 3, y: 1 } },
       ],
     });
     battle.nextTurn();
     const inForest = battle.attackPreview('P1', 'shock-cannon', { x: 4, y: 0 })!;
-    const exposed = battle.attackPreview('P1', 'shock-cannon', { x: 4, y: 1 })!;
+    const exposed = battle.attackPreview('P1', 'shock-cannon', { x: 3, y: 1 })!;
     expect(inForest.cover).toBe(20);
     expect(exposed.cover).toBe(0);
     expect(exposed.chance - inForest.chance).toBe(20);

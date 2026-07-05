@@ -4,6 +4,7 @@ import {
   damageRange,
   facingTowards,
   hitChance,
+  proximityBonus,
   type AttackArc,
 } from './combat.js';
 import { GameMap, manhattan, posKey, samePos, TERRAIN_COVER } from './grid.js';
@@ -481,6 +482,7 @@ export class Battle {
       attackerAccuracy: this.effectiveStats(user).accuracy,
       arc,
       defenderEvade: this.effectiveStats(victim).evade + cover,
+      proximityBonus: proximityBonus(dist),
     });
     return { chance, arc, cover, weatherPenalty };
   }

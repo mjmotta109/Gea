@@ -47,8 +47,9 @@ describe('fase 4: balística', () => {
     until(battle, 'G');
     const near = battle.attackPreview('G', 'shock-cannon', { x: 3, y: 0 })!;
     const far = battle.attackPreview('G', 'shock-cannon', { x: 4, y: 0 })!;
-    // dispersión 2/casilla: a 4 casillas pierde 2 puntos más que a 3.
-    expect(near.chance - far.chance).toBe(2);
+    // A 4 casillas pierde 2 de dispersión del arma Y 4 del bonus de
+    // proximidad respecto a 3 casillas: acercarse paga por partida doble.
+    expect(near.chance - far.chance).toBe(6);
   });
 
   it('un impacto masivo empuja al objetivo una casilla', () => {
