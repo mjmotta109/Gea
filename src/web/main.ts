@@ -34,7 +34,7 @@ import {
   type CampaignState, type Contract,
 } from '../game/mercenary.js';
 import {
-  availableEdges, canExplore, edgesTowardCivilization, exploreSite, otherEnd,
+  canExplore, edgesTowardCivilization, exploreSite, neighbors, otherEnd,
   startExpedition, travel, edgeKey,
   type ExpeditionState, type WorldEdge,
 } from '../game/expedition.js';
@@ -2040,13 +2040,15 @@ function renderWorld(): void {
     routes.insertAdjacentHTML('beforeend',
       '<div class="wwarn">⚠ SIN SUMINISTROS: la tripulación solo acepta rutas hacia la ciudad más cercana.</div>');
   }
-  for (const edge of availableEdges(expedition, REGION)) {
+  for (const edge of neighbors(REGION, expedition.at)) {
     const destination = REGION.nodes.find((n) => n.id === otherEnd(edge, expedition!.at))!;
+    const broken = expedition.blockedEdges.includes(edgeKey(edge.a, edge.b));
     const locked = allowed !== null && !allowed.has(edgeKey(edge.a, edge.b));
+    const days = edge.days + (broken ? 1 : 0);
     const btn = document.createElement('button');
     btn.className = 'wroute' + (locked ? ' locked' : '');
     btn.disabled = locked;
-    btn.innerHTML = `${locked ? '🔒 ' : '→ '}<b>${destination.name}</b> · ${edge.flavor} · <span class="cost">${edge.days} jornada${edge.days > 1 ? 's' : ''}</span>`;
+    btn.innerHTML = `${locked ? '🔒 ' : broken ? '⛏ ' : '→ '}<b>${destination.name}</b> · ${broken ? 'vadear el puente caído' : edge.flavor} · <span class="cost">${days} jornada${days > 1 ? 's' : ''}</span>`;
     if (!locked) btn.addEventListener('click', () => doTravel(edge));
     routes.appendChild(btn);
   }

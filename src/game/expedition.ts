@@ -89,7 +89,8 @@ export function edgesTowardCivilization(
     return Math.min(...[...civilized].map((id) => dist[id] ?? 999));
   };
   const here = distToCiv(expedition.at);
-  const options = availableEdges(expedition, region);
+  // Los puentes rotos se pueden VADEAR (+1 jornada): cuentan como salida.
+  const options = neighbors(region, expedition.at);
   const closer = options.filter((edge) => distToCiv(otherEnd(edge, expedition.at)) < here);
   if (closer.length > 0) return closer;
   // Red de seguridad: si ningún tramo estricto acerca (meseta o cerco de
@@ -247,6 +248,24 @@ export function travel(
   const from = expedition.at;
   const to = otherEnd(edge, from);
   const key = edgeKey(edge.a, edge.b);
+
+  // Tramo roto: se vadea — lento, penoso y sin sorpresas.
+  if (expedition.blockedEdges.includes(key)) {
+    const fordDay = expedition.day + edge.days + 1;
+    const toName = region.nodes.find((n) => n.id === to)!.name;
+    return {
+      expedition: {
+        ...expedition,
+        at: to,
+        day: fordDay,
+        log: [...expedition.log, `Día ${fordDay} — ${edge.flavor}: vadeamos los restos del puente. Lento y penoso, pero llegamos a ${toName}.`],
+      },
+      supplyCost: edge.days + 1,
+      event: 'calm',
+      eventText: `Vadeamos los restos del puente hacia ${toName} (+1 jornada).`,
+    };
+  }
+
   const day = expedition.day + edge.days;
   const rand = mulberry32(hashString(`${expedition.contractId}|${key}|${expedition.day}`));
   const roll = rand();

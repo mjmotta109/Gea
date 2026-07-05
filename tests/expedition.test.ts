@@ -305,3 +305,30 @@ describe('regresión: el cerco de puentes rotos (atasco del día 17)', () => {
     }
   });
 });
+
+describe('regresión: cerco TOTAL de puentes (los 3 tramos rotos)', () => {
+  it('vadear siempre es posible: +1 jornada por el puente caído', async () => {
+    const { travel: go, edgesTowardCivilization } = await import('../src/game/expedition.js');
+    // El estado real del jugador: LOS TRES tramos de Dunas Rotas rotos.
+    const exp = {
+      ...startExpedition(SALT_PASS_REGION, 'c3-escolta', 'escolta'),
+      at: 'dunas-rotas', day: 17,
+      blockedEdges: [
+        edgeKey('base-arcadia', 'dunas-rotas'),
+        edgeKey('villa-brasa', 'dunas-rotas'),
+        edgeKey('dunas-rotas', 'paso-de-sal'),
+      ],
+    };
+    // Aun sin suministros hay salidas (vadeando).
+    const toward = edgesTowardCivilization(exp, SALT_PASS_REGION);
+    expect(toward.length).toBeGreaterThan(0);
+    // Vadear hacia Villa Brasa: 1 jornada del tramo + 1 del vado.
+    const edge = SALT_PASS_REGION.edges.find(
+      (e) => edgeKey(e.a, e.b) === edgeKey('villa-brasa', 'dunas-rotas'))!;
+    const ford = go(exp, SALT_PASS_REGION, edge);
+    expect(ford.expedition.at).toBe('villa-brasa');
+    expect(ford.expedition.day).toBe(19); // 17 + 1 + 1
+    expect(ford.supplyCost).toBe(2);
+    expect(ford.event).toBe('calm'); // sin sorpresas en el vado
+  });
+});
