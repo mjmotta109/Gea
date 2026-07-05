@@ -83,13 +83,45 @@ export function edgesTowardCivilization(
 ): WorldEdge[] {
   const civilized = new Set(
     region.nodes.filter((n) => n.city || n.id === region.hq).map((n) => n.id));
+  // Distancias sobre el grafo REAL: los puentes rotos no cuentan.
   const distToCiv = (from: string): number => {
-    const dist = distancesFrom(region, from);
-    return Math.min(...[...civilized].map((id) => dist[id] ?? 99));
+    const dist = distancesFromAvoiding(region, from, expedition.blockedEdges);
+    return Math.min(...[...civilized].map((id) => dist[id] ?? 999));
   };
   const here = distToCiv(expedition.at);
-  return availableEdges(expedition, region)
-    .filter((edge) => distToCiv(otherEnd(edge, expedition.at)) < here);
+  const options = availableEdges(expedition, region);
+  const closer = options.filter((edge) => distToCiv(otherEnd(edge, expedition.at)) < here);
+  if (closer.length > 0) return closer;
+  // Red de seguridad: si ningún tramo estricto acerca (meseta o cerco de
+  // puentes rotos), se permite lo que MENOS aleje — nunca cero salidas.
+  let best = Infinity;
+  for (const edge of options) best = Math.min(best, distToCiv(otherEnd(edge, expedition.at)));
+  return options.filter((edge) => distToCiv(otherEnd(edge, expedition.at)) === best);
+}
+
+/** Dijkstra que respeta los tramos bloqueados de la expedición. */
+export function distancesFromAvoiding(
+  region: WorldRegion,
+  start: string,
+  blockedEdges: string[],
+): Record<string, number> {
+  const dist: Record<string, number> = { [start]: 0 };
+  const pending = new Set(region.nodes.map((n) => n.id));
+  while (pending.size > 0) {
+    let best: string | undefined;
+    for (const id of [...pending].sort()) {
+      if (dist[id] !== undefined && (best === undefined || dist[id]! < dist[best]!)) best = id;
+    }
+    if (best === undefined) break;
+    pending.delete(best);
+    for (const edge of neighbors(region, best)) {
+      if (blockedEdges.includes(edgeKey(edge.a, edge.b))) continue;
+      const next = otherEnd(edge, best);
+      const candidate = dist[best]! + edge.days;
+      if (dist[next] === undefined || candidate < dist[next]!) dist[next] = candidate;
+    }
+  }
+  return dist;
 }
 
 export function edgeKey(a: string, b: string): string {
@@ -222,7 +254,9 @@ export function travel(
   // Puente roto: solo una vez por tramo, y nunca en el último salto a
   // un objetivo sin alternativa (no bloquear la misión por completo).
   const blocked = [...expedition.blockedEdges];
-  if (roll < 0.18 && !blocked.includes(key) && neighbors(region, from).length > 1) {
+  const usableFromHere = neighbors(region, from)
+    .filter((e) => !blocked.includes(edgeKey(e.a, e.b))).length;
+  if (roll < 0.18 && !blocked.includes(key) && usableFromHere > 1) {
     blocked.push(key);
     const next: ExpeditionState = {
       ...expedition,

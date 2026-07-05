@@ -272,3 +272,36 @@ describe('ciudad: pantalla y reglas nuevas', () => {
 function otherEnd2(edge: { a: string; b: string }, from: string): string {
   return edge.a === from ? edge.b : edge.a;
 }
+
+describe('regresión: el cerco de puentes rotos (atasco del día 17)', () => {
+  it('el candado de suministros respeta los puentes rotos y nunca deja cero salidas', async () => {
+    const { edgesTowardCivilization } = await import('../src/game/expedition.js');
+    // La situación real del jugador: en Dunas Rotas, con los puentes a
+    // Base Arcadia y a Villa Brasa caídos. Única salida física: Paso de Sal.
+    const exp = {
+      ...startExpedition(SALT_PASS_REGION, 'c5-escolta', 'escolta'),
+      at: 'dunas-rotas',
+      blockedEdges: [edgeKey('base-arcadia', 'dunas-rotas'), edgeKey('villa-brasa', 'dunas-rotas')],
+    };
+    const toward = edgesTowardCivilization(exp, SALT_PASS_REGION);
+    expect(toward.length).toBeGreaterThan(0); // JAMÁS cero salidas
+    expect(toward.some((e) => otherEnd2(e, 'dunas-rotas') === 'paso-de-sal')).toBe(true);
+  });
+
+  it('un puente no se rompe si es la última salida transitable del nodo', async () => {
+    const { travel: go } = await import('../src/game/expedition.js');
+    // Con dos tramos ya rotos en Dunas Rotas, viajar por el único
+    // restante no puede romperlo (buscamos muchos contratos: ninguno).
+    for (let i = 0; i < 60; i++) {
+      const exp = {
+        ...startExpedition(SALT_PASS_REGION, `probe2-${i}`, 'caza'),
+        at: 'dunas-rotas',
+        blockedEdges: [edgeKey('base-arcadia', 'dunas-rotas'), edgeKey('villa-brasa', 'dunas-rotas')],
+      };
+      const edge = SALT_PASS_REGION.edges.find((e) => edgeKey(e.a, e.b) === edgeKey('dunas-rotas', 'paso-de-sal'))!;
+      const result = go(exp, SALT_PASS_REGION, edge);
+      expect(result.event).not.toBe('bridge');
+      expect(result.expedition.at).toBe('paso-de-sal');
+    }
+  });
+});
