@@ -22,6 +22,7 @@ import {
   type ModuleCatalog,
 } from './frame.js';
 import { Rng } from './rng.js';
+import { pilotModifiers, type PerkTable, type PilotState, type SpecializationId } from './progression.js';
 import { applyStatus, hasStatus, statusModifiers, tickStatuses } from './status.js';
 import {
   defaultSystems,
@@ -82,6 +83,9 @@ export interface BattleConfig {
   weaponCatalog?: Record<string, WeaponDefinition>;
   /** Clima de la batalla; por defecto despejado. */
   weather?: WeatherId;
+  /** Pilotos por unidad (progresión, opt-in) y su tabla de perks. */
+  pilots?: Record<string, PilotState>;
+  perkTable?: PerkTable;
   seed: number;
   /**
    * Sistemas activos, invocados en el orden del array (determinista).
@@ -114,6 +118,8 @@ export class Battle {
   private systemContext: SystemContext;
   /** Equipos que ya perdieron a su comandante (evento emitido una vez). */
   private linkLostTeams = new Set<Team>();
+  private pilots: Record<string, PilotState>;
+  private perkTable: PerkTable | undefined;
 
   constructor(config: BattleConfig) {
     // Clon propio: el terreno es destructible desde la fase 4 y los mapas
@@ -125,6 +131,8 @@ export class Battle {
     this.rng = new Rng(config.seed);
     this.weather = config.weather ?? 'clear';
     this.weapons = config.weaponCatalog ?? {};
+    this.pilots = config.pilots ?? {};
+    this.perkTable = config.perkTable;
     this.systems = config.systems ?? defaultSystems();
     this.systemContext = {
       map: this.map,
@@ -316,7 +324,28 @@ export class Battle {
       mods.push({ source: 'comms:link-lost', stat: 'accuracy', add: -5 });
       mods.push({ source: 'comms:link-lost', stat: 'evade', add: -5 });
     }
+    // Progresión: el piloto aporta sus perks y la sinergia con el equipo
+    // etiquetado con su especialización dominante.
+    const pilot = this.pilots[unit.id];
+    if (pilot && this.perkTable) {
+      mods.push(...pilotModifiers(pilot, this.equippedSpecs(unit), this.perkTable));
+    }
     return applyModifiers(base, mods);
+  }
+
+  /** Especializaciones del equipo montado (armas + módulos operativos). */
+  private equippedSpecs(unit: UnitState): SpecializationId[] {
+    const specs: SpecializationId[] = [];
+    for (const weapon of unit.components.arsenal?.weapons ?? []) {
+      const spec = this.weaponOf(weapon.weaponId).spec;
+      if (spec) specs.push(spec);
+    }
+    for (const module of unit.components.frame?.modules ?? []) {
+      if (module.destroyed) continue;
+      const spec = this.modules[module.moduleId]?.spec;
+      if (spec) specs.push(spec);
+    }
+    return specs;
   }
 
   get winner(): Team | undefined {

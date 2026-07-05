@@ -98,7 +98,7 @@ Pendientes de pasar el filtro del §5 con una propuesta concreta:
 | Controles de teclado (WASD + confirmación) y flujo de UI estilo XCOM: seleccionar → previsualizar → confirmar | feedback del primer playtest | explorando |
 | Bonus defensivo/sensorial por tipo de terreno ocupado (bosque, agua somera) en lugar de cobertura direccional XCOM | feedback del primer playtest | encaja con fase 3 del motor (terreno rico); pendiente de números |
 | Ensamblaje de Zoids ("garaje"): intercambiar módulos y armas por unidad entre batallas | visión original | ✅ rebanada de motor hecha (UnitSpawn.loadout: sustituir módulos por slot y arsenal completo, con maxHp derivado de lo montado). Pendiente: UI de garaje, reglas de peso/energía, persistencia entre batallas |
-| Progresión piloto ↔ Zoid separadas; árbol de habilidades con especializaciones | visión original | por diseñar; se apoya en el pipeline de modificadores existente |
+| Progresión piloto ↔ Zoid separadas; árbol de habilidades con especializaciones | visión original | ✅ rebanada de motor hecha (core/progression.ts): SOLO el piloto gana XP, por pistas (asalto/tirador/soporte/defensa) atribuidas desde eventos; niveles por umbral dan perks vía pipeline; el Zoid se especializa por equipamiento etiquetado (spec) con bonus de sinergia si casa con la pista dominante del piloto. Pendiente: buffs como XP de soporte, árbol visual, respec |
 | Generador de mapas/escenarios (aleatorio y dirigido) | feedback | aplazado explícitamente ("ahora no") |
 | Gráficos: investigar punto dulce estilizado + game feel satisfactorio | feedback | investigación pendiente |
 
@@ -116,6 +116,11 @@ arquitectura del motor van en DESIGN.md.)*
   combate "se siente bien" sin niebla de guerra. Sensores/niebla quedan
   APLAZADOS hasta nueva orden; el clima entra ya (lluvia refrigera,
   tormenta de arena degrada la puntería a distancia).
+- **2026-07-05** — Progresión (ley del usuario): el Zoid NO gana XP, solo
+  el piloto; el piloto se especializa por pistas y el Zoid "se especializa
+  hacia el mismo lado" mediante piezas/mods etiquetados — la sinergia
+  piloto↔máquina es la recompensa (tope 2 piezas para evitar builds
+  degeneradas). Números modestos: el posicionamiento sigue mandando.
 - **2026-07-05** — Primer ciclo de balance con datos (npm run balance):
   cañón de partículas 60→36 de potencia y alcance mínimo 2; el escenario
   del valle pasa de 81.5% enemigo a 55/45 jugador. Detectados los

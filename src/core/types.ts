@@ -105,6 +105,8 @@ export interface ModuleDefinition {
    * 'sensor'...
    */
   tags: string[];
+  /** Especialización a la que empuja este módulo (sinergia de progresión). */
+  spec?: 'assault' | 'sniper' | 'support' | 'defense';
 }
 
 /** Asignación de un módulo a un hueco del frame (orden = orden determinista). */
@@ -192,6 +194,11 @@ export interface WeaponDefinition {
   mountSlot?: SlotId;
   /** Balística (fase 4); omitir en armas de contacto/energía pura. */
   projectile?: ProjectileSpec;
+  /**
+   * Especialización a la que "empuja" esta arma (progresión): si el
+   * piloto domina esa pista, el arma da bonus de sinergia.
+   */
+  spec?: 'assault' | 'sniper' | 'support' | 'defense';
 }
 
 export interface EnergyState {

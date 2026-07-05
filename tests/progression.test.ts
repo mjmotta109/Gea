@@ -1,0 +1,77 @@
+import { describe, expect, it } from 'vitest';
+import { Battle } from '../src/core/battle.js';
+import {
+  applyXp, awardXp, dominantTrack, newPilot, pilotModifiers, trackLevel,
+} from '../src/core/progression.js';
+import type { BattleEvent } from '../src/core/types.js';
+import { GameMap } from '../src/core/grid.js';
+import { PERKS } from '../src/data/progression.js';
+import { ABILITIES } from '../src/data/abilities.js';
+import { WEAPONS } from '../src/data/weapons.js';
+import { ZOIDS } from '../src/data/zoids.js';
+
+describe('progresión: XP del piloto (el Zoid no gana nada)', () => {
+  const roster = { U1: 'bit', U2: 'naomi' };
+  const teams = { U1: 'player', U2: 'player', E1: 'enemy' } as const;
+  const starts = { U1: { x: 0, y: 0 }, U2: { x: 0, y: 5 }, E1: { x: 1, y: 0 } };
+
+  it('atribuye asalto en corto, tirador en largo, defensa al encajar', () => {
+    const events: BattleEvent[] = [
+      // U1 pega adyacente (dist 1 → asalto)
+      { type: 'damage-dealt', unitId: 'U1', targetUnitId: 'E1', amount: 40, targetHp: 30 },
+      // U2 dispara desde lejos (dist 6 → tirador)
+      { type: 'damage-dealt', unitId: 'U2', targetUnitId: 'E1', amount: 30, targetHp: 0 },
+      { type: 'unit-destroyed', unitId: 'E1' },
+    ];
+    const gains = awardXp(events, roster, teams, starts, 'player', new Set(['U1', 'U2']));
+    const by = (p: string, t: string) => gains.find((g) => g.pilotId === p && g.track === t)?.amount ?? 0;
+    expect(by('bit', 'assault')).toBe(20);      // 40 * 0.5
+    expect(by('naomi', 'sniper')).toBe(45);     // 30*0.5 + 30 de baja
+    expect(by('bit', 'defense')).toBe(40);      // superviviente ganador
+    expect(by('naomi', 'defense')).toBe(40);
+  });
+
+  it('la XP se acumula, sube niveles por umbral y define pista dominante', () => {
+    let pilots: Record<string, import("../src/core/progression.js").PilotState> = { bit: newPilot("bit", "Bit Cloud") };
+    pilots = applyXp(pilots, [
+      { pilotId: 'bit', track: 'assault', amount: 300 },
+      { pilotId: 'bit', track: 'defense', amount: 120 },
+    ]);
+    expect(trackLevel(pilots.bit!.tracks.assault)).toBe(2); // ≥260
+    expect(trackLevel(pilots.bit!.tracks.defense)).toBe(1); // ≥100
+    expect(dominantTrack(pilots.bit!)).toBe('assault');
+  });
+
+  it("los perks y la sinergia entran por el pipeline de la batalla", async () => {
+    const bit = newPilot('bit', 'Bit');
+    bit.tracks.assault = 300; // nivel 2: atk+3/eAtk+3 y move+1
+    const battle = new Battle({
+      map: GameMap.fromAscii(['00000000']),
+      unitCatalog: ZOIDS,
+      abilityCatalog: ABILITIES,
+      weaponCatalog: WEAPONS,
+      moduleCatalog: (await import('../src/data/modules.js')).MODULES,
+      pilots: { L: bit },
+      perkTable: PERKS,
+      seed: 3,
+      spawns: [
+        { id: 'L', name: 'Liger', unitTypeId: 'liger-zero-cas', team: 'player', position: { x: 0, y: 0 } },
+        { id: 'M', name: 'Molga', unitTypeId: 'molga', team: 'enemy', position: { x: 7, y: 0 } },
+      ],
+    });
+    const stats = battle.effectiveStats(battle.unit('L'));
+    // Base 45 atk + perks(3) + sinergia (garra láser spec assault, dominante assault): +3
+    expect(stats.atk).toBe(45 + 3 + 3);
+    expect(stats.move).toBe(6 + 1);
+    // La Molga sin piloto no recibe nada.
+    expect(battle.effectiveStats(battle.unit('M')).atk).toBe(30);
+  });
+
+  it('pilotModifiers respeta el tope de sinergia', () => {
+    const ace = newPilot('a', 'As');
+    ace.tracks.sniper = 150;
+    const mods = pilotModifiers(ace, ['sniper', 'sniper', 'sniper'], PERKS);
+    const synergies = mods.filter((m) => m.source === 'synergy:sniper');
+    expect(synergies).toHaveLength(2); // cap 2
+  });
+});
