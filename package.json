@@ -10,7 +10,8 @@
     "golden:update": "UPDATE_GOLDEN=1 vitest run tests/golden.test.ts",
     "demo": "tsx src/demo/cli.ts",
     "demo:auto": "tsx src/demo/cli.ts --auto",
-    "web": "node scripts/build-web.mjs"
+    "web": "node scripts/build-web.mjs",
+    "balance": "tsx scripts/balance.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

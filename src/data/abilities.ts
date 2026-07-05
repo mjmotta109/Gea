@@ -70,13 +70,19 @@ export const ABILITIES: Record<string, AbilityDefinition> = {
     name: 'Cañón de partículas cargadas',
     description: 'Haz devastador en línea recta que recalienta al objetivo.',
     range: 6,
-    minRange: 1,
+    minRange: 2,
     shape: 'line',
     aoeRadius: 0,
-    accuracy: 75,
+    accuracy: 70,
     targetsAllies: false,
+    // Nerf calibrado con npm run balance (2026-07-05): con power 60/acc 75
+    // el Geno hacía 279 de daño medio y su equipo ganaba el 81.5%; con 36
+    // el escenario queda 55/45 para el jugador. Ojo: hay un breakpoint
+    // brutal en 37-38 (vuelve a 71.5% enemigo) — no subir sin re-medir.
+    // minRange 2 le abre además la debilidad clásica del arma:
+    // inutilizable con el rival encima.
     effects: [
-      { kind: 'damage', power: 60, damageType: 'energy' },
+      { kind: 'damage', power: 36, damageType: 'energy' },
       { kind: 'status', status: 'overheat', duration: 2, chance: 50 },
     ],
   },
