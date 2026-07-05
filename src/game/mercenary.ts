@@ -49,6 +49,11 @@ export interface CampaignState {
   cargo: Array<{ name: string; value: number }>;
   /** Planos de módulos comprados en fábricas (desbloquean el montaje). */
   moduleBlueprints: string[];
+  /**
+   * La biografía de la COMPAÑERA (el hueco 1 del roster): marcas,
+   * memoria y compenetración. La gestiona src/game/companion.ts.
+   */
+  companion: { markIds: string[]; memory: Record<string, number>; rapport: number };
 }
 
 /**
@@ -83,7 +88,7 @@ export function newCampaign(
     }
     return { unitTypeId, hp: FULL_HP, destroyed: false, ...loadout };
   });
-  return { credits: economy.startingCredits, roster, armory, contractsDone: 0, supplies: economy.startingSupplies, cargo: [], moduleBlueprints: [] };
+  return { credits: economy.startingCredits, roster, armory, contractsDone: 0, supplies: economy.startingSupplies, cargo: [], moduleBlueprints: [], companion: { markIds: [], memory: {}, rapport: 0 } };
 }
 
 // ── Contratos deterministas ──────────────────────────────────────────────

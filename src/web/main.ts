@@ -38,6 +38,10 @@ import {
 } from '../game/expedition.js';
 import { SALT_PASS_REGION } from '../data/world.js';
 import { createSave, describeSave, serializeSave, validateSave, type SaveGame } from '../game/save.js';
+import {
+  bondExpedition, companionModifiers, newCompanion, observeCompanionBattle, recordCompanionEvent,
+} from '../game/companion.js';
+import { COMPANION_TABLE } from '../data/marks.js';
 
 // Catálogos completos del cliente: base + anexo de la librería de armas.
 // Los Zoids de segunda generación montan armas 'lib-*' y los necesitan.
@@ -1473,6 +1477,7 @@ function loadCampaign(): CampaignState | null {
     if (typeof state.supplies !== 'number') state.supplies = ECONOMY.startingSupplies;
     if (!Array.isArray(state.cargo)) state.cargo = [];
     if (!Array.isArray(state.moduleBlueprints)) state.moduleBlueprints = [];
+    if (!state.companion || typeof state.companion !== 'object') state.companion = newCompanion();
     return state;
   } catch {
     return null;
@@ -1488,6 +1493,8 @@ let deployedSlots: number[] = [];
 /** Tras resolver un contrato, "Nueva batalla" vuelve a la campaña. */
 let returnToMerc = false;
 let mercOpen = false;
+/** Marcas grabadas por la compañera en la última batalla (parte). */
+let companionMarkLines: string[] = [];
 
 function saveCampaign(): void {
   try {
@@ -1565,9 +1572,29 @@ function renderMercHangar(): void {
     card.className = 'gcard';
 
     card.innerHTML =
-      `<div class="ghead-row"><span class="gtag">P${slot + 1}${slot === 0 ? ' ★' : ''}</span>` +
-      `<b style="font-family:var(--mono);font-size:13px">${def.name}</b></div>` +
+      `<div class="ghead-row"><span class="gtag">P${slot + 1}${slot === 0 ? ' ❤' : ''}</span>` +
+      `<b style="font-family:var(--mono);font-size:13px">${def.name}</b>` +
+      (slot === 0 ? '<span class="gmuted" style="font-size:9px;letter-spacing:0.14em"> COMPAÑERA</span>' : '') +
+      '</div>' +
       `<div class="gtracks">${escapeHtml(pilot.name)} · ${pilotSummary(pilot)}</div>`;
+    if (slot === 0) {
+      const bio = document.createElement('div');
+      bio.className = 'gbio';
+      const companion = campaign!.companion;
+      const tier = [...COMPANION_TABLE.rapportTiers].sort((a, b) => b.min - a.min)
+        .find((t) => companion.rapport >= t.min);
+      const chips = companion.markIds.map((id) => {
+        const mark = COMPANION_TABLE.marks[id];
+        return mark ? `<span class="pquirk" title="${escapeHtml(mark.description)}">${mark.name}</span>` : '';
+      }).join('');
+      const empty = Array.from({ length: Math.max(0, COMPANION_TABLE.markCap - companion.markIds.length) })
+        .map(() => '<span class="pquirk empty" title="Espacio de núcleo libre: las marcas se graban viviendo.">· · ·</span>').join('');
+      bio.innerHTML =
+        `<div class="qtitle">Núcleo (${companion.markIds.length}/${COMPANION_TABLE.markCap})</div>${chips}${empty}` +
+        `<div class="qtitle" style="margin-top:5px">Compenetración ${companion.rapport}/${COMPANION_TABLE.rapportCap}` +
+        (tier ? ` · <span style="color:var(--energy)">${tier.label}</span>` : '') + '</div>';
+      card.appendChild(bio);
+    }
 
     if (zoid.destroyed) {
       const cost = rebuildCost(zoid, ECONOMY);
@@ -1581,6 +1608,10 @@ function renderMercHangar(): void {
       btn.disabled = campaign!.credits < cost;
       btn.addEventListener('click', () => {
         campaign = rebuildZoid(campaign!, slot, campaignMaxHp(slot), ECONOMY);
+        if (slot === 0) {
+          const marked = recordCompanionEvent(campaign.companion, 'reconstrucciones', COMPANION_TABLE);
+          campaign = { ...campaign, companion: marked.companion };
+        }
         saveCampaign();
         renderMerc();
       });
@@ -1636,7 +1667,17 @@ function renderMercHangar(): void {
     }
     chassisSelect.addEventListener('change', () => {
       if (!chassisSelect.value) return;
+      if (slot === 0 && (campaign!.companion.markIds.length > 0 || campaign!.companion.rapport > 0)) {
+        if (!window.confirm('Es tu COMPAÑERA. Cambiar de chasis borra sus marcas y la compenetración — la biografía no se compra de vuelta. ¿Seguro?')) {
+          renderMerc();
+          return;
+        }
+      }
+      const before = campaign!;
       campaign = buyZoid(campaign!, slot, chassisSelect.value, maxHp, ECONOMY, factoryLoadout);
+      if (slot === 0 && campaign !== before) {
+        campaign = { ...campaign, companion: newCompanion() };
+      }
       saveCampaign();
       renderMerc();
     });
@@ -1801,6 +1842,22 @@ function startContractExpedition(): void {
 function settleContract(): string {
   const contract = activeContract!;
   activeContract = null;
+  // La compañera (hueco 1) registra la batalla en su núcleo.
+  companionMarkLines = [];
+  if (campaign && deployedSlots.includes(0)) {
+    const unit = battle.units.find((u) => u.id === 'P1');
+    if (unit) {
+      const ratio = unit.hp / Math.max(1, battle.effectiveStats(unit).maxHp);
+      const observed = observeCompanionBattle(campaign.companion, {
+        events: allEvents, unitId: 'P1', finalHpRatio: ratio, weather: battle.weather,
+      }, COMPANION_TABLE);
+      campaign = { ...campaign, companion: observed.companion };
+      for (const mark of observed.gained) {
+        companionMarkLines.push(
+          `<div>❤ La compañera graba una marca: <b class="lvlup">${mark.name}</b> — <span style="color:var(--muted)">${mark.description}</span></div>`);
+      }
+    }
+  }
   // Con expedición en curso: la victoria devuelve al mapa (decidir si
   // seguir o volver); la derrota es retirada — la expedición se acaba.
   if (expedition) {
@@ -1834,6 +1891,7 @@ function settleContract(): string {
   saveCampaign();
 
   const lines = [
+    ...companionMarkLines,
     `<div><b>${contract.name}</b> — ${TIER_LABEL[contract.tier]}</div>`,
     `<div class="mgain">+⌾${report.creditsEarned} (${report.rewardPaid ? `recompensa ⌾${contract.reward} + ` : 'sin recompensa · '}chatarra ⌾${report.salvage})</div>`,
   ];
@@ -2166,6 +2224,8 @@ function fightExpeditionBattle(): void {
         weapons: [...zoid.weapons],
         ...(Object.keys(zoid.slots).length > 0 ? { slots: { ...zoid.slots } } : {}),
       },
+      // La compañera (hueco 1) lleva su biografía a la batalla.
+      ...(slot === 0 ? { modifiers: companionModifiers(campaign!.companion, COMPANION_TABLE) } : {}),
       ...(k === 0 ? { commander: true } : {}),
     })),
     ...contract.enemySquad.map((unitTypeId, i) => ({
@@ -2194,6 +2254,9 @@ function endExpedition(): void {
   if (!campaign || !expedition) return;
   const sold = sellCargo(campaign);
   campaign = sold.state;
+  if (expedition.missionDone) {
+    campaign = { ...campaign, companion: bondExpedition(campaign.companion, COMPANION_TABLE) };
+  }
   expedition = null;
   saveCampaign();
   saveExpedition();

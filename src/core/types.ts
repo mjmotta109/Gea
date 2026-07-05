@@ -321,6 +321,9 @@ export interface UnitState {
   isCommander: boolean;
   /** maxHp real cuando el garaje montó módulos distintos de fábrica. */
   maxHpOverride?: number;
+  /** Modificadores adjuntos al desplegar (marcas de campaña, auras de
+   *  escenario...): entran al pipeline como cualquier otra fuente. */
+  spawnModifiers?: StatModifier[];
   components: UnitComponents;
   team: Team;
   position: Position;

@@ -161,3 +161,52 @@ describe('ruinas: exploración', () => {
     expect(canExplore({ ...exp, at: 'paso-de-sal' }, SALT_PASS_REGION)).toBe(false);
   });
 });
+
+describe('la compañera: marcas y compenetración', () => {
+  it('las tormentas y las cazas de comandantes graban marcas deterministas', async () => {
+    const { newCompanion, observeCompanionBattle, companionModifiers, bondExpedition, recordCompanionEvent } =
+      await import('../src/game/companion.js');
+    const { COMPANION_TABLE } = await import('../src/data/marks.js');
+    let companion = newCompanion();
+    // Dos batallas en tormenta → "Forjada en el desierto".
+    const stormBattle = { events: [] as never[], unitId: 'P1', finalHpRatio: 1, weather: 'sandstorm' };
+    companion = observeCompanionBattle(companion, stormBattle, COMPANION_TABLE).companion;
+    const second = observeCompanionBattle(companion, stormBattle, COMPANION_TABLE);
+    expect(second.gained.map((m) => m.id)).toEqual(['forjada-en-el-desierto']);
+    companion = second.companion;
+    // La caza de un comandante: baja propia seguida de enlace perdido.
+    const huntEvents = [
+      { type: 'damage-dealt', unitId: 'P1', targetUnitId: 'E1', amount: 50, targetHp: 0 },
+      { type: 'unit-destroyed', unitId: 'E1' },
+      { type: 'command-link-lost', team: 'enemy' },
+    ];
+    companion = observeCompanionBattle(companion, { events: huntEvents as never, unitId: 'P1', finalHpRatio: 1, weather: 'clear' }, COMPANION_TABLE).companion;
+    expect(companion.memory['cazas']).toBe(1);
+    // La biografía entra al pipeline del despliegue.
+    const mods = companionModifiers(companion, COMPANION_TABLE);
+    expect(mods.some((m) => m.source === 'mark:forjada-en-el-desierto')).toBe(true);
+    // Compenetración con techo y tramo.
+    for (let i = 0; i < 20; i++) companion = bondExpedition(companion, COMPANION_TABLE);
+    expect(companion.rapport).toBe(COMPANION_TABLE.rapportCap);
+    expect(companionModifiers(companion, COMPANION_TABLE).some((m) => m.source === 'rapport:leyenda')).toBe(true);
+    // La reconstrucción deja cicatriz (mixta) a la primera.
+    const scarred = recordCompanionEvent(newCompanion(), 'reconstrucciones', COMPANION_TABLE);
+    expect(scarred.gained.map((m) => m.id)).toEqual(['cicatriz-del-taller']);
+  });
+
+  it('motor: los modificadores adjuntos al spawn entran a effectiveStats', async () => {
+    const { Battle } = await import('../src/core/battle.js');
+    const { ABILITIES } = await import('../src/data/abilities.js');
+    const { VALLEY_CROSSING } = await import('../src/data/maps.js');
+    const battle = new Battle({
+      map: VALLEY_CROSSING, unitCatalog: ZOIDS, abilityCatalog: ABILITIES, seed: 5,
+      spawns: [
+        { id: 'A', name: 'Marcada', unitTypeId: 'molga', team: 'player', position: { x: 1, y: 3 },
+          modifiers: [{ source: 'mark:test', stat: 'atk', add: 7 }] },
+        { id: 'B', name: 'Limpia', unitTypeId: 'molga', team: 'enemy', position: { x: 10, y: 3 } },
+      ],
+    });
+    expect(battle.effectiveStats(battle.unit('A')).atk).toBe(30 + 7);
+    expect(battle.effectiveStats(battle.unit('B')).atk).toBe(30);
+  });
+});

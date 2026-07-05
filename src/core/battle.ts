@@ -41,6 +41,7 @@ import {
   type BattleEvent,
   type Facing,
   type Position,
+  type StatModifier,
   type Stats,
   type Team,
   type UnitState,
@@ -65,6 +66,8 @@ export interface UnitSpawn {
    * persistente). Se acota a [1, maxHp real]; si se omite, sale a tope.
    */
   hp?: number;
+  /** Modificadores adjuntos a la unidad durante toda la batalla. */
+  modifiers?: StatModifier[];
   /**
    * Garaje: personalización del chasis al desplegar. `slots` sustituye
    * módulos del frame por otros del catálogo (mismo slot); `weapons`
@@ -190,6 +193,8 @@ export class Battle {
         facing: spawn.facing ?? (spawn.team === 'player' ? 'east' : 'west'),
         hp: spawn.hp !== undefined ? Math.max(1, Math.min(maxHp, Math.round(spawn.hp))) : maxHp,
         maxHpOverride: spawn.loadout?.slots ? maxHp : undefined,
+        ...(spawn.modifiers && spawn.modifiers.length > 0
+          ? { spawnModifiers: spawn.modifiers.map((m) => ({ ...m })) } : {}),
         ct: 0,
         statuses: [],
         hasMoved: false,
@@ -329,6 +334,8 @@ export class Battle {
       mods.push({ source: 'comms:link-lost', stat: 'accuracy', add: -5 });
       mods.push({ source: 'comms:link-lost', stat: 'evade', add: -5 });
     }
+    // Modificadores adjuntos al spawn (campañas: marcas, auras...).
+    if (unit.spawnModifiers) mods.push(...unit.spawnModifiers);
     // Progresión: el piloto aporta sus perks y la sinergia con el equipo
     // etiquetado con su especialización dominante.
     const pilot = this.pilots[unit.id];

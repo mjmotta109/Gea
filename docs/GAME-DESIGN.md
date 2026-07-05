@@ -313,3 +313,16 @@ arquitectura del motor van en DESIGN.md.)*
   Pendiente: capital nivel 3 en la próxima región, manías ligadas al
   estrés (quebrarse debería dejar cicatriz), descanso en el taller
   propio.
+- **2026-07-05** — MARCAS Y COMPENETRACIÓN DE LA COMPAÑERA (cierre del
+  corazón del Pilar 1, tal como se decidió en §1.2): el hueco 1 del
+  roster ES la compañera. Motor: UnitSpawn.modifiers (genérico —
+  modificadores adjuntos al desplegar). Juego: núcleo con 6 espacios de
+  marcas grabadas por lo vivido — Forjada en el desierto (2 batallas en
+  tormenta), Corazón de hierro (2 apagados), Cazadora de reyes (2
+  comandantes derribados por ella), La que vuelve (3 roces), Cicatriz
+  del taller (reconstrucción: +DEF −VEL, mixta), Diente mellado, Vieja
+  guardia — y compenetración (expediciones cumplidas, techo 12) con
+  tramos: Se entienden → Una sola pieza → Leyenda del taller. Cambiar
+  el chasis de la compañera pide confirmación y BORRA la biografía (la
+  nueva llega verde). El parte de batalla anuncia cada marca grabada;
+  la biografía se ve en el hangar (núcleo, huecos libres, tramo).
