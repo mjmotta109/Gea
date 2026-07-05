@@ -61,6 +61,11 @@ export interface UnitSpawn {
   /** Comandante del equipo: su caída degrada a todos sus aliados (fase 5). */
   commander?: boolean;
   /**
+   * HP inicial, para desplegar la unidad ya dañada (campañas con daño
+   * persistente). Se acota a [1, maxHp real]; si se omite, sale a tope.
+   */
+  hp?: number;
+  /**
    * Garaje: personalización del chasis al desplegar. `slots` sustituye
    * módulos del frame por otros del catálogo (mismo slot); `weapons`
    * reemplaza el arsenal completo. El maxHp real deriva de los módulos
@@ -183,7 +188,7 @@ export class Battle {
         team: spawn.team,
         position: { ...spawn.position },
         facing: spawn.facing ?? (spawn.team === 'player' ? 'east' : 'west'),
-        hp: maxHp,
+        hp: spawn.hp !== undefined ? Math.max(1, Math.min(maxHp, Math.round(spawn.hp))) : maxHp,
         maxHpOverride: spawn.loadout?.slots ? maxHp : undefined,
         ct: 0,
         statuses: [],
