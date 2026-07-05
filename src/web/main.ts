@@ -36,6 +36,12 @@ let cursor: Position = { x: 0, y: 0 };
 let pending: Position | null = null;
 /** true mientras la IA enemiga anima su turno: bloquea la entrada. */
 let busy = false;
+/** Animación pendiente de movimiento: la ficha recorre su camino. */
+let pendingMoveAnim: { unitId: string; path: Position[] } | null = null;
+/** Unidades golpeadas en el último lote de eventos: destello de impacto. */
+let pendingHits = new Set<string>();
+
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const $ = (id: string): HTMLElement => document.getElementById(id)!;
 
@@ -480,6 +486,7 @@ function renderBoard(): void {
         bar.appendChild(fill);
         chip.appendChild(bar);
         cell.appendChild(chip);
+        animateChip(chip, occupant.id);
       }
 
       cell.addEventListener('mousemove', () => setCursor(pos));
@@ -491,6 +498,44 @@ function renderBoard(): void {
       });
       board.appendChild(cell);
     }
+  }
+}
+
+/** Tamaño de celda en píxeles (46 de celda + 2 de separación). */
+const CELL_PX = 48;
+
+/**
+ * Animaciones de ficha tras el re-render: desplazamiento a lo largo del
+ * camino recorrido (Web Animations API) y destello al recibir impactos.
+ * El estado del juego ya está actualizado; esto es solo presentación.
+ */
+function animateChip(chip: HTMLElement, unitId: string): void {
+  if (reducedMotion) {
+    if (unitId === pendingMoveAnim?.unitId) pendingMoveAnim = null;
+    pendingHits.delete(unitId);
+    return;
+  }
+
+  if (pendingMoveAnim?.unitId === unitId) {
+    const path = pendingMoveAnim.path;
+    const last = path[path.length - 1]!;
+    // Keyframes: desde cada casilla del camino hasta la posición final.
+    const frames = path.map((p) => ({
+      transform: `translate(${(p.x - last.x) * CELL_PX}px, ${(p.y - last.y) * CELL_PX}px)`,
+    }));
+    chip.animate(frames, {
+      duration: Math.min(600, 110 * Math.max(1, path.length - 1)),
+      easing: 'ease-out',
+    });
+    pendingMoveAnim = null;
+  }
+
+  if (pendingHits.has(unitId)) {
+    chip.animate([
+      { filter: 'brightness(3)', transform: 'scale(1.15)' },
+      { filter: 'brightness(1)', transform: 'scale(1)' },
+    ], { duration: 260, easing: 'ease-out' });
+    pendingHits.delete(unitId);
   }
 }
 
@@ -788,6 +833,13 @@ function log(text: string, cls?: string): void {
 
 function logEvents(events: BattleEvent[]): void {
   for (const event of events) {
+    if (event.type === 'unit-moved' || event.type === 'unit-boosted') {
+      pendingMoveAnim = { unitId: event.unitId, path: event.path };
+    }
+    if (event.type === 'damage-dealt' || event.type === 'status-ticked' || event.type === 'unit-shutdown') {
+      pendingHits.add(event.type === 'damage-dealt' ? event.targetUnitId
+        : event.type === 'status-ticked' ? event.targetUnitId : event.unitId);
+    }
     const line = describe(event);
     if (line) log(line.text, line.cls);
   }
