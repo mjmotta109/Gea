@@ -47,7 +47,7 @@ export interface WorldRegion {
   edges: WorldEdge[];
 }
 
-export type TravelEventKind = 'bridge' | 'find' | 'storm' | 'calm';
+export type TravelEventKind = 'bridge' | 'find' | 'storm' | 'encounter' | 'calm';
 
 export interface CargoItem {
   name: string;
@@ -239,6 +239,112 @@ export function startFreeExpedition(region: WorldRegion, key: string): Expeditio
   };
 }
 
+// ── Encrucijadas: la ruta pregunta y el jugador responde ────────────────
+
+export interface EncounterOption {
+  id: string;
+  /** Texto del botón. */
+  label: string;
+  /** Consecuencia anunciada: se decide informado, sin letra pequeña. */
+  detail: string;
+}
+
+export interface Encounter {
+  /** Clave determinista (contrato|tramo|día): rehacer no cambia nada. */
+  id: string;
+  kind: 'caravana' | 'manada' | 'perdido';
+  prompt: string;
+  options: EncounterOption[];
+}
+
+export interface EncounterOutcome {
+  expedition: ExpeditionState;
+  /** Cambio de suministros (+ gana, − entrega). */
+  supplyDelta: number;
+  /** Estrés aplicado a toda la tripulación (+ carga, − alivia). */
+  stressDelta: number;
+  cargo?: CargoItem;
+  text: string;
+}
+
+const ENCOUNTERS: Record<Encounter['kind'], { prompt: string; options: EncounterOption[] }> = {
+  caravana: {
+    prompt: 'Una caravana varada bloquea el paso: su Gustav de carga ha volcado y el sol no perdona.',
+    options: [
+      { id: 'ayudar', label: '⚙ Echar una mano', detail: '+1 jornada; pagan al llegar (bodega)' },
+      { id: 'seguir', label: '→ Seguir de largo', detail: 'sin coste; el camino no espera' },
+    ],
+  },
+  manada: {
+    prompt: 'Una manada de zoids salvajes cruza el valle en silencio. Nadie los guía. Nadie los ha domado.',
+    options: [
+      { id: 'observar', label: '👁 Apagar motores y mirar', detail: 'la tripulación respira: estrés −6' },
+      { id: 'cazar', label: '🎯 Cazar una pieza', detail: 'suministros +2; sucio y ruidoso: estrés +6' },
+    ],
+  },
+  perdido: {
+    prompt: 'Un piloto medio deshidratado hace señas junto a un cráter. Su máquina es chatarra desde hace días.',
+    options: [
+      { id: 'llevar', label: '🤝 Subirlo a bordo', detail: '+1 jornada; su gremio paga rescates (bodega)' },
+      { id: 'agua', label: '🥤 Dejarle agua y señas', detail: 'suministros −1; se duerme mejor: estrés −4' },
+      { id: 'nada', label: '→ No es asunto nuestro', detail: 'sin coste; el desierto decide' },
+    ],
+  },
+};
+
+/** Resuelve la opción elegida. Determinista: sin dados escondidos. */
+export function resolveEncounter(
+  expedition: ExpeditionState,
+  encounter: Encounter,
+  optionId: string,
+): EncounterOutcome {
+  const stamp = (days: number, text: string): ExpeditionState => ({
+    ...expedition,
+    day: expedition.day + days,
+    log: [...expedition.log, `Día ${expedition.day + days} — ${text}`],
+  });
+  switch (`${encounter.kind}|${optionId}`) {
+    case 'caravana|ayudar':
+      return {
+        expedition: stamp(1, 'Enderezamos el Gustav de la caravana. Pagan sin regatear.'),
+        supplyDelta: 0, stressDelta: 0,
+        cargo: { name: 'Pago de la caravana', value: 220 },
+        text: 'Un día de grúa y sudor. La caravana paga: ⌾220 a la bodega.',
+      };
+    case 'manada|observar':
+      return {
+        expedition: stamp(0, 'Motores apagados: la manada pasa de largo. Nadie habla un rato.'),
+        supplyDelta: 0, stressDelta: -6,
+        text: 'Verlos libres descansa algo que el taller no repara (estrés −6).',
+      };
+    case 'manada|cazar':
+      return {
+        expedition: stamp(0, 'Cazamos una pieza de la manada. Carne y celdas para la despensa; nadie mira atrás.'),
+        supplyDelta: 2, stressDelta: 6,
+        text: 'Suministros +2. El ruido y la sangre se quedan en la cabeza (estrés +6).',
+      };
+    case 'perdido|llevar':
+      return {
+        expedition: stamp(1, 'Subimos al piloto perdido. Duerme dos jornadas seguidas.'),
+        supplyDelta: 0, stressDelta: 0,
+        cargo: { name: 'Recompensa del rescate', value: 180 },
+        text: 'Su gremio paga rescates: ⌾180 a la bodega. Un día perdido, o ganado.',
+      };
+    case 'perdido|agua':
+      return {
+        expedition: stamp(0, 'Le dejamos agua y las señas del siguiente pozo. Se pierde en el reflejo del sol.'),
+        supplyDelta: -1, stressDelta: -4,
+        text: 'Suministros −1. Esta noche se duerme mejor (estrés −4).',
+      };
+    default:
+      return {
+        expedition: stamp(0, 'Seguimos camino sin mirar atrás.'),
+        supplyDelta: 0, stressDelta: 0,
+        text: 'El camino sigue.',
+      };
+  }
+}
+
 export interface TravelResult {
   expedition: ExpeditionState;
   /** Suministros consumidos por el tramo (0 si el tramo se frustró). */
@@ -247,6 +353,8 @@ export interface TravelResult {
   eventText: string;
   /** Botín encontrado en ruta, si lo hubo. */
   cargo?: CargoItem;
+  /** Encrucijada pendiente: la UI pregunta y aplica resolveEncounter. */
+  encounter?: Encounter;
 }
 
 const FINDS: CargoItem[] = [
@@ -315,6 +423,7 @@ export function travel(
   let event: TravelEventKind = 'calm';
   let eventText = `Llegamos a ${targetName} sin incidentes.`;
   let cargo: CargoItem | undefined;
+  let encounter: Encounter | undefined;
   let forcedWeather = expedition.forcedWeather;
 
   if (roll >= 0.18 && roll < 0.36) {
@@ -327,6 +436,19 @@ export function travel(
     eventText = forcedWeather === 'sandstorm'
       ? 'Una tormenta de arena nos persigue: si hay combate pronto, será dentro de ella.'
       : 'Frente de lluvia cerrado: si hay combate pronto, será bajo el aguacero.';
+  } else if (roll >= 0.52 && roll < 0.64) {
+    // Encrucijada: la ruta pregunta. La clase se elige aquí (determinista)
+    // y las consecuencias viven en resolveEncounter, sin dados escondidos.
+    event = 'encounter';
+    const kinds = Object.keys(ENCOUNTERS) as Encounter['kind'][];
+    const kind = kinds[Math.floor(rand() * kinds.length)]!;
+    encounter = {
+      id: `${expedition.contractId}|${key}|${expedition.day}`,
+      kind,
+      prompt: ENCOUNTERS[kind].prompt,
+      options: ENCOUNTERS[kind].options,
+    };
+    eventText = encounter.prompt;
   }
 
   const next: ExpeditionState = {
@@ -336,7 +458,7 @@ export function travel(
     forcedWeather,
     log: [...expedition.log, `Día ${day} — ${edge.flavor}. ${eventText}`],
   };
-  return { expedition: next, supplyCost: edge.days, event, eventText, cargo };
+  return { expedition: next, supplyCost: edge.days, event, eventText, cargo, encounter };
 }
 
 /** Tramos transitables desde la posición actual (los rotos no). */

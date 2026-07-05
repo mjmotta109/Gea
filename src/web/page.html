@@ -544,6 +544,14 @@
     border: 1px solid var(--line); color: var(--ink); font-family: var(--mono);
     font-size: 13px; font-weight: 700; padding: 8px 10px; border-radius: 4px;
   }
+  #dlg-opts { margin-top: 12px; }
+  #dlg-opts button {
+    display: block; width: 100%; text-align: left; margin-bottom: 6px;
+    background: var(--panel-2); color: var(--ink); border: 1px solid var(--line); border-radius: 4px;
+    font-family: var(--mono); font-size: 12px; font-weight: 700; padding: 9px 11px; cursor: pointer;
+  }
+  #dlg-opts button .odet { display: block; color: var(--muted); font-weight: 400; font-size: 10px; margin-top: 2px; }
+  #dlg-opts button:hover { border-color: var(--player); box-shadow: 0 0 12px rgba(83, 209, 224, 0.15); }
   #dlg .dbtns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
   #dlg .dbtns button {
     background: var(--panel-2); color: var(--ink); border: 1px solid var(--line); border-radius: 4px;
@@ -995,6 +1003,7 @@
     <div class="dbox">
       <div id="dlg-msg"></div>
       <input id="dlg-input" maxlength="28">
+      <div id="dlg-opts"></div>
       <div class="dbtns">
         <button id="dlg-cancel">Cancelar</button>
         <button id="dlg-ok">Aceptar</button>

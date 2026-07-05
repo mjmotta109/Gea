@@ -37,7 +37,7 @@ import {
 } from '../game/mercenary.js';
 import {
   canExplore, edgesTowardCivilization, exploreSite, neighbors, otherEnd,
-  startExpedition, startFreeExpedition, travel, edgeKey,
+  startExpedition, startFreeExpedition, travel, resolveEncounter, edgeKey,
   type ExpeditionState, type WorldEdge,
 } from '../game/expedition.js';
 import { SALT_PASS_REGION } from '../data/world.js';
@@ -652,10 +652,59 @@ function uiPrompt(message: string, initial: string): Promise<string | null> {
 $('dlg-ok').addEventListener('click', () => dlgFinish(true));
 $('dlg-cancel').addEventListener('click', () => dlgFinish(false));
 
+/** true mientras hay una elección OBLIGATORIA en pantalla (sin escape). */
+let dlgChoiceMode = false;
+
+/**
+ * Elección con opciones: obligatoria, sin Aceptar/Cancelar. Devuelve el
+ * id de la opción pulsada (también con las teclas 1-9).
+ */
+function uiChoice(prompt: string, options: Array<{ id: string; label: string; detail: string }>): Promise<string> {
+  dlgResolve?.(null);
+  $('dlg-msg').textContent = prompt;
+  ($('dlg-input') as HTMLElement).style.display = 'none';
+  ($('dlg-ok') as HTMLElement).style.display = 'none';
+  ($('dlg-cancel') as HTMLElement).style.display = 'none';
+  const host = $('dlg-opts');
+  host.innerHTML = '';
+  dlgChoiceMode = true;
+  $('dlg').classList.add('show');
+  return new Promise((resolve) => {
+    const finish = (id: string): void => {
+      dlgChoiceMode = false;
+      dlgResolve = null;
+      host.innerHTML = '';
+      ($('dlg-ok') as HTMLElement).style.display = '';
+      $('dlg').classList.remove('show');
+      resolve(id);
+    };
+    // dlgResolve ocupado: dlgOpen() bloquea el resto del teclado.
+    dlgResolve = () => { /* inescapable: solo las opciones cierran */ };
+    options.forEach((option, i) => {
+      const btn = document.createElement('button');
+      btn.innerHTML = `${i + 1}. ${escapeHtml(option.label)}<span class="odet">${escapeHtml(option.detail)}</span>`;
+      btn.addEventListener('click', () => finish(option.id));
+      host.appendChild(btn);
+    });
+    choiceKeys = (digit) => {
+      const option = options[digit - 1];
+      if (option) finish(option.id);
+    };
+  });
+}
+
+/** Selección por teclado (1-9) de la elección en curso. */
+let choiceKeys: ((digit: number) => void) | null = null;
+
 // ── Teclado ──────────────────────────────────────────────────────────────
 
 document.addEventListener('keydown', (event) => {
   if (dlgOpen()) {
+    if (dlgChoiceMode) {
+      const digit = Number(event.key);
+      if (digit >= 1 && digit <= 9) { event.preventDefault(); choiceKeys?.(digit); }
+      return; // elección obligatoria: ni Enter ni Escape la saltan
+    }
     if (event.key === 'Enter') { event.preventDefault(); dlgFinish(true); }
     if (event.key === 'Escape') dlgFinish(false);
     return;
@@ -2857,6 +2906,39 @@ function doTravel(edge: WorldEdge): void {
   saveCampaign();
   saveExpedition();
   renderWorld();
+
+  // Encrucijada: la ruta pregunta, el jugador responde, y solo entonces
+  // se aplican las consecuencias (todas anunciadas en el botón).
+  if (result.encounter) {
+    const encounter = result.encounter;
+    void uiChoice(encounter.prompt, encounter.options).then((optionId) => {
+      if (!campaign || !expedition) return;
+      const outcome = resolveEncounter(expedition, encounter, optionId);
+      expedition = outcome.expedition;
+      if (outcome.supplyDelta > 0) {
+        campaign = { ...campaign, supplies: campaign.supplies + outcome.supplyDelta };
+      } else if (outcome.supplyDelta < 0) {
+        campaign = consumeSupplies(campaign, -outcome.supplyDelta).state;
+      }
+      if (outcome.stressDelta !== 0) {
+        for (const id of PILOT_IDS) pilots[id] = adjustStress(pilots[id]!, outcome.stressDelta);
+        savePilots();
+      }
+      if (outcome.cargo) {
+        const before = campaign.cargo.length;
+        campaign = stashCargo(campaign, outcome.cargo, CARGO_CAPACITY);
+        if (campaign.cargo.length === before) {
+          expedition = {
+            ...expedition,
+            log: [...expedition.log, `⚠ La bodega está llena: hubo que renunciar a ${outcome.cargo.name}.`],
+          };
+        }
+      }
+      saveCampaign();
+      saveExpedition();
+      renderWorld();
+    });
+  }
 }
 
 /** El combate del contrato, al llegar al lugar. */

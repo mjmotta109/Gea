@@ -427,3 +427,26 @@ arquitectura del motor van en DESIGN.md.)*
   opción "🎲 Procedural (según semilla)"; el EDITOR gana el botón
   "🎲 Generar" (el generador propone, el jugador retoca). Un mapa del
   editor con el nombre del lugar sigue mandando sobre el generado.
+- **2026-07-05** — PUNTERÍA POR CERCANÍA Y TECHO DEL 99% (dirección
+  del usuario). proximityBonus: +4% por casilla por debajo de 5, hasta
+  +16 a bocajarro — acercarse siempre paga y se suma a la dispersión
+  balística por arma (alejarse castiga doble con proyectiles). hitChance
+  se acota a [5,99]: LA CERTEZA NO EXISTE, el 99 deja siempre sitio al
+  desastre. Golden master actualizado y declarado en el commit.
+- **2026-07-05** — DIAGRAMA DE ESTADO DEL ZOID (dirección del usuario:
+  "quiero ver un diagrama del estatus con cada parte a la vista"). En
+  la lista de unidades, cada Zoid con frame muestra un esquema lateral
+  (morro a la derecha): mochila/torso/cabeza/arma/patas como piezas
+  coloreadas por HP (verde ≥70, ámbar ≥35, rojo <35, gris ✕ destruido)
+  con el número dentro y tooltip. Asignación por patrón de slot: los
+  chasis futuros no rompen el diagrama.
+- **2026-07-05** — ENCRUCIJADAS (dirección del usuario: "la historia
+  es muy bonita pero agrega elección"). La ruta ahora PREGUNTA: banda
+  del 12% por tramo con tres clases de encuentro (caravana varada,
+  manada salvaje, piloto perdido), cada una con 2-3 opciones cuyas
+  consecuencias van ANUNCIADAS en el botón — se decide informado, sin
+  letra pequeña ni dados escondidos (resolveEncounter es determinista).
+  Las consecuencias usan las monedas ya existentes: jornadas, bodega,
+  suministros y estrés. La elección es obligatoria (Escape no escapa,
+  teclas 1-9 eligen). Filosofía: elegir entre tiempo, dinero y cabeza
+  es el corazón del viaje; nada de "opción correcta".

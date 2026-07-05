@@ -5,7 +5,8 @@ import {
 import {
   buyBlueprint, buySupplies, cityRepair, consumeSupplies, newCampaign, sellCargo, stashCargo,
 } from '../src/game/mercenary.js';
-import { canExplore, exploreSite } from '../src/game/expedition.js';
+import { canExplore, exploreSite, resolveEncounter, startFreeExpedition as freeExp } from '../src/game/expedition.js';
+import type { Encounter, ExpeditionState } from '../src/game/expedition.js';
 import { adjustStress, newPilot, observeBattle, pilotModifiers } from '../src/core/progression.js';
 import { CITY_TIERS, CONTRACT_ENEMY_POOL } from '../src/data/economy.js';
 import { PERKS } from '../src/data/progression.js';
@@ -107,6 +108,63 @@ describe('expedición libre: salir a explorar sin contrato', () => {
     const a = travel(startFreeExpedition(SALT_PASS_REGION, 'x'), SALT_PASS_REGION, route);
     const b = travel(startFreeExpedition(SALT_PASS_REGION, 'x'), SALT_PASS_REGION, route);
     expect(a).toEqual(b);
+  });
+});
+
+describe('encrucijadas: la ruta pregunta', () => {
+  /** Busca deterministamente una clave cuyo primer tramo caiga en encuentro. */
+  function findEncounter(): { exp: ExpeditionState; encounter: Encounter } {
+    for (let i = 0; i < 400; i++) {
+      const exp = freeExp(SALT_PASS_REGION, `enc-${i}`);
+      const edge = availableEdges(exp, SALT_PASS_REGION)[0]!;
+      const result = travel(exp, SALT_PASS_REGION, edge);
+      if (result.event === 'encounter' && result.encounter) {
+        return { exp: result.expedition, encounter: result.encounter };
+      }
+    }
+    throw new Error('ninguna clave cayó en encuentro: banda rota');
+  }
+
+  it('los encuentros existen, traen 2+ opciones y son deterministas', () => {
+    const { encounter } = findEncounter();
+    expect(encounter.options.length).toBeGreaterThanOrEqual(2);
+    for (const option of encounter.options) {
+      expect(option.label.length).toBeGreaterThan(0);
+      expect(option.detail.length).toBeGreaterThan(0); // consecuencia anunciada
+    }
+    const again = findEncounter();
+    expect(again.encounter).toEqual(encounter);
+  });
+
+  it('resolver es determinista y honra lo anunciado', () => {
+    const { exp, encounter } = findEncounter();
+    const a = resolveEncounter(exp, encounter, encounter.options[0]!.id);
+    const b = resolveEncounter(exp, encounter, encounter.options[0]!.id);
+    expect(a).toEqual(b);
+  });
+
+  it('la manada: observar alivia, cazar da suministros y carga la cabeza', () => {
+    const exp = freeExp(SALT_PASS_REGION, 'manada');
+    const encounter: Encounter = {
+      id: 'x', kind: 'manada', prompt: '', options: [],
+    };
+    const calm = resolveEncounter(exp, encounter, 'observar');
+    expect(calm.stressDelta).toBeLessThan(0);
+    expect(calm.supplyDelta).toBe(0);
+    const hunt = resolveEncounter(exp, encounter, 'cazar');
+    expect(hunt.supplyDelta).toBe(2);
+    expect(hunt.stressDelta).toBeGreaterThan(0);
+  });
+
+  it('ayudar a la caravana cuesta un día y paga a la bodega', () => {
+    const exp = freeExp(SALT_PASS_REGION, 'caravana');
+    const encounter: Encounter = { id: 'x', kind: 'caravana', prompt: '', options: [] };
+    const outcome = resolveEncounter(exp, encounter, 'ayudar');
+    expect(outcome.expedition.day).toBe(exp.day + 1);
+    expect(outcome.cargo?.value).toBeGreaterThan(0);
+    const skip = resolveEncounter(exp, encounter, 'seguir');
+    expect(skip.expedition.day).toBe(exp.day);
+    expect(skip.cargo).toBeUndefined();
   });
 });
 
