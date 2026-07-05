@@ -492,16 +492,29 @@ function loop(): void {
 
 // ── Arranque ─────────────────────────────────────────────────────────────
 
+/**
+ * El modelo viaja embebido como data URI, pero el CSP de la página puede
+ * bloquear fetch() incluso para data:. Se decodifica a mano y se usa
+ * loader.parse(), que no toca la red.
+ */
+function dataUriToArrayBuffer(uri: string): ArrayBuffer {
+  const base64 = uri.slice(uri.indexOf(',') + 1);
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes.buffer;
+}
+
 const loader = new GLTFLoader();
 loader.setMeshoptDecoder(MeshoptDecoder);
 setStatus('cargando modelo del Liger Zero...');
-loader.load(ligerUrl as string, (gltf) => {
+loader.parse(dataUriToArrayBuffer(ligerUrl as string), '', (gltf) => {
   ligerTemplate = gltf.scene;
   buildBoard();
   resize();
   newBattle();
   loop();
   $('restart').addEventListener('click', newBattle);
-}, undefined, (error) => {
+}, (error) => {
   setStatus(`error cargando el modelo: ${String(error)}`);
 });
