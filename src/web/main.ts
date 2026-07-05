@@ -61,11 +61,11 @@ function newBattle(seed: number, weather: WeatherId): void {
     weather,
     seed,
     spawns: [
-      { id: 'P1', name: 'Liger Zero CAS', unitTypeId: 'liger-zero-cas', team: 'player', position: { x: 1, y: 3 } },
+      { id: 'P1', name: 'Liger Zero CAS', unitTypeId: 'liger-zero-cas', team: 'player', position: { x: 1, y: 3 }, commander: true },
       { id: 'P2', name: 'Command Wolf', unitTypeId: 'command-wolf', team: 'player', position: { x: 0, y: 5 } },
       { id: 'P3', name: 'Gun Sniper', unitTypeId: 'gun-sniper-naomi', team: 'player', position: { x: 1, y: 7 } },
       { id: 'P4', name: 'Gustav', unitTypeId: 'gustav', team: 'player', position: { x: 0, y: 4 } },
-      { id: 'E1', name: 'Geno Saurer CP', unitTypeId: 'geno-saurer-cp', team: 'enemy', position: { x: 10, y: 3 } },
+      { id: 'E1', name: 'Geno Saurer CP', unitTypeId: 'geno-saurer-cp', team: 'enemy', position: { x: 10, y: 3 }, commander: true },
       { id: 'E2', name: 'Molga', unitTypeId: 'molga', team: 'enemy', position: { x: 11, y: 5 } },
       { id: 'E3', name: 'Molga', unitTypeId: 'molga', team: 'enemy', position: { x: 10, y: 6 } },
       { id: 'E4', name: 'Pteras', unitTypeId: 'pteras', team: 'enemy', position: { x: 11, y: 2 } },
@@ -723,7 +723,7 @@ function renderRoster(): void {
 
     const name = document.createElement('div');
     name.className = 'name';
-    name.innerHTML = `<span class="tag">${unit.id}</span> ${unit.name}` +
+    name.innerHTML = `<span class="tag">${unit.id}</span> ${unit.name}${unit.isCommander ? ' ★' : ''}` +
       (unit.hp <= 0 ? ' <span class="dead">DESTRUIDO</span>' : '') +
       (unit.statuses.length > 0
         ? ` <span style="color:var(--heat);font-size:10px">${unit.statuses.map((s) => STATUS_DEFINITIONS[s.id].name).join(', ')}</span>`
@@ -816,6 +816,10 @@ function describe(event: BattleEvent): { text: string; cls?: string } | undefine
       return event.delta > 0 ? { text: `🔥 calor de ${event.unitId}: ${event.current} (+${event.delta})`, cls: 'warn' } : undefined;
     case 'weapon-reloaded': return { text: `${event.unitId} recarga (${event.ammo} disparos)`, cls: 'good' };
     case 'unit-shutdown': return { text: `⚠ ${unitLabel(event.unitId)}: APAGADO DE EMERGENCIA (${event.damage} daño interno)`, cls: 'warn' };
+    case 'projectile-fired': return undefined; // el renderer 3D lo animará
+    case 'unit-pushed': return { text: `${event.unitId} sale despedido a (${event.to.x},${event.to.y})`, cls: 'warn' };
+    case 'terrain-destroyed': return { text: `💥 muro derribado en (${event.pos.x},${event.pos.y})`, cls: 'warn' };
+    case 'command-link-lost': return { text: `⚠ EQUIPO ${event.team === 'player' ? 'JUGADOR' : 'ENEMIGO'}: comandante caído — enlace de mando perdido (-5 puntería/evasión)`, cls: 'warn' };
     case 'unit-destroyed': return { text: `💥 ${unitLabel(event.unitId)} queda fuera de combate!`, cls: 'hit' };
     case 'battle-ended': return { text: `★ Victoria del equipo ${event.winner === 'player' ? 'JUGADOR' : 'ENEMIGO'} ★`, cls: 'turn' };
     case 'turn-ended': return undefined;
@@ -835,6 +839,9 @@ function logEvents(events: BattleEvent[]): void {
   for (const event of events) {
     if (event.type === 'unit-moved' || event.type === 'unit-boosted') {
       pendingMoveAnim = { unitId: event.unitId, path: event.path };
+    }
+    if (event.type === 'unit-pushed') {
+      pendingMoveAnim = { unitId: event.unitId, path: [event.from, event.to] };
     }
     if (event.type === 'damage-dealt' || event.type === 'status-ticked' || event.type === 'unit-shutdown') {
       pendingHits.add(event.type === 'damage-dealt' ? event.targetUnitId
