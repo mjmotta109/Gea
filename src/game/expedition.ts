@@ -252,7 +252,7 @@ export interface EncounterOption {
 export interface Encounter {
   /** Clave determinista (contrato|tramo|día): rehacer no cambia nada. */
   id: string;
-  kind: 'caravana' | 'manada' | 'perdido';
+  kind: 'caravana' | 'manada' | 'perdido' | 'peaje';
   prompt: string;
   options: EncounterOption[];
 }
@@ -264,6 +264,8 @@ export interface EncounterOutcome {
   /** Estrés aplicado a toda la tripulación (+ carga, − alivia). */
   stressDelta: number;
   cargo?: CargoItem;
+  /** Quién se entera y qué le parece (facción → delta de reputación). */
+  reputation?: Array<{ factionId: string; delta: number }>;
   text: string;
 }
 
@@ -271,8 +273,18 @@ const ENCOUNTERS: Record<Encounter['kind'], { prompt: string; options: Encounter
   caravana: {
     prompt: 'Una caravana varada bloquea el paso: su Gustav de carga ha volcado y el sol no perdona.',
     options: [
-      { id: 'ayudar', label: '⚙ Echar una mano', detail: '+1 jornada; pagan al llegar (bodega)' },
+      { id: 'ayudar', label: '⚙ Echar una mano', detail: '+1 jornada; pagan al llegar (bodega); Colonos +8' },
       { id: 'seguir', label: '→ Seguir de largo', detail: 'sin coste; el camino no espera' },
+      { id: 'saquear', label: '☠ Quedarse la carga', detail: 'botín ⌾300; Colonos −12, Gremio −6; estrés +10' },
+    ],
+  },
+  peaje: {
+    prompt: 'Tres máquinas chatarreras cortan el desfiladero. El de delante golpea el casco de su Molga: peaje.',
+    options: [
+      { id: 'pagar', label: '📦 Pagar el peaje', detail: 'suministros −2; Chatarreros +6' },
+      { id: 'plantarse', label: '🛡 Plantarse sin ceder', detail: 'estrés +8; Chatarreros −8, Colonos +4' },
+      { id: 'unirse', label: '☠ Unirse al expolio de hoy', detail: 'botín ⌾260; Colonos −15, Chatarreros +10; estrés +8' },
+      { id: 'rodear', label: '↩ Dar el rodeo largo', detail: '+1 jornada; nadie cobra, nadie sangra' },
     ],
   },
   manada: {
@@ -285,7 +297,7 @@ const ENCOUNTERS: Record<Encounter['kind'], { prompt: string; options: Encounter
   perdido: {
     prompt: 'Un piloto medio deshidratado hace señas junto a un cráter. Su máquina es chatarra desde hace días.',
     options: [
-      { id: 'llevar', label: '🤝 Subirlo a bordo', detail: '+1 jornada; su gremio paga rescates (bodega)' },
+      { id: 'llevar', label: '🤝 Subirlo a bordo', detail: '+1 jornada; su gremio paga rescates (bodega); Gremio +8' },
       { id: 'agua', label: '🥤 Dejarle agua y señas', detail: 'suministros −1; se duerme mejor: estrés −4' },
       { id: 'nada', label: '→ No es asunto nuestro', detail: 'sin coste; el desierto decide' },
     ],
@@ -309,7 +321,44 @@ export function resolveEncounter(
         expedition: stamp(1, 'Enderezamos el Gustav de la caravana. Pagan sin regatear.'),
         supplyDelta: 0, stressDelta: 0,
         cargo: { name: 'Pago de la caravana', value: 220 },
-        text: 'Un día de grúa y sudor. La caravana paga: ⌾220 a la bodega.',
+        reputation: [{ factionId: 'colonos', delta: 8 }],
+        text: 'Un día de grúa y sudor. La caravana paga ⌾220 y corre la voz: Colonos +8.',
+      };
+    case 'caravana|saquear':
+      return {
+        expedition: stamp(0, 'Nos quedamos la carga de la caravana. Nadie dispara. Nadie olvida.'),
+        supplyDelta: 0, stressDelta: 10,
+        cargo: { name: 'Botín de la caravana', value: 300 },
+        reputation: [{ factionId: 'colonos', delta: -12 }, { factionId: 'gremio', delta: -6 }],
+        text: 'Botín ⌾300. Colonos −12, Gremio −6. El silencio en cabina pesa (estrés +10).',
+      };
+    case 'peaje|pagar':
+      return {
+        expedition: stamp(0, 'Pagamos el peaje de los chatarreros. Negocios son negocios.'),
+        supplyDelta: -2, stressDelta: 0,
+        reputation: [{ factionId: 'chatarreros', delta: 6 }],
+        text: 'Suministros −2. Los clanes toman nota: Chatarreros +6.',
+      };
+    case 'peaje|plantarse':
+      return {
+        expedition: stamp(0, 'Nadie cede el paso. Los chatarreros escupen al suelo y abren el desfiladero.'),
+        supplyDelta: 0, stressDelta: 8,
+        reputation: [{ factionId: 'chatarreros', delta: -8 }, { factionId: 'colonos', delta: 4 }],
+        text: 'El pulso se gana sin disparar (estrés +8). Chatarreros −8; la comarca respira: Colonos +4.',
+      };
+    case 'peaje|unirse':
+      return {
+        expedition: stamp(0, 'Hoy cobramos peaje con ellos. La carga de otros pasa por nuestras manos.'),
+        supplyDelta: 0, stressDelta: 8,
+        cargo: { name: 'Parte del expolio', value: 260 },
+        reputation: [{ factionId: 'colonos', delta: -15 }, { factionId: 'chatarreros', delta: 10 }],
+        text: 'Parte del expolio: ⌾260. Colonos −15, Chatarreros +10. Hay cosas que no se lavan (estrés +8).',
+      };
+    case 'peaje|rodear':
+      return {
+        expedition: stamp(1, 'Damos el rodeo largo. El desfiladero queda a nuestra espalda, con sus dueños.'),
+        supplyDelta: 0, stressDelta: 0,
+        text: 'Una jornada más de polvo. Nadie cobra, nadie sangra.',
       };
     case 'manada|observar':
       return {
@@ -328,7 +377,8 @@ export function resolveEncounter(
         expedition: stamp(1, 'Subimos al piloto perdido. Duerme dos jornadas seguidas.'),
         supplyDelta: 0, stressDelta: 0,
         cargo: { name: 'Recompensa del rescate', value: 180 },
-        text: 'Su gremio paga rescates: ⌾180 a la bodega. Un día perdido, o ganado.',
+        reputation: [{ factionId: 'gremio', delta: 8 }],
+        text: 'El Gremio paga rescates (⌾180) y apunta el gesto: Gremio +8.',
       };
     case 'perdido|agua':
       return {

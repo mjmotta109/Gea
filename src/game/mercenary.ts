@@ -54,6 +54,8 @@ export interface CampaignState {
    * memoria y compenetración. La gestiona src/game/companion.ts.
    */
   companion: { markIds: string[]; memory: Record<string, number>; rapport: number };
+  /** Reputación con cada facción (id → −100..+100; ausente = 0). */
+  reputation: Record<string, number>;
 }
 
 /**
@@ -103,6 +105,7 @@ export function newCampaign(
     supplies: config.supplies ?? economy.startingSupplies,
     cargo: [], moduleBlueprints: [],
     companion: { markIds: [], memory: {}, rapport: 0 },
+    reputation: {},
   };
 }
 

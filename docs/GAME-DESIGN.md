@@ -450,3 +450,24 @@ arquitectura del motor van en DESIGN.md.)*
   suministros y estrés. La elección es obligatoria (Escape no escapa,
   teclas 1-9 eligen). Filosofía: elegir entre tiempo, dinero y cabeza
   es el corazón del viaje; nada de "opción correcta".
+- **2026-07-05** — REPUTACIÓN POR FACCIONES + ENCUENTROS MORALES
+  (dirección del usuario: "que no todo sean 3 opciones, mete opciones
+  morales, y crea el sistema de reputación entre facciones y ciudades
+  — por lo pronto créalo, ya rellenamos"). El SISTEMA es definitivo,
+  el CONTENIDO es relleno provisional:
+  · src/game/reputation.ts: facción → −100..+100 en CampaignState
+    (migración automática de partidas viejas), tramos de trato
+    Odiado/Hostil/Neutral/Apreciado/Aliado, solo cambia por decisiones
+    visibles — nunca por dados escondidos.
+  · src/data/factions.ts (RELLENO, rebautizar no toca reglas): Gremio
+    de Mercenarios, Liga de Colonos, Clanes Chatarreros; PLACE_FACTIONS
+    adscribe cada lugar habitado (Base Arcadia → gremio; las tres
+    ciudades → colonos). La ciudad muestra a quién responde y el trato.
+  · Encuentros con recuento VARIABLE: manada 2, caravana 3, perdido 3,
+    peaje 4. Opciones MORALES marcadas ☠ (saquear la caravana, unirse
+    al expolio del peaje): pagan mejor que la opción honrada, cuestan
+    reputación con testigos y cargan estrés — la tentación es real y
+    el precio también. Deltas siempre anunciados en el botón.
+  · Cuartel: panel de reputación (tarjeta por facción con tramo y
+    barra ±). Efectos mecánicos del trato (precios, contratos, acceso)
+    quedan para cuando la dirección cree las facciones definitivas.

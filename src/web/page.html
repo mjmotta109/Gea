@@ -635,6 +635,23 @@
     border-radius: 4px; font-family: var(--mono); font-size: 11px; padding: 5px 9px; cursor: pointer;
   }
   #merc-status { color: var(--heat); font-family: var(--mono); font-size: 12px; font-weight: 700; }
+  #merc-rep { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  @media (max-width: 800px) { #merc-rep { grid-template-columns: 1fr; } }
+  .repcard {
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px;
+    padding: 9px 12px; font-family: var(--mono); font-size: 10px;
+  }
+  .repcard .rname { font-size: 12px; font-weight: 700; color: var(--ink); }
+  .repcard .rtier { float: right; font-weight: 700; letter-spacing: 0.08em; }
+  .repcard .rtier.aliado { color: var(--energy); }
+  .repcard .rtier.apreciado { color: var(--player); }
+  .repcard .rtier.neutral { color: var(--muted); }
+  .repcard .rtier.hostil { color: var(--heat); }
+  .repcard .rtier.odiado { color: var(--danger); }
+  .repcard .rblurb { color: var(--muted); margin: 4px 0 6px; line-height: 1.5; }
+  .repcard .rbar { position: relative; height: 5px; background: #0a1117; border-radius: 3px; overflow: hidden; }
+  .repcard .rbar i { position: absolute; top: 0; bottom: 0; }
+  .repcard .rbar .zero { position: absolute; left: 50%; top: -1px; bottom: -1px; width: 1px; background: var(--line); }
   #contracts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
   @media (max-width: 800px) { #contracts { grid-template-columns: 1fr; } }
   .ccard {
@@ -1114,6 +1131,8 @@
         <button id="merc-freeroam">🧭 Explorar libremente</button>
         <button id="merc-deploy">⚑ Partir al contrato</button>
       </div>
+      <h3 class="msec">Reputación</h3>
+      <div id="merc-rep"></div>
       <h3 class="msec">Contratos disponibles</h3>
       <div id="contracts"></div>
       <h3 class="msec">Hangar</h3>

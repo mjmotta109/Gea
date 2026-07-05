@@ -24,6 +24,8 @@ import { ABILITIES } from '../data/abilities.js';
 import { BLUEPRINT_PRICES, CITY_TIERS, CONTRACT_ENEMY_POOL, DIFFICULTIES, ECONOMY, LEISURE_OPTIONS, STARTER_COMPANIONS, THERAPY } from '../data/economy.js';
 import { VALLEY_CROSSING } from '../data/maps.js';
 import { generateBattlefield } from '../game/mapgen.js';
+import { adjustReputation, reputationTier, REPUTATION_MAX } from '../game/reputation.js';
+import { FACTIONS, PLACE_FACTIONS } from '../data/factions.js';
 import { GARAGE_MODULE_OPTIONS, MODULES } from '../data/modules.js';
 import { PERKS } from '../data/progression.js';
 import { withWeaponLibrary } from '../data/weaponLibrary.js';
@@ -1852,6 +1854,7 @@ function loadCampaign(): CampaignState | null {
     if (!Array.isArray(state.cargo)) state.cargo = [];
     if (!Array.isArray(state.moduleBlueprints)) state.moduleBlueprints = [];
     if (!state.companion || typeof state.companion !== 'object') state.companion = newCompanion();
+    if (!state.reputation || typeof state.reputation !== 'object') state.reputation = {};
     return state;
   } catch {
     return null;
@@ -1908,6 +1911,7 @@ function renderMerc(): void {
   const company = localStorage.getItem(COMPANY_KEY);
   $('merc-status').textContent =
     `${company ? `${company} · ` : ''}⌾ ${campaign.credits} créditos · contratos completados: ${campaign.contractsDone}`;
+  renderReputation();
   renderContracts();
   renderMercHangar();
   renderMercStore();
@@ -1916,6 +1920,27 @@ function renderMerc(): void {
   deploy.disabled = !selectedContractId || !anyAlive;
   deploy.textContent = selectedContractId ? '⚑ Partir al contrato' : '⚑ Partir al contrato (elige uno)';
   ($('merc-freeroam') as HTMLButtonElement).disabled = !anyAlive;
+}
+
+/** Panel de reputación del cuartel: cómo nos mira cada facción. */
+function renderReputation(): void {
+  const host = $('merc-rep');
+  host.innerHTML = '';
+  for (const faction of FACTIONS) {
+    const value = campaign!.reputation[faction.id] ?? 0;
+    const tier = reputationTier(value);
+    const half = Math.abs(value) / REPUTATION_MAX * 50; // % de media barra
+    const color = value >= 0 ? 'var(--energy)' : 'var(--danger)';
+    const card = document.createElement('div');
+    card.className = 'repcard';
+    card.innerHTML =
+      `<div><span class="rname">${faction.name}</span>` +
+      `<span class="rtier ${tier.id}">${tier.label} ${value > 0 ? '+' : ''}${value}</span></div>` +
+      `<div class="rblurb">${faction.blurb}</div>` +
+      `<div class="rbar"><span class="zero"></span>` +
+      `<i style="${value >= 0 ? `left:50%` : `right:50%`};width:${half}%;background:${color}"></i></div>`;
+    host.appendChild(card);
+  }
 }
 
 function renderContracts(): void {
@@ -2533,7 +2558,12 @@ function renderCity(): void {
   const tier = CITY_TIERS[city.level];
   $('city-name').textContent = `${node.name} — nivel ${city.level}`;
   $('city-desc').textContent = node.description;
-  $('city-status').textContent = `⌾${campaign.credits} · suministros ${campaign.supplies} · día ${expedition.day}`;
+  const factionId = PLACE_FACTIONS[node.id];
+  const faction = FACTIONS.find((f) => f.id === factionId);
+  const standing = faction ? reputationTier(campaign.reputation[faction.id] ?? 0) : null;
+  $('city-status').textContent =
+    `⌾${campaign.credits} · suministros ${campaign.supplies} · día ${expedition.day}` +
+    (faction && standing ? ` · ${faction.name}: ${standing.label}` : '');
   $('city-body').innerHTML = '';
 
   // ⚒ TALLER — arreglos básicos, siempre; eliges cuánto gastar.
@@ -2933,6 +2963,9 @@ function doTravel(edge: WorldEdge): void {
             log: [...expedition.log, `⚠ La bodega está llena: hubo que renunciar a ${outcome.cargo.name}.`],
           };
         }
+      }
+      for (const change of outcome.reputation ?? []) {
+        campaign = { ...campaign, reputation: adjustReputation(campaign.reputation, change.factionId, change.delta) };
       }
       saveCampaign();
       saveExpedition();
