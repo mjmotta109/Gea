@@ -584,9 +584,62 @@ function afterAction(): void {
   renderAll();
 }
 
+// ── Diálogos propios ─────────────────────────────────────────────────────
+// El visor embebido (artifact) corre el juego en un iframe aislado donde
+// window.confirm/prompt/alert están bloqueados y devuelven false/null en
+// silencio. Todo pasa por este diálogo del propio juego.
+
+let dlgResolve: ((value: string | null) => void) | null = null;
+
+function dlgShow(message: string, opts: { input?: string; cancelable?: boolean } = {}): Promise<string | null> {
+  // Si hubiera uno abierto, se cancela: nunca dos diálogos apilados.
+  dlgResolve?.(null);
+  $('dlg-msg').textContent = message;
+  const input = $('dlg-input') as HTMLInputElement;
+  if (opts.input !== undefined) {
+    input.style.display = 'block';
+    input.value = opts.input;
+  } else {
+    input.style.display = 'none';
+    input.value = '';
+  }
+  ($('dlg-cancel') as HTMLElement).style.display = opts.cancelable === false ? 'none' : '';
+  $('dlg').classList.add('show');
+  if (opts.input !== undefined) { input.focus(); input.select(); }
+  return new Promise((resolve) => { dlgResolve = resolve; });
+}
+
+function dlgFinish(accepted: boolean): void {
+  const resolve = dlgResolve;
+  dlgResolve = null;
+  $('dlg').classList.remove('show');
+  const input = $('dlg-input') as HTMLInputElement;
+  resolve?.(accepted ? (input.style.display === 'none' ? '' : input.value) : null);
+}
+
+function dlgOpen(): boolean { return dlgResolve !== null; }
+
+function uiAlert(message: string): Promise<void> {
+  return dlgShow(message, { cancelable: false }).then(() => undefined);
+}
+function uiConfirm(message: string): Promise<boolean> {
+  return dlgShow(message).then((v) => v !== null);
+}
+function uiPrompt(message: string, initial: string): Promise<string | null> {
+  return dlgShow(message, { input: initial });
+}
+
+$('dlg-ok').addEventListener('click', () => dlgFinish(true));
+$('dlg-cancel').addEventListener('click', () => dlgFinish(false));
+
 // ── Teclado ──────────────────────────────────────────────────────────────
 
 document.addEventListener('keydown', (event) => {
+  if (dlgOpen()) {
+    if (event.key === 'Enter') { event.preventDefault(); dlgFinish(true); }
+    if (event.key === 'Escape') dlgFinish(false);
+    return;
+  }
   if (newGameOpen) {
     if (event.key === 'Escape') closeNewGame();
     return;
@@ -1680,10 +1733,10 @@ function renderMercHangar(): void {
       opt.disabled = probe === campaign; // no alcanzan los créditos
       chassisSelect.appendChild(opt);
     }
-    chassisSelect.addEventListener('change', () => {
+    chassisSelect.addEventListener('change', async () => {
       if (!chassisSelect.value) return;
       if (slot === 0 && (campaign!.companion.markIds.length > 0 || campaign!.companion.rapport > 0)) {
-        if (!window.confirm('Es tu COMPAÑERA. Cambiar de chasis borra sus marcas y la compenetración — la biografía no se compra de vuelta. ¿Seguro?')) {
+        if (!(await uiConfirm('Es tu COMPAÑERA. Cambiar de chasis borra sus marcas y la compenetración — la biografía no se compra de vuelta. ¿Seguro?'))) {
           renderMerc();
           return;
         }
@@ -2282,10 +2335,10 @@ function renderCity(): void {
         opt.disabled = probe === campaign;
         select.appendChild(opt);
       }
-      select.addEventListener('change', () => {
+      select.addEventListener('change', async () => {
         if (!select.value) return;
         if (slot === 0 && (campaign!.companion.markIds.length > 0 || campaign!.companion.rapport > 0)) {
-          if (!window.confirm('Es tu COMPAÑERA. Cambiar de chasis borra sus marcas y la compenetración. ¿Seguro?')) {
+          if (!(await uiConfirm('Es tu COMPAÑERA. Cambiar de chasis borra sus marcas y la compenetración. ¿Seguro?'))) {
             renderCity();
             return;
           }
@@ -2691,9 +2744,10 @@ function renderSaves(): void {
   liveBtns.className = 'sbtns';
   const exportLive = document.createElement('button');
   exportLive.textContent = '⇩ Exportar a archivo';
-  exportLive.addEventListener('click', () => {
-    const name = window.prompt('Nombre de la partida para el archivo:', 'Mi campaña') ?? 'Mi campaña';
-    downloadSave(collectSave(name));
+  exportLive.addEventListener('click', async () => {
+    const name = await uiPrompt('Nombre de la partida para el archivo:', localStorage.getItem(COMPANY_KEY) ?? 'Mi campaña');
+    if (name === null) return;
+    downloadSave(collectSave(name.trim() || 'Mi campaña'));
   });
   liveBtns.appendChild(exportLive);
   live.appendChild(liveBtns);
@@ -2719,9 +2773,9 @@ function renderSaves(): void {
 
     const saveBtn = document.createElement('button');
     saveBtn.textContent = '💾 Guardar aquí';
-    saveBtn.addEventListener('click', () => {
-      if (save && !window.confirm(`¿Sobrescribir "${save.name}"?`)) return;
-      const name = window.prompt('Nombre de la partida:', save?.name ?? localStorage.getItem(COMPANY_KEY) ?? `Campaña ${index + 1}`);
+    saveBtn.addEventListener('click', async () => {
+      if (save && !(await uiConfirm(`¿Sobrescribir "${save.name}"?`))) return;
+      const name = await uiPrompt('Nombre de la partida:', save?.name ?? localStorage.getItem(COMPANY_KEY) ?? `Campaña ${index + 1}`);
       if (name === null) return;
       try {
         localStorage.setItem(key, serializeSave(collectSave(name.trim() || `Campaña ${index + 1}`)));
@@ -2733,8 +2787,8 @@ function renderSaves(): void {
     if (save) {
       const loadBtn = document.createElement('button');
       loadBtn.textContent = '⌁ Cargar';
-      loadBtn.addEventListener('click', () => {
-        if (!window.confirm(`¿Cargar "${save.name}"? La partida en curso se reemplaza (expórtala antes si quieres conservarla).`)) return;
+      loadBtn.addEventListener('click', async () => {
+        if (!(await uiConfirm(`¿Cargar "${save.name}"? La partida en curso se reemplaza (expórtala antes si quieres conservarla).`))) return;
         applySave(save);
       });
       btns.appendChild(loadBtn);
@@ -2747,8 +2801,8 @@ function renderSaves(): void {
       const deleteBtn = document.createElement('button');
       deleteBtn.className = 'danger';
       deleteBtn.textContent = '✕ Borrar';
-      deleteBtn.addEventListener('click', () => {
-        if (!window.confirm(`¿Borrar la ranura "${save.name}"?`)) return;
+      deleteBtn.addEventListener('click', async () => {
+        if (!(await uiConfirm(`¿Borrar la ranura "${save.name}"?`))) return;
         localStorage.removeItem(key);
         renderSaves();
       });
@@ -2994,12 +3048,12 @@ function renderEditor(): void {
 /** Valida y guarda el mapa del editor; devuelve el nombre o null. */
 function edSave(): string | null {
   const name = ($('ed-name') as HTMLInputElement).value.trim();
-  if (!name) { window.alert('Ponle nombre al mapa.'); return null; }
+  if (!name) { void uiAlert('Ponle nombre al mapa.'); return null; }
   const bad = [...edPlayer, ...edEnemy].find((p) => {
     const ch = edRows[p.y]?.[p.x];
     return ch === undefined || ch === '#';
   });
-  if (bad) { window.alert(`Hay un spawn sobre un muro o fuera del mapa (${bad.x},${bad.y}).`); return null; }
+  if (bad) { void uiAlert(`Hay un spawn sobre un muro o fuera del mapa (${bad.x},${bad.y}).`); return null; }
   customMaps[name] = {
     name,
     rows: [...edRows],
@@ -3080,9 +3134,9 @@ let newGameOpen = false;
 let ngDifficulty = 'mercenario';
 let ngCompanion = STARTER_COMPANIONS[0]!.id;
 
-function openNewGame(): void {
+async function openNewGame(): Promise<void> {
   if (hasLiveGame() &&
-      !window.confirm('¿Empezar un JUEGO NUEVO? La partida en curso se borra (las ranuras guardadas y tus mapas del editor se conservan — expórtala antes desde 💾 si quieres).')) {
+      !(await uiConfirm('¿Empezar un JUEGO NUEVO? La partida en curso se borra (las ranuras guardadas y tus mapas del editor se conservan — expórtala antes desde 💾 si quieres).'))) {
     return;
   }
   newGameOpen = true;
@@ -3196,8 +3250,8 @@ $('merc-btn').addEventListener('click', () => {
 $('city-close').addEventListener('click', closeCity);
 $('merc-deploy').addEventListener('click', startContractExpedition);
 $('merc-skirmish').addEventListener('click', enterSandbox);
-$('merc-reset').addEventListener('click', () => {
-  if (!window.confirm('¿Empezar una campaña nueva? Se pierden créditos, hangar y arsenal (los pilotos se conservan).')) return;
+$('merc-reset').addEventListener('click', async () => {
+  if (!(await uiConfirm('¿Empezar una campaña nueva? Se pierden créditos, hangar y arsenal (los pilotos se conservan).'))) return;
   campaign = newCampaign(ECONOMY, factoryLoadout);
   selectedContractId = null;
   saveCampaign();
@@ -3213,10 +3267,10 @@ $('save-file').addEventListener('change', () => {
   input.value = '';
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = () => {
+  reader.onload = async () => {
     const save = validateSave(String(reader.result ?? ''));
-    if (!save) { window.alert('Ese archivo no es una partida de Gea válida.'); return; }
-    if (!window.confirm(`¿Cargar "${save.name}" (${fmtDate(save.savedAt)})? La partida en curso se reemplaza.`)) return;
+    if (!save) { void uiAlert('Ese archivo no es una partida de Gea válida.'); return; }
+    if (!(await uiConfirm(`¿Cargar "${save.name}" (${fmtDate(save.savedAt)})? La partida en curso se reemplaza.`))) return;
     applySave(save);
   };
   reader.readAsText(file);
@@ -3240,10 +3294,10 @@ $('ed-load').addEventListener('change', () => {
   ($('ed-name') as HTMLInputElement).value = map.name;
   renderEditor();
 });
-$('ed-delete').addEventListener('click', () => {
+$('ed-delete').addEventListener('click', async () => {
   const name = ($('ed-load') as HTMLSelectElement).value;
   if (!name || !customMaps[name]) return;
-  if (!window.confirm(`¿Borrar el mapa "${name}"?`)) return;
+  if (!(await uiConfirm(`¿Borrar el mapa "${name}"?`))) return;
   delete customMaps[name];
   if (currentMapName === name) currentMapName = '';
   saveCustomMaps();

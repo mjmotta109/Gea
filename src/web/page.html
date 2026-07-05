@@ -527,6 +527,31 @@
   }
   #ng-found:hover { background: var(--player); color: #04181d; }
 
+  /* ── Diálogo propio (el visor embebido bloquea confirm/prompt nativos) ── */
+  #dlg {
+    display: none; position: fixed; inset: 0; background: rgba(4, 8, 11, 0.8);
+    z-index: 40; align-items: center; justify-content: center; padding: 14px;
+  }
+  #dlg.show { display: flex; }
+  #dlg .dbox {
+    max-width: 460px; width: 100%; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 8px; padding: 18px 20px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+  }
+  #dlg-msg { font-family: var(--mono); font-size: 12px; line-height: 1.7; color: var(--ink); white-space: pre-wrap; }
+  #dlg-input {
+    display: none; width: 100%; margin-top: 12px; background: var(--panel-2);
+    border: 1px solid var(--line); color: var(--ink); font-family: var(--mono);
+    font-size: 13px; font-weight: 700; padding: 8px 10px; border-radius: 4px;
+  }
+  #dlg .dbtns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+  #dlg .dbtns button {
+    background: var(--panel-2); color: var(--ink); border: 1px solid var(--line); border-radius: 4px;
+    font-family: var(--mono); font-size: 12px; font-weight: 700; padding: 8px 18px; cursor: pointer;
+  }
+  #dlg-ok { border-color: var(--player) !important; color: var(--player) !important; }
+  #dlg-ok:hover { background: var(--player) !important; color: #04181d !important; }
+
   /* ── Pantalla de ciudad ── */
   #city {
     display: none; position: fixed; inset: 0; background: rgba(4, 8, 11, 0.94);
@@ -734,6 +759,17 @@
       </div>
       <div style="text-align:center;margin-top:16px">
         <button id="ng-found">⚑ Fundar la compañía</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="dlg">
+    <div class="dbox">
+      <div id="dlg-msg"></div>
+      <input id="dlg-input" maxlength="28">
+      <div class="dbtns">
+        <button id="dlg-cancel">Cancelar</button>
+        <button id="dlg-ok">Aceptar</button>
       </div>
     </div>
   </div>
