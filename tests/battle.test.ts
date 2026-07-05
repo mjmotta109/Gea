@@ -89,11 +89,13 @@ describe('Battle: habilidades', () => {
       .toThrow(/ilegal/);
   });
 
-  it('la curación no revive ni excede el HP máximo', () => {
+  it('la curación no revive ni excede el HP máximo', async () => {
+    const { WEAPONS } = await import('../src/data/weapons.js');
     const battle = new Battle({
       map: FLAT_ARENA,
       unitCatalog: ZOIDS,
       abilityCatalog: ABILITIES,
+      weaponCatalog: WEAPONS,
       seed: 7,
       spawns: [
         { id: 'P1', name: 'Gustav', unitTypeId: 'gustav', team: 'player', position: { x: 1, y: 2 } },

@@ -8,6 +8,7 @@ import {
 } from './combat.js';
 import { GameMap, manhattan, posKey, samePos, TERRAIN_COVER } from './grid.js';
 import { hasLineOfSight } from './los.js';
+import { KNOCKBACK_MASS_THRESHOLD, knockbackDestination } from './physics.js';
 import { aoeTiles, reachableTiles, targetableTiles, type ReachableTile } from './pathfinding.js';
 import { applyModifiers } from './derived.js';
 import {
@@ -55,6 +56,8 @@ export interface UnitSpawn {
   team: Team;
   position: Position;
   facing?: Facing;
+  /** Comandante del equipo: su caída degrada a todos sus aliados (fase 5). */
+  commander?: boolean;
 }
 
 export interface BattleConfig {
@@ -98,9 +101,13 @@ export class Battle {
   private winnerTeam: Team | undefined;
   private systems: BattleSystem[];
   private systemContext: SystemContext;
+  /** Equipos que ya perdieron a su comandante (evento emitido una vez). */
+  private linkLostTeams = new Set<Team>();
 
   constructor(config: BattleConfig) {
-    this.map = config.map;
+    // Clon propio: el terreno es destructible desde la fase 4 y los mapas
+    // del catálogo no deben mutar entre batallas.
+    this.map = config.map.clone();
     this.definitions = config.unitCatalog;
     this.abilities = config.abilityCatalog;
     this.modules = config.moduleCatalog ?? {};
@@ -135,6 +142,7 @@ export class Battle {
         id: spawn.id,
         name: spawn.name,
         unitTypeId: spawn.unitTypeId,
+        isCommander: spawn.commander ?? false,
         team: spawn.team,
         position: { ...spawn.position },
         facing: spawn.facing ?? (spawn.team === 'player' ? 'east' : 'west'),
@@ -262,13 +270,19 @@ export class Battle {
   effectiveStats(unit: UnitState): Stats {
     const base = this.definitionOf(unit.unitTypeId).stats;
     const frame = unit.components.frame;
-    // Orden del pipeline (DESIGN §3.2): módulos → estados → energía → calor.
+    // Orden del pipeline (DESIGN §3.2): módulos → estados → energía →
+    // calor → red de mando.
     const mods = [
       ...(frame ? frameModifiers(frame, this.modules) : []),
       ...statusModifiers(unit),
       ...energyModifiers(unit),
       ...heatModifiers(unit),
     ];
+    if (this.linkLostTeams.has(unit.team) && unit.hp > 0) {
+      // Sin comandante, la coordinación del equipo se resiente (fase 5).
+      mods.push({ source: 'comms:link-lost', stat: 'accuracy', add: -5 });
+      mods.push({ source: 'comms:link-lost', stat: 'evade', add: -5 });
+    }
     return applyModifiers(base, mods);
   }
 
@@ -382,11 +396,14 @@ export class Battle {
   } {
     const arc = attackArc(user.position, victim.position, victim.facing);
     const cover = TERRAIN_COVER[this.map.tileAt(victim.position).terrain];
+    const dist = manhattan(user.position, victim.position);
     // Tormenta de arena: la puntería se degrada más allá del combate cercano.
-    const weatherPenalty =
-      this.weather === 'sandstorm' && manhattan(user.position, victim.position) > 2 ? 10 : 0;
+    const weatherPenalty = this.weather === 'sandstorm' && dist > 2 ? 10 : 0;
+    // Dispersión balística: los proyectiles pierden precisión con la distancia.
+    const projectile = this.weaponEntry(user, ability.id)?.def.projectile;
+    const dispersionPenalty = projectile ? Math.round(projectile.dispersion * dist) : 0;
     const chance = hitChance({
-      accuracy: ability.accuracy - weatherPenalty,
+      accuracy: ability.accuracy - weatherPenalty - dispersionPenalty,
       attackerAccuracy: this.effectiveStats(user).accuracy,
       arc,
       defenderEvade: this.effectiveStats(victim).evade + cover,
@@ -529,22 +546,55 @@ export class Battle {
     unit.facing = samePos(unit.position, target) ? unit.facing : facingTowards(unit.position, target);
 
     const events: BattleEvent[] = [{ type: 'ability-used', unitId, abilityId, target }];
-    const affected = aoeTiles(this.map, target, ability.aoeRadius)
-      .map((pos) => this.unitAt(pos))
-      .filter((u): u is UnitState => u !== undefined);
 
-    for (const victim of affected) {
+    // Balística (fase 4): el evento de trayectoria permite al renderer
+    // animar el proyectil; la resolución sigue siendo instantánea.
+    const entry = this.weaponEntry(unit, abilityId);
+    if (entry?.def.projectile) {
+      const flightTime = manhattan(unit.position, target) / entry.def.projectile.velocity;
+      events.push({
+        type: 'projectile-fired',
+        unitId,
+        weaponId: entry.def.id,
+        from: { ...unit.position },
+        to: { ...target },
+        flightTime: Math.round(flightTime * 100) / 100,
+      });
+    }
+
+    const blast = aoeTiles(this.map, target, ability.aoeRadius);
+    const affected = blast
+      .map((pos) => ({ victim: this.unitAt(pos), aoeDist: manhattan(pos, target) }))
+      .filter((entry): entry is { victim: UnitState; aoeDist: number } => entry.victim !== undefined);
+
+    for (const { victim, aoeDist } of affected) {
       const isAlly = victim.team === unit.team;
       const offensive = ability.effects.some((e) => e.kind === 'damage');
       if (offensive && isAlly && !ability.targetsAllies) continue;
 
-      events.push(...this.applyEffects(unit, victim, ability));
+      events.push(...this.applyEffects(unit, victim, ability, aoeDist));
       if (this.checkBattleEnd(events)) return events;
+    }
+
+    // Las explosiones derriban muros del área: escombros transitables
+    // (y las líneas de visión que tapaban se abren — emergente).
+    if (ability.aoeRadius > 0) {
+      for (const pos of aoeTiles(this.map, target, ability.aoeRadius, true)) {
+        if (this.map.tileAt(pos).terrain === 'wall') {
+          this.map.demolish(pos);
+          events.push({ type: 'terrain-destroyed', pos: { ...pos } });
+        }
+      }
     }
     return events;
   }
 
-  private applyEffects(user: UnitState, target: UnitState, ability: AbilityDefinition): BattleEvent[] {
+  private applyEffects(
+    user: UnitState,
+    target: UnitState,
+    ability: AbilityDefinition,
+    aoeDist = 0,
+  ): BattleEvent[] {
     const events: BattleEvent[] = [];
     const userStats = this.effectiveStats(user);
     const targetStats = this.effectiveStats(target);
@@ -563,19 +613,24 @@ export class Battle {
           }
           const heightAdvantage =
             this.map.tileAt(user.position).height - this.map.tileAt(target.position).height;
+          // Caída radial de las explosiones: cada casilla desde el centro
+          // resta 25% del daño (mínimo 30%).
+          const falloff = aoeDist > 0 ? Math.max(0.3, 1 - 0.25 * aoeDist) : 1;
           const amount = computeDamage({
             attackerStats: userStats,
             defenderStats: targetStats,
-            power: effect.power,
+            power: Math.round(effect.power * falloff),
             damageType: effect.damageType,
             arc,
             heightAdvantage,
           }, this.rng);
+          const projectile = this.weaponEntry(user, ability.id)?.def.projectile;
 
           const frame = target.components.frame;
           if (frame) {
             // Daño localizado: se elige el módulo golpeado y su armadura
-            // absorbe antes de tocar HP; el exceso desborda al núcleo.
+            // (menos la penetración del proyectil) absorbe antes de tocar
+            // HP; el exceso desborda al núcleo.
             const location = rollHitLocation(frame, this.modules, arc, heightAdvantage, this.rng);
             events.push({ type: 'hit-location-rolled', targetUnitId: target.id, slot: location.slot });
             events.push({
@@ -586,7 +641,9 @@ export class Battle {
               targetHp: 0, // se corrige abajo, tras derivar el HP global
             });
             const damageEventIndex = events.length - 1;
-            events.push(...applyDamageToModule(frame, this.modules, location, amount, target.id));
+            events.push(...applyDamageToModule(
+              frame, this.modules, location, amount, target.id, projectile?.penetration ?? 0,
+            ));
             target.hp = deriveUnitHp(frame, this.modules);
             (events[damageEventIndex] as Extract<BattleEvent, { type: 'damage-dealt' }>).targetHp = target.hp;
           } else {
@@ -601,6 +658,19 @@ export class Battle {
           }
           if (target.hp === 0) {
             events.push({ type: 'unit-destroyed', unitId: target.id });
+            events.push(...this.afterDestruction(target));
+            break;
+          }
+
+          // Empuje por impacto masivo (fase 4): un proyectil pesado
+          // desplaza al objetivo una casilla en la dirección del tiro.
+          if (projectile && projectile.mass >= KNOCKBACK_MASS_THRESHOLD) {
+            const dest = knockbackDestination(this.map, user.position, target, this.units);
+            if (dest) {
+              const from = { ...target.position };
+              target.position = dest;
+              events.push({ type: 'unit-pushed', unitId: target.id, from, to: { ...dest } });
+            }
           }
           break;
         }
@@ -678,6 +748,13 @@ export class Battle {
   }
 
   // ── Internos ───────────────────────────────────────────────────────────
+
+  /** Consecuencias de una destrucción: caída del comandante (fase 5). */
+  private afterDestruction(unit: UnitState): BattleEvent[] {
+    if (!unit.isCommander || this.linkLostTeams.has(unit.team)) return [];
+    this.linkLostTeams.add(unit.team);
+    return [{ type: 'command-link-lost', team: unit.team }];
+  }
 
   private requireActive(unitId: string): UnitState {
     if (this.activeUnitId !== unitId) {

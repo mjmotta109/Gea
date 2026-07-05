@@ -125,6 +125,16 @@ export interface FrameState {
   modules: ModuleState[];
 }
 
+/** Personalidad de IA (fase 5). Todos los ejes van de 0 a 1. */
+export interface AIProfile {
+  /** Presionar y avanzar (1) vs mantener posición (0). */
+  aggression: number;
+  /** Evitar exponerse y retirarse dañado (1) vs ignorar el riesgo (0). */
+  selfPreservation: number;
+  /** Aceptar tiros de baja probabilidad (1) vs solo tiros seguros (0). */
+  riskTolerance: number;
+}
+
 // ── Recursos activos: energía, calor y munición (fase 2) ────────────────
 
 /**
@@ -137,6 +147,27 @@ export interface ActionCosts {
   heat?: number;
   /** Turnos propios que el arma queda en enfriamiento tras disparar. */
   cooldownTurns?: number;
+}
+
+/**
+ * Especificación balística de un proyectil (fase 4). La resolución sigue
+ * siendo instantánea, pero consume estos datos: la penetración perfora la
+ * armadura de los módulos, la dispersión degrada la puntería con la
+ * distancia, y la masa empuja al objetivo. El evento projectile-fired
+ * lleva la trayectoria teórica para que un renderer la anime; un futuro
+ * simulador de vuelo real usará este mismo spec.
+ */
+export interface ProjectileSpec {
+  /** Velocidad teórica en casillas/segundo (solo para animación). */
+  velocity: number;
+  /** Pérdida de precisión por casilla de distancia. */
+  dispersion: number;
+  /** Puntos de armadura del módulo que ignora al impactar. */
+  penetration: number;
+  caliber: number;
+  /** Masa del proyectil; ≥ el umbral de física empuja al objetivo. */
+  mass: number;
+  ricochet: boolean;
 }
 
 /**
@@ -159,6 +190,8 @@ export interface WeaponDefinition {
    * queda inoperativa. Omitir en unidades sin frame.
    */
   mountSlot?: SlotId;
+  /** Balística (fase 4); omitir en armas de contacto/energía pura. */
+  projectile?: ProjectileSpec;
 }
 
 export interface EnergyState {
@@ -260,6 +293,11 @@ export interface UnitDefinition {
    * módulos. Sin frame, la unidad es un "monocasco": HP global clásico.
    */
   frame?: FrameSlotConfig[];
+  /**
+   * Personalidad de IA (fase 5): pesos 0-1 que sesgan la puntuación de
+   * utilidad de planTurn. Omitir = perfil neutro (0.5 en todo).
+   */
+  aiProfile?: Partial<AIProfile>;
   /** Sistema energético opcional (fase 2): generador y reservas. */
   energy?: { capacity: number; outputPerTurn: number };
   /** Sistema térmico opcional (fase 2): límite y disipación por turno. */
@@ -272,6 +310,8 @@ export interface UnitState {
   id: string;
   name: string;
   unitTypeId: string;
+  /** Comandante de su equipo: si cae, la red de mando se degrada (fase 5). */
+  isCommander: boolean;
   components: UnitComponents;
   team: Team;
   position: Position;
@@ -314,6 +354,14 @@ export type BattleEvent =
   | { type: 'status-ticked'; targetUnitId: string; status: StatusId; damage: number; targetHp: number }
   | { type: 'unit-destroyed'; unitId: string }
   | { type: 'unit-boosted'; unitId: string; path: Position[] }
+  /** Trayectoria teórica de un proyectil, para animación del renderer. */
+  | { type: 'projectile-fired'; unitId: string; weaponId: string; from: Position; to: Position; flightTime: number }
+  /** Empuje físico: un impacto masivo desplaza al objetivo una casilla. */
+  | { type: 'unit-pushed'; unitId: string; from: Position; to: Position }
+  /** Un muro reventado por una explosión pasa a ser escombros. */
+  | { type: 'terrain-destroyed'; pos: Position }
+  /** El comandante del equipo cayó: la red de mando se degrada. */
+  | { type: 'command-link-lost'; team: Team }
   | { type: 'energy-changed'; unitId: string; current: number; delta: number; reason: string }
   | { type: 'heat-changed'; unitId: string; current: number; delta: number; reason: string }
   | { type: 'weapon-reloaded'; unitId: string; weaponId: string; ammo: number }

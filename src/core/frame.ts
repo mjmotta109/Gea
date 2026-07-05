@@ -141,11 +141,14 @@ export function applyDamageToModule(
   target: ModuleState,
   rawDamage: number,
   targetUnitId: string,
+  /** Puntos de armadura que el proyectil ignora (fase 4: penetración). */
+  penetration = 0,
 ): BattleEvent[] {
   const events: BattleEvent[] = [];
   const def = moduleDef(catalog, target.moduleId);
 
-  const afterArmor = Math.max(1, rawDamage - def.armor);
+  const effectiveArmor = Math.max(0, def.armor - penetration);
+  const afterArmor = Math.max(1, rawDamage - effectiveArmor);
   const absorbed = Math.min(afterArmor, target.hp);
   const overflow = afterArmor - absorbed;
 

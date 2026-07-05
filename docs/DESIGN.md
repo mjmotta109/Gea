@@ -1,6 +1,6 @@
 # Gea — Diseño de evolución: de motor táctico FFTA a simulador táctico profundo
 
-> **Estado**: aprobado como dirección del proyecto · **Última revisión**: ✅ fase 0 completada
+> **Estado**: aprobado como dirección del proyecto · **Última revisión**: fases 0-2, 4 y 5 ✅ · fase 3 🔶 (sensores/niebla aplazados a petición)
 >
 > Este documento es la fuente de verdad de la migración. Cada fase se marca al
 > completarse y las decisiones que se tomen por el camino se anotan aquí.
@@ -471,7 +471,7 @@ la herramienta de balance por lotes.
 
 ---
 
-### Fase 4 — Balística descriptiva y preparación física
+### ✅ Fase 4 — Balística descriptiva y preparación física — COMPLETADA
 
 *Objetivo: resolver el combate con datos físicos, sin simular proyectiles
 en vuelo todavía (§3.5).*
@@ -494,9 +494,20 @@ en vuelo todavía (§3.5).*
 números de daño salen de ellas; existe el evento de trayectoria; el
 knockback de ejemplo funciona y está testeado.
 
+**Resultado (2026-07-05)**: ProjectileSpec en las armas (velocidad,
+dispersión, penetración, calibre, masa); la dispersión degrada la
+puntería con la distancia, la penetración perfora la armadura de los
+módulos, las explosiones tienen caída radial (−25%/casilla, mín 30%) y
+derriban muros (escombros transitables que abren líneas de visión;
+Battle clona su mapa para no mutar el catálogo). El cañón de impacto
+del Gustav demuestra el empuje (masa ≥ 3 desplaza una casilla, con
+reglas de destino en physics.ts). Evento projectile-fired con
+trayectoria teórica para el renderer. Desvío: el rebote (ricochet)
+queda declarado en el spec pero sin consumir.
+
 ---
 
-### Fase 5 — IA con personalidad y arquitectura de mando
+### ✅ Fase 5 — IA con personalidad y arquitectura de mando — COMPLETADA
 
 *Objetivo: que las unidades peleen distinto por quiénes son, no solo por lo
 que montan.*
@@ -526,6 +537,19 @@ interface AIProfile {
 **Hecho cuando**: dos escuadras de composición idéntica y perfiles opuestos
 (agresiva vs conservadora) producen batallas visiblemente distintas y
 reproducibles por semilla.
+
+**Resultado (2026-07-05)**: AIProfile {aggression, selfPreservation,
+riskTolerance} en la definición de unidad, con perfil neutro por
+defecto. La utilidad pondera: los prudentes descartan tiros dudosos y
+no terminan rodeados; los defensivos aguantan posición; los heridos con
+alta autoconservación se repliegan; solo los agresivos queman energía
+en boost. Ejemplo inmediato de su valor: subir la autoconservación del
+Geno lo llevó de morir el 98.5% (kamikaze) a hacer 186 de daño medio
+kiteando — la personalidad ES una herramienta de balance. Mando:
+UnitSpawn.commander, evento command-link-lost (una vez por equipo) y
+−5 puntería/evasión para el equipo huérfano vía pipeline. Desvíos:
+targetPriority y discipline quedan declarados sin consumir; las
+muertes por calor/DoT no disparan el evento de mando (anotado).
 
 ---
 

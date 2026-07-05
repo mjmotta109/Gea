@@ -26,6 +26,8 @@ export const WEAPONS: Record<string, WeaponDefinition> = {
     magazine: 0,
     reserves: 0,
     mountSlot: 'weapon-cannon',
+    // Haz de partículas: rapidísimo, sin dispersión, perfora blindaje.
+    projectile: { velocity: 30, dispersion: 0, penetration: 4, caliber: 0, mass: 0, ricochet: false },
   },
   'w-sniper-rifle': {
     id: 'w-sniper-rifle',
@@ -36,5 +38,17 @@ export const WEAPONS: Record<string, WeaponDefinition> = {
     // francotirador (dispara-dispara-recarga).
     magazine: 2,
     reserves: 3,
+    projectile: { velocity: 16, dispersion: 0, penetration: 3, caliber: 14, mass: 1, ricochet: false },
+  },
+  'w-impact-cannon': {
+    id: 'w-impact-cannon',
+    name: 'Cañón de impacto pesado',
+    abilityId: 'shock-cannon',
+    costs: { heat: 10 },
+    magazine: 3,
+    reserves: 2,
+    // Obús masivo: pierde puntería con la distancia pero EMPUJA al
+    // objetivo una casilla (masa ≥ umbral de física, fase 4).
+    projectile: { velocity: 8, dispersion: 2, penetration: 1, caliber: 120, mass: 4, ricochet: false },
   },
 };

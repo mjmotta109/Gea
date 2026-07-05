@@ -7,7 +7,7 @@ function ghostUnit(id: string, x: number, y: number, team: 'player' | 'enemy'): 
   return {
     id, name: id, unitTypeId: 'test', team,
     position: { x, y }, facing: 'east', hp: 10, ct: 0,
-    statuses: [], hasMoved: false, hasActed: false, components: {},
+    statuses: [], hasMoved: false, hasActed: false, components: {}, isCommander: false,
   };
 }
 

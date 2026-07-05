@@ -46,6 +46,21 @@ export class GameMap {
     throw new Error(`Carácter de mapa desconocido: '${ch}'`);
   }
 
+  /**
+   * Copia profunda. Battle clona su mapa al construirse: desde la fase 4
+   * el terreno es destructible y los mapas del catálogo no deben mutar.
+   */
+  clone(): GameMap {
+    return new GameMap(this.width, this.height, this.tiles.map((t) => ({ ...t })));
+  }
+
+  /** Una explosión convierte un muro en escombros transitables. */
+  demolish(pos: Position): void {
+    const tile = this.tileAt(pos);
+    tile.terrain = 'rough';
+    tile.height = 1;
+  }
+
   inBounds(pos: Position): boolean {
     return pos.x >= 0 && pos.x < this.width && pos.y >= 0 && pos.y < this.height;
   }

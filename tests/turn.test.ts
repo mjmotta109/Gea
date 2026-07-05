@@ -6,7 +6,7 @@ function unit(id: string, speed: number, hp = 10, ct = 0): UnitState & { speed: 
   return {
     id, name: id, unitTypeId: 'test', team: 'player',
     position: { x: 0, y: 0 }, facing: 'east', hp, ct,
-    statuses: [], hasMoved: false, hasActed: false, components: {}, speed,
+    statuses: [], hasMoved: false, hasActed: false, components: {}, isCommander: false, speed,
   };
 }
 

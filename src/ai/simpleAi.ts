@@ -1,7 +1,14 @@
 import type { Battle } from '../core/battle.js';
 import { manhattan, samePos } from '../core/grid.js';
 import { reachableTiles } from '../core/pathfinding.js';
-import type { BattleAction, Position, UnitState } from '../core/types.js';
+import type { AIProfile, BattleAction, Position, UnitState } from '../core/types.js';
+
+/** Perfil neutro: reproduce aproximadamente la IA greedy clásica. */
+const NEUTRAL_PROFILE: AIProfile = { aggression: 0.5, selfPreservation: 0.5, riskTolerance: 0.5 };
+
+function profileOf(battle: Battle, unit: UnitState): AIProfile {
+  return { ...NEUTRAL_PROFILE, ...battle.definitionOf(unit.unitTypeId).aiProfile };
+}
 
 /**
  * IA básica para el turno de una unidad. Estrategia:
@@ -43,7 +50,12 @@ export function planTurn(battle: Battle, unit: UnitState): BattleAction[] {
     | { to: Position | null; abilityId: string; target: Position; score: number }
     | undefined;
 
+  const profile = profileOf(battle, unit);
+
   for (const option of moveOptions) {
+    // Riesgo posicional: enemigos pegados a la casilla final del turno.
+    const nearbyThreat = enemies.filter((e) => manhattan(option.from, e.position) <= 2).length;
+
     for (const ability of offensiveAbilities) {
       for (const enemy of enemies) {
         // Alcance, alineación y línea de visión, igual que el motor.
@@ -51,8 +63,12 @@ export function planTurn(battle: Battle, unit: UnitState): BattleAction[] {
 
         const damage = ability.effects.find((e) => e.kind === 'damage');
         const power = damage && damage.kind === 'damage' ? damage.power : 0;
-        // Puntuación simple: potencia, rematar bajos de vida y precisión.
-        const score = power + (100 - (enemy.hp / battle.effectiveStats(enemy).maxHp) * 100) + ability.accuracy / 10;
+        // Utilidad base: potencia, rematar bajos de vida y precisión...
+        let score = power + (100 - (enemy.hp / battle.effectiveStats(enemy).maxHp) * 100) + ability.accuracy / 10;
+        // ...sesgada por personalidad (fase 5): los prudentes descartan
+        // tiros dudosos, los conservadores no terminan rodeados.
+        score += (ability.accuracy - 80) * (1 - profile.riskTolerance) * 0.5;
+        score -= nearbyThreat * profile.selfPreservation * 12;
         if (!best || score > best.score) {
           best = { to: option.to, abilityId: ability.id, target: { ...enemy.position }, score };
         }
@@ -68,19 +84,27 @@ export function planTurn(battle: Battle, unit: UnitState): BattleAction[] {
     return actions;
   }
 
-  // Sin ataque posible: acercarse al enemigo más cercano.
+  // Sin ataque posible: la personalidad decide la maniobra (fase 5).
   const actions: BattleAction[] = [];
   const nearest = enemies.reduce((a, b) =>
     manhattan(unit.position, a.position) <= manhattan(unit.position, b.position) ? a : b);
 
+  const hurt = unit.hp < battle.effectiveStats(unit).maxHp * 0.35;
+  const retreat = hurt && profile.selfPreservation >= 0.7;
+  const currentDist = manhattan(unit.position, nearest.position);
+  // Los poco agresivos mantienen posición salvo que el enemigo ya esté cerca.
+  const holdPosition = !retreat && profile.aggression < 0.35
+    && currentDist > battle.effectiveStats(unit).move * 2;
+
   let standAt = unit.position;
-  if (canMove) {
+  if (canMove && !holdPosition) {
     const reachable = battle.legalMoves(unit.id);
-    let bestDist = manhattan(unit.position, nearest.position);
+    let bestDist = currentDist;
     let bestTile: Position | undefined;
     for (const tile of reachable) {
       const d = manhattan(tile.pos, nearest.position);
-      if (d < bestDist) {
+      // Retirada: maximiza distancia; avance: minimízala.
+      if (retreat ? d > bestDist : d < bestDist) {
         bestDist = d;
         bestTile = tile.pos;
       }
@@ -91,8 +115,11 @@ export function planTurn(battle: Battle, unit: UnitState): BattleAction[] {
     }
   }
 
-  // Boost para seguir cerrando distancia si hay energía y sigue lejos.
-  const boostTo = planBoost(battle, unit, standAt, nearest.position);
+  // Boost para seguir cerrando distancia: solo los suficientemente
+  // agresivos queman energía en ello.
+  const boostTo = !retreat && profile.aggression >= 0.4
+    ? planBoost(battle, unit, standAt, nearest.position)
+    : undefined;
   if (boostTo) actions.push({ type: 'boost', unitId: unit.id, to: boostTo });
 
   // Sin tiro este turno: momento ideal para recargar el arma vacía.

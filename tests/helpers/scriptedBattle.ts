@@ -2,6 +2,7 @@ import { planTurn } from '../../src/ai/simpleAi.js';
 import { Battle } from '../../src/core/battle.js';
 import type { BattleEvent } from '../../src/core/types.js';
 import { ABILITIES } from '../../src/data/abilities.js';
+import { WEAPONS } from '../../src/data/weapons.js';
 import { VALLEY_CROSSING } from '../../src/data/maps.js';
 import { ZOIDS } from '../../src/data/zoids.js';
 
@@ -35,6 +36,7 @@ export function runScriptedBattle(seed: number, maxTurns = 300): BattleRecord {
     map: VALLEY_CROSSING,
     unitCatalog: ZOIDS,
     abilityCatalog: ABILITIES,
+    weaponCatalog: WEAPONS,
     seed,
     spawns: [
       { id: 'P1', name: 'Liger Zero', unitTypeId: 'liger-zero', team: 'player', position: { x: 1, y: 3 } },

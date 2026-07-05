@@ -106,8 +106,11 @@ export function targetableTiles(
   return tiles;
 }
 
-/** Tiles afectados por el área de una habilidad centrada en `center`. */
-export function aoeTiles(map: GameMap, center: Position, radius: number): Position[] {
+/**
+ * Tiles afectados por el área de una habilidad centrada en `center`.
+ * `includeWalls` los incluye (para demolición por explosión, fase 4).
+ */
+export function aoeTiles(map: GameMap, center: Position, radius: number, includeWalls = false): Position[] {
   if (radius === 0) return map.inBounds(center) ? [center] : [];
   const tiles: Position[] = [];
   for (let y = center.y - radius; y <= center.y + radius; y++) {
@@ -115,7 +118,7 @@ export function aoeTiles(map: GameMap, center: Position, radius: number): Positi
       const pos = { x, y };
       if (!map.inBounds(pos)) continue;
       if (Math.abs(x - center.x) + Math.abs(y - center.y) > radius) continue;
-      if (map.tileAt(pos).terrain === 'wall') continue;
+      if (!includeWalls && map.tileAt(pos).terrain === 'wall') continue;
       tiles.push(pos);
     }
   }

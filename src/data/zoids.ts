@@ -18,6 +18,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
       speed: 16, move: 6, jump: 2, evade: 20, accuracy: 0,
     },
     abilityIds: ['strike-laser-claw', 'bite-crush', 'e-shield'],
+    aiProfile: { aggression: 0.85, selfPreservation: 0.4, riskTolerance: 0.6 },
   },
   'command-wolf': {
     id: 'command-wolf',
@@ -51,6 +52,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
       speed: 12, move: 4, jump: 1, evade: 10, accuracy: 0,
     },
     abilityIds: ['sniper-rifle', 'bite-crush'],
+    aiProfile: { aggression: 0.35, selfPreservation: 0.8, riskTolerance: 0.2 },
   },
   'pteras': {
     id: 'pteras',
@@ -73,6 +75,8 @@ export const ZOIDS: Record<string, UnitDefinition> = {
       speed: 10, move: 4, jump: 1, evade: 5, accuracy: 0,
     },
     abilityIds: ['repair-drones', 'smoke-discharger', 'e-shield'],
+    weapons: ['w-impact-cannon'],
+    aiProfile: { aggression: 0.2, selfPreservation: 0.9, riskTolerance: 0.3 },
   },
   'molga': {
     id: 'molga',
@@ -95,6 +99,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
       speed: 12, move: 4, jump: 1, evade: 10, accuracy: 0,
     },
     abilityIds: ['charged-particle-gun', 'bite-crush', 'e-shield'],
+    aiProfile: { aggression: 0.6, selfPreservation: 0.6, riskTolerance: 0.7 },
   },
 
   // La Gun Sniper de Naomi: monocasco, pero con munición finita — cuatro
@@ -110,6 +115,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
     },
     abilityIds: ['bite-crush'],
     weapons: ['w-sniper-rifle'],
+    aiProfile: { aggression: 0.35, selfPreservation: 0.8, riskTolerance: 0.2 },
   },
 
   // ── Versiones framed (fase 1): mismo rendimiento intacto que sus
@@ -129,6 +135,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
     energy: { capacity: 80, outputPerTurn: 30 },
     heat: { max: 100, dissipationPerTurn: 25 },
     weapons: ['w-strike-laser-claw'],
+    aiProfile: { aggression: 0.85, selfPreservation: 0.4, riskTolerance: 0.6 },
     frame: [
       { slot: 'head', moduleId: 'liger-head' },
       { slot: 'torso', moduleId: 'liger-torso' },
@@ -151,6 +158,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
     energy: { capacity: 120, outputPerTurn: 25 },
     heat: { max: 80, dissipationPerTurn: 15 },
     weapons: ['w-charged-particle-gun'],
+    aiProfile: { aggression: 0.6, selfPreservation: 0.6, riskTolerance: 0.7 },
     frame: [
       { slot: 'head', moduleId: 'geno-head' },
       { slot: 'torso', moduleId: 'geno-torso' },
