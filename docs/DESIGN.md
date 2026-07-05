@@ -16,6 +16,14 @@ módulos, daño localizado, energía y calor como recursos activos, munición
 finita, sensores, y personalización donde dos chasis idénticos pueden
 comportarse de forma completamente distinta según su configuración.
 
+> **Relación con el juego**: el motor se mantiene genérico, pero las
+> prioridades las dicta el primer juego (ver
+> [GAME-DESIGN.md](GAME-DESIGN.md)). Solo se generaliza una mecánica
+> cuando el juego la necesita y funciona: el motor se extrae del juego,
+> no al revés. Toda mecánica nueva debe pasar antes el filtro del
+> §5 de GAME-DESIGN.md (decisión nueva, historias emergentes,
+> profundidad vs complejidad, rebanada mínima, coste arrastrado).
+
 ### Principios innegociables
 
 1. **CT se mantiene** tal cual: velocidad → carga → turno al llegar a 100.

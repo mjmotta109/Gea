@@ -2,7 +2,8 @@
 
 Motor táctico por turnos que combina el flujo de **Final Fantasy Tactics** (CT, casillas, posicionamiento, facing) con la profundidad mecánica de **Armored Core / BattleTech**: unidades compuestas por módulos, daño localizado, energía y calor como recursos, munición finita y sensores. El contenido inicial usa temática **Zoids**, pero el núcleo es genérico.
 
-> 📐 La dirección del proyecto y el plan de migración por fases están en **[docs/DESIGN.md](docs/DESIGN.md)**. El estado actual del código corresponde a la base pre-fase-0 descrita abajo.
+> 📐 **[docs/DESIGN.md](docs/DESIGN.md)** — arquitectura del motor y plan de fases (0-2 completadas).
+> 🎮 **[docs/GAME-DESIGN.md](docs/GAME-DESIGN.md)** — visión, filosofía y decisiones de diseño del juego.
 
 El motor es **determinista y agnóstico del renderizado**: toda la simulación vive en TypeScript puro sin dependencias, se comunica mediante eventos, y cualquier cliente (PixiJS, Godot, terminal, servidor) puede consumirlo.
 
