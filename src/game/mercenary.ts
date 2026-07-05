@@ -18,6 +18,10 @@ export interface EconomyTable {
   rebuildFactor: number;
   /** Vender (chasis o arma) devuelve precio × factor. */
   sellFactor: number;
+  /** Precio de una unidad de suministros (una jornada de marcha). */
+  supplyPrice: number;
+  /** Suministros con los que arranca la campaña. */
+  startingSupplies: number;
   zoidPrices: Record<string, number>;
   weaponPrices: Record<string, number>;
 }
@@ -39,6 +43,10 @@ export interface CampaignState {
   /** Arsenal en propiedad: weaponId → unidades poseídas. */
   armory: Record<string, number>;
   contractsDone: number;
+  /** Suministros de expedición: cada jornada de viaje consume. */
+  supplies: number;
+  /** Bodega: hallazgos de ruta que se venden al volver al taller. */
+  cargo: Array<{ name: string; value: number }>;
 }
 
 /**
@@ -73,7 +81,7 @@ export function newCampaign(
     }
     return { unitTypeId, hp: FULL_HP, destroyed: false, ...loadout };
   });
-  return { credits: economy.startingCredits, roster, armory, contractsDone: 0 };
+  return { credits: economy.startingCredits, roster, armory, contractsDone: 0, supplies: economy.startingSupplies, cargo: [] };
 }
 
 // ── Contratos deterministas ──────────────────────────────────────────────
@@ -298,4 +306,36 @@ export function setMountedWeapons(state: CampaignState, slot: number, weapons: s
     if (mountedCount(candidate, weaponId) > (state.armory[weaponId] ?? 0)) return state;
   }
   return candidate;
+}
+
+// ── Expedición: suministros y bodega ─────────────────────────────────────
+
+export function buySupplies(state: CampaignState, count: number, economy: EconomyTable): CampaignState {
+  const cost = count * economy.supplyPrice;
+  if (count <= 0 || state.credits < cost) return state;
+  return { ...state, credits: state.credits - cost, supplies: state.supplies + count };
+}
+
+/**
+ * Consume suministros de un tramo de viaje. Si no alcanzan, el déficit
+ * vuelve como `shortage`: la marcha forzada castiga a las máquinas (el
+ * cliente aplica el daño, que conoce los maxHp reales).
+ */
+export function consumeSupplies(state: CampaignState, amount: number): { state: CampaignState; shortage: number } {
+  const available = Math.min(state.supplies, amount);
+  return {
+    state: { ...state, supplies: state.supplies - available },
+    shortage: amount - available,
+  };
+}
+
+export function stashCargo(state: CampaignState, item: { name: string; value: number }, capacity: number): CampaignState {
+  if (state.cargo.length >= capacity) return state;
+  return { ...state, cargo: [...state.cargo, item] };
+}
+
+/** Vender toda la bodega al volver al taller. */
+export function sellCargo(state: CampaignState): { state: CampaignState; earned: number } {
+  const earned = state.cargo.reduce((n, c) => n + c.value, 0);
+  return { state: { ...state, credits: state.credits + earned, cargo: [] }, earned };
 }

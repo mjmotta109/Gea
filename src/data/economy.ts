@@ -11,6 +11,8 @@ export const ECONOMY: EconomyTable = {
   startingCredits: 2500,
   starterRoster: ['liger-zero', 'command-wolf', 'gun-sniper', 'gustav'],
   repairCostPerHp: 2,
+  supplyPrice: 40,
+  startingSupplies: 8,
   rebuildFactor: 0.6,
   sellFactor: 0.5,
 

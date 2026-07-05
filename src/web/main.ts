@@ -26,10 +26,16 @@ import { withWeaponLibrary } from '../data/weaponLibrary.js';
 import { WEAPONS } from '../data/weapons.js';
 import { ZOIDS } from '../data/zoids.js';
 import {
-  buyWeapon, buyZoid, contractOffers, mountedCount, newCampaign, rebuildCost,
-  rebuildZoid, repairCost, repairZoid, resolveContract, sellWeapon, setMountedWeapons,
+  buySupplies, buyWeapon, buyZoid, consumeSupplies, contractOffers, mountedCount,
+  newCampaign, rebuildCost, rebuildZoid, repairCost, repairZoid, resolveContract,
+  sellCargo, sellWeapon, setMountedWeapons, stashCargo,
   type CampaignState, type Contract,
 } from '../game/mercenary.js';
+import {
+  availableEdges, otherEnd, startExpedition, travel, edgeKey,
+  type ExpeditionState, type WorldEdge,
+} from '../game/expedition.js';
+import { SALT_PASS_REGION } from '../data/world.js';
 
 // Catálogos completos del cliente: base + anexo de la librería de armas.
 // Los Zoids de segunda generación montan armas 'lib-*' y los necesitan.
@@ -580,6 +586,10 @@ document.addEventListener('keydown', (event) => {
   }
   if (editorOpen) {
     if (event.key === 'Escape') closeEditor();
+    return;
+  }
+  if (worldOpen) {
+    if (event.key === 'Escape') closeWorld();
     return;
   }
   if (document.activeElement === $('seed')) return;
@@ -1415,6 +1425,9 @@ function loadCampaign(): CampaignState | null {
     if (!raw) return null;
     const state = JSON.parse(raw) as CampaignState;
     if (!Array.isArray(state.roster) || typeof state.credits !== 'number') return null;
+    // Campañas anteriores a la capa de viaje: dotarlas de intendencia.
+    if (typeof state.supplies !== 'number') state.supplies = ECONOMY.startingSupplies;
+    if (!Array.isArray(state.cargo)) state.cargo = [];
     return state;
   } catch {
     return null;
@@ -1671,6 +1684,23 @@ function renderMercHangar(): void {
 function renderMercStore(): void {
   const host = $('merc-store');
   host.innerHTML = '';
+  // Intendencia: suministros de expedición (una jornada por unidad).
+  const supplies = document.createElement('div');
+  supplies.className = 'srow';
+  supplies.innerHTML = `<span class="sname">Suministros de expedición</span><span class="sown">×${campaign!.supplies}</span>`;
+  for (const count of [1, 5]) {
+    const buy = document.createElement('button');
+    buy.className = 'gbtn';
+    buy.textContent = `+${count} (⌾${count * ECONOMY.supplyPrice})`;
+    buy.disabled = campaign!.credits < count * ECONOMY.supplyPrice;
+    buy.addEventListener('click', () => {
+      campaign = buySupplies(campaign!, count, ECONOMY);
+      saveCampaign();
+      renderMerc();
+    });
+    supplies.appendChild(buy);
+  }
+  host.appendChild(supplies);
   for (const [weaponId, price] of Object.entries(ECONOMY.weaponPrices)) {
     const weapon = CATALOGS.weaponCatalog[weaponId];
     if (!weapon) continue;
@@ -1707,18 +1737,252 @@ function renderMercStore(): void {
   }
 }
 
-/** Despliega el contrato seleccionado con los Zoids operativos. */
-function deployContract(): void {
+/** Acepta el contrato seleccionado y abre la expedición hacia su lugar. */
+function startContractExpedition(): void {
   if (!campaign || !selectedContractId) return;
   const offers = contractOffers(campaign.contractsDone, ECONOMY, CONTRACT_ENEMY_POOL);
   const contract = offers.find((c) => c.id === selectedContractId);
+  if (!contract) return;
+  if (!campaign.roster.some((z) => !z.destroyed)) return;
+  expedition = startExpedition(REGION, contract.id, contract.tier);
+  saveExpedition();
+  closeMerc();
+  openWorld();
+}
+
+/** Liquida el contrato al terminar la batalla; devuelve el HTML del parte. */
+function settleContract(): string {
+  const contract = activeContract!;
+  activeContract = null;
+  // Con expedición en curso: la victoria devuelve al mapa (decidir si
+  // seguir o volver); la derrota es retirada — la expedición se acaba.
+  if (expedition) {
+    if (battle.winner === 'player') {
+      expedition = {
+        ...expedition,
+        missionDone: true,
+        forcedWeather: undefined,
+        log: [...expedition.log, `Día ${expedition.day} — Contrato cumplido: ${contract.name}.`],
+      };
+      returnToWorld = true;
+      returnToMerc = false;
+    } else {
+      expedition = null;
+      returnToWorld = false;
+      returnToMerc = true;
+    }
+    saveExpedition();
+  } else {
+    returnToMerc = true;
+  }
+  const finalHp = campaign!.roster.map((_, slot) =>
+    deployedSlots.includes(slot) ? battle.unit(`P${slot + 1}`).hp : undefined);
+  const enemiesDestroyed = battle.units.filter((u) => u.team === 'enemy' && u.hp <= 0).length;
+  const { state, report } = resolveContract(campaign!, contract, {
+    winner: battle.winner,
+    finalHp,
+    enemiesDestroyed,
+  });
+  campaign = state;
+  saveCampaign();
+
+  const lines = [
+    `<div><b>${contract.name}</b> — ${TIER_LABEL[contract.tier]}</div>`,
+    `<div class="mgain">+⌾${report.creditsEarned} (${report.rewardPaid ? `recompensa ⌾${contract.reward} + ` : 'sin recompensa · '}chatarra ⌾${report.salvage})</div>`,
+  ];
+  if (report.lost.length > 0) {
+    lines.push(`<div class="mloss">bajas: ${report.lost.map((id) => ZOIDS[id]!.name).join(', ')} — reconstruir cuesta el 60%</div>`);
+  }
+  lines.push(`<div class="pv-muted" style="color:var(--muted)">saldo: ⌾${campaign.credits}</div>`);
+  return lines.join('');
+}
+
+// ── Expedición: el mapa de mundo ─────────────────────────────────────────
+
+const REGION = SALT_PASS_REGION;
+const EXPEDITION_KEY = 'gea-expedition-v1';
+const CARGO_CAPACITY = 4;
+/** Daño de marcha forzada por jornada sin suministros (fracción de maxHp). */
+const FORCED_MARCH_DAMAGE = 0.08;
+
+function loadExpedition(): ExpeditionState | null {
+  try {
+    const raw = localStorage.getItem(EXPEDITION_KEY);
+    if (!raw) return null;
+    const exp = JSON.parse(raw) as ExpeditionState;
+    const validNode = (id: string): boolean => REGION.nodes.some((n) => n.id === id);
+    if (!validNode(exp.at) || !validNode(exp.targetNodeId) || !Array.isArray(exp.log)) return null;
+    return exp;
+  } catch {
+    return null;
+  }
+}
+
+let expedition: ExpeditionState | null = loadExpedition();
+let worldOpen = false;
+/** Tras liquidar un contrato de expedición ganado, se vuelve al mapa. */
+let returnToWorld = false;
+
+function saveExpedition(): void {
+  try {
+    if (expedition) localStorage.setItem(EXPEDITION_KEY, JSON.stringify(expedition));
+    else localStorage.removeItem(EXPEDITION_KEY);
+  } catch { /* almacenamiento privado */ }
+}
+
+function expeditionContract(): Contract | undefined {
+  if (!campaign || !expedition) return undefined;
+  return contractOffers(campaign.contractsDone, ECONOMY, CONTRACT_ENEMY_POOL)
+    .find((c) => c.id === expedition!.contractId);
+}
+
+function openWorld(): void {
+  worldOpen = true;
+  closeMerc();
+  closeGarage();
+  closeEditor();
+  renderWorld();
+  $('world').classList.add('show');
+}
+
+function closeWorld(): void {
+  worldOpen = false;
+  $('world').classList.remove('show');
+}
+
+function renderWorld(): void {
+  if (!campaign || !expedition) return;
+  const contract = expeditionContract();
+  const target = REGION.nodes.find((n) => n.id === expedition!.targetNodeId)!;
+  const here = REGION.nodes.find((n) => n.id === expedition!.at)!;
+  $('world-title').textContent = REGION.name;
+  $('world-status').textContent =
+    `Día ${expedition.day} · suministros ${campaign.supplies} · ⌾${campaign.credits}` +
+    (contract ? ` · misión: ${contract.name} → ${target.name}${expedition.missionDone ? ' ✔' : ''}` : '');
+
+  // Tramos como líneas SVG (los rotos, discontinuos).
+  const svg = $('world-svg');
+  svg.innerHTML = REGION.edges.map((e) => {
+    const a = REGION.nodes.find((n) => n.id === e.a)!;
+    const b = REGION.nodes.find((n) => n.id === e.b)!;
+    const blocked = expedition!.blockedEdges.includes(edgeKey(e.a, e.b));
+    return `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"${blocked ? ' class="blocked"' : ''}/>`;
+  }).join('');
+
+  // Nodos.
+  const nodesHost = $('world-nodes');
+  nodesHost.innerHTML = '';
+  for (const node of REGION.nodes) {
+    const el = document.createElement('div');
+    el.className = 'wnode' +
+      (node.id === expedition.at ? ' cur' : '') +
+      (node.id === expedition.targetNodeId && !expedition.missionDone ? ' target' : '') +
+      (node.id === REGION.hq ? ' hq' : '');
+    el.style.left = `${node.x}%`;
+    el.style.top = `${node.y}%`;
+    el.title = node.description;
+    el.innerHTML = `<div class="dot"></div><span class="tag">${node.id === REGION.hq ? '⚒ ' : ''}${node.id === expedition.targetNodeId && !expedition.missionDone ? '🎯 ' : ''}</span>${node.name}`;
+    nodesHost.appendChild(el);
+  }
+
+  // Rutas disponibles desde aquí.
+  const routes = $('world-routes');
+  routes.innerHTML = '';
+  for (const edge of availableEdges(expedition, REGION)) {
+    const destination = REGION.nodes.find((n) => n.id === otherEnd(edge, expedition!.at))!;
+    const btn = document.createElement('button');
+    btn.className = 'wroute';
+    btn.innerHTML = `→ <b>${destination.name}</b> · ${edge.flavor} · <span class="cost">${edge.days} jornada${edge.days > 1 ? 's' : ''}</span>`;
+    btn.addEventListener('click', () => doTravel(edge));
+    routes.appendChild(btn);
+  }
+
+  // Acciones del lugar.
+  const actions = $('world-actions');
+  actions.innerHTML = '';
+  if (expedition.at === expedition.targetNodeId && !expedition.missionDone && contract) {
+    const fight = document.createElement('button');
+    fight.textContent = `⚔ Entablar combate — ${contract.name}`;
+    fight.addEventListener('click', fightExpeditionBattle);
+    actions.appendChild(fight);
+  }
+  if (expedition.at === REGION.hq) {
+    const home = document.createElement('button');
+    home.className = 'calm';
+    home.textContent = expedition.missionDone
+      ? '⚒ Entrar al taller (vender bodega y cerrar la expedición)'
+      : '⚒ Entrar al taller (ABANDONAR la expedición)';
+    home.addEventListener('click', endExpedition);
+    actions.appendChild(home);
+  }
+  $('world-cargo').innerHTML = campaign.cargo.length > 0
+    ? campaign.cargo.map((c) => `<div>${c.name} · ⌾${c.value}</div>`).join('') +
+      `<div>(${campaign.cargo.length}/${CARGO_CAPACITY})</div>`
+    : `<div>vacía (0/${CARGO_CAPACITY})</div>`;
+  $('world-log').innerHTML = [...expedition.log].reverse()
+    .map((line) => `<div${line.includes('⚠') ? ' class="warn"' : ''}>${line}</div>`).join('');
+  void here;
+}
+
+function doTravel(edge: WorldEdge): void {
+  if (!campaign || !expedition) return;
+  const result = travel(expedition, REGION, edge);
+  expedition = result.expedition;
+  const consumed = consumeSupplies(campaign, result.supplyCost);
+  campaign = consumed.state;
+  if (consumed.shortage > 0) {
+    // Marcha forzada: sin suministros, las máquinas sufren (nunca mueren
+    // en ruta: se quedan a 1 HP como mucho de castigo).
+    campaign = {
+      ...campaign,
+      roster: campaign.roster.map((zoid, slot) => {
+        if (zoid.destroyed) return zoid;
+        const maxHp = campaignMaxHp(slot);
+        const hp = Math.max(1, Math.min(zoid.hp, maxHp) - Math.ceil(maxHp * FORCED_MARCH_DAMAGE * consumed.shortage));
+        return { ...zoid, hp };
+      }),
+    };
+    expedition = {
+      ...expedition,
+      log: [...expedition.log, `⚠ Día ${expedition.day} — Sin suministros: marcha forzada. Las máquinas sufren.`],
+    };
+  }
+  if (result.cargo) {
+    const before = campaign.cargo.length;
+    campaign = stashCargo(campaign, result.cargo, CARGO_CAPACITY);
+    if (campaign.cargo.length === before) {
+      expedition = {
+        ...expedition,
+        log: [...expedition.log, `⚠ La bodega está llena: hubo que dejar ${result.cargo.name} atrás.`],
+      };
+    }
+  }
+  saveCampaign();
+  saveExpedition();
+  renderWorld();
+}
+
+/** El combate del contrato, al llegar al lugar. */
+function fightExpeditionBattle(): void {
+  if (!campaign || !expedition) return;
+  const contract = expeditionContract();
   if (!contract) return;
   const alive = campaign.roster
     .map((zoid, slot) => ({ zoid, slot }))
     .filter(({ zoid }) => !zoid.destroyed);
   if (alive.length === 0) return;
 
-  const field = battlefield();
+  // El lugar elige el mapa: un mapa del editor con el nombre del nodo
+  // manda; si no existe, el campo de batalla de la cabecera.
+  const node = REGION.nodes.find((n) => n.id === expedition!.at)!;
+  let field = battlefield();
+  const custom = customMaps[node.name];
+  if (custom) {
+    try {
+      field = { map: GameMap.fromAscii(custom.rows), playerPos: custom.playerSpawns, enemyPos: custom.enemySpawns };
+    } catch { /* mapa corrupto: cae al de cabecera */ }
+  }
+
   const spawns: UnitSpawn[] = [
     ...alive.map(({ zoid, slot }, k) => ({
       id: `P${slot + 1}`,
@@ -1746,38 +2010,27 @@ function deployContract(): void {
   deployedSlots = alive.map(({ slot }) => slot);
   activeContract = contract;
   returnToMerc = false;
-  closeMerc();
-  // Semilla distinta por ciclo de contratos: reproducible, no farmeable.
-  const seed = (Number(($('seed') as HTMLInputElement).value) || 42) + campaign.contractsDone * 1009;
-  const weather = ($('weather') as HTMLSelectElement).value as WeatherId;
+  returnToWorld = false;
+  closeWorld();
+  const seed = (Number(($('seed') as HTMLInputElement).value) || 42) + campaign.contractsDone * 1009 + expedition.day * 97;
+  // La tormenta que nos siguió en ruta manda sobre el selector.
+  const weather = expedition.forcedWeather ?? (($('weather') as HTMLSelectElement).value as WeatherId);
   startBattle(spawns, seed, weather, field.map);
 }
 
-/** Liquida el contrato al terminar la batalla; devuelve el HTML del parte. */
-function settleContract(): string {
-  const contract = activeContract!;
-  activeContract = null;
-  returnToMerc = true;
-  const finalHp = campaign!.roster.map((_, slot) =>
-    deployedSlots.includes(slot) ? battle.unit(`P${slot + 1}`).hp : undefined);
-  const enemiesDestroyed = battle.units.filter((u) => u.team === 'enemy' && u.hp <= 0).length;
-  const { state, report } = resolveContract(campaign!, contract, {
-    winner: battle.winner,
-    finalHp,
-    enemiesDestroyed,
-  });
-  campaign = state;
+/** Cierra la expedición en el taller: vende la bodega y abre el cuartel. */
+function endExpedition(): void {
+  if (!campaign || !expedition) return;
+  const sold = sellCargo(campaign);
+  campaign = sold.state;
+  expedition = null;
   saveCampaign();
-
-  const lines = [
-    `<div><b>${contract.name}</b> — ${TIER_LABEL[contract.tier]}</div>`,
-    `<div class="mgain">+⌾${report.creditsEarned} (${report.rewardPaid ? `recompensa ⌾${contract.reward} + ` : 'sin recompensa · '}chatarra ⌾${report.salvage})</div>`,
-  ];
-  if (report.lost.length > 0) {
-    lines.push(`<div class="mloss">bajas: ${report.lost.map((id) => ZOIDS[id]!.name).join(', ')} — reconstruir cuesta el 60%</div>`);
+  saveExpedition();
+  closeWorld();
+  openMerc();
+  if (sold.earned > 0) {
+    $('merc-status').textContent += ` · bodega vendida: +⌾${sold.earned}`;
   }
-  lines.push(`<div class="pv-muted" style="color:var(--muted)">saldo: ⌾${campaign.credits}</div>`);
-  return lines.join('');
 }
 
 // ── Editor de mapas ──────────────────────────────────────────────────────
@@ -1954,6 +2207,11 @@ function closeEditor(): void {
 // ── Arranque ─────────────────────────────────────────────────────────────
 
 function restart(): void {
+  if (returnToWorld && expedition && campaign) {
+    returnToWorld = false;
+    openWorld();
+    return;
+  }
   if (returnToMerc && campaign) {
     // La batalla de contrato ya se liquidó: "Nueva batalla" vuelve al
     // cuartel para reparar, comprar y elegir el siguiente contrato.
@@ -1969,8 +2227,8 @@ $('restart').addEventListener('click', () => { returnToMerc = false; restart(); 
 $('ov-restart').addEventListener('click', restart);
 $('garage-btn').addEventListener('click', openGarage);
 $('deploy').addEventListener('click', () => { closeGarage(); returnToMerc = false; restart(); });
-$('merc-btn').addEventListener('click', openMerc);
-$('merc-deploy').addEventListener('click', deployContract);
+$('merc-btn').addEventListener('click', () => { if (expedition) openWorld(); else openMerc(); });
+$('merc-deploy').addEventListener('click', startContractExpedition);
 $('merc-skirmish').addEventListener('click', () => { closeMerc(); openGarage(); });
 $('merc-reset').addEventListener('click', () => {
   if (!window.confirm('¿Empezar una campaña nueva? Se pierden créditos, hangar y arsenal (los pilotos se conservan).')) return;
@@ -2024,6 +2282,8 @@ $('map-select').addEventListener('change', () => {
 
 refreshMapSelect();
 restart();
-// El primer contacto: la campaña si existe; si no, el garaje libre.
-if (campaign) openMerc();
+// El primer contacto: la expedición en curso; si no, la campaña; si no,
+// el garaje libre.
+if (expedition && campaign) openWorld();
+else if (campaign) openMerc();
 else openGarage();

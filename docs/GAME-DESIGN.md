@@ -265,3 +265,18 @@ arquitectura del motor van en DESIGN.md.)*
   ASCII del motor, spawns, guardado local, selector en cabecera usado
   por escaramuzas y contratos), después el del mapa de mundo cuando
   exista la capa de viaje.
+- **2026-07-05** — CAPA DE VIAJE (rebanada del pilar 3, ✅ jugable):
+  región del Paso de Sal dibujada a mano (7 lugares, 9 tramos), y los
+  contratos ya no despliegan batallas: asignan un LUGAR objetivo según
+  la dificultad (escolta cerca, caza en lo profundo) y hay que viajar
+  nodo a nodo. Cada tramo consume suministros (se compran en la
+  intendencia del cuartel) y trae eventos deterministas: el puente roto
+  que corta el tramo y obliga a rodear, hallazgos para la bodega (tope
+  4, se venden al volver al taller) y tormentas que fuerzan el clima de
+  la siguiente batalla. Sin suministros: marcha forzada (8% maxHp por
+  jornada, nunca mata). EL combate ocurre al llegar; la victoria
+  devuelve al mapa (seguir o volver — la decisión de presión); la
+  derrota es retirada y cierra la expedición. Un mapa del editor cuyo
+  nombre coincida con el del lugar se convierte en su campo de batalla.
+  Pendiente: marcas/compenetración, eventos de combate opcionales en
+  ruta, editor del mapa de mundo, más regiones.
