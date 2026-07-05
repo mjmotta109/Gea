@@ -373,3 +373,20 @@ arquitectura del motor van en DESIGN.md.)*
   desde el menú de inicio o el enlace del cuartel; en modo campaña esos
   controles desaparecen de la interfaz. No se guarda en medio de una
   batalla: cargar siempre aterriza en ciudad/mundo.
+- **2026-07-05** — ASISTENTE DE FUNDACIÓN DE COMPAÑÍA (dirección del
+  usuario: "agrega la configuración necesaria para iniciar un juego
+  nuevo desde cero"). "Juego nuevo" ya no crea la partida al instante:
+  abre un asistente donde el jugador funda su compañía. Se elige:
+  (1) nombre de la compañía — aparece en el cuartel y como nombre por
+  defecto al guardar la ranura; (2) dificultad — Cadete ⌾3400/12
+  suministros, Mercenario ⌾2500/8, Leyenda ⌾1600/5 (solo cambia el
+  punto de partida económico, nunca las reglas de combate: el
+  determinismo es ley); (3) compañera inicial — 4 chasis curados
+  (Liger Zero, Shield Liger, Zaber Fang, Rev Raptor) con sus stats de
+  fábrica a la vista, ocupa el slot 0 del roster; (4) nombres de los
+  4 pilotos. El resto del roster inicial es fijo (Command Wolf, Gun
+  Sniper, Gustav) para que la elección de compañera sea identidad, no
+  ventaja. Fundar borra las claves vivas y aterriza directo en el
+  cuartel sin pasar por el menú. Motor y capa de juego intactos:
+  `newCampaign` solo ganó un parámetro opcional de overrides
+  (créditos/suministros/roster), el contenido vive en `src/data`.

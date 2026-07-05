@@ -490,6 +490,43 @@
   #start .sinfo { color: var(--muted); font-family: var(--mono); font-size: 11px; margin-top: 18px; line-height: 1.6; }
   #start .sver { color: #3a4a58; font-family: var(--mono); font-size: 10px; margin-top: 30px; letter-spacing: 0.2em; }
 
+  /* ── Fundación (juego nuevo) ── */
+  #newgame {
+    display: none; position: fixed; inset: 0; background: rgba(4, 8, 11, 0.96);
+    z-index: 32; overflow-y: auto; padding: 20px 14px;
+  }
+  #newgame.show { display: block; }
+  #newgame .gbox {
+    max-width: 1050px; margin: 0 auto; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px 20px;
+  }
+  #newgame .gtop { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  #newgame .gtop h2 { margin: 0; font-size: 14px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--player); }
+  .ngrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  @media (max-width: 900px) { .ngrid { grid-template-columns: 1fr; } }
+  .nginput {
+    width: 100%; background: var(--panel); border: 1px solid var(--line); color: var(--ink);
+    font-family: var(--mono); font-size: 13px; font-weight: 700; padding: 8px 10px; border-radius: 4px;
+  }
+  .ngopt {
+    display: block; width: 100%; text-align: left; background: var(--panel); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 4px; font-family: var(--mono); font-size: 11px;
+    padding: 8px 10px; margin-bottom: 5px; cursor: pointer; line-height: 1.5;
+  }
+  .ngopt b { font-size: 12px; }
+  .ngopt .sub { color: var(--muted); font-size: 10px; display: block; }
+  .ngopt.sel { border-color: var(--player); box-shadow: 0 0 0 1px var(--player); }
+  #ng-pilots input {
+    width: 100%; background: var(--panel); border: 1px solid var(--line); color: var(--ink);
+    font-family: var(--mono); font-size: 12px; padding: 6px 9px; border-radius: 4px; margin-bottom: 5px;
+  }
+  #ng-found {
+    background: var(--player-dim); color: var(--player); border: 1px solid var(--player);
+    border-radius: 6px; font-family: var(--mono); font-size: 15px; font-weight: 700;
+    padding: 12px 34px; cursor: pointer; letter-spacing: 0.06em;
+  }
+  #ng-found:hover { background: var(--player); color: #04181d; }
+
   /* ── Pantalla de ciudad ── */
   #city {
     display: none; position: fixed; inset: 0; background: rgba(4, 8, 11, 0.94);
@@ -666,6 +703,38 @@
       </div>
       <div class="sinfo" id="st-info"></div>
       <div class="sver">motor Gea · prototipo</div>
+    </div>
+  </div>
+
+  <div id="newgame">
+    <div class="gbox">
+      <div class="gtop">
+        <h2>Fundar la compañía</h2>
+        <span class="gnote">así empieza todo: un nombre, una máquina y cuatro locos dispuestos a pilotarla</span>
+        <button id="ng-cancel" class="gsub">← volver</button>
+      </div>
+      <div class="ngrid">
+        <div class="csec">
+          <h3>La compañía</h3>
+          <input id="ng-name" class="nginput" placeholder="Nombre de la compañía" maxlength="28" value="Compañía del Este">
+          <h3 style="margin-top:12px">Dificultad</h3>
+          <div id="ng-diff"></div>
+        </div>
+        <div class="csec">
+          <h3>La compañera</h3>
+          <div class="cnote">Tu máquina. La que acumula marcas y no se vende. Elige bien: cambiarla borra su biografía.</div>
+          <div id="ng-companion"></div>
+        </div>
+        <div class="csec">
+          <h3>Los pilotos</h3>
+          <div class="cnote">P1 tripula a la compañera. Los nombres se pueden cambiar luego.</div>
+          <div id="ng-pilots"></div>
+          <div class="cnote" style="margin-top:8px">Escolta fija de arranque: Command Wolf · Gun Sniper · Gustav</div>
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:16px">
+        <button id="ng-found">⚑ Fundar la compañía</button>
+      </div>
     </div>
   </div>
 

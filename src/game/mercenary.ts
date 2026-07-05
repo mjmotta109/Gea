@@ -76,19 +76,34 @@ export interface Contract {
 
 // ── Estado inicial ───────────────────────────────────────────────────────
 
+export interface NewCampaignConfig {
+  /** Créditos y suministros iniciales (dificultad). */
+  credits?: number;
+  supplies?: number;
+  /** Roster inicial (la posición 1 es la compañera). */
+  starterRoster?: string[];
+}
+
 export function newCampaign(
   economy: EconomyTable,
   factoryLoadout: (unitTypeId: string) => { weapons: string[]; slots: Record<string, string> },
+  config: NewCampaignConfig = {},
 ): CampaignState {
   const armory: Record<string, number> = {};
-  const roster = economy.starterRoster.map((unitTypeId) => {
+  const roster = (config.starterRoster ?? economy.starterRoster).map((unitTypeId) => {
     const loadout = factoryLoadout(unitTypeId);
     for (const weaponId of loadout.weapons) {
       armory[weaponId] = (armory[weaponId] ?? 0) + 1;
     }
     return { unitTypeId, hp: FULL_HP, destroyed: false, ...loadout };
   });
-  return { credits: economy.startingCredits, roster, armory, contractsDone: 0, supplies: economy.startingSupplies, cargo: [], moduleBlueprints: [], companion: { markIds: [], memory: {}, rapport: 0 } };
+  return {
+    credits: config.credits ?? economy.startingCredits,
+    roster, armory, contractsDone: 0,
+    supplies: config.supplies ?? economy.startingSupplies,
+    cargo: [], moduleBlueprints: [],
+    companion: { markIds: [], memory: {}, rapport: 0 },
+  };
 }
 
 // ── Contratos deterministas ──────────────────────────────────────────────

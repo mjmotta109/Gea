@@ -20,7 +20,7 @@ import {
 import { STATUS_DEFINITIONS } from '../core/status.js';
 import type { BattleEvent, Facing, Position, Team, UnitState, WeatherId } from '../core/types.js';
 import { ABILITIES } from '../data/abilities.js';
-import { BLUEPRINT_PRICES, CITY_TIERS, CONTRACT_ENEMY_POOL, ECONOMY, LEISURE_OPTIONS, THERAPY } from '../data/economy.js';
+import { BLUEPRINT_PRICES, CITY_TIERS, CONTRACT_ENEMY_POOL, DIFFICULTIES, ECONOMY, LEISURE_OPTIONS, STARTER_COMPANIONS, THERAPY } from '../data/economy.js';
 import { VALLEY_CROSSING } from '../data/maps.js';
 import { GARAGE_MODULE_OPTIONS, MODULES } from '../data/modules.js';
 import { PERKS } from '../data/progression.js';
@@ -587,6 +587,10 @@ function afterAction(): void {
 // ── Teclado ──────────────────────────────────────────────────────────────
 
 document.addEventListener('keydown', (event) => {
+  if (newGameOpen) {
+    if (event.key === 'Escape') closeNewGame();
+    return;
+  }
   if (startOpen) {
     if ((event.key === 'Enter' || event.key === 'Escape') && hasLiveGame()) closeStart();
     return;
@@ -1541,8 +1545,9 @@ function closeMerc(): void {
 
 function renderMerc(): void {
   if (!campaign) return;
+  const company = localStorage.getItem(COMPANY_KEY);
   $('merc-status').textContent =
-    `⌾ ${campaign.credits} créditos · contratos completados: ${campaign.contractsDone}`;
+    `${company ? `${company} · ` : ''}⌾ ${campaign.credits} créditos · contratos completados: ${campaign.contractsDone}`;
   renderContracts();
   renderMercHangar();
   renderMercStore();
@@ -2716,7 +2721,7 @@ function renderSaves(): void {
     saveBtn.textContent = '💾 Guardar aquí';
     saveBtn.addEventListener('click', () => {
       if (save && !window.confirm(`¿Sobrescribir "${save.name}"?`)) return;
-      const name = window.prompt('Nombre de la partida:', save?.name ?? `Campaña ${index + 1}`);
+      const name = window.prompt('Nombre de la partida:', save?.name ?? localStorage.getItem(COMPANY_KEY) ?? `Campaña ${index + 1}`);
       if (name === null) return;
       try {
         localStorage.setItem(key, serializeSave(collectSave(name.trim() || `Campaña ${index + 1}`)));
@@ -3068,22 +3073,92 @@ function closeStart(): void {
   $('start').classList.remove('show');
 }
 
-/** Juego nuevo: borra la partida viva (las ranuras y los mapas quedan). */
-function newGame(): void {
+// ── Fundación de la compañía (asistente de juego nuevo) ────────────────
+
+const COMPANY_KEY = 'gea-company';
+let newGameOpen = false;
+let ngDifficulty = 'mercenario';
+let ngCompanion = STARTER_COMPANIONS[0]!.id;
+
+function openNewGame(): void {
   if (hasLiveGame() &&
       !window.confirm('¿Empezar un JUEGO NUEVO? La partida en curso se borra (las ranuras guardadas y tus mapas del editor se conservan — expórtala antes desde 💾 si quieres).')) {
     return;
   }
+  newGameOpen = true;
+  closeStart();
+  renderNewGame();
+  $('newgame').classList.add('show');
+}
+
+function closeNewGame(): void {
+  newGameOpen = false;
+  $('newgame').classList.remove('show');
+  openStart();
+}
+
+function renderNewGame(): void {
+  // Dificultades.
+  const diffHost = $('ng-diff');
+  diffHost.innerHTML = '';
+  for (const diff of DIFFICULTIES) {
+    const btn = document.createElement('button');
+    btn.className = 'ngopt' + (diff.id === ngDifficulty ? ' sel' : '');
+    btn.dataset['diff'] = diff.id;
+    btn.innerHTML = `<b>${diff.name}</b> · ⌾${diff.credits} · ${diff.supplies} suministros` +
+      `<span class="sub">${diff.description}</span>`;
+    btn.addEventListener('click', () => { ngDifficulty = diff.id; renderNewGame(); });
+    diffHost.appendChild(btn);
+  }
+  // Compañeras elegibles, con sus stats de fábrica.
+  const compHost = $('ng-companion');
+  compHost.innerHTML = '';
+  for (const option of STARTER_COMPANIONS) {
+    const def = ZOIDS[option.id];
+    if (!def) continue;
+    const btn = document.createElement('button');
+    btn.className = 'ngopt' + (option.id === ngCompanion ? ' sel' : '');
+    btn.dataset['comp'] = option.id;
+    btn.innerHTML = `<b>${option.id === ngCompanion ? '❤ ' : ''}${def.name}</b>` +
+      ` · HP ${def.stats.maxHp} · ATQ ${def.stats.atk} · DEF ${def.stats.def} · MOV ${def.stats.move}` +
+      `<span class="sub">${option.blurb}</span>`;
+    btn.addEventListener('click', () => { ngCompanion = option.id; renderNewGame(); });
+    compHost.appendChild(btn);
+  }
+  // Pilotos (inputs persistentes entre re-renders vía defaultValue).
+  const pilotHost = $('ng-pilots');
+  if (pilotHost.childElementCount === 0) {
+    DEFAULT_PILOT_NAMES.forEach((name, i) => {
+      const input = document.createElement('input');
+      input.id = `ng-pilot-${i}`;
+      input.maxLength = 18;
+      input.value = name;
+      input.placeholder = `Piloto ${i + 1}`;
+      pilotHost.appendChild(input);
+    });
+  }
+}
+
+/** Funda la compañía: crea la partida desde cero y arranca en el cuartel. */
+function foundCompany(): void {
+  const diff = DIFFICULTIES.find((d) => d.id === ngDifficulty) ?? DIFFICULTIES[1]!;
+  const company = ($('ng-name') as HTMLInputElement).value.trim() || 'Compañía sin nombre';
   try {
     localStorage.removeItem(CAMPAIGN_KEY);
     localStorage.removeItem(EXPEDITION_KEY);
-    localStorage.removeItem(PILOTS_KEY);
     localStorage.removeItem(GARAGE_KEY);
-    // Arranque directo del juego nuevo en el cuartel, sin pasar por el menú.
     const freshPilots: Record<string, PilotState> = {};
-    PILOT_IDS.forEach((id, i) => { freshPilots[id] = newPilot(id, DEFAULT_PILOT_NAMES[i]!); });
+    PILOT_IDS.forEach((id, i) => {
+      const value = ($(`ng-pilot-${i}`) as HTMLInputElement | null)?.value.trim();
+      freshPilots[id] = newPilot(id, value || DEFAULT_PILOT_NAMES[i]!);
+    });
     localStorage.setItem(PILOTS_KEY, JSON.stringify(freshPilots));
-    localStorage.setItem(CAMPAIGN_KEY, JSON.stringify(newCampaign(ECONOMY, factoryLoadout)));
+    localStorage.setItem(CAMPAIGN_KEY, JSON.stringify(newCampaign(ECONOMY, factoryLoadout, {
+      credits: diff.credits,
+      supplies: diff.supplies,
+      starterRoster: [ngCompanion, 'command-wolf', 'gun-sniper', 'gustav'],
+    })));
+    localStorage.setItem(COMPANY_KEY, company);
     sessionStorage.setItem(SKIP_MENU_FLAG, '1');
   } catch { /* privado */ }
   window.location.reload();
@@ -3204,7 +3279,9 @@ $('st-continue').addEventListener('click', () => {
   closeStart();
 });
 $('st-sandbox').addEventListener('click', enterSandbox);
-$('st-new').addEventListener('click', newGame);
+$('st-new').addEventListener('click', openNewGame);
+$('ng-cancel').addEventListener('click', closeNewGame);
+$('ng-found').addEventListener('click', foundCompany);
 $('st-load').addEventListener('click', () => { closeStart(); openSaves(); });
 
 refreshMapSelect();

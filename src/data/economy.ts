@@ -68,6 +68,45 @@ export const THERAPY = {
   stressRelief: 20,
 };
 
+/** Dificultades de campaña: recursos iniciales (el mundo no cambia). */
+export interface DifficultySpec {
+  id: string;
+  name: string;
+  description: string;
+  credits: number;
+  supplies: number;
+}
+
+export const DIFFICULTIES: DifficultySpec[] = [
+  {
+    id: 'cadete', name: 'Cadete',
+    description: 'Arcas llenas y despensa generosa. Para aprender el oficio.',
+    credits: 3400, supplies: 12,
+  },
+  {
+    id: 'mercenario', name: 'Mercenario',
+    description: 'Lo justo para empezar. El equilibrio pensado del juego.',
+    credits: 2500, supplies: 8,
+  },
+  {
+    id: 'leyenda', name: 'Leyenda',
+    description: 'Deudas, hambre y una reputación por construir. Duele.',
+    credits: 1600, supplies: 5,
+  },
+];
+
+/**
+ * Chasis elegibles como COMPAÑERA al fundar la compañía (curados: sin
+ * los pesos pesados — esos se ganan). El resto del equipo inicial es
+ * fijo: Command Wolf, Gun Sniper y Gustav.
+ */
+export const STARTER_COMPANIONS: Array<{ id: string; blurb: string }> = [
+  { id: 'liger-zero', blurb: 'La equilibrada: rápida, fiable, honesta.' },
+  { id: 'shield-liger', blurb: 'La escudera: aguanta lo que otras no.' },
+  { id: 'zaber-fang', blurb: 'La cazadora: presiona de cerca con el autocañón.' },
+  { id: 'rev-raptor', blurb: 'La navaja: frágil, veloz, letal si tú lo eres.' },
+];
+
 /** Planos de módulos aftermarket (se compran una vez, en fábricas de piezas). */
 export const BLUEPRINT_PRICES: Record<string, number> = {
   'am-sniper-sensor': 380,
