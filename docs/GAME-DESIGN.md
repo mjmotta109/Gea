@@ -147,3 +147,16 @@ arquitectura del motor van en DESIGN.md.)*
     de módulos" frente a sus gemelas monocasco.
   - Banda final: 21 de 23 chasis en 42–58% de victoria; el valle queda
     en 55.5% jugador (el soporte nuevo favorece a su composición).
+- **2026-07-05** — MODO MERCENARIO (rebanada de campaña): contratos →
+  batalla → créditos → tienda/reparaciones, con daño persistente entre
+  batallas. Arquitectura: nueva capa `src/game/` (lógica pura de campaña,
+  ni motor ni cliente) + `src/data/economy.ts` (precios derivados del
+  ciclo de balance) + pantalla de cuartel en la web. Reglas de la
+  rebanada: 3 ofertas deterministas por ciclo (escolta/asalto/caza, con
+  escuadras enemigas muestreadas por presupuesto), recompensa solo al
+  ganar + chatarra por baja enemiga, reparar cuesta 2⌾/HP, un Zoid
+  destruido no se despliega hasta reconstruirlo (60% del precio), las
+  armas son propiedad (comprar/vender/montar con validación de arsenal)
+  y cambiar de chasis incluye retoma del actual según su estado. El
+  motor solo aportó `UnitSpawn.hp`. Pendiente: daño de módulos
+  persistente, precios de módulos, misiones con objetivos distintos.

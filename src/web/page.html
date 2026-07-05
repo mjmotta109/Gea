@@ -253,6 +253,75 @@
   }
   #ov-xp .lvlup { color: var(--energy); }
 
+  /* ── Modo mercenario ── */
+  #merc-btn {
+    background: #3a2a12; color: var(--heat); border: 1px solid var(--heat);
+    border-radius: 4px; font-family: var(--mono); font-size: 12px; padding: 5px 10px; cursor: pointer;
+  }
+  #merc {
+    display: none; position: fixed; inset: 0; background: rgba(4, 8, 11, 0.92);
+    z-index: 20; overflow-y: auto; padding: 20px 14px;
+  }
+  #merc.show { display: block; }
+  #merc .gbox {
+    max-width: 1220px; margin: 0 auto; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px 20px;
+  }
+  #merc .gtop h2 { color: var(--heat); }
+  #merc .msec {
+    margin: 16px 0 8px; font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--muted); font-weight: 600; border-top: 1px dashed var(--line); padding-top: 12px;
+  }
+  #merc-deploy {
+    background: #3a2a12; color: var(--heat); border: 1px solid var(--heat);
+    border-radius: 4px; font-family: var(--mono); font-size: 14px; font-weight: 700;
+    padding: 9px 22px; cursor: pointer;
+  }
+  #merc-deploy:hover:not(:disabled) { background: var(--heat); color: #1d1206; }
+  #merc-deploy:disabled { opacity: 0.4; cursor: not-allowed; }
+  .gsub {
+    background: var(--panel-2); color: var(--muted); border: 1px solid var(--line);
+    border-radius: 4px; font-family: var(--mono); font-size: 11px; padding: 5px 9px; cursor: pointer;
+  }
+  #merc-status { color: var(--heat); font-family: var(--mono); font-size: 12px; font-weight: 700; }
+  #contracts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  @media (max-width: 800px) { #contracts { grid-template-columns: 1fr; } }
+  .ccard {
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px;
+    padding: 10px 12px; cursor: pointer; font-family: var(--mono); font-size: 11px;
+  }
+  .ccard:hover { border-color: var(--heat); }
+  .ccard.sel { border-color: var(--heat); box-shadow: 0 0 0 1px var(--heat); }
+  .ccard .ctier { font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
+  .ccard .ctier.caza { color: var(--danger); }
+  .ccard .cname { font-weight: 700; font-size: 12px; margin: 3px 0 5px; color: var(--ink); }
+  .ccard .creward { color: var(--energy); }
+  .ccard .csquad { color: var(--muted); margin-top: 4px; line-height: 1.5; }
+  #merc-hangar { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  @media (max-width: 1000px) { #merc-hangar { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 560px) { #merc-hangar { grid-template-columns: 1fr; } }
+  .gcard .ghp { display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 10px; color: var(--muted); }
+  .gcard .ghp .bar { flex: 1; }
+  .gcard .gbtn {
+    background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 3px;
+    font-family: var(--mono); font-size: 10px; padding: 4px 7px; cursor: pointer;
+  }
+  .gcard .gbtn:hover:not(:disabled) { border-color: var(--energy); color: var(--energy); }
+  .gcard .gbtn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .gcard .gwreck { color: var(--danger); font-family: var(--mono); font-size: 11px; font-weight: 700; }
+  #merc-store { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 6px; }
+  .srow {
+    display: flex; align-items: center; gap: 6px; background: var(--panel-2);
+    border: 1px solid var(--line); border-radius: 4px; padding: 5px 8px;
+    font-family: var(--mono); font-size: 10px;
+  }
+  .srow .sname { flex: 1; color: var(--ink); }
+  .srow .sown { color: var(--energy); }
+  #ov-merc { font-family: var(--mono); font-size: 12px; margin: 0 0 14px; line-height: 1.7; }
+  #ov-merc:empty { margin: 0; }
+  #ov-merc .mgain { color: var(--energy); font-weight: 700; }
+  #ov-merc .mloss { color: var(--danger); font-weight: 700; }
+
   @media (prefers-reduced-motion: no-preference) {
     .chip.active-unit { animation: pulse 1.6s ease-in-out infinite; }
     @keyframes pulse {
@@ -275,6 +344,7 @@
       </select>
     </label>
     <label>semilla <input id="seed" type="number" value="42"></label>
+    <button id="merc-btn">🏴 Campaña</button>
     <button id="garage-btn">⚙ Garaje</button>
     <button id="restart">Nueva batalla</button>
   </header>
@@ -300,7 +370,25 @@
     </aside>
   </main>
 
-  <div id="overlay"><div class="box"><h2 id="ov-title"></h2><p id="ov-sub"></p><div id="ov-xp"></div><button id="ov-restart">Nueva batalla</button></div></div>
+  <div id="overlay"><div class="box"><h2 id="ov-title"></h2><p id="ov-sub"></p><div id="ov-merc"></div><div id="ov-xp"></div><button id="ov-restart">Nueva batalla</button></div></div>
+
+  <div id="merc">
+    <div class="gbox">
+      <div class="gtop">
+        <h2>Compañía mercenaria</h2>
+        <span class="gnote" id="merc-status"></span>
+        <button id="merc-skirmish" class="gsub">modo escaramuza</button>
+        <button id="merc-reset" class="gsub">nueva campaña</button>
+        <button id="merc-deploy">▶ Desplegar</button>
+      </div>
+      <h3 class="msec">Contratos disponibles</h3>
+      <div id="contracts"></div>
+      <h3 class="msec">Hangar</h3>
+      <div id="merc-hangar"></div>
+      <h3 class="msec">Armería <span class="gmuted" style="font-weight:400">— comprar aquí, montar en el hangar</span></h3>
+      <div id="merc-store"></div>
+    </div>
+  </div>
 
   <div id="garage">
     <div class="gbox">

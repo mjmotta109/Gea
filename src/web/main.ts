@@ -18,12 +18,18 @@ import {
 import { STATUS_DEFINITIONS } from '../core/status.js';
 import type { BattleEvent, Facing, Position, Team, UnitState, WeatherId } from '../core/types.js';
 import { ABILITIES } from '../data/abilities.js';
+import { CONTRACT_ENEMY_POOL, ECONOMY } from '../data/economy.js';
 import { VALLEY_CROSSING } from '../data/maps.js';
 import { GARAGE_MODULE_OPTIONS, MODULES } from '../data/modules.js';
 import { PERKS } from '../data/progression.js';
 import { withWeaponLibrary } from '../data/weaponLibrary.js';
 import { WEAPONS } from '../data/weapons.js';
 import { ZOIDS } from '../data/zoids.js';
+import {
+  buyWeapon, buyZoid, contractOffers, mountedCount, newCampaign, rebuildCost,
+  rebuildZoid, repairCost, repairZoid, resolveContract, sellWeapon, setMountedWeapons,
+  type CampaignState, type Contract,
+} from '../game/mercenary.js';
 
 // Catálogos completos del cliente: base + anexo de la librería de armas.
 // Los Zoids de segunda generación montan armas 'lib-*' y los necesitan.
@@ -175,13 +181,12 @@ function enemyTeam(seed: number): UnitSpawn[] {
   for (let i = 0; i < 3; i++) {
     picks.push(pool.splice(Math.floor(next() * pool.length), 1)[0]!);
   }
-  const positions: Position[] = [{ x: 10, y: 3 }, { x: 11, y: 5 }, { x: 10, y: 6 }, { x: 11, y: 2 }];
   return [commander, ...picks].map((unitTypeId, i) => ({
     id: `E${i + 1}`,
     name: ZOIDS[unitTypeId]!.name,
     unitTypeId,
     team: 'enemy' as Team,
-    position: positions[i]!,
+    position: ENEMY_POSITIONS[i]!,
     ...(i === 0 ? { commander: true } : {}),
   }));
 }
@@ -193,8 +198,13 @@ let unitTeams: Record<string, Team> = {};
 let xpAwarded = false;
 
 const PLAYER_POSITIONS: Position[] = [{ x: 1, y: 3 }, { x: 0, y: 5 }, { x: 1, y: 7 }, { x: 0, y: 4 }];
+const ENEMY_POSITIONS: Position[] = [{ x: 10, y: 3 }, { x: 11, y: 5 }, { x: 10, y: 6 }, { x: 11, y: 2 }];
 
+/** Escaramuza libre: el equipo del garaje contra un equipo por semilla. */
 function newBattle(seed: number, weather: WeatherId): void {
+  activeContract = null; // empezar escaramuza abandona el contrato en curso
+  deployedSlots = [];
+  returnToMerc = false;
   const spawns: UnitSpawn[] = [
     ...garage.map((config, i) => ({
       id: PLAYER_IDS[i]!,
@@ -207,6 +217,10 @@ function newBattle(seed: number, weather: WeatherId): void {
     })),
     ...enemyTeam(seed),
   ];
+  startBattle(spawns, seed, weather);
+}
+
+function startBattle(spawns: UnitSpawn[], seed: number, weather: WeatherId): void {
   battle = new Battle({
     map: VALLEY_CROSSING,
     unitCatalog: ZOIDS,
@@ -216,7 +230,11 @@ function newBattle(seed: number, weather: WeatherId): void {
     weather,
     seed,
     spawns,
-    pilots: Object.fromEntries(PLAYER_IDS.map((id, i) => [id, pilots[PILOT_IDS[i]!]!])),
+    // El id Pn conserva el hueco n aunque falten unidades (campaña con
+    // bajas): el piloto n siempre tripula el hueco n.
+    pilots: Object.fromEntries(
+      spawns.filter((s) => s.team === 'player')
+        .map((s) => [s.id, pilots[PILOT_IDS[Number(s.id.slice(1)) - 1]!]!])),
     perkTable: PERKS,
   });
   allEvents = [];
@@ -483,6 +501,10 @@ function afterAction(): void {
 document.addEventListener('keydown', (event) => {
   if (garageOpen) {
     if (event.key === 'Escape') closeGarage();
+    return;
+  }
+  if (mercOpen) {
+    if (event.key === 'Escape') closeMerc();
     return;
   }
   if (document.activeElement === $('seed')) return;
@@ -1016,6 +1038,7 @@ function showOverlay(): void {
   $('ov-sub').textContent = won
     ? 'El equipo cian controla el valle. [Enter] para otra batalla.'
     : 'Tus Zoids quedan fuera de combate. [Enter] para reintentar.';
+  $('ov-merc').innerHTML = activeContract ? settleContract() : '';
   $('ov-xp').innerHTML = renderXpSummary();
   $('overlay').classList.add('show');
 }
@@ -1074,6 +1097,7 @@ const ROLE_LABEL: Record<string, string> = {
 
 function openGarage(): void {
   garageOpen = true;
+  closeMerc();
   renderGarage();
   $('garage').classList.add('show');
 }
@@ -1266,18 +1290,413 @@ function renderGarage(): void {
   });
 }
 
+// ── Modo mercenario (pantalla de campaña) ────────────────────────────────
+
+const CAMPAIGN_KEY = 'gea-campaign-v1';
+const TIER_LABEL: Record<Contract['tier'], string> = { escolta: 'Escolta', asalto: 'Asalto', caza: 'Caza' };
+
+const factoryLoadout = (unitTypeId: string): { weapons: string[]; slots: Record<string, string> } =>
+  ({ weapons: [...(ZOIDS[unitTypeId]!.weapons ?? [])], slots: {} });
+
+function loadCampaign(): CampaignState | null {
+  try {
+    const raw = localStorage.getItem(CAMPAIGN_KEY);
+    if (!raw) return null;
+    const state = JSON.parse(raw) as CampaignState;
+    if (!Array.isArray(state.roster) || typeof state.credits !== 'number') return null;
+    return state;
+  } catch {
+    return null;
+  }
+}
+
+let campaign: CampaignState | null = loadCampaign();
+let selectedContractId: string | null = null;
+/** Contrato de la batalla en curso (null = escaramuza libre). */
+let activeContract: Contract | null = null;
+/** Huecos del roster desplegados en la batalla de contrato actual. */
+let deployedSlots: number[] = [];
+/** Tras resolver un contrato, "Nueva batalla" vuelve a la campaña. */
+let returnToMerc = false;
+let mercOpen = false;
+
+function saveCampaign(): void {
+  try {
+    if (campaign) localStorage.setItem(CAMPAIGN_KEY, JSON.stringify(campaign));
+    else localStorage.removeItem(CAMPAIGN_KEY);
+  } catch { /* almacenamiento privado */ }
+}
+
+/** maxHp real del hueco (motor manda: montaje + perks del piloto). */
+function campaignMaxHp(slot: number): number {
+  const zoid = campaign!.roster[slot]!;
+  const stats = previewStats(
+    { unitTypeId: zoid.unitTypeId, weapons: zoid.weapons, slots: zoid.slots },
+    PILOT_IDS[slot]!,
+  );
+  return stats?.maxHp ?? ZOIDS[zoid.unitTypeId]!.stats.maxHp;
+}
+
+function openMerc(): void {
+  if (!campaign) {
+    campaign = newCampaign(ECONOMY, factoryLoadout);
+    saveCampaign();
+  }
+  mercOpen = true;
+  closeGarage();
+  renderMerc();
+  $('merc').classList.add('show');
+}
+
+function closeMerc(): void {
+  mercOpen = false;
+  $('merc').classList.remove('show');
+}
+
+function renderMerc(): void {
+  if (!campaign) return;
+  $('merc-status').textContent =
+    `⌾ ${campaign.credits} créditos · contratos completados: ${campaign.contractsDone}`;
+  renderContracts();
+  renderMercHangar();
+  renderMercStore();
+  const anyAlive = campaign.roster.some((z) => !z.destroyed);
+  ($('merc-deploy') as HTMLButtonElement).disabled = !selectedContractId || !anyAlive;
+}
+
+function renderContracts(): void {
+  const host = $('contracts');
+  host.innerHTML = '';
+  const offers = contractOffers(campaign!.contractsDone, ECONOMY, CONTRACT_ENEMY_POOL);
+  if (!offers.some((c) => c.id === selectedContractId)) selectedContractId = null;
+  for (const contract of offers) {
+    const card = document.createElement('div');
+    card.className = 'ccard' + (contract.id === selectedContractId ? ' sel' : '');
+    card.innerHTML =
+      `<div class="ctier ${contract.tier}">${TIER_LABEL[contract.tier]}</div>` +
+      `<div class="cname">${contract.name}</div>` +
+      `<div class="creward">recompensa ⌾${contract.reward} · chatarra ⌾${contract.salvagePerKill}/baja</div>` +
+      `<div class="csquad">contra: ${contract.enemySquad.map((id) => ZOIDS[id]!.name).join(' · ')}</div>`;
+    card.addEventListener('click', () => {
+      selectedContractId = contract.id;
+      renderMerc();
+    });
+    host.appendChild(card);
+  }
+}
+
+function renderMercHangar(): void {
+  const host = $('merc-hangar');
+  host.innerHTML = '';
+  campaign!.roster.forEach((zoid, slot) => {
+    const def = ZOIDS[zoid.unitTypeId]!;
+    const pilot = pilots[PILOT_IDS[slot]!]!;
+    const maxHp = campaignMaxHp(slot);
+    const card = document.createElement('div');
+    card.className = 'gcard';
+
+    card.innerHTML =
+      `<div class="ghead-row"><span class="gtag">P${slot + 1}${slot === 0 ? ' ★' : ''}</span>` +
+      `<b style="font-family:var(--mono);font-size:13px">${def.name}</b></div>` +
+      `<div class="gtracks">${escapeHtml(pilot.name)} · ${pilotSummary(pilot)}</div>`;
+
+    if (zoid.destroyed) {
+      const cost = rebuildCost(zoid, ECONOMY);
+      const wreck = document.createElement('div');
+      wreck.className = 'gwreck';
+      wreck.textContent = '💥 DESTRUIDO — no se desplegará';
+      card.appendChild(wreck);
+      const btn = document.createElement('button');
+      btn.className = 'gbtn';
+      btn.textContent = `Reconstruir (⌾${cost})`;
+      btn.disabled = campaign!.credits < cost;
+      btn.addEventListener('click', () => {
+        campaign = rebuildZoid(campaign!, slot, campaignMaxHp(slot), ECONOMY);
+        saveCampaign();
+        renderMerc();
+      });
+      card.appendChild(btn);
+    } else {
+      const hp = Math.min(zoid.hp, maxHp);
+      const row = document.createElement('div');
+      row.className = 'ghp';
+      row.innerHTML =
+        `<span>HP</span><span class="bar hp"><i style="width:${Math.round((hp / maxHp) * 100)}%"></i></span>` +
+        `<span>${hp}/${maxHp}</span>`;
+      card.appendChild(row);
+      const cost = repairCost(zoid, maxHp, ECONOMY);
+      if (cost > 0) {
+        const btn = document.createElement('button');
+        btn.className = 'gbtn';
+        btn.textContent = `Reparar (⌾${cost})`;
+        btn.disabled = campaign!.credits < cost;
+        btn.addEventListener('click', () => {
+          campaign = repairZoid(campaign!, slot, campaignMaxHp(slot), ECONOMY);
+          saveCampaign();
+          renderMerc();
+        });
+        card.appendChild(btn);
+      }
+    }
+
+    const mkRow = (label: string, control: HTMLElement): void => {
+      const row = document.createElement('label');
+      row.className = 'grow';
+      row.innerHTML = `<span>${label}</span>`;
+      row.appendChild(control);
+      card.appendChild(row);
+    };
+
+    // Cambiar de chasis (retoma incluida en el precio mostrado).
+    const chassisSelect = document.createElement('select');
+    const keep = document.createElement('option');
+    keep.value = '';
+    keep.textContent = `${def.name} (actual)`;
+    chassisSelect.appendChild(keep);
+    for (const unit of Object.values(ZOIDS)) {
+      if (unit.id === zoid.unitTypeId) continue;
+      const price = ECONOMY.zoidPrices[unit.id];
+      if (price === undefined) continue;
+      const probe = buyZoid(campaign!, slot, unit.id, maxHp, ECONOMY, factoryLoadout);
+      const net = campaign!.credits - probe.credits;
+      const opt = document.createElement('option');
+      opt.value = unit.id;
+      opt.textContent = `${unit.name} · neto ⌾${net}`;
+      opt.disabled = probe === campaign; // no alcanzan los créditos
+      chassisSelect.appendChild(opt);
+    }
+    chassisSelect.addEventListener('change', () => {
+      if (!chassisSelect.value) return;
+      campaign = buyZoid(campaign!, slot, chassisSelect.value, maxHp, ECONOMY, factoryLoadout);
+      saveCampaign();
+      renderMerc();
+    });
+    mkRow('Cambiar chasis', chassisSelect);
+
+    // Armas: solo las que se poseen y tienen unidad libre.
+    if (!zoid.destroyed) {
+      const legal = compatibleWeapons(zoid.unitTypeId);
+      for (let wSlot = 0; wSlot < 3; wSlot++) {
+        const current = zoid.weapons[wSlot] ?? '';
+        const weaponSelect = document.createElement('select');
+        const none = document.createElement('option');
+        none.value = '';
+        none.textContent = '— sin arma —';
+        weaponSelect.appendChild(none);
+        for (const weaponId of legal) {
+          const owned = campaign!.armory[weaponId] ?? 0;
+          if (owned === 0) continue;
+          const spare = owned - mountedCount(campaign!, weaponId) + (current === weaponId ? 1 : 0);
+          if (spare <= 0) continue;
+          const weapon = CATALOGS.weaponCatalog[weaponId]!;
+          const opt = document.createElement('option');
+          opt.value = weaponId;
+          opt.textContent = weapon.spec ? `${weapon.name} [${SPEC_LABEL[weapon.spec]}]` : weapon.name;
+          if (current === weaponId) opt.selected = true;
+          weaponSelect.appendChild(opt);
+        }
+        weaponSelect.addEventListener('change', () => {
+          const picked = [0, 1, 2]
+            .map((s) => (s === wSlot ? weaponSelect.value : zoid.weapons[s] ?? ''))
+            .filter(Boolean);
+          campaign = setMountedWeapons(campaign!, slot, picked);
+          saveCampaign();
+          renderMerc();
+        });
+        mkRow(`Arma ${wSlot + 1}`, weaponSelect);
+      }
+
+      // Módulos por slot del frame (recambios gratis en esta rebanada).
+      for (const entry of def.frame ?? []) {
+        const options = (GARAGE_MODULE_OPTIONS[entry.slot] ?? []).filter((id) => MODULES[id]);
+        if (options.length === 0) continue;
+        const moduleSelect = document.createElement('select');
+        for (const moduleId of [entry.moduleId, ...options]) {
+          const module = MODULES[moduleId]!;
+          const opt = document.createElement('option');
+          opt.value = moduleId;
+          opt.textContent = moduleId === entry.moduleId
+            ? `${module.name} (fábrica)`
+            : module.spec ? `${module.name} [${SPEC_LABEL[module.spec]}]` : module.name;
+          if ((zoid.slots[entry.slot] ?? entry.moduleId) === moduleId) opt.selected = true;
+          moduleSelect.appendChild(opt);
+        }
+        moduleSelect.addEventListener('change', () => {
+          const slots = { ...zoid.slots };
+          if (moduleSelect.value === entry.moduleId) delete slots[entry.slot];
+          else slots[entry.slot] = moduleSelect.value;
+          campaign = {
+            ...campaign!,
+            roster: campaign!.roster.map((z, i) => (i === slot ? { ...z, slots } : z)),
+          };
+          saveCampaign();
+          renderMerc();
+        });
+        mkRow(entry.slot, moduleSelect);
+      }
+
+      // Stats en vivo con las piezas actuales.
+      const stats = previewStats(
+        { unitTypeId: zoid.unitTypeId, weapons: zoid.weapons, slots: zoid.slots },
+        PILOT_IDS[slot]!,
+      );
+      if (stats) {
+        const statsBox = document.createElement('div');
+        statsBox.className = 'gstats';
+        const rows: [string, keyof typeof stats][] = [
+          ['HP', 'maxHp'], ['ATQ', 'atk'], ['ATQ.E', 'energyAtk'], ['DEF', 'def'],
+          ['VEL', 'speed'], ['MOV', 'move'], ['EVA', 'evade'], ['PUNT', 'accuracy'],
+        ];
+        statsBox.innerHTML = rows.map(([label, stat]) =>
+          `<span class="gstat"><i>${label}</i> <b>${stats[stat]}</b></span>`).join('');
+        card.appendChild(statsBox);
+      }
+    }
+
+    host.appendChild(card);
+  });
+}
+
+function renderMercStore(): void {
+  const host = $('merc-store');
+  host.innerHTML = '';
+  for (const [weaponId, price] of Object.entries(ECONOMY.weaponPrices)) {
+    const weapon = CATALOGS.weaponCatalog[weaponId];
+    if (!weapon) continue;
+    const owned = campaign!.armory[weaponId] ?? 0;
+    const spare = owned - mountedCount(campaign!, weaponId);
+    const row = document.createElement('div');
+    row.className = 'srow';
+    row.innerHTML =
+      `<span class="sname">${weapon.name}${weapon.spec ? ` [${SPEC_LABEL[weapon.spec]}]` : ''}</span>` +
+      (owned > 0 ? `<span class="sown">×${owned}</span>` : '');
+    const buy = document.createElement('button');
+    buy.className = 'gbtn';
+    buy.textContent = `⌾${price}`;
+    buy.title = 'comprar';
+    buy.disabled = campaign!.credits < price;
+    buy.addEventListener('click', () => {
+      campaign = buyWeapon(campaign!, weaponId, ECONOMY);
+      saveCampaign();
+      renderMerc();
+    });
+    row.appendChild(buy);
+    if (spare > 0) {
+      const sell = document.createElement('button');
+      sell.className = 'gbtn';
+      sell.textContent = `vender ⌾${Math.round(price * ECONOMY.sellFactor)}`;
+      sell.addEventListener('click', () => {
+        campaign = sellWeapon(campaign!, weaponId, ECONOMY);
+        saveCampaign();
+        renderMerc();
+      });
+      row.appendChild(sell);
+    }
+    host.appendChild(row);
+  }
+}
+
+/** Despliega el contrato seleccionado con los Zoids operativos. */
+function deployContract(): void {
+  if (!campaign || !selectedContractId) return;
+  const offers = contractOffers(campaign.contractsDone, ECONOMY, CONTRACT_ENEMY_POOL);
+  const contract = offers.find((c) => c.id === selectedContractId);
+  if (!contract) return;
+  const alive = campaign.roster
+    .map((zoid, slot) => ({ zoid, slot }))
+    .filter(({ zoid }) => !zoid.destroyed);
+  if (alive.length === 0) return;
+
+  const spawns: UnitSpawn[] = [
+    ...alive.map(({ zoid, slot }, k) => ({
+      id: `P${slot + 1}`,
+      name: ZOIDS[zoid.unitTypeId]!.name,
+      unitTypeId: zoid.unitTypeId,
+      team: 'player' as Team,
+      position: PLAYER_POSITIONS[k]!,
+      hp: zoid.hp,
+      loadout: {
+        weapons: [...zoid.weapons],
+        ...(Object.keys(zoid.slots).length > 0 ? { slots: { ...zoid.slots } } : {}),
+      },
+      ...(k === 0 ? { commander: true } : {}),
+    })),
+    ...contract.enemySquad.map((unitTypeId, i) => ({
+      id: `E${i + 1}`,
+      name: ZOIDS[unitTypeId]!.name,
+      unitTypeId,
+      team: 'enemy' as Team,
+      position: ENEMY_POSITIONS[i]!,
+      ...(i === 0 ? { commander: true } : {}),
+    })),
+  ];
+
+  deployedSlots = alive.map(({ slot }) => slot);
+  activeContract = contract;
+  returnToMerc = false;
+  closeMerc();
+  // Semilla distinta por ciclo de contratos: reproducible, no farmeable.
+  const seed = (Number(($('seed') as HTMLInputElement).value) || 42) + campaign.contractsDone * 1009;
+  const weather = ($('weather') as HTMLSelectElement).value as WeatherId;
+  startBattle(spawns, seed, weather);
+}
+
+/** Liquida el contrato al terminar la batalla; devuelve el HTML del parte. */
+function settleContract(): string {
+  const contract = activeContract!;
+  activeContract = null;
+  returnToMerc = true;
+  const finalHp = campaign!.roster.map((_, slot) =>
+    deployedSlots.includes(slot) ? battle.unit(`P${slot + 1}`).hp : undefined);
+  const enemiesDestroyed = battle.units.filter((u) => u.team === 'enemy' && u.hp <= 0).length;
+  const { state, report } = resolveContract(campaign!, contract, {
+    winner: battle.winner,
+    finalHp,
+    enemiesDestroyed,
+  });
+  campaign = state;
+  saveCampaign();
+
+  const lines = [
+    `<div><b>${contract.name}</b> — ${TIER_LABEL[contract.tier]}</div>`,
+    `<div class="mgain">+⌾${report.creditsEarned} (${report.rewardPaid ? `recompensa ⌾${contract.reward} + ` : 'sin recompensa · '}chatarra ⌾${report.salvage})</div>`,
+  ];
+  if (report.lost.length > 0) {
+    lines.push(`<div class="mloss">bajas: ${report.lost.map((id) => ZOIDS[id]!.name).join(', ')} — reconstruir cuesta el 60%</div>`);
+  }
+  lines.push(`<div class="pv-muted" style="color:var(--muted)">saldo: ⌾${campaign.credits}</div>`);
+  return lines.join('');
+}
+
 // ── Arranque ─────────────────────────────────────────────────────────────
 
 function restart(): void {
+  if (returnToMerc && campaign) {
+    // La batalla de contrato ya se liquidó: "Nueva batalla" vuelve al
+    // cuartel para reparar, comprar y elegir el siguiente contrato.
+    openMerc();
+    return;
+  }
   const seed = Number(($('seed') as HTMLInputElement).value) || 42;
   const weather = ($('weather') as HTMLSelectElement).value as WeatherId;
   newBattle(seed, weather);
 }
 
-$('restart').addEventListener('click', restart);
+$('restart').addEventListener('click', () => { returnToMerc = false; restart(); });
 $('ov-restart').addEventListener('click', restart);
 $('garage-btn').addEventListener('click', openGarage);
-$('deploy').addEventListener('click', () => { closeGarage(); restart(); });
+$('deploy').addEventListener('click', () => { closeGarage(); returnToMerc = false; restart(); });
+$('merc-btn').addEventListener('click', openMerc);
+$('merc-deploy').addEventListener('click', deployContract);
+$('merc-skirmish').addEventListener('click', () => { closeMerc(); openGarage(); });
+$('merc-reset').addEventListener('click', () => {
+  if (!window.confirm('¿Empezar una campaña nueva? Se pierden créditos, hangar y arsenal (los pilotos se conservan).')) return;
+  campaign = newCampaign(ECONOMY, factoryLoadout);
+  selectedContractId = null;
+  saveCampaign();
+  renderMerc();
+});
 restart();
-// El primer contacto es el garaje: ensamblar y desplegar.
-openGarage();
+// El primer contacto: la campaña si existe; si no, el garaje libre.
+if (campaign) openMerc();
+else openGarage();
