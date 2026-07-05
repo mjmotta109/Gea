@@ -12,7 +12,7 @@ import { attackArc, type AttackArc } from '../core/combat.js';
 import { posKey, terrainLabel, TERRAIN_COVER } from '../core/grid.js';
 import { reachableTiles, type ReachableTile } from '../core/pathfinding.js';
 import { STATUS_DEFINITIONS } from '../core/status.js';
-import type { BattleEvent, Facing, Position, UnitState } from '../core/types.js';
+import type { BattleEvent, Facing, Position, UnitState, WeatherId } from '../core/types.js';
 import { ABILITIES } from '../data/abilities.js';
 import { VALLEY_CROSSING } from '../data/maps.js';
 import { MODULES } from '../data/modules.js';
@@ -45,13 +45,14 @@ const FACING_OFFSET: Record<Facing, Position> = {
   north: { x: 0, y: -1 }, east: { x: 1, y: 0 }, south: { x: 0, y: 1 }, west: { x: -1, y: 0 },
 };
 
-function newBattle(seed: number): void {
+function newBattle(seed: number, weather: WeatherId): void {
   battle = new Battle({
     map: VALLEY_CROSSING,
     unitCatalog: ZOIDS,
     abilityCatalog: ABILITIES,
     moduleCatalog: MODULES,
     weaponCatalog: WEAPONS,
+    weather,
     seed,
     spawns: [
       { id: 'P1', name: 'Liger Zero CAS', unitTypeId: 'liger-zero-cas', team: 'player', position: { x: 1, y: 3 } },
@@ -603,9 +604,9 @@ function renderPreview(): void {
       ? battle.attackPreview(unit.id, mode.abilityId, cursor)
       : undefined;
     if (preview) {
-      const { chance, min, max, arc, heightAdvantage, cover } = preview;
+      const { chance, min, max, arc, heightAdvantage, cover, weatherPenalty } = preview;
       lines.push(`<div class="pv-title">${ability.name} → ${occupant.id} ${occupant.name}</div>`);
-      lines.push(`<div>impacto <b>${chance}%</b> · daño <b>${min}–${max}</b> · arco <b class="${arc === 'back' ? 'pv-good' : arc === 'side' ? 'pv-warn' : ''}">${ARC_LABEL[arc]}</b>${heightAdvantage !== 0 ? ` · altura ${heightAdvantage > 0 ? '+' : ''}${heightAdvantage}` : ''}${cover > 0 ? ` · <span class="pv-warn">cobertura −${cover}</span>` : ''}</div>`);
+      lines.push(`<div>impacto <b>${chance}%</b> · daño <b>${min}–${max}</b> · arco <b class="${arc === 'back' ? 'pv-good' : arc === 'side' ? 'pv-warn' : ''}">${ARC_LABEL[arc]}</b>${heightAdvantage !== 0 ? ` · altura ${heightAdvantage > 0 ? '+' : ''}${heightAdvantage}` : ''}${cover > 0 ? ` · <span class="pv-warn">cobertura −${cover}</span>` : ''}${weatherPenalty > 0 ? ` · <span class="pv-warn">clima −${weatherPenalty}</span>` : ''}</div>`);
       const entry = battle.weaponEntry(unit, mode.abilityId);
       if (entry) {
         const cost = entry.def.costs;
@@ -806,7 +807,8 @@ function showOverlay(): void {
 
 function restart(): void {
   const seed = Number(($('seed') as HTMLInputElement).value) || 42;
-  newBattle(seed);
+  const weather = ($('weather') as HTMLSelectElement).value as WeatherId;
+  newBattle(seed, weather);
 }
 
 $('restart').addEventListener('click', restart);

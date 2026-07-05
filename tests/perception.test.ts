@@ -84,3 +84,61 @@ describe('fase 3: cobertura por terreno', () => {
     }
   });
 });
+
+describe('fase 3: clima', () => {
+  it('la lluvia acelera la disipación de calor un 50%', async () => {
+    const { GameMap } = await import('../src/core/grid.js');
+    const { WEAPONS } = await import('../src/data/weapons.js');
+    const { MODULES } = await import('../src/data/modules.js');
+    const mk = (weather: 'clear' | 'rain') => new Battle({
+      map: GameMap.fromAscii(['00000']),
+      unitCatalog: ZOIDS,
+      abilityCatalog: ABILITIES,
+      weaponCatalog: WEAPONS,
+      moduleCatalog: MODULES,
+      weather,
+      seed: 3,
+      spawns: [
+        { id: 'G', name: 'Geno', unitTypeId: 'geno-saurer-cp', team: 'player', position: { x: 0, y: 0 } },
+        { id: 'M', name: 'Molga', unitTypeId: 'molga', team: 'enemy', position: { x: 4, y: 0 } },
+      ],
+    });
+    for (const [weather, expected] of [['clear', 15], ['rain', 23]] as Array<['clear' | 'rain', number]>) {
+      const battle = mk(weather);
+      battle.nextTurn(); // Geno (speed 12) actúa primero
+      const geno = battle.unit('G');
+      geno.components.heat!.current = 40;
+      battle.execute({ type: 'wait', unitId: 'G' });
+      expect(40 - geno.components.heat!.current).toBe(expected);
+    }
+  });
+
+  it('la tormenta de arena resta 10 de puntería solo a más de 2 casillas', async () => {
+    const { GameMap } = await import('../src/core/grid.js');
+    const mk = (weather: 'clear' | 'sandstorm') => {
+      const battle = new Battle({
+        map: GameMap.fromAscii(['000000']),
+        unitCatalog: ZOIDS,
+        abilityCatalog: ABILITIES,
+        weather,
+        seed: 3,
+        spawns: [
+          { id: 'W', name: 'Wolf', unitTypeId: 'command-wolf', team: 'player', position: { x: 0, y: 0 } },
+          { id: 'M1', name: 'Cerca', unitTypeId: 'molga', team: 'enemy', position: { x: 2, y: 0 } },
+          { id: 'M2', name: 'Lejos', unitTypeId: 'molga', team: 'enemy', position: { x: 4, y: 0 } },
+        ],
+      });
+      battle.nextTurn();
+      return battle;
+    };
+    const clear = mk('clear');
+    const storm = mk('sandstorm');
+    // A 2 casillas: sin penalización.
+    expect(storm.attackPreview('W', 'shock-cannon', { x: 2, y: 0 })!.chance)
+      .toBe(clear.attackPreview('W', 'shock-cannon', { x: 2, y: 0 })!.chance);
+    // A 4 casillas: -10.
+    expect(clear.attackPreview('W', 'shock-cannon', { x: 4, y: 0 })!.chance
+      - storm.attackPreview('W', 'shock-cannon', { x: 4, y: 0 })!.chance).toBe(10);
+    expect(storm.attackPreview('W', 'shock-cannon', { x: 4, y: 0 })!.weatherPenalty).toBe(10);
+  });
+});

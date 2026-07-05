@@ -44,6 +44,7 @@ import {
   type UnitState,
   type UnitDefinition,
   type WeaponDefinition,
+  type WeatherId,
 } from './types.js';
 
 export interface UnitSpawn {
@@ -65,6 +66,8 @@ export interface BattleConfig {
   moduleCatalog?: ModuleCatalog;
   /** Catálogo de armas; solo necesario si alguna unidad define weapons. */
   weaponCatalog?: Record<string, WeaponDefinition>;
+  /** Clima de la batalla; por defecto despejado. */
+  weather?: WeatherId;
   seed: number;
   /**
    * Sistemas activos, invocados en el orden del array (determinista).
@@ -85,6 +88,7 @@ export interface BattleConfig {
 export class Battle {
   readonly map: GameMap;
   readonly units: UnitState[];
+  readonly weather: WeatherId;
   private definitions: Record<string, UnitDefinition>;
   private abilities: Record<string, AbilityDefinition>;
   private modules: ModuleCatalog;
@@ -101,10 +105,12 @@ export class Battle {
     this.abilities = config.abilityCatalog;
     this.modules = config.moduleCatalog ?? {};
     this.rng = new Rng(config.seed);
+    this.weather = config.weather ?? 'clear';
     this.weapons = config.weaponCatalog ?? {};
     this.systems = config.systems ?? defaultSystems();
     this.systemContext = {
       map: this.map,
+      weather: this.weather,
       modules: this.modules,
       effectiveStats: (u) => this.effectiveStats(u),
       definitionOf: (u) => this.definitionOf(u.unitTypeId),
@@ -363,9 +369,35 @@ export class Battle {
   }
 
   /**
+   * Contexto de impacto compartido por la resolución y el pronóstico:
+   * arco, cobertura del terreno del defensor y penalización climática.
+   * ÚNICO cálculo de probabilidad de impacto del motor — resolución y
+   * preview no pueden divergir.
+   */
+  private hitContext(user: UnitState, victim: UnitState, ability: AbilityDefinition): {
+    chance: number;
+    arc: AttackArc;
+    cover: number;
+    weatherPenalty: number;
+  } {
+    const arc = attackArc(user.position, victim.position, victim.facing);
+    const cover = TERRAIN_COVER[this.map.tileAt(victim.position).terrain];
+    // Tormenta de arena: la puntería se degrada más allá del combate cercano.
+    const weatherPenalty =
+      this.weather === 'sandstorm' && manhattan(user.position, victim.position) > 2 ? 10 : 0;
+    const chance = hitChance({
+      accuracy: ability.accuracy - weatherPenalty,
+      attackerAccuracy: this.effectiveStats(user).accuracy,
+      arc,
+      defenderEvade: this.effectiveStats(victim).evade + cover,
+    });
+    return { chance, arc, cover, weatherPenalty };
+  }
+
+  /**
    * Pronóstico completo de un ataque para UI/IA: probabilidad (con arco,
-   * cobertura del terreno del defensor y puntería), rango de daño y
-   * contexto. undefined si no hay efecto de daño o no hay unidad objetivo.
+   * cobertura, clima y puntería), rango de daño y contexto. undefined si
+   * no hay efecto de daño o no hay unidad objetivo.
    */
   attackPreview(unitId: string, abilityId: string, target: Position): {
     chance: number;
@@ -374,6 +406,7 @@ export class Battle {
     arc: AttackArc;
     heightAdvantage: number;
     cover: number;
+    weatherPenalty: number;
   } | undefined {
     const unit = this.unit(unitId);
     const victim = this.unitAt(target);
@@ -382,27 +415,18 @@ export class Battle {
     const damaging = ability.effects.find((e) => e.kind === 'damage');
     if (!damaging || damaging.kind !== 'damage') return undefined;
 
-    const userStats = this.effectiveStats(unit);
-    const targetStats = this.effectiveStats(victim);
-    const arc = attackArc(unit.position, victim.position, victim.facing);
-    const cover = TERRAIN_COVER[this.map.tileAt(victim.position).terrain];
+    const { chance, arc, cover, weatherPenalty } = this.hitContext(unit, victim, ability);
     const heightAdvantage =
       this.map.tileAt(unit.position).height - this.map.tileAt(victim.position).height;
-    const chance = hitChance({
-      accuracy: ability.accuracy,
-      attackerAccuracy: userStats.accuracy,
-      arc,
-      defenderEvade: targetStats.evade + cover,
-    });
     const range = damageRange({
-      attackerStats: userStats,
-      defenderStats: targetStats,
+      attackerStats: this.effectiveStats(unit),
+      defenderStats: this.effectiveStats(victim),
       power: damaging.power,
       damageType: damaging.damageType,
       arc,
       heightAdvantage,
     });
-    return { chance, min: range.min, max: range.max, arc, heightAdvantage, cover };
+    return { chance, min: range.min, max: range.max, arc, heightAdvantage, cover, weatherPenalty };
   }
 
   // ── Ejecución de acciones ──────────────────────────────────────────────
@@ -532,17 +556,7 @@ export class Battle {
 
       switch (effect.kind) {
         case 'damage': {
-          const chance = friendly
-            ? 100
-            : hitChance({
-                accuracy: ability.accuracy,
-                attackerAccuracy: userStats.accuracy,
-                arc,
-                // La cobertura del terreno que ocupa el defensor cuenta
-                // como evasión extra (fase 3).
-                defenderEvade: targetStats.evade
-                  + TERRAIN_COVER[this.map.tileAt(target.position).terrain],
-              });
+          const chance = friendly ? 100 : this.hitContext(user, target, ability).chance;
           if (!this.rng.roll(chance)) {
             events.push({ type: 'ability-missed', unitId: user.id, targetUnitId: target.id });
             break;

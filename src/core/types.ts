@@ -25,6 +25,13 @@ export interface Tile {
 /** Clase de movimiento de una unidad, determina cómo atraviesa el terreno. */
 export type MoveType = 'ground' | 'flying' | 'amphibious';
 
+/**
+ * Clima de la batalla (fase 3). La lluvia acelera la disipación de calor;
+ * la tormenta de arena degrada la puntería a distancia. La niebla llegará
+ * con los sensores (aplazada por decisión de diseño).
+ */
+export type WeatherId = 'clear' | 'rain' | 'sandstorm';
+
 /** Estadísticas base de una unidad. */
 export interface Stats {
   maxHp: number;

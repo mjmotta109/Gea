@@ -10,6 +10,7 @@ import type {
   UnitState,
   WeaponDefinition,
   WeaponState,
+  WeatherId,
 } from './types.js';
 
 /**
@@ -31,6 +32,7 @@ export interface WeaponEntry {
 
 export interface SystemContext {
   map: GameMap;
+  weather: WeatherId;
   /** Catálogo de módulos (para daño interno en frames). */
   modules: ModuleCatalog;
   /** Stats efectivas vía pipeline; nunca leer la definición directamente. */
@@ -227,11 +229,13 @@ export const heatSystem: BattleSystem = {
     const heat = unit.components.heat;
     if (!heat || heat.current <= 0) return [];
     // Con los sistemas parados (apagado de emergencia), el reactor al
-    // ralentí ventila el doble. El agua bajo el chasis también ayuda.
+    // ralentí ventila el doble. El agua bajo el chasis y la lluvia
+    // también ayudan a refrigerar.
     let dissipation = heat.dissipationPerTurn;
     if (hasStatus(unit, 'stunned')) dissipation *= 2;
     if (ctx.map.tileAt(unit.position).terrain === 'water') dissipation *= 2;
-    const delta = Math.min(heat.current, dissipation);
+    if (ctx.weather === 'rain') dissipation *= 1.5;
+    const delta = Math.min(heat.current, Math.round(dissipation));
     if (delta <= 0) return [];
     heat.current -= delta;
     return [{ type: 'heat-changed', unitId: unit.id, current: heat.current, delta: -delta, reason: 'dissipation' }];
