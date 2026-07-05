@@ -7,17 +7,27 @@
  * Build: npm run web  →  dist/web/gea.html (autocontenido).
  */
 import { planTurn } from '../ai/simpleAi.js';
-import { Battle } from '../core/battle.js';
+import { Battle, type UnitSpawn } from '../core/battle.js';
 import { attackArc, type AttackArc } from '../core/combat.js';
 import { posKey, terrainLabel, TERRAIN_COVER } from '../core/grid.js';
 import { reachableTiles, type ReachableTile } from '../core/pathfinding.js';
+import {
+  applyXp, awardXp, dominantTrack, newPilot, trackLevel, TRACK_LEVEL_THRESHOLDS,
+  type PilotState, type SpecializationId,
+} from '../core/progression.js';
 import { STATUS_DEFINITIONS } from '../core/status.js';
-import type { BattleEvent, Facing, Position, UnitState, WeatherId } from '../core/types.js';
+import type { BattleEvent, Facing, Position, Team, UnitState, WeatherId } from '../core/types.js';
 import { ABILITIES } from '../data/abilities.js';
 import { VALLEY_CROSSING } from '../data/maps.js';
-import { MODULES } from '../data/modules.js';
+import { GARAGE_MODULE_OPTIONS, MODULES } from '../data/modules.js';
+import { PERKS } from '../data/progression.js';
+import { withWeaponLibrary } from '../data/weaponLibrary.js';
 import { WEAPONS } from '../data/weapons.js';
 import { ZOIDS } from '../data/zoids.js';
+
+// Catálogos completos del cliente: base + anexo de la librería de armas.
+// Los Zoids de segunda generación montan armas 'lib-*' y los necesitan.
+const CATALOGS = withWeaponLibrary(ABILITIES, WEAPONS);
 
 // ── Estado de la aplicación ──────────────────────────────────────────────
 
@@ -51,26 +61,168 @@ const FACING_OFFSET: Record<Facing, Position> = {
   north: { x: 0, y: -1 }, east: { x: 1, y: 0 }, south: { x: 0, y: 1 }, west: { x: -1, y: 0 },
 };
 
+// ── Garaje y pilotos persistentes ────────────────────────────────────────
+
+/** Configuración de un hueco del equipo del jugador (persistida). */
+interface SlotConfig {
+  unitTypeId: string;
+  weapons: string[];
+  /** Módulos sustituidos por slot del frame (solo chasis framed). */
+  slots: Record<string, string>;
+}
+
+const PLAYER_IDS = ['P1', 'P2', 'P3', 'P4'] as const;
+const PILOT_IDS = ['pilot-1', 'pilot-2', 'pilot-3', 'pilot-4'] as const;
+const DEFAULT_PILOT_NAMES = ['Van', 'Irvine', 'Moonbay', 'Fiona'];
+const SPEC_LABEL: Record<SpecializationId, string> = {
+  assault: 'Asalto', sniper: 'Tirador', support: 'Soporte', defense: 'Defensa',
+};
+const GARAGE_KEY = 'gea-garage-v1';
+const PILOTS_KEY = 'gea-pilots-v1';
+
+function factorySlot(unitTypeId: string): SlotConfig {
+  return { unitTypeId, weapons: [...(ZOIDS[unitTypeId]!.weapons ?? [])], slots: {} };
+}
+
+const DEFAULT_TEAM = ['liger-zero-cas', 'command-wolf', 'gun-sniper-naomi', 'gustav'];
+
+/** Armas del catálogo montables en un chasis (mountSlot exige ese slot). */
+function compatibleWeapons(unitTypeId: string): string[] {
+  const def = ZOIDS[unitTypeId]!;
+  return Object.values(CATALOGS.weaponCatalog)
+    .filter((w) => !w.mountSlot || def.frame?.some((e) => e.slot === w.mountSlot))
+    .map((w) => w.id)
+    .sort((a, b) => CATALOGS.weaponCatalog[a]!.name.localeCompare(CATALOGS.weaponCatalog[b]!.name));
+}
+
+/** Valida un hueco guardado contra los catálogos actuales. */
+function sanitizeSlot(raw: unknown, fallbackType: string): SlotConfig {
+  const candidate = (raw ?? {}) as Partial<SlotConfig>;
+  const unitTypeId = candidate.unitTypeId && ZOIDS[candidate.unitTypeId] ? candidate.unitTypeId : fallbackType;
+  const def = ZOIDS[unitTypeId]!;
+  const legal = new Set(compatibleWeapons(unitTypeId));
+  const weapons = Array.isArray(candidate.weapons)
+    ? candidate.weapons.filter((w) => legal.has(w)).slice(0, 3)
+    : [...(def.weapons ?? [])];
+  const slots: Record<string, string> = {};
+  if (candidate.slots && typeof candidate.slots === 'object') {
+    for (const [slot, moduleId] of Object.entries(candidate.slots)) {
+      if (def.frame?.some((e) => e.slot === slot) && MODULES[moduleId]) slots[slot] = moduleId;
+    }
+  }
+  return { unitTypeId, weapons, slots };
+}
+
+function loadGarage(): SlotConfig[] {
+  try {
+    const stored = JSON.parse(localStorage.getItem(GARAGE_KEY) ?? '[]') as unknown[];
+    return DEFAULT_TEAM.map((type, i) => sanitizeSlot(stored[i], type));
+  } catch {
+    return DEFAULT_TEAM.map(factorySlot);
+  }
+}
+
+function loadPilots(): Record<string, PilotState> {
+  const pilots: Record<string, PilotState> = {};
+  let stored: Record<string, PilotState> = {};
+  try {
+    stored = JSON.parse(localStorage.getItem(PILOTS_KEY) ?? '{}') as Record<string, PilotState>;
+  } catch { /* almacenamiento corrupto: pilotos nuevos */ }
+  PILOT_IDS.forEach((id, i) => {
+    const raw = stored[id];
+    const pilot = newPilot(id, typeof raw?.name === 'string' && raw.name.trim() ? raw.name : DEFAULT_PILOT_NAMES[i]!);
+    for (const spec of Object.keys(pilot.tracks) as SpecializationId[]) {
+      const xp = raw?.tracks?.[spec];
+      if (typeof xp === 'number' && xp >= 0) pilot.tracks[spec] = Math.round(xp);
+    }
+    pilots[id] = pilot;
+  });
+  return pilots;
+}
+
+let garage: SlotConfig[] = loadGarage();
+let pilots: Record<string, PilotState> = loadPilots();
+
+function saveGarage(): void {
+  try { localStorage.setItem(GARAGE_KEY, JSON.stringify(garage)); } catch { /* privado */ }
+}
+function savePilots(): void {
+  try { localStorage.setItem(PILOTS_KEY, JSON.stringify(pilots)); } catch { /* privado */ }
+}
+
+function spawnLoadout(config: SlotConfig): UnitSpawn['loadout'] {
+  return {
+    weapons: config.weapons,
+    ...(Object.keys(config.slots).length > 0 ? { slots: { ...config.slots } } : {}),
+  };
+}
+
+/**
+ * Equipo enemigo determinista por semilla: un comandante y tres escoltas
+ * del hangar. La variedad es del cliente; el motor solo ve los spawns.
+ */
+function enemyTeam(seed: number): UnitSpawn[] {
+  let state = (seed ^ 0x9e3779b9) >>> 0;
+  const next = (): number => {
+    state = (state * 1664525 + 1013904223) >>> 0;
+    return state / 0x100000000;
+  };
+  const commanders = ['geno-saurer-cp', 'iron-kong', 'blade-liger'];
+  const escorts = ['molga', 'pteras', 'zaber-fang', 'rev-raptor', 'guysak', 'redler', 'dibison', 'gordos', 'konig-wolf', 'shield-liger'];
+  const commander = commanders[Math.floor(next() * commanders.length)]!;
+  const pool = [...escorts];
+  const picks: string[] = [];
+  for (let i = 0; i < 3; i++) {
+    picks.push(pool.splice(Math.floor(next() * pool.length), 1)[0]!);
+  }
+  const positions: Position[] = [{ x: 10, y: 3 }, { x: 11, y: 5 }, { x: 10, y: 6 }, { x: 11, y: 2 }];
+  return [commander, ...picks].map((unitTypeId, i) => ({
+    id: `E${i + 1}`,
+    name: ZOIDS[unitTypeId]!.name,
+    unitTypeId,
+    team: 'enemy' as Team,
+    position: positions[i]!,
+    ...(i === 0 ? { commander: true } : {}),
+  }));
+}
+
+/** Contexto de la batalla en curso para repartir XP al terminar. */
+let allEvents: BattleEvent[] = [];
+let startPositions: Record<string, Position> = {};
+let unitTeams: Record<string, Team> = {};
+let xpAwarded = false;
+
+const PLAYER_POSITIONS: Position[] = [{ x: 1, y: 3 }, { x: 0, y: 5 }, { x: 1, y: 7 }, { x: 0, y: 4 }];
+
 function newBattle(seed: number, weather: WeatherId): void {
+  const spawns: UnitSpawn[] = [
+    ...garage.map((config, i) => ({
+      id: PLAYER_IDS[i]!,
+      name: ZOIDS[config.unitTypeId]!.name,
+      unitTypeId: config.unitTypeId,
+      team: 'player' as Team,
+      position: PLAYER_POSITIONS[i]!,
+      loadout: spawnLoadout(config),
+      ...(i === 0 ? { commander: true } : {}),
+    })),
+    ...enemyTeam(seed),
+  ];
   battle = new Battle({
     map: VALLEY_CROSSING,
     unitCatalog: ZOIDS,
-    abilityCatalog: ABILITIES,
+    abilityCatalog: CATALOGS.abilityCatalog,
     moduleCatalog: MODULES,
-    weaponCatalog: WEAPONS,
+    weaponCatalog: CATALOGS.weaponCatalog,
     weather,
     seed,
-    spawns: [
-      { id: 'P1', name: 'Liger Zero CAS', unitTypeId: 'liger-zero-cas', team: 'player', position: { x: 1, y: 3 }, commander: true },
-      { id: 'P2', name: 'Command Wolf', unitTypeId: 'command-wolf', team: 'player', position: { x: 0, y: 5 } },
-      { id: 'P3', name: 'Gun Sniper', unitTypeId: 'gun-sniper-naomi', team: 'player', position: { x: 1, y: 7 } },
-      { id: 'P4', name: 'Gustav', unitTypeId: 'gustav', team: 'player', position: { x: 0, y: 4 } },
-      { id: 'E1', name: 'Geno Saurer CP', unitTypeId: 'geno-saurer-cp', team: 'enemy', position: { x: 10, y: 3 }, commander: true },
-      { id: 'E2', name: 'Molga', unitTypeId: 'molga', team: 'enemy', position: { x: 11, y: 5 } },
-      { id: 'E3', name: 'Molga', unitTypeId: 'molga', team: 'enemy', position: { x: 10, y: 6 } },
-      { id: 'E4', name: 'Pteras', unitTypeId: 'pteras', team: 'enemy', position: { x: 11, y: 2 } },
-    ],
+    spawns,
+    pilots: Object.fromEntries(PLAYER_IDS.map((id, i) => [id, pilots[PILOT_IDS[i]!]!])),
+    perkTable: PERKS,
   });
+  allEvents = [];
+  startPositions = Object.fromEntries(spawns.map((s) => [s.id, { ...s.position }]));
+  unitTeams = Object.fromEntries(spawns.map((s) => [s.id, s.team]));
+  xpAwarded = false;
   mode = { kind: 'idle' };
   pending = null;
   busy = false;
@@ -329,6 +481,10 @@ function afterAction(): void {
 // ── Teclado ──────────────────────────────────────────────────────────────
 
 document.addEventListener('keydown', (event) => {
+  if (garageOpen) {
+    if (event.key === 'Escape') closeGarage();
+    return;
+  }
   if (document.activeElement === $('seed')) return;
   if (battle.isOver) {
     if (event.key === 'Enter') restart();
@@ -798,7 +954,7 @@ function describe(event: BattleEvent): { text: string; cls?: string } | undefine
       const to = event.path[event.path.length - 1]!;
       return { text: `${event.unitId} hace BOOST hasta (${to.x},${to.y})`, cls: 'good' };
     }
-    case 'ability-used': return { text: `${event.unitId} usa ${ABILITIES[event.abilityId]!.name}` };
+    case 'ability-used': return { text: `${event.unitId} usa ${battle.abilityOf(event.abilityId).name}` };
     case 'ability-missed': return { text: `...${event.targetUnitId} lo esquiva!`, cls: 'good' };
     case 'damage-dealt': return { text: `${event.targetUnitId} recibe ${event.amount} de daño (${event.targetHp} HP)`, cls: 'hit' };
     case 'hit-location-rolled': return undefined;
@@ -836,6 +992,7 @@ function log(text: string, cls?: string): void {
 }
 
 function logEvents(events: BattleEvent[]): void {
+  allEvents.push(...events);
   for (const event of events) {
     if (event.type === 'unit-moved' || event.type === 'unit-boosted') {
       pendingMoveAnim = { unitId: event.unitId, path: event.path };
@@ -859,7 +1016,254 @@ function showOverlay(): void {
   $('ov-sub').textContent = won
     ? 'El equipo cian controla el valle. [Enter] para otra batalla.'
     : 'Tus Zoids quedan fuera de combate. [Enter] para reintentar.';
+  $('ov-xp').innerHTML = renderXpSummary();
   $('overlay').classList.add('show');
+}
+
+/**
+ * Reparte la XP de la batalla terminada entre los pilotos (una sola vez),
+ * la persiste y devuelve el resumen HTML para el overlay.
+ */
+function renderXpSummary(): string {
+  if (!xpAwarded) {
+    xpAwarded = true;
+    const roster = Object.fromEntries(PLAYER_IDS.map((id, i) => [id, PILOT_IDS[i]!]));
+    const survivors = new Set(battle.units.filter((u) => u.hp > 0).map((u) => u.id));
+    const gains = awardXp(allEvents, roster, unitTeams, startPositions, battle.winner, survivors);
+    const before: Record<string, Record<string, number>> = {};
+    for (const [id, pilot] of Object.entries(pilots)) {
+      before[id] = Object.fromEntries(
+        Object.entries(pilot.tracks).map(([spec, xp]) => [spec, trackLevel(xp)]));
+    }
+    pilots = applyXp(pilots, gains);
+    savePilots();
+
+    const lines: string[] = [];
+    for (const pilotId of PILOT_IDS) {
+      const pilot = pilots[pilotId]!;
+      const own = gains.filter((g) => g.pilotId === pilotId);
+      if (own.length === 0) continue;
+      const bits = own.map((g) => {
+        const leveled = trackLevel(pilot.tracks[g.track]) > (before[pilotId]?.[g.track] ?? 0);
+        return `+${g.amount} ${SPEC_LABEL[g.track]}${leveled ? ' <b class="lvlup">▲ ¡NIVEL!</b>' : ''}`;
+      });
+      lines.push(`<div><b>${escapeHtml(pilot.name)}</b> · ${bits.join(' · ')}</div>`);
+    }
+    lastXpSummary = lines.length > 0
+      ? `<div class="xp-title">Experiencia de pilotos</div>${lines.join('')}`
+      : '';
+  }
+  return lastXpSummary;
+}
+
+let lastXpSummary = '';
+
+function escapeHtml(text: string): string {
+  return text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+}
+
+// ── Pantalla de garaje ───────────────────────────────────────────────────
+
+let garageOpen = false;
+
+const ROLE_LABEL: Record<string, string> = {
+  assault: 'asalto', skirmisher: 'escaramuza', tank: 'tanque', sniper: 'tirador',
+  flyer: 'volador', support: 'soporte', artillery: 'artillería', scout: 'explorador',
+  transport: 'transporte',
+};
+
+function openGarage(): void {
+  garageOpen = true;
+  renderGarage();
+  $('garage').classList.add('show');
+}
+
+function closeGarage(): void {
+  garageOpen = false;
+  $('garage').classList.remove('show');
+}
+
+/** Stats efectivas de un hueco vía una batalla desechable de un spawn. */
+function previewStats(config: SlotConfig, pilotId?: string): ReturnType<Battle['effectiveStats']> | undefined {
+  try {
+    const preview = new Battle({
+      map: VALLEY_CROSSING,
+      unitCatalog: ZOIDS,
+      abilityCatalog: CATALOGS.abilityCatalog,
+      moduleCatalog: MODULES,
+      weaponCatalog: CATALOGS.weaponCatalog,
+      seed: 1,
+      spawns: [{
+        id: 'PV', name: 'PV', unitTypeId: config.unitTypeId, team: 'player',
+        position: { x: 1, y: 3 }, loadout: spawnLoadout(config),
+      }],
+      ...(pilotId ? { pilots: { PV: pilots[pilotId]! }, perkTable: PERKS } : {}),
+    });
+    return preview.effectiveStats(preview.units[0]!);
+  } catch {
+    return undefined;
+  }
+}
+
+/** Piezas montadas cuya spec casa con la pista dominante del piloto. */
+function synergyPieces(config: SlotConfig, pilot: PilotState): { spec: SpecializationId; count: number } | undefined {
+  const dominant = dominantTrack(pilot);
+  if (trackLevel(pilot.tracks[dominant]) === 0) return undefined;
+  const def = ZOIDS[config.unitTypeId]!;
+  const specs: (SpecializationId | undefined)[] = [
+    ...config.weapons.map((w) => CATALOGS.weaponCatalog[w]?.spec),
+    ...(def.frame ?? []).map((entry) => MODULES[config.slots[entry.slot] ?? entry.moduleId]?.spec),
+  ];
+  const count = Math.min(PERKS.synergyCap, specs.filter((s) => s === dominant).length);
+  return count > 0 ? { spec: dominant, count } : undefined;
+}
+
+function pilotSummary(pilot: PilotState): string {
+  const bits: string[] = [];
+  for (const spec of Object.keys(pilot.tracks) as SpecializationId[]) {
+    const xp = pilot.tracks[spec];
+    const level = trackLevel(xp);
+    if (xp <= 0) continue;
+    const next = TRACK_LEVEL_THRESHOLDS[level];
+    bits.push(`${SPEC_LABEL[spec]} <b>N${level}</b>${next !== undefined ? ` <span class="gmuted">${xp}/${next}</span>` : ''}`);
+  }
+  return bits.length > 0 ? bits.join(' · ') : '<span class="gmuted">piloto novato — la XP se gana en batalla</span>';
+}
+
+function renderGarage(): void {
+  const host = $('gslots');
+  host.innerHTML = '';
+
+  garage.forEach((config, index) => {
+    const def = ZOIDS[config.unitTypeId]!;
+    const pilotId = PILOT_IDS[index]!;
+    const pilot = pilots[pilotId]!;
+    const card = document.createElement('div');
+    card.className = 'gcard';
+
+    // Cabecera: hueco + nombre del piloto (editable, no re-renderiza).
+    const head = document.createElement('div');
+    head.className = 'ghead-row';
+    head.innerHTML = `<span class="gtag">${PLAYER_IDS[index]}${index === 0 ? ' ★' : ''}</span>`;
+    const nameInput = document.createElement('input');
+    nameInput.className = 'gname';
+    nameInput.value = pilot.name;
+    nameInput.maxLength = 18;
+    nameInput.title = 'nombre del piloto';
+    nameInput.addEventListener('input', () => {
+      pilot.name = nameInput.value.trim() || DEFAULT_PILOT_NAMES[index]!;
+      savePilots();
+    });
+    head.appendChild(nameInput);
+    card.appendChild(head);
+
+    const tracks = document.createElement('div');
+    tracks.className = 'gtracks';
+    tracks.innerHTML = pilotSummary(pilot);
+    card.appendChild(tracks);
+
+    const mkRow = (label: string, control: HTMLElement): void => {
+      const row = document.createElement('label');
+      row.className = 'grow';
+      row.innerHTML = `<span>${label}</span>`;
+      row.appendChild(control);
+      card.appendChild(row);
+    };
+
+    // Chasis.
+    const zoidSelect = document.createElement('select');
+    for (const unit of Object.values(ZOIDS)) {
+      const opt = document.createElement('option');
+      opt.value = unit.id;
+      opt.textContent = `${unit.name} · ${ROLE_LABEL[unit.role] ?? unit.role}`;
+      if (unit.id === config.unitTypeId) opt.selected = true;
+      zoidSelect.appendChild(opt);
+    }
+    zoidSelect.addEventListener('change', () => {
+      garage[index] = factorySlot(zoidSelect.value);
+      saveGarage();
+      renderGarage();
+    });
+    mkRow('Zoid', zoidSelect);
+
+    // Armas (hasta 3; el chasis pone las innatas gratis aparte).
+    const legalWeapons = compatibleWeapons(config.unitTypeId);
+    for (let slot = 0; slot < 3; slot++) {
+      const weaponSelect = document.createElement('select');
+      const none = document.createElement('option');
+      none.value = '';
+      none.textContent = '— sin arma —';
+      weaponSelect.appendChild(none);
+      for (const weaponId of legalWeapons) {
+        const weapon = CATALOGS.weaponCatalog[weaponId]!;
+        const opt = document.createElement('option');
+        opt.value = weaponId;
+        opt.textContent = weapon.spec ? `${weapon.name} [${SPEC_LABEL[weapon.spec]}]` : weapon.name;
+        if (config.weapons[slot] === weaponId) opt.selected = true;
+        weaponSelect.appendChild(opt);
+      }
+      weaponSelect.addEventListener('change', () => {
+        const picked = [0, 1, 2].map((s) => (s === slot ? weaponSelect.value : config.weapons[s] ?? ''));
+        garage[index] = { ...config, weapons: picked.filter(Boolean) };
+        saveGarage();
+        renderGarage();
+      });
+      mkRow(`Arma ${slot + 1}`, weaponSelect);
+    }
+
+    // Módulos por slot del frame (solo si hay recambios que ofrecer).
+    for (const entry of def.frame ?? []) {
+      const options = (GARAGE_MODULE_OPTIONS[entry.slot] ?? []).filter((id) => MODULES[id]);
+      if (options.length === 0) continue;
+      const moduleSelect = document.createElement('select');
+      for (const moduleId of [entry.moduleId, ...options]) {
+        const module = MODULES[moduleId]!;
+        const opt = document.createElement('option');
+        opt.value = moduleId;
+        opt.textContent = moduleId === entry.moduleId
+          ? `${module.name} (fábrica)`
+          : module.spec ? `${module.name} [${SPEC_LABEL[module.spec]}]` : module.name;
+        if ((config.slots[entry.slot] ?? entry.moduleId) === moduleId) opt.selected = true;
+        moduleSelect.appendChild(opt);
+      }
+      moduleSelect.addEventListener('change', () => {
+        const slots = { ...config.slots };
+        if (moduleSelect.value === entry.moduleId) delete slots[entry.slot];
+        else slots[entry.slot] = moduleSelect.value;
+        garage[index] = { ...config, slots };
+        saveGarage();
+        renderGarage();
+      });
+      mkRow(entry.slot, moduleSelect);
+    }
+
+    // Vista previa de stats en vivo: loadout actual (con piloto) vs fábrica.
+    const stats = previewStats(config, pilotId);
+    const factory = previewStats(factorySlot(config.unitTypeId));
+    const statsBox = document.createElement('div');
+    statsBox.className = 'gstats';
+    if (stats && factory) {
+      const rows: [string, keyof typeof stats][] = [
+        ['HP', 'maxHp'], ['ATQ', 'atk'], ['ATQ.E', 'energyAtk'], ['DEF', 'def'],
+        ['DEF.E', 'energyDef'], ['VEL', 'speed'], ['MOV', 'move'], ['EVA', 'evade'], ['PUNT', 'accuracy'],
+      ];
+      statsBox.innerHTML = rows.map(([label, stat]) => {
+        const value = stats[stat];
+        const delta = value - factory[stat];
+        const cls = delta > 0 ? 'up' : delta < 0 ? 'down' : '';
+        return `<span class="gstat"><i>${label}</i> <b class="${cls}">${value}</b>${delta !== 0 ? `<em class="${cls}">${delta > 0 ? '+' : ''}${delta}</em>` : ''}</span>`;
+      }).join('');
+      const synergy = synergyPieces(config, pilot);
+      if (synergy) {
+        statsBox.insertAdjacentHTML('beforeend',
+          `<div class="gsyn">◈ Sinergia ${SPEC_LABEL[synergy.spec]} ×${synergy.count} — piloto y máquina alineados</div>`);
+      }
+    } else {
+      statsBox.textContent = '⚠ loadout inválido';
+    }
+    card.appendChild(statsBox);
+    host.appendChild(card);
+  });
 }
 
 // ── Arranque ─────────────────────────────────────────────────────────────
@@ -872,4 +1276,8 @@ function restart(): void {
 
 $('restart').addEventListener('click', restart);
 $('ov-restart').addEventListener('click', restart);
+$('garage-btn').addEventListener('click', openGarage);
+$('deploy').addEventListener('click', () => { closeGarage(); restart(); });
 restart();
+// El primer contacto es el garaje: ensamblar y desplegar.
+openGarage();

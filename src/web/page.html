@@ -183,6 +183,76 @@
     border-radius: 4px; font-family: var(--mono); font-size: 13px; padding: 8px 18px; cursor: pointer;
   }
 
+  /* ── Garaje ── */
+  #garage-btn {
+    background: var(--player-dim); color: var(--player); border: 1px solid var(--player);
+    border-radius: 4px; font-family: var(--mono); font-size: 12px; padding: 5px 10px; cursor: pointer;
+  }
+  #garage {
+    display: none; position: fixed; inset: 0; background: rgba(4, 8, 11, 0.92);
+    z-index: 20; overflow-y: auto; padding: 20px 14px;
+  }
+  #garage.show { display: block; }
+  #garage .gbox {
+    max-width: 1220px; margin: 0 auto; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px 20px;
+  }
+  #garage .gtop { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  #garage .gtop h2 {
+    margin: 0; font-size: 14px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--player);
+  }
+  #garage .gnote { flex: 1; color: var(--muted); font-size: 11px; font-family: var(--mono); min-width: 200px; }
+  #deploy {
+    background: var(--player-dim); color: var(--player); border: 1px solid var(--player);
+    border-radius: 4px; font-family: var(--mono); font-size: 14px; font-weight: 700;
+    padding: 9px 22px; cursor: pointer;
+  }
+  #deploy:hover { background: var(--player); color: #04181d; }
+  #gslots { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  @media (max-width: 1000px) { #gslots { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 560px) { #gslots { grid-template-columns: 1fr; } }
+  .gcard {
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px;
+    padding: 10px 12px; display: flex; flex-direction: column; gap: 7px;
+  }
+  .gcard .ghead-row { display: flex; align-items: center; gap: 8px; }
+  .gcard .gtag {
+    font-family: var(--mono); font-size: 11px; font-weight: 700; padding: 2px 6px;
+    border-radius: 3px; background: var(--player-dim); color: var(--player);
+  }
+  .gcard .gname {
+    flex: 1; min-width: 0; background: transparent; border: 0; border-bottom: 1px dashed var(--line);
+    color: var(--ink); font-family: var(--mono); font-size: 13px; font-weight: 700; padding: 2px 2px;
+  }
+  .gcard .gname:focus { outline: none; border-bottom-color: var(--player); }
+  .gcard .gtracks { font-size: 10px; font-family: var(--mono); color: var(--ink); line-height: 1.6; }
+  .gcard .gtracks .gmuted, .gcard .gmuted { color: var(--muted); font-weight: 400; }
+  .gcard .grow { display: flex; flex-direction: column; gap: 2px; }
+  .gcard .grow > span {
+    font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted);
+    font-family: var(--mono);
+  }
+  .gcard select {
+    width: 100%; background: var(--panel); border: 1px solid var(--line); color: var(--ink);
+    font-family: var(--mono); font-size: 11px; padding: 4px 5px; border-radius: 3px;
+  }
+  .gcard .gstats {
+    margin-top: 2px; border-top: 1px dashed var(--line); padding-top: 7px;
+    display: flex; flex-wrap: wrap; gap: 4px 10px; font-family: var(--mono); font-size: 11px;
+  }
+  .gcard .gstat i { font-style: normal; color: var(--muted); font-size: 9px; }
+  .gcard .gstat em { font-style: normal; font-size: 9px; margin-left: 2px; }
+  .gcard .gstat .up { color: var(--energy); }
+  .gcard .gstat .down { color: var(--danger); }
+  .gcard .gsyn { width: 100%; color: var(--energy); font-size: 10px; margin-top: 3px; }
+  #ov-xp { font-family: var(--mono); font-size: 12px; text-align: left; margin: 0 0 16px; line-height: 1.7; }
+  #ov-xp:empty { margin: 0; }
+  #ov-xp .xp-title {
+    font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted);
+    margin-bottom: 4px; text-align: center;
+  }
+  #ov-xp .lvlup { color: var(--energy); }
+
   @media (prefers-reduced-motion: no-preference) {
     .chip.active-unit { animation: pulse 1.6s ease-in-out infinite; }
     @keyframes pulse {
@@ -205,6 +275,7 @@
       </select>
     </label>
     <label>semilla <input id="seed" type="number" value="42"></label>
+    <button id="garage-btn">⚙ Garaje</button>
     <button id="restart">Nueva batalla</button>
   </header>
 
@@ -229,7 +300,18 @@
     </aside>
   </main>
 
-  <div id="overlay"><div class="box"><h2 id="ov-title"></h2><p id="ov-sub"></p><button id="ov-restart">Nueva batalla</button></div></div>
+  <div id="overlay"><div class="box"><h2 id="ov-title"></h2><p id="ov-sub"></p><div id="ov-xp"></div><button id="ov-restart">Nueva batalla</button></div></div>
+
+  <div id="garage">
+    <div class="gbox">
+      <div class="gtop">
+        <h2>Garaje — ensambla tu equipo</h2>
+        <span class="gnote">elige chasis, armas y piezas · las piezas [etiquetadas] dan sinergia si casan con la pista dominante del piloto</span>
+        <button id="deploy">▶ Desplegar</button>
+      </div>
+      <div id="gslots"></div>
+    </div>
+  </div>
 </div>
 
 <script>
