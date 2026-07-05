@@ -21,7 +21,8 @@ export class GameMap {
   /**
    * Construye un mapa desde arte ASCII: cada carácter es un tile.
    * Dígitos 0-9 = llanura con esa altura; '~' = agua; '#' = muro;
-   * letras a-j = terreno abrupto con altura 0-9.
+   * letras a-j = terreno abrupto con altura 0-9;
+   * letras A-J = bosque con altura 0-9.
    */
   static fromAscii(rows: string[]): GameMap {
     const height = rows.length;
@@ -39,6 +40,7 @@ export class GameMap {
   private static tileFromChar(ch: string): Tile {
     if (ch >= '0' && ch <= '9') return { terrain: 'plain', height: ch.charCodeAt(0) - 48 };
     if (ch >= 'a' && ch <= 'j') return { terrain: 'rough', height: ch.charCodeAt(0) - 97 };
+    if (ch >= 'A' && ch <= 'J') return { terrain: 'forest', height: ch.charCodeAt(0) - 65 };
     if (ch === '~') return { terrain: 'water', height: 0 };
     if (ch === '#') return { terrain: 'wall', height: 99 };
     throw new Error(`Carácter de mapa desconocido: '${ch}'`);
@@ -62,6 +64,7 @@ export class GameMap {
       case 'plain':
         return 1;
       case 'rough':
+      case 'forest':
         return moveType === 'flying' ? 1 : 2;
       case 'water':
         if (moveType === 'flying' || moveType === 'amphibious') return 1;
@@ -69,6 +72,20 @@ export class GameMap {
     }
   }
 }
+
+/**
+ * Cobertura por terreno (fase 3): se suma a la evasión del defensor que
+ * ocupa el tile. Es la adaptación del bonus de cobertura de XCOM a mechas
+ * gigantes: no hay parapetos direccionales, hay entornos que dificultan
+ * el tiro — vegetación, rocas, agua somera que oculta las piernas.
+ */
+export const TERRAIN_COVER: Record<TerrainType, number> = {
+  plain: 0,
+  rough: 10,
+  water: 5,
+  forest: 20,
+  wall: 0,
+};
 
 export function posKey(pos: Position): string {
   return `${pos.x},${pos.y}`;
@@ -94,6 +111,7 @@ export function terrainLabel(terrain: TerrainType): string {
     case 'plain': return 'llanura';
     case 'rough': return 'terreno abrupto';
     case 'water': return 'agua';
+    case 'forest': return 'bosque';
     case 'wall': return 'muro';
   }
 }

@@ -14,7 +14,7 @@ export interface Position {
   y: number;
 }
 
-export type TerrainType = 'plain' | 'rough' | 'water' | 'wall';
+export type TerrainType = 'plain' | 'rough' | 'water' | 'forest' | 'wall';
 
 export interface Tile {
   terrain: TerrainType;
