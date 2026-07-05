@@ -672,6 +672,160 @@
       50% { box-shadow: 0 0 0 2px #fff, 0 0 14px 4px rgba(255,255,255,0.45); }
     }
   }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     PULIDO VISUAL — capa estética sobre el mismo esqueleto.
+     Nada de aquí cambia layout, ids ni clases: solo luz, profundidad
+     y movimiento. La cabina se ve como una cabina.
+     ═══════════════════════════════════════════════════════════════ */
+
+  /* Ambiente: rejilla de consola y viñeta sobre el fondo. */
+  body {
+    background:
+      radial-gradient(1100px 500px at 50% -10%, rgba(83, 209, 224, 0.06), transparent 60%),
+      radial-gradient(900px 600px at 100% 110%, rgba(255, 159, 69, 0.04), transparent 55%),
+      repeating-linear-gradient(0deg, transparent 0 34px, rgba(120, 160, 190, 0.025) 34px 35px),
+      repeating-linear-gradient(90deg, transparent 0 34px, rgba(120, 160, 190, 0.025) 34px 35px),
+      var(--bg);
+    background-attachment: fixed;
+  }
+
+  /* Barras de scroll de consola. */
+  * { scrollbar-width: thin; scrollbar-color: #2c3d4c transparent; }
+  *::-webkit-scrollbar { width: 8px; height: 8px; }
+  *::-webkit-scrollbar-thumb { background: #2c3d4c; border-radius: 4px; }
+  *::-webkit-scrollbar-track { background: transparent; }
+
+  /* Todo botón responde: transición y pulsación física. */
+  button { transition: border-color 0.15s, color 0.15s, background 0.15s, box-shadow 0.2s, transform 0.06s, opacity 0.15s; }
+  button:active:not(:disabled) { transform: translateY(1px); }
+
+  /* Entradas de texto con foco luminoso. */
+  input, select, textarea { transition: border-color 0.15s, box-shadow 0.2s; }
+  input:focus, select:focus, textarea:focus {
+    outline: none; border-color: var(--player) !important;
+    box-shadow: 0 0 0 2px rgba(83, 209, 224, 0.18);
+  }
+
+  /* Paneles y cajas: profundidad y un filo de luz superior. */
+  .panel, #board-panel {
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  }
+  #saves .gbox, #pilots .gbox, #newgame .gbox, #merc .gbox, #city .gbox, #editor .gbox, #garage .gbox {
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  }
+
+  /* Las pantallas superpuestas entran con un respiro, no de golpe. */
+  @keyframes gea-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  @keyframes gea-fade { from { opacity: 0; } to { opacity: 1; } }
+  #saves.show .gbox, #pilots.show .gbox, #newgame.show .gbox, #merc.show .gbox,
+  #city.show .gbox, #editor.show .gbox, #garage.show .gbox { animation: gea-rise 0.28s ease-out; }
+  #saves.show, #pilots.show, #newgame.show, #merc.show, #city.show, #editor.show,
+  #world.show, #dlg.show, #overlay.show { animation: gea-fade 0.2s ease-out; }
+
+  /* Las pantallas completas desenfocan lo que queda detrás: el tablero
+     no compite con el mapa ni con el cuartel. */
+  #world, #merc, #city, #newgame, #saves, #pilots, #editor, #garage { backdrop-filter: blur(6px); }
+
+  /* Diálogo propio: filo de acento y entrada. */
+  #dlg { backdrop-filter: blur(3px); }
+  #dlg .dbox {
+    border-top: 2px solid var(--player);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65), 0 0 30px rgba(83, 209, 224, 0.08);
+    animation: gea-rise 0.22s ease-out;
+  }
+
+  /* ── Menú de inicio: la portada respira ── */
+  @keyframes gea-title { 0%, 100% { text-shadow: 0 0 26px rgba(83, 209, 224, 0.35); }
+    50% { text-shadow: 0 0 44px rgba(83, 209, 224, 0.6), 0 0 90px rgba(83, 209, 224, 0.18); } }
+  #start .stitle { animation: gea-title 4.5s ease-in-out infinite; }
+  #start::before {
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+    background: repeating-linear-gradient(0deg, transparent 0 3px, rgba(0, 0, 0, 0.12) 3px 4px);
+  }
+  #start .sbox { position: relative; }
+  #start .sbtns button { position: relative; overflow: hidden; }
+  #start .sbtns button:hover:not(:disabled) {
+    background: var(--player-dim); box-shadow: 0 0 18px rgba(83, 209, 224, 0.22);
+    letter-spacing: 0.1em;
+  }
+  #start .sbtns button { transition: border-color 0.15s, color 0.15s, background 0.2s, box-shadow 0.25s, letter-spacing 0.25s, transform 0.06s; }
+
+  /* ── Fundación: las opciones se sienten elegibles ── */
+  .ngopt { transition: border-color 0.15s, box-shadow 0.2s, transform 0.12s, background 0.15s; }
+  .ngopt:hover:not(.sel) { border-color: var(--muted); transform: translateY(-1px); }
+  .ngopt.sel {
+    background: linear-gradient(180deg, rgba(83, 209, 224, 0.08), transparent 70%);
+    box-shadow: 0 0 0 1px var(--player), 0 4px 16px rgba(83, 209, 224, 0.15);
+  }
+  #ng-found { box-shadow: 0 0 22px rgba(83, 209, 224, 0.18); }
+  #ng-found:hover { box-shadow: 0 0 34px rgba(83, 209, 224, 0.4); }
+
+  /* ── Cuartel: contratos con relieve, botones de partida con brillo ── */
+  .ccard { transition: border-color 0.15s, box-shadow 0.2s, transform 0.12s, background 0.15s; }
+  .ccard:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4); }
+  .ccard.sel {
+    background: linear-gradient(180deg, rgba(255, 159, 69, 0.08), transparent 70%);
+    box-shadow: 0 0 0 1px var(--heat), 0 6px 20px rgba(255, 159, 69, 0.16);
+    transform: translateY(-2px);
+  }
+  #merc-deploy:not(:disabled) { box-shadow: 0 0 16px rgba(255, 159, 69, 0.22); }
+  #merc-deploy:hover:not(:disabled) { box-shadow: 0 0 28px rgba(255, 159, 69, 0.45); }
+  #merc-freeroam:not(:disabled) { box-shadow: 0 0 16px rgba(83, 209, 224, 0.16); }
+  #merc-freeroam:hover:not(:disabled) { box-shadow: 0 0 28px rgba(83, 209, 224, 0.38); }
+  .gcard { transition: border-color 0.15s, box-shadow 0.2s; }
+  .gcard:hover { border-color: #31424f; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35); }
+
+  /* ── Mapa de mundo: la posición LATE, el objetivo llama ── */
+  #world-svg line { stroke-width: 0.7; }
+  @keyframes gea-march { to { stroke-dashoffset: -8; } }
+  #world-svg line.blocked { stroke-dasharray: 3 3; animation: gea-march 1.6s linear infinite; }
+  .wnode .dot { transition: box-shadow 0.2s, background 0.2s; }
+  @keyframes gea-pulse {
+    0%, 100% { box-shadow: 0 0 8px 2px rgba(95, 217, 164, 0.45); }
+    50% { box-shadow: 0 0 16px 5px rgba(95, 217, 164, 0.75); }
+  }
+  .wnode.cur .dot { animation: gea-pulse 2s ease-in-out infinite; }
+  @keyframes gea-ping {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(229, 96, 76, 0.5); }
+    50% { box-shadow: 0 0 0 6px rgba(229, 96, 76, 0); }
+  }
+  .wnode.target .dot { animation: gea-ping 1.8s ease-out infinite; }
+  .wroute { transition: border-color 0.15s, background 0.15s, transform 0.1s; }
+  .wroute:hover:not(:disabled) { background: #12281c; transform: translateX(3px); }
+  #world-actions button { transition: box-shadow 0.2s, background 0.15s, color 0.15s, transform 0.06s; }
+  #world-actions button:hover { box-shadow: 0 0 20px rgba(255, 159, 69, 0.3); }
+  #world-actions button.calm:hover { box-shadow: 0 0 20px rgba(83, 209, 224, 0.3); }
+
+  /* ── Batalla: fichas con volumen y barras con vida ── */
+  .chip { box-shadow: 0 2px 5px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.35); }
+  .chip.player { background: linear-gradient(165deg, #86e4ef 0%, var(--player) 55%, #38b5c6 100%); }
+  .chip.enemy { background: linear-gradient(165deg, #ffab86 0%, var(--enemy) 55%, #e6693c 100%); }
+  .bar { box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5); }
+  .bar i { transition: width 0.35s ease-out; }
+  #turn-banner {
+    background: linear-gradient(90deg, rgba(83, 209, 224, 0.08), var(--panel) 45%);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+  }
+  #turn-banner.enemy { background: linear-gradient(90deg, rgba(255, 138, 92, 0.1), var(--panel) 45%); }
+  #overlay .box {
+    border-top: 2px solid var(--player);
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.7);
+    animation: gea-rise 0.3s ease-out;
+  }
+
+  /* ── Ciudad y ranuras: hover con intención ── */
+  .csec { transition: border-color 0.2s, box-shadow 0.2s; }
+  .csec:hover { border-color: #31424f; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3); }
+  .slot { transition: border-color 0.15s, box-shadow 0.2s; }
+  .slot:hover { border-color: #31424f; box-shadow: 0 6px 14px rgba(0, 0, 0, 0.3); }
+  .slot.current { box-shadow: 0 0 14px rgba(83, 209, 224, 0.14); }
+  .gbtn, .wroute, .abtn, .sbtns button, .gsub { transition: border-color 0.15s, color 0.15s, background 0.15s, box-shadow 0.2s, transform 0.06s; }
+
+  /* Movimiento reducido: quietud para quien la pide. */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
 </style>
 
 <div id="app">
