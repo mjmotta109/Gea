@@ -12,7 +12,8 @@ import { attackArc, type AttackArc } from '../core/combat.js';
 import { GameMap, posKey, terrainLabel, TERRAIN_COVER } from '../core/grid.js';
 import { reachableTiles, type ReachableTile } from '../core/pathfinding.js';
 import {
-  applyXp, awardXp, dominantTrack, newPilot, trackLevel, TRACK_LEVEL_THRESHOLDS,
+  applyXp, awardXp, dominantTrack, newPilot, observeBattle, trackLevel,
+  TRACK_LEVEL_THRESHOLDS, SPECIALIZATIONS,
   type PilotState, type SpecializationId,
 } from '../core/progression.js';
 import { STATUS_DEFINITIONS } from '../core/status.js';
@@ -147,6 +148,8 @@ function loadPilots(): Record<string, PilotState> {
       const xp = raw?.tracks?.[spec];
       if (typeof xp === 'number' && xp >= 0) pilot.tracks[spec] = Math.round(xp);
     }
+    if (Array.isArray(raw?.quirks)) pilot.quirks = raw.quirks.filter((q) => typeof q === 'string');
+    if (raw?.memory && typeof raw.memory === 'object') pilot.memory = { ...raw.memory };
     pilots[id] = pilot;
   });
   return pilots;
@@ -586,6 +589,10 @@ document.addEventListener('keydown', (event) => {
   }
   if (editorOpen) {
     if (event.key === 'Escape') closeEditor();
+    return;
+  }
+  if (pilotsOpen) {
+    if (event.key === 'Escape') closePilots();
     return;
   }
   if (worldOpen) {
@@ -1180,9 +1187,23 @@ function renderXpSummary(): string {
         Object.entries(pilot.tracks).map(([spec, xp]) => [spec, trackLevel(xp)]));
     }
     pilots = applyXp(pilots, gains);
+
+    // Memoria y manías: lo vivido deja huella en cada piloto desplegado.
+    const quirkLines: string[] = [];
+    for (const unit of battle.units.filter((u) => u.team === 'player')) {
+      const pilotId = PILOT_IDS[Number(unit.id.slice(1)) - 1];
+      const pilot = pilotId ? pilots[pilotId] : undefined;
+      if (!pilot) continue;
+      const ratio = unit.hp / Math.max(1, battle.effectiveStats(unit).maxHp);
+      const observed = observeBattle(pilot, { events: allEvents, unitId: unit.id, finalHpRatio: ratio }, PERKS);
+      pilots = { ...pilots, [pilot.id]: observed.pilot };
+      for (const quirk of observed.gained) {
+        quirkLines.push(`<div>🧠 <b>${escapeHtml(observed.pilot.name)}</b> adquiere la manía <b class="lvlup">${quirk.name}</b> — <span style="color:var(--muted)">${quirk.description}</span></div>`);
+      }
+    }
     savePilots();
 
-    const lines: string[] = [];
+    const lines: string[] = [...quirkLines];
     for (const pilotId of PILOT_IDS) {
       const pilot = pilots[pilotId]!;
       const own = gains.filter((g) => g.pilotId === pilotId);
@@ -2033,6 +2054,81 @@ function endExpedition(): void {
   }
 }
 
+// ── Ficha de pilotos: árbol de especialización y manías ─────────────────
+
+let pilotsOpen = false;
+
+function openPilots(): void {
+  pilotsOpen = true;
+  renderPilots();
+  $('pilots').classList.add('show');
+}
+
+function closePilots(): void {
+  pilotsOpen = false;
+  $('pilots').classList.remove('show');
+}
+
+function renderPilots(): void {
+  const host = $('pilots-body');
+  host.innerHTML = '';
+  for (const pilotId of PILOT_IDS) {
+    const pilot = pilots[pilotId]!;
+    const dominant = dominantTrack(pilot);
+    const card = document.createElement('div');
+    card.className = 'pcard';
+    card.innerHTML = `<h3>${escapeHtml(pilot.name)}` +
+      (trackLevel(pilot.tracks[dominant]) > 0
+        ? `<span class="dom">◈ ${SPEC_LABEL[dominant]}</span>` : '') + '</h3>';
+
+    for (const spec of SPECIALIZATIONS) {
+      const xp = pilot.tracks[spec];
+      const level = trackLevel(xp);
+      const next = TRACK_LEVEL_THRESHOLDS[level];
+      const track = document.createElement('div');
+      track.className = 'ptrack';
+      track.innerHTML =
+        `<div class="plabel"><b>${SPEC_LABEL[spec]}</b>` +
+        `<span class="pxp">N${level}${next !== undefined ? ` · ${xp}/${next} XP` : ' · MÁX'}</span></div>`;
+      const nodes = document.createElement('div');
+      nodes.className = 'pnodes';
+      (PERKS.perkNames?.[spec] ?? []).forEach((perk, index) => {
+        const node = document.createElement('span');
+        node.className = 'pnode' +
+          (index < level ? ' unlocked' : index === level ? ' next' : '');
+        node.title = perk.description;
+        node.innerHTML = `<b>${index + 1}. ${perk.name}</b>`;
+        nodes.appendChild(node);
+      });
+      track.appendChild(nodes);
+      card.appendChild(track);
+    }
+
+    const quirksBox = document.createElement('div');
+    quirksBox.className = 'pquirks';
+    quirksBox.innerHTML = '<div class="qtitle">Manías</div>';
+    const owned = pilot.quirks ?? [];
+    for (const quirkId of owned) {
+      const quirk = PERKS.quirks?.[quirkId];
+      if (!quirk) continue;
+      const chip = document.createElement('span');
+      chip.className = 'pquirk';
+      chip.textContent = quirk.name;
+      chip.title = quirk.description;
+      quirksBox.appendChild(chip);
+    }
+    for (let i = owned.length; i < (PERKS.quirkCap ?? 4); i++) {
+      const chip = document.createElement('span');
+      chip.className = 'pquirk empty';
+      chip.textContent = '· · ·';
+      chip.title = 'Espacio libre: las manías se graban viviendo.';
+      quirksBox.appendChild(chip);
+    }
+    card.appendChild(quirksBox);
+    host.appendChild(card);
+  }
+}
+
 // ── Editor de mapas ──────────────────────────────────────────────────────
 
 type EditorTool =
@@ -2238,6 +2334,9 @@ $('merc-reset').addEventListener('click', () => {
   renderMerc();
 });
 window.addEventListener('mouseup', () => { painting = false; });
+$('pilots-btn-g').addEventListener('click', openPilots);
+$('pilots-btn-m').addEventListener('click', openPilots);
+$('pilots-close').addEventListener('click', closePilots);
 $('editor-btn').addEventListener('click', openEditor);
 $('ed-close').addEventListener('click', closeEditor);
 $('ed-new').addEventListener('click', () => {

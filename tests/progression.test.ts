@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Battle } from '../src/core/battle.js';
 import {
   applyXp, awardXp, dominantTrack, newPilot, pilotModifiers, trackLevel,
+  observeBattle,
 } from '../src/core/progression.js';
 import type { BattleEvent } from '../src/core/types.js';
 import { GameMap } from '../src/core/grid.js';
@@ -89,6 +90,34 @@ describe('progresión: XP del piloto (el Zoid no gana nada)', () => {
       new Set(),
     );
     expect(gains).toEqual([{ pilotId: 'p1', track: 'support', amount: 12 }]);
+  });
+
+  it('las manías se graban al cruzar umbrales y pilotan la máquina', () => {
+    let pilot = newPilot('q', 'Quejica');
+    // Dos apagados en batallas distintas → "Miedo al calor".
+    const shutdownBattle: BattleEvent[] = [
+      { type: 'turn-started', unitId: 'U' },
+      { type: 'unit-shutdown', unitId: 'U', damage: 5, targetHp: 50 },
+    ];
+    let result = observeBattle(pilot, { events: shutdownBattle, unitId: 'U', finalHpRatio: 0.5 }, PERKS);
+    expect(result.gained).toHaveLength(0);
+    pilot = result.pilot;
+    result = observeBattle(pilot, { events: shutdownBattle, unitId: 'U', finalHpRatio: 0.5 }, PERKS);
+    expect(result.gained.map((q) => q.id)).toEqual(['miedo-al-calor']);
+    pilot = result.pilot;
+    expect(pilot.memory['apagados']).toBe(2);
+    expect(pilot.quirks).toContain('miedo-al-calor');
+    // La manía entra al pipeline del piloto.
+    const mods = pilotModifiers(pilot, [], PERKS);
+    expect(mods.some((m) => m.source === 'quirk:miedo-al-calor' && m.stat === 'accuracy' && m.add === -3)).toBe(true);
+    // Es permanente y no se re-adquiere.
+    result = observeBattle(pilot, { events: shutdownBattle, unitId: 'U', finalHpRatio: 0.5 }, PERKS);
+    expect(result.gained).toHaveLength(0);
+    // Sobrevivir con ≤20%% cuenta como roce; con la máquina destruida, no.
+    result = observeBattle(pilot, { events: [], unitId: 'U', finalHpRatio: 0.1 }, PERKS);
+    expect(result.pilot.memory['roces']).toBe(1);
+    result = observeBattle(result.pilot, { events: [], unitId: 'U', finalHpRatio: 0 }, PERKS);
+    expect(result.pilot.memory['roces']).toBe(1);
   });
 
   it('pilotModifiers respeta el tope de sinergia', () => {

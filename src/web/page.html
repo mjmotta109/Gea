@@ -370,6 +370,44 @@
   .wlog { font-family: var(--mono); font-size: 11px; color: var(--muted); line-height: 1.6; max-height: 170px; overflow-y: auto; }
   .wlog .warn { color: var(--heat); }
 
+  /* ── Ficha de pilotos (árbol + manías) ── */
+  #pilots {
+    display: none; position: fixed; inset: 0; background: rgba(4, 8, 11, 0.92);
+    z-index: 22; overflow-y: auto; padding: 20px 14px;
+  }
+  #pilots.show { display: block; }
+  #pilots .gbox {
+    max-width: 1220px; margin: 0 auto; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px 20px;
+  }
+  #pilots .gtop { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  #pilots .gtop h2 { margin: 0; font-size: 13px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--player); }
+  #pilots-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  @media (max-width: 900px) { #pilots-body { grid-template-columns: 1fr; } }
+  .pcard { background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; }
+  .pcard h3 { margin: 0 0 8px; font-family: var(--mono); font-size: 14px; color: var(--ink); }
+  .pcard h3 .dom { color: var(--player); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; margin-left: 8px; }
+  .ptrack { margin-bottom: 8px; }
+  .ptrack .plabel { display: flex; gap: 8px; align-items: baseline; font-family: var(--mono); font-size: 11px; margin-bottom: 3px; }
+  .ptrack .plabel b { color: var(--ink); }
+  .ptrack .plabel .pxp { color: var(--muted); font-size: 10px; }
+  .pnodes { display: flex; gap: 4px; }
+  .pnode {
+    flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 4px;
+    padding: 4px 6px; font-family: var(--mono); font-size: 9px; color: var(--muted);
+    background: var(--panel); line-height: 1.35; cursor: help;
+  }
+  .pnode.unlocked { border-color: var(--energy); color: var(--ink); background: #12281c; }
+  .pnode.next { border-style: dashed; border-color: var(--muted); }
+  .pnode b { display: block; font-size: 10px; }
+  .pquirks { margin-top: 10px; border-top: 1px dashed var(--line); padding-top: 8px; }
+  .pquirks .qtitle { font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); font-family: var(--mono); margin-bottom: 5px; }
+  .pquirk {
+    display: inline-block; border: 1px solid var(--heat); color: var(--heat); border-radius: 10px;
+    font-family: var(--mono); font-size: 10px; padding: 2px 9px; margin: 0 4px 4px 0; cursor: help;
+  }
+  .pquirk.empty { border-color: var(--line); color: var(--muted); border-style: dashed; }
+
   /* ── Modo mercenario ── */
   #merc-btn {
     background: #3a2a12; color: var(--heat); border: 1px solid var(--heat);
@@ -542,11 +580,23 @@
     </div>
   </div>
 
+  <div id="pilots">
+    <div class="gbox">
+      <div class="gtop">
+        <h2>Pilotos — árbol de especialización y manías</h2>
+        <span class="gnote">los perks se desbloquean con XP de cada pista · las manías se graban viviendo (y no se borran)</span>
+        <button id="pilots-close" class="gsub">cerrar</button>
+      </div>
+      <div id="pilots-body"></div>
+    </div>
+  </div>
+
   <div id="merc">
     <div class="gbox">
       <div class="gtop">
         <h2>Compañía mercenaria</h2>
         <span class="gnote" id="merc-status"></span>
+        <button id="pilots-btn-m" class="gsub">🧠 Pilotos</button>
         <button id="merc-skirmish" class="gsub">modo escaramuza</button>
         <button id="merc-reset" class="gsub">nueva campaña</button>
         <button id="merc-deploy">🧭 Salir de expedición</button>
@@ -565,6 +615,7 @@
       <div class="gtop">
         <h2>Garaje — ensambla tu equipo</h2>
         <span class="gnote">elige chasis, armas y piezas · las piezas [etiquetadas] dan sinergia si casan con la pista dominante del piloto</span>
+        <button id="pilots-btn-g" class="gsub">🧠 Pilotos</button>
         <button id="deploy">▶ Desplegar</button>
       </div>
       <div id="gslots"></div>

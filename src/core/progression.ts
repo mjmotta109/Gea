@@ -27,10 +27,19 @@ export interface PilotState {
   name: string;
   /** XP acumulada por pista de especialización. */
   tracks: Record<SpecializationId, number>;
+  /** Manías adquiridas (ids de la tabla de perks), permanentes. */
+  quirks: string[];
+  /** Memoria vivida: contadores de experiencias que engendran manías. */
+  memory: Record<string, number>;
 }
 
 export function newPilot(id: string, name: string): PilotState {
-  return { id, name, tracks: { assault: 0, sniper: 0, support: 0, defense: 0 } };
+  return {
+    id, name,
+    tracks: { assault: 0, sniper: 0, support: 0, defense: 0 },
+    quirks: [],
+    memory: {},
+  };
 }
 
 /** Umbrales de XP acumulada para cada nivel de pista (nivel = índice+1). */
@@ -180,10 +189,31 @@ export function applyXp(pilots: Record<string, PilotState>, gains: XpGain[]): Re
 export interface PerkTable {
   /** Modificadores por nivel de pista; el nivel N aplica los índices 0..N-1. */
   perks: Record<SpecializationId, StatModifier[][]>;
+  /** Nombre y descripción de cada perk (para el árbol visual). */
+  perkNames?: Record<SpecializationId, Array<{ name: string; description: string }>>;
   /** Bonus por pieza/arma montada cuya spec coincide con la pista dominante. */
   synergy: Record<SpecializationId, StatModifier>;
   /** Máximo de piezas que cuentan para la sinergia. */
   synergyCap: number;
+  /** Manías: rasgos permanentes grabados por experiencias acumuladas. */
+  quirks?: Record<string, QuirkDefinition>;
+  /** Máximo de manías por piloto (las siguientes ya no se graban). */
+  quirkCap?: number;
+}
+
+/**
+ * Una manía: cuando un contador de la memoria del piloto cruza su
+ * umbral, el rasgo se graba para siempre y sus modificadores entran al
+ * pipeline. Puede ser bendición, cicatriz o ambas cosas.
+ */
+export interface QuirkDefinition {
+  id: string;
+  name: string;
+  description: string;
+  /** Contador de memoria que la dispara y umbral. */
+  counter: string;
+  threshold: number;
+  modifiers: StatModifier[];
 }
 
 /**
@@ -212,5 +242,83 @@ export function pilotModifiers(
     const bonus = table.synergy[dominant];
     for (let i = 0; i < matching; i++) mods.push(bonus);
   }
+  // Las manías del piloto también pilotan la máquina.
+  for (const quirkId of pilot.quirks ?? []) {
+    const quirk = table.quirks?.[quirkId];
+    if (quirk) mods.push(...quirk.modifiers);
+  }
   return mods;
+}
+
+// ── Memoria y manías: lo vivido deja huella ─────────────────────────────
+
+export interface BattleObservation {
+  events: BattleEvent[];
+  /** Unidad que tripuló este piloto en la batalla. */
+  unitId: string;
+  /** hp final / maxHp de su máquina (0 si quedó destruida). */
+  finalHpRatio: number;
+}
+
+/**
+ * Registra en la memoria del piloto lo vivido en una batalla y graba
+ * las manías cuyos umbrales se crucen. Determinista y sin mutar.
+ * Contadores: batallas, bajas, castigo (daño recibido), apagados,
+ * esquivas, reparaciones (a otros) y roces (sobrevivir con ≤20% HP).
+ */
+export function observeBattle(
+  pilot: PilotState,
+  observation: BattleObservation,
+  table: PerkTable,
+): { pilot: PilotState; gained: QuirkDefinition[] } {
+  const memory = { ...(pilot.memory ?? {}) };
+  const add = (counter: string, amount: number): void => {
+    if (amount > 0) memory[counter] = (memory[counter] ?? 0) + amount;
+  };
+
+  add('batallas', 1);
+  let lastAttacker: string | undefined;
+  for (const event of observation.events) {
+    switch (event.type) {
+      case 'ability-used':
+        lastAttacker = event.unitId;
+        break;
+      case 'damage-dealt':
+        lastAttacker = event.unitId;
+        if (event.targetUnitId === observation.unitId) add('castigo', event.amount);
+        break;
+      case 'unit-destroyed':
+        if (lastAttacker === observation.unitId && event.unitId !== observation.unitId) add('bajas', 1);
+        break;
+      case 'unit-shutdown':
+        if (event.unitId === observation.unitId) add('apagados', 1);
+        break;
+      case 'ability-missed':
+        if (event.targetUnitId === observation.unitId) add('esquivas', 1);
+        break;
+      case 'unit-healed':
+        if (event.unitId === observation.unitId && event.targetUnitId !== observation.unitId) {
+          add('reparaciones', event.amount);
+        }
+        break;
+      default:
+        break;
+    }
+  }
+  if (observation.finalHpRatio > 0 && observation.finalHpRatio <= 0.2) add('roces', 1);
+
+  const quirks = [...(pilot.quirks ?? [])];
+  const gained: QuirkDefinition[] = [];
+  const cap = table.quirkCap ?? 4;
+  // Orden fijo por id: la adquisición es reproducible.
+  for (const quirk of Object.values(table.quirks ?? {}).sort((a, b) => a.id.localeCompare(b.id))) {
+    if (quirks.length >= cap) break;
+    if (quirks.includes(quirk.id)) continue;
+    if ((memory[quirk.counter] ?? 0) >= quirk.threshold) {
+      quirks.push(quirk.id);
+      gained.push(quirk);
+    }
+  }
+
+  return { pilot: { ...pilot, memory, quirks }, gained };
 }
