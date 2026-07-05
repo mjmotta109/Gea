@@ -7,24 +7,92 @@
 > ChatGPT, notas propias, playtests) se consolidan aquí; lo que no está
 > aquí no está decidido.
 
-## 1. Visión
+## 1. Visión (redefinida 2026-07-05 — "diseño de afuera hacia adentro")
 
-Un RPG táctico por turnos que tome el flujo de **Final Fantasy Tactics**
-(CT, casillas, posicionamiento, orientación) y la profundidad de
-**Armored Core / BattleTech** (máquinas por piezas, recursos, ensamblaje),
-ambientado en **Zoids**. No es un clon de FFT: es una evolución moderna
-del género.
+**La fantasía central**: ser el piloto de una bestia mecánica única,
+recorrer un mundo enorme, y sentir que esa máquina es tu compañera, tu
+vehículo y tu arma. **El viaje importa tanto como el combate.** No se
+diseñan listas de mecánicas: se diseñan experiencias, y las mecánicas
+nacen de ellas (el guion de "la primera expedición" en §1.2 es la
+plantilla del método).
 
-**La estrella polar: cada batalla debe producir recuerdos.** Historias que
-surgen del sistema, no de cinemáticas:
+La base táctica sigue siendo FFT (CT, casillas, posicionamiento) con
+profundidad de máquina (Armored Core / BattleTech); la inspiración Zoids
+se conserva como andamio de identidad y más adelante se sustituirá por
+IP original. La estrella polar no cambia: **cada expedición debe
+producir recuerdos** que surgen del sistema, no de cinemáticas.
 
-- una unidad perdió una pierna y aun así logró escapar
-- un disparo destruyó los sensores enemigos y sus tiros dejaron de entrar
-- un piloto se quedó sin energía en el peor momento
-- una decisión de posicionamiento cambió el combate entero
+### 1.1 Los seis pilares
 
-*(Varias de estas ya ocurren en el prototipo actual — el listón es que
-ocurran cada partida y que el jugador se dé cuenta de que ocurrieron.)*
+1. **Vínculo con la máquina** — emerge de tres condiciones diseñables:
+   singularidad (mi máquina no es como la tuya), persistencia (lo que le
+   pasa, le queda) y vulnerabilidad (solo te vinculas con lo que puedes
+   perder). Herramienta clave: el diario automático — la biografía de la
+   máquina escrita desde el log determinista de eventos.
+2. **La máquina funciona como máquina** — sistemas que interactúan, con
+   la regla de oro: cada sistema debe tener un SÍNTOMA legible (la
+   transmisión rota cojea; los sensores rotos hacen que la UI mienta) y
+   un MOMENTO de decisión. Presupuesto de atención: máximo 5 sistemas
+   pidiendo decisiones a la vez (energía, calor, peso, integridad,
+   munición); el resto son síntomas o piezas, no diales.
+3. **Cada expedición es una aventura** — EL pilar. Preparar importa, el
+   camino importa, volver se siente como sobrevivir. El mecanismo es la
+   curva de presión: sales al 100%, todo te gasta, y la pregunta central
+   del juego es "¿un tramo más, o volvemos?". Presión mixta: la CARGA
+   (bodega limitada, volver lleno es volver rico) como zanahoria, el
+   DAÑO acumulado como látigo.
+4. **Las decisiones tienen consecuencias** — cadenas de compromiso
+   (reactor→calor→peso), con disciplina: toda decisión de taller muestra
+   sus dos caras en la misma pantalla; cadenas de 2-3 eslabones
+   visibles, el resto emergencia.
+5. **El mundo cuenta historias sin el jugador como protagonista** —
+   degradado deliberadamente de "mundo vivo" a TEATRO al servicio del
+   pilar 3: caravanas, patrullas y fauna aparecen en tu ruta con
+   contexto; no se simulan cuando no las ves. Dos órdenes de magnitud
+   más barato y el jugador no nota la diferencia.
+6. **El piloto** — la ley vigente: solo el piloto gana XP (por pistas);
+   la máquina se especializa por lo material; la sinergia entre ambos es
+   la recompensa. El vínculo es entre dos que crecen juntos.
+
+### 1.2 La compañera: maduración con techo (decisión 2026-07-05)
+
+Hay UNA máquina que es tuya — la compañera — y máquinas de apoyo que
+son ganado del modo mercenario (se compran, se venden, se lloran poco).
+La compañera NO se vende en menús y NO gana experiencia: **acumula
+historia**, con techo:
+
+- **Marcas** (≈6 espacios de núcleo): rasgos permanentes grabados por
+  eventos vividos — no elegidos de menú, no farmeables. Positivos,
+  mixtos o cicatrices ("Forjada en el desierto": disipa mejor en clima
+  árido; "La pata que nunca sanó": −1 movimiento, blindaje reforzado).
+  Núcleo lleno = la máquina ya es quien es. Cada partida produce una
+  compañera distinta.
+- **Compenetración** (techo en ~10-12 expediciones juntos): bonos
+  pequeños de manejo por conocerse. Se pierde al cambiar de máquina.
+- **Cambiar de compañera**: posible y carísimo, pero el dinero es el
+  menor de los costos — la nueva llega verde (sin marcas, sin
+  compenetración). Como el crecimiento tiene techo, cambiar es doloroso
+  pero no suicida: lo que no se puede comprar es la biografía.
+
+### 1.3 La primera expedición (guion canónico, resumen)
+
+Taller (montar según pronóstico, cargar bodega finita, pagar o no la
+reparación de la escolta) → partida (elegir ruta en el mapa de nodos:
+corta con tormenta vs. larga con ruinas) → tramo tranquilo que muestra
+el mundo (pilar 5) → crisis en tormenta (posturas de energía, avería
+con síntoma, gastar o guardar repuestos) → EL combate significativo
+(uno inevitable por expedición; los demás evitables/emergentes), al que
+se llega con las cartas ya jugadas por el viaje → decisión de presión
+(botín vs. bodega vs. estado: "¿un tramo más?") → regreso alterado por
+el daño → taller: diario actualizado, reparación con elección
+(perfecta y cara, o barata y con marca), consecuencia narrativa nueva
+en el tablón.
+
+**Sistemas que este guion exige (y ninguno más)**: capa estratégica de
+viaje (nodos/jornadas/eventos), suministros y bodega, posturas de
+energía (Cazador/Galope/Tortuga — presets con nombre, no sliders),
+averías con síntoma persistentes en viaje, marcas+compenetración, y
+diario automático. Todo lo demás ya existe.
 
 ## 2. Relación motor ↔ juego
 
@@ -88,6 +156,16 @@ Toda mecánica propuesta — venga de donde venga — debe responder:
    sin contaminarlo de universo?
 
 Si solo añade complejidad sin añadir decisiones, no entra.
+
+**Endurecimiento (2026-07-05, contra el "síndrome del simulador")**:
+
+- **Prueba de la historia**: si no se puede escribir la anécdota de
+  taberna que el sistema produce ("...y entonces el reactor..."), no
+  entra.
+- **Presupuesto de atención**: máximo 5 sistemas pidiendo decisiones a
+  la vez. Un sistema visible nuevo = uno existente pasa a ser síntoma.
+- La pregunta es siempre "¿qué experiencia genera?", nunca "¿qué tan
+  realista es?".
 
 ## 6. Backlog de diseño (ideas aceptadas a exploración, sin comprometer)
 
@@ -160,3 +238,18 @@ arquitectura del motor van en DESIGN.md.)*
   y cambiar de chasis incluye retoma del actual según su estado. El
   motor solo aportó `UnitSpawn.hp`. Pendiente: daño de módulos
   persistente, precios de módulos, misiones con objetivos distintos.
+- **2026-07-05** — REDEFINICIÓN DE LA VISIÓN (dirección del usuario,
+  "diseño de afuera hacia adentro"): la fantasía central es el viaje
+  con una bestia mecánica compañera, no solo el combate. Seis pilares
+  (§1.1), filtro endurecido contra el síndrome del simulador (§5),
+  guion canónico de la primera expedición (§1.3) como método: las
+  mecánicas nacen de experiencias escritas, no al revés. Decisiones:
+  compañera única con maduración con techo (marcas + compenetración,
+  §1.2) frente a flota de apoyo desechable; cambiar de compañera es
+  carísimo y la nueva llega sin biografía; UN combate inevitable por
+  expedición; presión de retorno mixta carga/daño; estructura de
+  exploración = capa estratégica de nodos y rutas sobre la capa
+  táctica existente (descartados mundo abierto y regiones artesanales
+  gigantes por costo indie). El modo mercenario actual se reorienta:
+  los contratos pasan de "menú de batallas" a "motivos para salir de
+  expedición"; comprar/vender solo aplica a las máquinas de apoyo.
