@@ -9,7 +9,7 @@
  */
 
 type Family =
-  | 'felino' | 'lobo' | 'raptor' | 'teropodo' | 'oruga' | 'caracol'
+  | 'felino' | 'lobo' | 'raptor' | 'teropodo' | 'oruga' | 'tortuga'
   | 'volador' | 'gorila' | 'bisonte' | 'escorpion' | 'cuellilargo' | 'torreta';
 
 /** Chasis → familia. Lo que no esté aquí cae a una silueta genérica. */
@@ -29,13 +29,13 @@ const FAMILIES: Record<string, Family> = {
   'gojulas': 'teropodo',
   'molga': 'oruga',
   'guysak': 'escorpion',
-  'gustav': 'caracol',
+  'gustav': 'tortuga',
   'pteras': 'volador',
   'redler': 'volador',
   'storm-sworder': 'volador',
   'iron-kong': 'gorila',
   'gran-brontes': 'bisonte',
-  'carguero-colono': 'caracol',
+  'carguero-colono': 'tortuga',
   'dibison': 'bisonte',
   'gordos': 'torreta',
   'brachios': 'cuellilargo',
@@ -61,9 +61,9 @@ const SHAPES: Record<Family, string> = {
   oruga: `
     <path d="M4 22 Q6 14 14 14 L30 14 Q37 15 37 20 L36 24 Q30 28 20 28 Q8 28 4 24 Z"/>
     <circle cx="11" cy="25" r="2"/><circle cx="19" cy="26" r="2"/><circle cx="27" cy="26" r="2"/>`,
-  caracol: `
-    <path d="M3 24 L8 20 Q8 10 17 10 Q26 10 26 19 L27 22 L33 21 L38 23 L37 26 L4 27 Z"/>
-    <path d="M12 19 Q13 14 18 14 Q22 14 21 18 Q20 21 16 21 Q12 21 12 19 Z" fill="rgba(0,0,0,0.3)"/>`,
+  tortuga: `
+    <path d="M3 23 L6 15 Q10 8 19 8 Q28 8 31 14 L32 17 L35 15 L39 18 L38 21 L34 21 L32 23 L30 23 L29 28 L25 28 L25 23 L17 23 L16 28 L12 28 L11 23 L7 24 Z"/>
+    <path d="M8 16 Q12 11 19 11 Q26 11 29 15 L27 17 Q20 13 11 18 Z" fill="rgba(0,0,0,0.3)"/>`,
   volador: `
     <path d="M3 14 L14 16 L22 15 L30 12 L38 13 L35 17 L26 19 L20 20 L14 24 L10 28 L12 21 L5 18 Z"/>
     <path d="M14 16 L8 6 L13 7 L20 14 Z"/>

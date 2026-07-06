@@ -146,7 +146,7 @@ paquete mínimo que transforma el juego son las **22 de prioridad 1-2**.
 
 | # | Pieza | Archivo | Tamaño |
 |---|---|---|---|
-| 1-12 | Las 12 bestias (lateral, morro a la DERECHA, monocromo) | `bestias/felino.svg` `lobo` `raptor` `teropodo` `oruga` `caracol` `volador` `gorila` `bisonte` `escorpion` `cuellilargo` `torreta` | SVG o PNG 512×384 |
+| 1-12 | Las 12 bestias (lateral, morro a la DERECHA, monocromo) | `bestias/felino.svg` `lobo` `raptor` `teropodo` `oruga` `tortuga` `volador` `gorila` `bisonte` `escorpion` `cuellilargo` `torreta` | SVG o PNG 512×384 |
 | 13 | Logotipo GEA | `iconos/logo-gea.svg` | SVG |
 
 ## Prioridad 1-bis — Láminas técnicas del lector de casco (12 piezas, empezar con 2)

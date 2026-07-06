@@ -535,7 +535,7 @@ arquitectura del motor van en DESIGN.md.)*
 - **2026-07-06** — SILUETAS Y TERRENO (dirección del usuario: "estoy
   cansado de ver bloques moviéndose"). Las fichas dejan de ser
   bloques: cada FAMILIA de chasis tiene una silueta lateral SVG
-  reconocible a 46px (felino, lobo, raptor, terópodo, oruga, caracol,
+  reconocible a 46px (felino, lobo, raptor, terópodo, oruga, tortuga,
   volador, gorila, bisonte, escorpión, cuellilargo, torreta), morro
   hacia su facing (oeste voltea, norte/sur inclinan), coloreada por
   bando vía currentColor, con sombra, etiqueta pequeña y barra de
@@ -711,3 +711,7 @@ arquitectura del motor van en DESIGN.md.)*
     se cambia en Compañía (sin coste, por ahora). Migración: básica =
     25% de lo vivido; principal = pista dominante; secundaria = la
     segunda con XP real.
+- **2026-07-06** — De los 12 arquetipos de silueta, el CARACOL pasa a
+  TORTUGA ("es más aesthetic"): caparazón abovedado con banda de
+  placas, cabeza corta al frente y patas rechonchas. La llevan el
+  Gustav y el carguero de escolta. El encargo de arte se actualiza.
