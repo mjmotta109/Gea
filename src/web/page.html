@@ -555,6 +555,50 @@
   #chronicle-body .cline.sep { border: 0; color: #3a4a58; text-align: center; }
   #chronicle-body .cempty { color: var(--muted); font-style: italic; }
 
+  /* ── Pestañas del cuartel ── */
+  .mtabs { display: flex; gap: 6px; margin: 14px 0 0; border-bottom: 1px solid var(--line); }
+  .mtab {
+    background: transparent; color: var(--muted); border: 1px solid transparent; border-bottom: none;
+    border-radius: 6px 6px 0 0; font-family: var(--mono); font-size: 12px; font-weight: 700;
+    padding: 9px 18px; cursor: pointer; letter-spacing: 0.04em;
+  }
+  .mtab:hover { color: var(--ink); }
+  .mtab.on {
+    background: var(--panel-2); color: var(--heat); border-color: var(--line);
+    transform: translateY(1px);
+  }
+  .tabpane { display: none; }
+  .tabpane.on { display: block; }
+  #merc-diario { font-family: var(--mono); font-size: 11px; line-height: 1.8; max-height: 300px; overflow-y: auto; }
+  #merc-diario .cline { border-left: 2px solid var(--line); padding-left: 10px; margin-bottom: 2px; color: var(--ink); }
+  #merc-diario .cline.warn { color: var(--heat); border-left-color: var(--heat); }
+  #merc-diario .cline.mark { color: var(--player); border-left-color: var(--player); }
+  #merc-diario .cline.sep { border: 0; color: #3a4a58; text-align: center; }
+  #merc-diario .cempty { color: var(--muted); font-style: italic; }
+
+  /* ── La ciudad como lugar: horizonte y plaza ── */
+  #city-sky { margin: 10px 0 4px; line-height: 0; }
+  #city-sky svg { width: 100%; height: 90px; display: block; border-radius: 6px; }
+  #city-plaza { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 10px; }
+  @media (max-width: 1000px) { #city-plaza { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .bldg {
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;
+    padding: 14px 12px 12px; cursor: pointer; text-align: left;
+    font-family: var(--mono); color: var(--ink);
+    transition: border-color 0.15s, transform 0.12s, box-shadow 0.2s;
+  }
+  .bldg:hover:not(.closed) { border-color: var(--energy); transform: translateY(-2px); box-shadow: 0 8px 22px rgba(0, 0, 0, 0.4); }
+  .bldg .bicon { font-size: 26px; display: block; margin-bottom: 8px; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.5)); }
+  .bldg .bname { font-size: 12px; font-weight: 700; display: block; }
+  .bldg .bsub { font-size: 10px; color: var(--muted); display: block; margin-top: 4px; line-height: 1.5; }
+  .bldg.closed { opacity: 0.45; cursor: not-allowed; }
+  #city-back {
+    background: var(--panel-2); color: var(--ink); border: 1px solid var(--line); border-radius: 4px;
+    font-family: var(--mono); font-size: 11px; font-weight: 700; padding: 7px 14px; cursor: pointer;
+    margin: 10px 0 4px;
+  }
+  #city-back:hover { border-color: var(--energy); }
+
   /* ── Diálogo propio (el visor embebido bloquea confirm/prompt nativos) ── */
   #dlg {
     display: none; position: fixed; inset: 0; background: rgba(4, 8, 11, 0.8);
@@ -1079,7 +1123,6 @@
     <button id="garage-btn">⚙ Garaje</button>
     <button id="restart">Nueva batalla</button>
     </span>
-    <button id="saves-btn">💾 Partidas</button>
     <button id="sfx-btn" class="gsub sfxbtn" title="sonido">🔊</button>
     <button id="iso-btn" class="gsub" title="vista de mesa (isométrica)">🧊 ISO</button>
     <button id="merc-btn">🏴 Campaña</button>
@@ -1216,6 +1259,7 @@
         <h2 id="world-title">Expedición</h2>
         <span id="world-status" class="gnote"></span>
         <button id="world-saves" class="gsub">💾</button>
+        <button id="world-sfx" class="gsub sfxbtn">🔊</button>
         <button id="world-menu" class="gsub">☰ menú</button>
       </div>
       <div id="world-body">
@@ -1267,8 +1311,13 @@
         <span class="gnote" id="city-desc"></span>
         <span id="city-status" style="font-family:var(--mono);font-size:12px;font-weight:700;color:var(--energy)"></span>
         <button id="city-saves" class="gsub">💾</button>
+        <button id="city-sfx" class="gsub sfxbtn">🔊</button>
+        <button id="city-menu" class="gsub">☰ menú</button>
         <button id="city-close" class="gsub">← volver al mapa</button>
       </div>
+      <div id="city-sky"></div>
+      <div id="city-plaza"></div>
+      <button id="city-back" style="display:none">← volver a la plaza</button>
       <div id="city-body"></div>
     </div>
   </div>
@@ -1278,26 +1327,37 @@
       <div class="gtop">
         <h2>Compañía mercenaria</h2>
         <span class="gnote" id="merc-status"></span>
-        <button id="merc-sfx" class="gsub sfxbtn">🔊</button>
-        <button id="merc-chronicle" class="gsub">📜 Diario</button>
         <button id="merc-saves" class="gsub">💾</button>
+        <button id="merc-sfx" class="gsub sfxbtn">🔊</button>
         <button id="merc-menu" class="gsub">☰ menú</button>
-        <button id="pilots-btn-m" class="gsub">🧠 Pilotos</button>
-        <button id="merc-skirmish" class="gsub">modo escaramuza</button>
-        <button id="merc-reset" class="gsub">nueva campaña</button>
         <button id="merc-freeroam">🧭 Explorar libremente</button>
         <button id="merc-deploy">⚑ Partir al contrato</button>
       </div>
-      <h3 class="msec">Destacamentos</h3>
-      <div id="merc-assignments"></div>
-      <h3 class="msec">Reputación</h3>
-      <div id="merc-rep"></div>
+      <nav class="mtabs">
+        <button id="mtab-operaciones" class="mtab">⚑ Operaciones</button>
+        <button id="mtab-hangar" class="mtab">⚙ Hangar</button>
+        <button id="mtab-compania" class="mtab">🏢 Compañía</button>
+      </nav>
+      <div id="tab-operaciones" class="tabpane">
       <h3 class="msec">Contratos disponibles</h3>
       <div id="contracts"></div>
+      <h3 class="msec">Destacamentos</h3>
+      <div id="merc-assignments"></div>
+      </div>
+      <div id="tab-compania" class="tabpane">
+      <h3 class="msec">Reputación</h3>
+      <div id="merc-rep"></div>
+      <h3 class="msec">Pilotos</h3>
+      <div id="merc-pilots"></div>
+      <h3 class="msec">📜 Diario de la compañía</h3>
+      <div id="merc-diario"></div>
+      </div>
+      <div id="tab-hangar" class="tabpane">
       <h3 class="msec">Hangar</h3>
       <div id="merc-hangar"></div>
       <h3 class="msec">Armería <span class="gmuted" style="font-weight:400">— comprar aquí, montar en el hangar</span></h3>
       <div id="merc-store"></div>
+      </div>
     </div>
   </div>
 

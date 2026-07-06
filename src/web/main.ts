@@ -710,6 +710,56 @@ function uiChoice(prompt: string, options: Array<{ id: string; label: string; de
 /** Selección por teclado (1-9) de la elección en curso. */
 let choiceKeys: ((digit: number) => void) | null = null;
 
+/**
+ * Selector de FORMACIÓN: alterna miembros y confirma. El hueco 0 (tu
+ * compañera) va siempre: tú ERES el piloto 1. Devuelve los huecos
+ * elegidos o null si se cancela.
+ */
+function uiParty(
+  prompt: string,
+  options: Array<{ slot: number; label: string; detail: string }>,
+  preselected: number[],
+): Promise<number[] | null> {
+  dlgResolve?.(null);
+  $('dlg-msg').textContent = prompt;
+  ($('dlg-input') as HTMLElement).style.display = 'none';
+  ($('dlg-ok') as HTMLElement).style.display = '';
+  ($('dlg-cancel') as HTMLElement).style.display = '';
+  const host = $('dlg-opts');
+  host.innerHTML = '';
+  const chosen = new Set<number>([0, ...preselected.filter((n) => n !== 0)]);
+  $('dlg').classList.add('show');
+  return new Promise((resolve) => {
+    const paint = (btn: HTMLButtonElement, slot: number): void => {
+      btn.style.borderColor = chosen.has(slot) ? 'var(--player)' : 'var(--line)';
+      btn.style.opacity = chosen.has(slot) ? '1' : '0.55';
+    };
+    // El hueco 0 se muestra fijo, sin botón: la compañera no se queda.
+    host.insertAdjacentHTML('beforeend',
+      `<div class="cnote" style="font-family:var(--mono);font-size:10px;color:var(--player);margin-bottom:6px">❤ Tu compañera va siempre: tú pilotas.</div>`);
+    for (const option of options) {
+      const btn = document.createElement('button');
+      btn.innerHTML = `${option.label}<span class="odet">${escapeHtml(option.detail)}</span>`;
+      paint(btn, option.slot);
+      btn.addEventListener('click', () => {
+        if (chosen.has(option.slot)) chosen.delete(option.slot);
+        else chosen.add(option.slot);
+        playSfx('click');
+        paint(btn, option.slot);
+      });
+      host.appendChild(btn);
+    }
+    const finish = (accepted: boolean): void => {
+      dlgResolve = null;
+      host.innerHTML = '';
+      $('dlg').classList.remove('show');
+      resolve(accepted ? [...chosen].sort() : null);
+    };
+    // Compartimos el cierre del diálogo normal: OK confirma, Esc cancela.
+    dlgResolve = (value) => finish(value !== null);
+  });
+}
+
 // ── Teclado ──────────────────────────────────────────────────────────────
 
 document.addEventListener('keydown', (event) => {
@@ -756,7 +806,11 @@ document.addEventListener('keydown', (event) => {
     return;
   }
   if (cityOpen) {
-    if (event.key === 'Escape') closeCity();
+    if (event.key === 'Escape') {
+      // Dentro de un edificio, Esc vuelve a la plaza; en la plaza, al mapa.
+      if (cityBuilding !== null) { cityBuilding = null; renderCity(); }
+      else closeCity();
+    }
     return;
   }
   if (worldOpen) {
@@ -2167,11 +2221,7 @@ function renderMerc(): void {
   $('merc-status').textContent =
     `${company ? `${company} · ` : ''}⌾ ${campaign.credits} créditos · contratos completados: ${campaign.contractsDone}` +
     ` · base: ${baseNode?.name ?? base.name} (${base.name})`;
-  renderAssignments();
-  renderReputation();
-  renderContracts();
-  renderMercHangar();
-  renderMercStore();
+  renderMercTabs();
   const anyAlive = campaign.roster.some((z) => !z.destroyed);
   const deploy = $('merc-deploy') as HTMLButtonElement;
   deploy.disabled = !selectedContractId || !anyAlive;
@@ -2182,22 +2232,59 @@ function renderMerc(): void {
 /** Panel de reputación del cuartel: cómo nos mira cada facción. */
 let chronicleOpen = false;
 
+function chronicleHtml(): string {
+  if (!campaign || campaign.chronicle.length === 0) {
+    return '<div class="cempty">Aún no hay nada escrito. Sal ahí fuera: el diario se escribe solo.</div>';
+  }
+  return [...campaign.chronicle].reverse().map((line) => {
+    const cls = line === '· · ·' ? ' sep' : line.includes('⚠') || line.startsWith('✝') ? ' warn' : line.includes('❤') ? ' mark' : '';
+    return `<div class="cline${cls}">${escapeHtml(line)}</div>`;
+  }).join('');
+}
+
 function openChronicle(): void {
   if (!campaign) return;
   chronicleOpen = true;
-  const host = $('chronicle-body');
-  host.innerHTML = campaign.chronicle.length === 0
-    ? '<div class="cempty">Aún no hay nada escrito. Sal ahí fuera: el diario se escribe solo.</div>'
-    : [...campaign.chronicle].reverse().map((line) => {
-        const cls = line === '· · ·' ? ' sep' : line.includes('⚠') || line.startsWith('✝') ? ' warn' : line.includes('❤') ? ' mark' : '';
-        return `<div class="cline${cls}">${escapeHtml(line)}</div>`;
-      }).join('');
+  $('chronicle-body').innerHTML = chronicleHtml();
   $('chronicle').classList.add('show');
 }
 
 function closeChronicle(): void {
   chronicleOpen = false;
   $('chronicle').classList.remove('show');
+}
+
+// Pestañas del cuartel: Operaciones (decidir) / Hangar (tocar) /
+// Compañía (consultar). Se recuerda la última abierta.
+let mercTab: 'operaciones' | 'hangar' | 'compania' =
+  (localStorage.getItem('gea-merc-tab') as 'operaciones' | 'hangar' | 'compania') ?? 'operaciones';
+
+function renderMercTabs(): void {
+  for (const tab of ['operaciones', 'hangar', 'compania'] as const) {
+    $(`mtab-${tab}`).classList.toggle('on', mercTab === tab);
+    $(`tab-${tab}`).classList.toggle('on', mercTab === tab);
+  }
+  // Solo se construye la pestaña visible: el cuartel abre ligero.
+  if (mercTab === 'operaciones') {
+    renderContracts();
+    renderAssignments();
+  } else if (mercTab === 'hangar') {
+    renderMercHangar();
+    renderMercStore();
+  } else {
+    renderReputation();
+    renderPilots('merc-pilots');
+    $('merc-diario').innerHTML = chronicleHtml();
+  }
+}
+
+for (const tab of ['operaciones', 'hangar', 'compania'] as const) {
+  $(`mtab-${tab}`).addEventListener('click', () => {
+    mercTab = tab;
+    try { localStorage.setItem('gea-merc-tab', tab); } catch { /* privado */ }
+    playSfx('click');
+    renderMercTabs();
+  });
 }
 
 /** Panel de destacamentos: la compañía trabaja aunque no la mires. */
@@ -2628,6 +2715,22 @@ function renderMercStore(): void {
   }
 }
 
+/** Candidatos a salir (vivos, sanos y sin destacar), sin la compañera. */
+function partyCandidates(): Array<{ slot: number; label: string; detail: string }> {
+  return campaign!.roster
+    .map((zoid, slot) => ({ zoid, slot }))
+    .filter(({ zoid, slot }) => slot > 0 && !zoid.destroyed &&
+      !isInjured(pilots[PILOT_IDS[slot]!]!) && !assignmentOf(slot))
+    .map(({ zoid, slot }) => {
+      const pilot = pilots[PILOT_IDS[slot]!]!;
+      return {
+        slot,
+        label: `${pilot.name} — ${ZOIDS[zoid.unitTypeId]!.name}`,
+        detail: `${Math.min(zoid.hp, campaignMaxHp(slot))}/${campaignMaxHp(slot)} HP · ${pilotSummary(pilot).replace(/<[^>]+>/g, '') || 'novato'}`,
+      };
+    });
+}
+
 /** Acepta el contrato seleccionado y abre la expedición hacia su lugar. */
 function startContractExpedition(): void {
   if (!campaign || !selectedContractId) return;
@@ -2635,22 +2738,30 @@ function startContractExpedition(): void {
   const contract = offers.find((c) => c.id === selectedContractId);
   if (!contract) return;
   if (!campaign.roster.some((z) => !z.destroyed)) return;
-  expedition = startExpedition(homeRegion(), contract.id, contract.tier);
-  syncRegion();
-  saveExpedition();
-  closeMerc();
-  openWorld();
+  void uiParty(`Formación para "${contract.name}": ¿quiénes van? Solo podrás reorganizar en ciudad.`,
+    partyCandidates(), [1, 2, 3]).then((party) => {
+    if (!party) return; // se canceló la salida
+    expedition = { ...startExpedition(homeRegion(), contract.id, contract.tier), party };
+    syncRegion();
+    saveExpedition();
+    closeMerc();
+    openWorld();
+  });
 }
 
 /** Sale a recorrer la región sin contrato: explorar es un fin en sí. */
 function startFreeRoam(): void {
   if (!campaign) return;
   if (!campaign.roster.some((z) => !z.destroyed)) return;
-  expedition = startFreeExpedition(homeRegion(), String(Date.now()));
-  syncRegion();
-  saveExpedition();
-  closeMerc();
-  openWorld();
+  void uiParty('Formación para salir a explorar: ¿quiénes van? Solo podrás reorganizar en ciudad.',
+    partyCandidates(), [1, 2, 3]).then((party) => {
+    if (!party) return;
+    expedition = { ...startFreeExpedition(homeRegion(), String(Date.now())), party };
+    syncRegion();
+    saveExpedition();
+    closeMerc();
+    openWorld();
+  });
 }
 
 /** Liquida el contrato al terminar la batalla; devuelve el HTML del parte. */
@@ -2990,8 +3101,25 @@ function cityNode(): (typeof REGION.nodes)[number] | undefined {
 function openCity(): void {
   if (!cityNode()) return;
   cityOpen = true;
+  cityBuilding = null; // siempre se llega a la plaza
   renderCity();
   $('city').classList.add('show');
+}
+
+/** Reorganizar la formación: solo en ciudad, como manda la regla. */
+function editParty(): void {
+  if (!campaign || !expedition) return;
+  void uiParty('Reorganizar la formación: ¿quiénes siguen el viaje desde aquí?',
+    partyCandidates(), (expedition.party ?? [0, 1, 2, 3]).filter((n) => n !== 0)).then((party) => {
+    if (!party || !expedition) return;
+    expedition = {
+      ...expedition,
+      party,
+      log: [...expedition.log, `Día ${expedition.day} — Formación reorganizada en ${cityNode()?.name ?? 'ciudad'}: van ${party.length} máquinas.`],
+    };
+    saveExpedition();
+    renderCity();
+  });
 }
 
 function closeCity(): void {
@@ -3001,12 +3129,68 @@ function closeCity(): void {
 }
 
 /** Un establecimiento de la ciudad (sección de la pantalla). */
+/** Edificio abierto (null = la plaza). Se entra y se sale, como en DD. */
+let cityBuilding: string | null = null;
+
+/**
+ * Con edificio abierto, solo la sección que casa se muestra; el resto
+ * se construye suelto (y se descarta). En la plaza no se llama.
+ */
 function citySection(title: string): HTMLElement {
   const sec = document.createElement('div');
   sec.className = 'csec';
   sec.innerHTML = `<h3>${title}</h3>`;
-  $('city-body').appendChild(sec);
+  if (cityBuilding === null || title.startsWith(cityBuilding)) {
+    $('city-body').appendChild(sec);
+  }
   return sec;
+}
+
+/** Horizonte de la ciudad: tejados procedurales, deterministas por id. */
+function citySkyline(nodeId: string, level: number, accent: string): string {
+  let h = 2166136261;
+  for (const ch of nodeId) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+  const rand = (n: number): number => {
+    h = Math.imul(h ^ (h >>> 15), 2246822519) >>> 0;
+    return h % n;
+  };
+  const parts: string[] = [];
+  let x = 0;
+  while (x < 100) {
+    const w = 5 + rand(9);
+    const tall = 18 + rand(26) + level * 7;
+    const y = 78 - tall;
+    parts.push(`<rect x="${x}" y="${y}" width="${w}" height="${tall}" fill="#131b23"/>`);
+    // Ventanas encendidas y azoteas.
+    for (let wx = x + 1; wx < x + w - 1; wx += 3) {
+      if (rand(3) === 0) parts.push(`<rect x="${wx}" y="${y + 3 + rand(Math.max(1, tall - 8))}" width="1.4" height="2" fill="${accent}" opacity="0.55"/>`);
+    }
+    if (rand(3) === 0) parts.push(`<rect x="${x + rand(Math.max(1, w - 2))}" y="${y - 5}" width="0.8" height="5" fill="#233240"/>`);
+    x += w + 1 + rand(3);
+  }
+  return `<svg viewBox="0 0 100 80" preserveAspectRatio="none">` +
+    `<rect width="100" height="80" fill="#0a1117"/>` +
+    `<circle cx="${20 + (h % 55)}" cy="14" r="6" fill="${accent}" opacity="0.18"/>` +
+    parts.join('') +
+    `<rect y="77" width="100" height="3" fill="${accent}" opacity="0.35"/></svg>`;
+}
+
+/** Las puertas de la plaza: qué edificios tiene ESTA ciudad. */
+function cityDoors(city: { level: number; factory?: string }): Array<{ key: string; icon: string; name: string; sub: string }> {
+  const doors = [
+    { key: '⚒ Taller', icon: '⚒', name: 'Taller', sub: 'arreglos básicos del casco' },
+    { key: '🏪 Mercader', icon: '🏪', name: 'Mercader', sub: 'suministros, bodega y jornal' },
+  ];
+  if (city.factory === 'armas') doors.push({ key: '🏭 Fábrica', icon: '🏭', name: 'Fábrica de armas', sub: 'armamento con descuento local' });
+  if (city.factory === 'piezas') doors.push({ key: '🏭 Fábrica', icon: '🏭', name: 'Fábrica de piezas', sub: 'planos de módulos' });
+  if (city.level >= 2) doors.push({ key: '🏗 Fabricación', icon: '🏗', name: 'Fabricación de Zoids', sub: 'encargar chasis con retoma' });
+  doors.push(
+    { key: '🔧 Modificación', icon: '🔧', name: 'Modificación', sub: 'tunear armas y módulos' },
+    { key: '😴 Descansos', icon: '😴', name: 'Descansos', sub: 'pensión, desahogos y consultorio' },
+    { key: '🍻 Taberna', icon: '🍻', name: 'Taberna', sub: 'encargos no tan oficiales' },
+    { key: '🧭 Formación', icon: '🧭', name: 'Formación', sub: 'reorganizar quiénes siguen el viaje' },
+  );
+  return doors;
 }
 
 function cityButton(host: HTMLElement, label: string, disabled: boolean, onClick: () => void): void {
@@ -3072,6 +3256,33 @@ function renderCity(): void {
     (priceMul !== 1 ? ` · precios ${priceMul > 1 ? '+' : '−'}${Math.round(Math.abs(priceMul - 1) * 100)}%` : '');
   const px = (base: number): number => Math.max(1, Math.round(base * priceMul));
   $('city-body').innerHTML = '';
+
+  // El horizonte de ESTA ciudad, teñido por su facción.
+  const accent = faction?.id === 'chatarreros' ? '#ff9f45' : faction?.id === 'gremio' ? '#53d1e0' : '#5fd9a4';
+  $('city-sky').innerHTML = citySkyline(node.id, city.level, accent);
+
+  // LA PLAZA: sin edificio abierto se ven las puertas, no los mostradores.
+  const plaza = $('city-plaza');
+  ($('city-back') as HTMLElement).style.display = cityBuilding === null ? 'none' : '';
+  if (cityBuilding === null) {
+    plaza.style.display = '';
+    plaza.innerHTML = '';
+    for (const door of cityDoors(city)) {
+      const card = document.createElement('button');
+      card.className = 'bldg';
+      card.innerHTML = `<span class="bicon">${door.icon}</span>` +
+        `<span class="bname">${door.name}</span><span class="bsub">${door.sub}</span>`;
+      card.addEventListener('click', () => {
+        playSfx('click');
+        if (door.key === '🧭 Formación') { editParty(); return; }
+        cityBuilding = door.key;
+        renderCity();
+      });
+      plaza.appendChild(card);
+    }
+    return; // los mostradores no se montan hasta cruzar una puerta
+  }
+  plaza.style.display = 'none';
 
   // ⚒ TALLER — arreglos básicos, siempre; eliges cuánto gastar.
   const taller = citySection('⚒ Taller — arreglos básicos');
@@ -3351,9 +3562,11 @@ function renderCity(): void {
 /** El trabajo no oficial: un combate local, aquí y ahora. */
 function fightTavernBattle(job: Contract, nodeId: string): void {
   if (!campaign || !expedition) return;
+  const party = expedition.party ?? [0, 1, 2, 3];
   const alive = campaign.roster
     .map((zoid, slot) => ({ zoid, slot }))
-    .filter(({ zoid, slot }) => !zoid.destroyed && !isInjured(pilots[PILOT_IDS[slot]!]!) && !assignmentOf(slot));
+    .filter(({ zoid, slot }) => party.includes(slot) && !zoid.destroyed &&
+      !isInjured(pilots[PILOT_IDS[slot]!]!) && !assignmentOf(slot));
   if (alive.length === 0) return;
   const node = REGION.nodes.find((n) => n.id === nodeId)!;
   let field = generatedField(`${job.id}|${nodeId}|${expedition.day}`, job.tier);
@@ -3522,9 +3735,11 @@ function fightExpeditionBattle(): void {
   if (!campaign || !expedition) return;
   const contract = expeditionContract();
   if (!contract) return;
+  const party = expedition.party ?? [0, 1, 2, 3];
   const alive = campaign.roster
     .map((zoid, slot) => ({ zoid, slot }))
-    .filter(({ zoid, slot }) => !zoid.destroyed && !isInjured(pilots[PILOT_IDS[slot]!]!) && !assignmentOf(slot));
+    .filter(({ zoid, slot }) => party.includes(slot) && !zoid.destroyed &&
+      !isInjured(pilots[PILOT_IDS[slot]!]!) && !assignmentOf(slot));
   if (alive.length === 0) return;
 
   // El lugar elige el mapa: un mapa del editor con el nombre del nodo
@@ -3776,8 +3991,8 @@ function closePilots(): void {
   $('pilots').classList.remove('show');
 }
 
-function renderPilots(): void {
-  const host = $('pilots-body');
+function renderPilots(hostId = 'pilots-body'): void {
+  const host = $(hostId);
   host.innerHTML = '';
   for (const pilotId of PILOT_IDS) {
     const pilot = pilots[pilotId]!;
@@ -4223,21 +4438,15 @@ function wireSfxButton(id: string): void {
 }
 wireSfxButton('sfx-btn');
 wireSfxButton('merc-sfx');
+wireSfxButton('world-sfx');
+wireSfxButton('city-sfx');
+$('city-menu').addEventListener('click', () => { closeCity(); closeWorld(); openStart(); });
+$('city-back').addEventListener('click', () => { cityBuilding = null; playSfx('click'); renderCity(); });
 
-$('merc-chronicle').addEventListener('click', openChronicle);
 $('chronicle-close').addEventListener('click', closeChronicle);
 $('merc-deploy').addEventListener('click', startContractExpedition);
 $('merc-freeroam').addEventListener('click', startFreeRoam);
-$('merc-skirmish').addEventListener('click', enterSandbox);
-$('merc-reset').addEventListener('click', async () => {
-  if (!(await uiConfirm('¿Empezar una campaña nueva? Se pierden créditos, hangar y arsenal (los pilotos se conservan).'))) return;
-  campaign = newCampaign(ECONOMY, factoryLoadout);
-  selectedContractId = null;
-  saveCampaign();
-  renderMerc();
-});
 window.addEventListener('mouseup', () => { painting = false; });
-$('saves-btn').addEventListener('click', openSaves);
 $('saves-close').addEventListener('click', closeSaves);
 $('save-import').addEventListener('click', () => { ($('save-file') as HTMLInputElement).click(); });
 $('save-file').addEventListener('change', () => {
@@ -4255,7 +4464,6 @@ $('save-file').addEventListener('change', () => {
   reader.readAsText(file);
 });
 $('pilots-btn-g').addEventListener('click', openPilots);
-$('pilots-btn-m').addEventListener('click', openPilots);
 $('pilots-close').addEventListener('click', closePilots);
 $('editor-btn').addEventListener('click', openEditor);
 $('ed-close').addEventListener('click', closeEditor);

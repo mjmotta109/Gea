@@ -607,3 +607,25 @@ arquitectura del motor van en DESIGN.md.)*
   · 3 encargos iniciales: Escolta local (3j, defensa), Prospección
     (4j, apoyo, con galería tentadora), Rastreo del Gremio (5j,
     tirador, DOS llamadas).
+- **2026-07-06** — REORGANIZACIÓN DE MENÚS + CIUDAD-LUGAR + FORMACIÓN
+  (dirección del usuario tras revisar el mapa de menús):
+  · BARRA DE SISTEMA ÚNICA: 💾 · 🔊 · ☰, mismo orden, en cuartel,
+    mundo y ciudad. La batalla pierde "Partidas"; "nueva campaña" y
+    "modo escaramuza" salen del cuartel (Juego nuevo y el menú de
+    inicio ya los cubren).
+  · CUARTEL EN 3 PESTAÑAS (se recuerda la última): ⚑ Operaciones
+    (contratos + destacamentos + partir), ⚙ Hangar (roster + armería),
+    🏢 Compañía (reputación + pilotos + diario embebidos — los botones
+    🧠/📜 desaparecen de la cabecera).
+  · LA CIUDAD ES UN LUGAR (a lo Darkest Dungeon): horizonte procedural
+    propio (tejados y ventanas deterministas por id, acento del color
+    de su facción), y una PLAZA con puertas-edificio (Taller, Mercader,
+    Fábrica si la hay, Fabricación si nivel 2+, Modificación,
+    Descansos, Taberna, Formación). Se ENTRA a cada edificio y se
+    vuelve a la plaza (Esc también); los mostradores ya no son un
+    scroll.
+  · FORMACIÓN DE SALIDA (regla nueva): al partir (contrato o libre) se
+    ELIGE quiénes van — la compañera va siempre: tú pilotas — y las
+    batallas de la expedición despliegan SOLO a la formación. No se
+    reorganiza en ruta: únicamente en el edificio Formación de una
+    ciudad. Expediciones guardadas de antes: van todos (migración).

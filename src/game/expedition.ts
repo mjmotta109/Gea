@@ -153,6 +153,12 @@ export interface ExpeditionState {
   explored?: string[];
   /** Ciudades cuyo trabajo de taberna ya se hizo en esta expedición. */
   tavernJobsDone?: string[];
+  /**
+   * FORMACIÓN de salida: huecos del roster que VAN en esta expedición.
+   * Se elige al partir y solo se reorganiza en ciudad. Ausente = todos
+   * (expediciones de antes de la regla).
+   */
+  party?: number[];
 }
 
 /**
