@@ -26,6 +26,10 @@ import { VALLEY_CROSSING } from '../data/maps.js';
 import { generateBattlefield } from '../game/mapgen.js';
 import { adjustReputation, contractSlots, priceFactor, reputationTier, REPUTATION_MAX } from '../game/reputation.js';
 import { FACTIONS, PLACE_FACTIONS } from '../data/factions.js';
+import { ASSIGNMENT_SPECS } from '../data/assignments.js';
+import {
+  advanceAssignment, assignmentDone, finishAssignment, resolveAssignmentCall, startAssignment,
+} from '../game/assignment.js';
 import { playSfx, sfxEnabled, toggleSfx } from './sfx.js';
 import { spriteBody, unitSprite } from './sprites.js';
 import {
@@ -2097,6 +2101,7 @@ function loadCampaign(): CampaignState | null {
     if (!state.reputation || typeof state.reputation !== 'object') state.reputation = {};
     if (!Array.isArray(state.chronicle)) state.chronicle = [];
     if (typeof state.homeRegionId !== 'string') state.homeRegionId = SALT_PASS_REGION.id;
+    if (!Array.isArray(state.assignments)) state.assignments = [];
     return state;
   } catch {
     return null;
@@ -2162,6 +2167,7 @@ function renderMerc(): void {
   $('merc-status').textContent =
     `${company ? `${company} · ` : ''}⌾ ${campaign.credits} créditos · contratos completados: ${campaign.contractsDone}` +
     ` · base: ${baseNode?.name ?? base.name} (${base.name})`;
+  renderAssignments();
   renderReputation();
   renderContracts();
   renderMercHangar();
@@ -2192,6 +2198,122 @@ function openChronicle(): void {
 function closeChronicle(): void {
   chronicleOpen = false;
   $('chronicle').classList.remove('show');
+}
+
+/** Panel de destacamentos: la compañía trabaja aunque no la mires. */
+function renderAssignments(): void {
+  const host = $('merc-assignments');
+  host.innerHTML = '';
+  const active = campaign!.assignments ?? [];
+
+  // En curso: progreso, llamadas pendientes y regresos por liquidar.
+  for (const assignment of active) {
+    const spec = ASSIGNMENT_SPECS.find((sp) => sp.id === assignment.specId);
+    if (!spec) continue;
+    const pilot = pilots[PILOT_IDS[assignment.slot]!]!;
+    const card = document.createElement('div');
+    card.className = 'acard';
+    const pct = Math.round((assignment.daysDone / assignment.totalDays) * 100);
+    card.innerHTML =
+      `<div class="aname">📡 ${spec.name}</div>` +
+      `<div class="ameta">${escapeHtml(pilot.name)} · jornada ${assignment.daysDone}/${assignment.totalDays}</div>` +
+      `<div class="abar"><i style="width:${pct}%"></i></div>` +
+      `<div class="ablurb">${escapeHtml(assignment.log[assignment.log.length - 1] ?? '')}</div>`;
+    if (assignment.pendingCall) {
+      const btn = document.createElement('button');
+      btn.className = 'call';
+      btn.textContent = '📞 Atender la llamada';
+      btn.addEventListener('click', () => {
+        const call = assignment.pendingCall!;
+        void uiChoice(`${pilot.name} — ${call.prompt}`, call.options.map((o) => ({
+          id: o.id, label: o.label, detail: o.detail,
+        }))).then((optionId) => {
+          if (!campaign) return;
+          campaign = {
+            ...campaign,
+            assignments: campaign.assignments!.map((a) => (a === assignment ? resolveAssignmentCall(a, optionId) : a)),
+          };
+          saveCampaign();
+          renderMerc();
+        });
+      });
+      card.appendChild(btn);
+    } else if (assignmentDone(assignment)) {
+      const btn = document.createElement('button');
+      btn.textContent = '✔ Recibir al destacamento';
+      btn.addEventListener('click', () => {
+        if (!campaign) return;
+        const pilotId = PILOT_IDS[assignment.slot]!;
+        const levels = SPECIALIZATIONS.reduce((n, t) => n + trackLevel(pilots[pilotId]!.tracks[t]), 0);
+        const report = finishAssignment(assignment, spec, levels);
+        campaign = {
+          ...campaign,
+          credits: campaign.credits + report.credits,
+          assignments: campaign.assignments!.filter((a) => a !== assignment),
+        };
+        for (const change of report.reputation) {
+          campaign = { ...campaign, reputation: adjustReputation(campaign.reputation, change.factionId, change.delta) };
+        }
+        const gains = Object.entries(report.xp).map(([track, amount]) => ({
+          pilotId, track: track as SpecializationId, amount: amount ?? 0,
+        }));
+        pilots = applyXp(pilots, gains);
+        if (report.stressDelta !== 0) pilots[pilotId] = adjustStress(pilots[pilotId]!, report.stressDelta);
+        if (report.injuryDays > 0) pilots[pilotId] = injurePilot(pilots[pilotId]!, report.injuryDays);
+        chronicle(report.line);
+        savePilots();
+        saveCampaign();
+        playSfx(report.grade === 'fracaso' ? 'impact' : 'heal');
+        renderMerc();
+      });
+      card.appendChild(btn);
+    }
+    host.appendChild(card);
+  }
+
+  // Ofertas: encargos sin destacamento en curso.
+  for (const spec of ASSIGNMENT_SPECS) {
+    if (active.some((a) => a.specId === spec.id)) continue;
+    const card = document.createElement('div');
+    card.className = 'acard';
+    const xpBits = Object.entries(spec.xp).map(([t, n]) => `${SPEC_LABEL[t as SpecializationId]} +${n}`).join(' · ');
+    card.innerHTML =
+      `<div class="aname">${spec.name}</div>` +
+      `<div class="ablurb">${spec.blurb}</div>` +
+      `<div class="ameta">${spec.days} jornadas · paga ⌾${spec.reward} · XP ${xpBits}</div>`;
+    // La compañera (hueco 1) no se separa de ti: destacables 2-4.
+    const candidates = campaign!.roster
+      .map((zoid, slot) => ({ zoid, slot }))
+      .filter(({ zoid, slot }) => slot > 0 && !zoid.destroyed &&
+        !isInjured(pilots[PILOT_IDS[slot]!]!) && !assignmentOf(slot));
+    const btn = document.createElement('button');
+    btn.textContent = candidates.length > 0 ? '📡 Destacar piloto…' : 'sin pilotos disponibles';
+    btn.disabled = candidates.length === 0;
+    btn.addEventListener('click', () => {
+      void uiChoice(`¿A quién destacas? ${spec.name} (${spec.days} jornadas). Su máquina se va con él: no despliega hasta volver.`,
+        candidates.map(({ zoid, slot }) => {
+          const pilot = pilots[PILOT_IDS[slot]!]!;
+          const levels = SPECIALIZATIONS.reduce((n, t) => n + trackLevel(pilot.tracks[t]), 0);
+          return {
+            id: String(slot),
+            label: `${pilot.name} — ${ZOIDS[zoid.unitTypeId]!.name}`,
+            detail: `${levels} niveles de pista (a más experiencia, mejor grado de éxito)`,
+          };
+        })).then((slotId) => {
+        if (!campaign) return;
+        const slot = Number(slotId);
+        campaign = {
+          ...campaign,
+          assignments: [...(campaign.assignments ?? []), startAssignment(spec, slot, `${spec.id}|${Date.now()}`)],
+        };
+        chronicle(`📡 ${pilots[PILOT_IDS[slot]!]!.name} parte destacado: ${spec.name} (${spec.days} jornadas).`);
+        saveCampaign();
+        renderMerc();
+      });
+    });
+    card.appendChild(btn);
+    host.appendChild(card);
+  }
 }
 
 function renderReputation(): void {
@@ -2257,7 +2379,7 @@ function renderMercHangar(): void {
       `<b style="font-family:var(--mono);font-size:13px">${def.name}</b>` +
       (slot === 0 ? '<span class="gmuted" style="font-size:9px;letter-spacing:0.14em"> COMPAÑERA</span>' : '') +
       '</div>' +
-      `<div class="gtracks">${escapeHtml(pilot.name)}${isInjured(pilot) ? ` <span class="symptom">🩹 ${pilot.injuryDays}j</span>` : ''} · ${pilotSummary(pilot)}</div>`;
+      `<div class="gtracks">${escapeHtml(pilot.name)}${isInjured(pilot) ? ` <span class="symptom">🩹 ${pilot.injuryDays}j</span>` : ''}${assignmentOf(slot) ? ' <span class="symptom" style="border-color:var(--player);color:var(--player)">📡 destacado</span>' : ''} · ${pilotSummary(pilot)}</div>`;
     if (slot === 0) {
       const bio = document.createElement('div');
       bio.className = 'gbio';
@@ -2897,7 +3019,12 @@ function cityButton(host: HTMLElement, label: string, disabled: boolean, onClick
 }
 
 /** Un día pasa en la ciudad (descansos, jornales, terapias). */
-/** El tiempo cura: cada jornada descuenta baja médica a los heridos. */
+/** Hueco → destacamento activo (si su piloto está fuera de servicio). */
+function assignmentOf(slot: number): import('../game/assignment.js').ActiveAssignment | undefined {
+  return campaign?.assignments?.find((a) => a.slot === slot);
+}
+
+/** El tiempo cura Y hace avanzar los destacamentos, jornada a jornada. */
 function healingDays(days: number): void {
   if (days <= 0) return;
   let changed = false;
@@ -2906,6 +3033,16 @@ function healingDays(days: number): void {
     if (healed !== pilots[id]) { pilots[id] = healed; changed = true; }
   }
   if (changed) savePilots();
+  if (campaign && (campaign.assignments ?? []).length > 0) {
+    campaign = {
+      ...campaign,
+      assignments: campaign.assignments!.map((a) => {
+        const spec = ASSIGNMENT_SPECS.find((sp) => sp.id === a.specId);
+        return spec ? advanceAssignment(a, spec, days) : a;
+      }),
+    };
+    saveCampaign();
+  }
 }
 
 function cityDay(days: number, line: string): void {
@@ -3216,7 +3353,7 @@ function fightTavernBattle(job: Contract, nodeId: string): void {
   if (!campaign || !expedition) return;
   const alive = campaign.roster
     .map((zoid, slot) => ({ zoid, slot }))
-    .filter(({ zoid, slot }) => !zoid.destroyed && !isInjured(pilots[PILOT_IDS[slot]!]!));
+    .filter(({ zoid, slot }) => !zoid.destroyed && !isInjured(pilots[PILOT_IDS[slot]!]!) && !assignmentOf(slot));
   if (alive.length === 0) return;
   const node = REGION.nodes.find((n) => n.id === nodeId)!;
   let field = generatedField(`${job.id}|${nodeId}|${expedition.day}`, job.tier);
@@ -3387,7 +3524,7 @@ function fightExpeditionBattle(): void {
   if (!contract) return;
   const alive = campaign.roster
     .map((zoid, slot) => ({ zoid, slot }))
-    .filter(({ zoid, slot }) => !zoid.destroyed && !isInjured(pilots[PILOT_IDS[slot]!]!));
+    .filter(({ zoid, slot }) => !zoid.destroyed && !isInjured(pilots[PILOT_IDS[slot]!]!) && !assignmentOf(slot));
   if (alive.length === 0) return;
 
   // El lugar elige el mapa: un mapa del editor con el nombre del nodo

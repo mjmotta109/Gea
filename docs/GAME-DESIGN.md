@@ -584,3 +584,26 @@ arquitectura del motor van en DESIGN.md.)*
     al torso, ✕ pulsante en destruidos, parpadeo en críticos,
     esquinas de visor y rejilla de fósforo. Arte procedural: cuando
     exista arte encargado, se sustituye pieza a pieza.
+- **2026-07-06** — DESTACAMENTOS (dirección del usuario: "somos una
+  compañía — enviemos miembros a encargos donde ganan experiencia y
+  todo a menor nivel, con llamadas a base para decidir seguir o
+  volver"). Sistema completo en src/game/assignment.ts (contenido de
+  primera pasada en src/data/assignments.ts):
+  · Se destaca UN piloto CON su máquina (huecos 2-4; la compañera no
+    se separa de ti): ese hueco no despliega hasta que vuelve — la
+    rotación es el coste y el punto.
+  · El encargo avanza con las JORNADAS de expedición: la compañía
+    tiene que vivir para que el mundo trabaje.
+  · LLAMADAS A BASE en puntos de control (1-2 según duración): el
+    encargo se PAUSA hasta decidir — seguir/volver/arriesgar, con
+    días, paga y éxito anunciados en cada opción.
+  · GRADO de éxito (brillante/cumplido/apurado/fracaso): la
+    experiencia SIEMPRE mejora el resultado (+7 por nivel de pista,
+    test de monotonía). El fracaso no paga, estresa y deja 2 jornadas
+    de baja.
+  · Recompensas al recibir el regreso en el cuartel: créditos, XP por
+    pista (20-45 total: menor que jugar, suficiente para rotar),
+    reputación, y línea en el diario.
+  · 3 encargos iniciales: Escolta local (3j, defensa), Prospección
+    (4j, apoyo, con galería tentadora), Rastreo del Gremio (5j,
+    tirador, DOS llamadas).

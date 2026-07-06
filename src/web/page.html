@@ -663,6 +663,25 @@
     border-radius: 4px; font-family: var(--mono); font-size: 11px; padding: 5px 9px; cursor: pointer;
   }
   #merc-status { color: var(--heat); font-family: var(--mono); font-size: 12px; font-weight: 700; }
+  #merc-assignments { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  @media (max-width: 800px) { #merc-assignments { grid-template-columns: 1fr; } }
+  .acard {
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px;
+    padding: 10px 12px; font-family: var(--mono); font-size: 10px;
+  }
+  .acard .aname { font-size: 12px; font-weight: 700; color: var(--ink); }
+  .acard .ablurb { color: var(--muted); margin: 4px 0 7px; line-height: 1.5; }
+  .acard .ameta { color: var(--muted); margin-bottom: 6px; }
+  .acard .abar { position: relative; height: 5px; background: #0a1117; border-radius: 3px; overflow: hidden; margin: 6px 0; }
+  .acard .abar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--player); }
+  .acard button {
+    background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 4px;
+    font-family: var(--mono); font-size: 10px; font-weight: 700; padding: 6px 10px; cursor: pointer;
+    margin-right: 5px; margin-top: 2px;
+  }
+  .acard button:hover:not(:disabled) { border-color: var(--player); color: var(--player); }
+  .acard button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .acard button.call { border-color: var(--heat); color: var(--heat); animation: gea-critical 1.2s ease-in-out infinite; }
   #merc-rep { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
   @media (max-width: 800px) { #merc-rep { grid-template-columns: 1fr; } }
   .repcard {
@@ -1269,6 +1288,8 @@
         <button id="merc-freeroam">🧭 Explorar libremente</button>
         <button id="merc-deploy">⚑ Partir al contrato</button>
       </div>
+      <h3 class="msec">Destacamentos</h3>
+      <div id="merc-assignments"></div>
       <h3 class="msec">Reputación</h3>
       <div id="merc-rep"></div>
       <h3 class="msec">Contratos disponibles</h3>

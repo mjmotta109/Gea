@@ -63,6 +63,8 @@ export interface CampaignState {
    * se cerró expedición. El contenido (ids) vive en src/data/world.
    */
   homeRegionId?: string;
+  /** Destacamentos en curso (src/game/assignment.ts). */
+  assignments?: import('./assignment.js').ActiveAssignment[];
 }
 
 /**
