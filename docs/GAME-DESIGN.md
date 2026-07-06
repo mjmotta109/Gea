@@ -471,3 +471,32 @@ arquitectura del motor van en DESIGN.md.)*
   · Cuartel: panel de reputación (tarjeta por facción con tramo y
     barra ±). Efectos mecánicos del trato (precios, contratos, acceso)
     quedan para cuando la dirección cree las facciones definitivas.
+- **2026-07-06** — BLOQUE "APLICA TODO" (dirección del usuario tras el
+  resumen ejecutivo): seis piezas en seis commits.
+  1. REPUTACIÓN CON DIENTES: priceFactor por tramo (Aliado −10% …
+     Odiado +30%) sobre taller/mercader/descansos en territorio de la
+     facción dueña; la taberna cierra a Odiados y no confía encargos a
+     Hostiles; el Gremio pone 3/2/1 contratos según trato (nunca 0).
+  2. DIARIO DE LA COMPAÑÍA (pilar 1, la herramienta clave): crónica
+     persistente en la campaña alimentada por el diario de a bordo de
+     cada expedición (también las retiradas), las marcas de la
+     compañera y la fundación. Pantalla 📜 en el cuartel. 400 líneas.
+  3. POSTURAS DE ENERGÍA (motor) + SÍNTOMAS: acción libre 'stance' —
+     Cazador (punt +10/eva −5), Galope (mov +2/def −10), Tortuga
+     (defensas +10/mov −2); persiste, no consume turno. Averías que se
+     VEN: insignias 🦵 cojea / 📡 sensores rotos / 🔫 arma inutilizada,
+     y con sensores destruidos la consola MIENTE (% con ruido ±20
+     determinista, marcado "≈…%?"; el motor usa el real).
+  4. HERIDAS DE PILOTO (pilar 6): Zoid a 0 en batalla de campaña →
+     piloto herido 3 jornadas + estrés +15, determinista y anunciado.
+     Los heridos no despliegan; el tiempo (viaje/descanso) cura.
+     Nunca muerte permanente sin aviso.
+  5. SONIDO SINTETIZADO: WebAudio al vuelo (disparo, haz, impacto,
+     tajo, explosión, pasos, reparación, campanita, click), botón
+     🔊/🔇 persistente. Cero archivos: el build sigue autocontenido.
+  6. CONTENIDO: capital ESPEJO DEL NORTE (nivel 3, fábrica de armas,
+     3 caminos, de los Colonos); BIOMAS de tramo (vega/dunas/sierra)
+     que dictan la piscina de encuentros (los peajes viven en la
+     sierra, las caravanas en la vega); el tier del contrato escala el
+     campo de batalla (escolta 12-13 → caza 14-15 de ancho, más lomas
+     y restos en la caza).

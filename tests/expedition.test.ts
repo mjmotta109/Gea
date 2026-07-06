@@ -168,6 +168,34 @@ describe('encrucijadas: la ruta pregunta', () => {
   });
 });
 
+describe('biomas de tramo: el territorio dicta a quién te cruzas', () => {
+  it('en la sierra mandan los peajes; la vega no los conoce', () => {
+    const sierra = SALT_PASS_REGION.edges.find((e) => e.biome === 'sierra')!;
+    const vega = SALT_PASS_REGION.edges.find((e) => e.biome === 'vega')!;
+    const kindsOn = (edge: typeof sierra): Set<string> => {
+      const kinds = new Set<string>();
+      for (let i = 0; i < 800; i++) {
+        const probe = { ...freeExp(SALT_PASS_REGION, `bio-${i}`), at: edge.a };
+        const result = travel(probe, SALT_PASS_REGION, edge);
+        if (result.encounter) kinds.add(result.encounter.kind);
+      }
+      return kinds;
+    };
+    const sierraKinds = kindsOn(sierra);
+    expect(sierraKinds.has('peaje')).toBe(true);
+    expect(sierraKinds.has('manada')).toBe(false); // la sierra no es su casa
+    const vegaKinds = kindsOn(vega);
+    expect(vegaKinds.has('caravana')).toBe(true);
+    expect(vegaKinds.has('peaje')).toBe(false); // en la vega no se corta el paso
+  });
+
+  it('la capital existe, es nivel 3 y está conectada', () => {
+    const capital = SALT_PASS_REGION.nodes.find((n) => n.id === 'espejo-del-norte')!;
+    expect(capital.city?.level).toBe(3);
+    expect(SALT_PASS_REGION.edges.filter((e) => e.a === capital.id || e.b === capital.id).length).toBeGreaterThanOrEqual(3);
+  });
+});
+
 describe('ciudades: servicios por nivel', () => {
   it('el taller de aldea es barato pero no repara del todo', () => {
     let state = newCampaign(ECONOMY, factoryLoadout);

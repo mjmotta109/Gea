@@ -77,3 +77,25 @@ describe('generador procedural de campos de batalla', () => {
     }
   });
 });
+
+describe('tamaño por tier: los encargos grandes se pelean en campos grandes', () => {
+  it('escolta 12-13, asalto 13-14, caza 14-15 de ancho (caza más alto)', () => {
+    for (let i = 0; i < 15; i++) {
+      const escolta = generateBattlefield(`t-${i}`, { tier: 'escolta' });
+      const asalto = generateBattlefield(`t-${i}`, { tier: 'asalto' });
+      const caza = generateBattlefield(`t-${i}`, { tier: 'caza' });
+      expect(escolta.rows[0]!.length).toBeGreaterThanOrEqual(12);
+      expect(escolta.rows[0]!.length).toBeLessThanOrEqual(13);
+      expect(asalto.rows[0]!.length).toBeGreaterThanOrEqual(13);
+      expect(asalto.rows[0]!.length).toBeLessThanOrEqual(14);
+      expect(caza.rows[0]!.length).toBeGreaterThanOrEqual(14);
+      expect(caza.rows[0]!.length).toBeLessThanOrEqual(15);
+      expect(caza.rows.length).toBeGreaterThanOrEqual(10);
+    }
+  });
+
+  it('misma clave y tier → mismo campo; sin tier, el de siempre', () => {
+    expect(generateBattlefield('x', { tier: 'caza' })).toEqual(generateBattlefield('x', { tier: 'caza' }));
+    expect(generateBattlefield('x')).toEqual(generateBattlefield('x'));
+  });
+});

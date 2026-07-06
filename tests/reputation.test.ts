@@ -86,13 +86,15 @@ describe('encrucijadas morales: decisiones con testigos', () => {
   });
 
   it('no todo son 3 opciones: hay encuentros de 2, de 3 y de 4', () => {
-    // Caza determinista: claves distintas hasta ver los cuatro tipos.
+    // Caza determinista: claves y TRAMOS distintos (cada bioma tiene su
+    // propia piscina de encuentros) hasta ver los cuatro tipos.
     const optionsByKind: Record<string, number> = {};
-    for (let i = 0; i < 2000 && Object.keys(optionsByKind).length < 4; i++) {
-      const probe = startFreeExpedition(SALT_PASS_REGION, `var-${i}`);
-      const edge = availableEdges(probe, SALT_PASS_REGION)[0]!;
-      const result = travel(probe, SALT_PASS_REGION, edge);
-      if (result.encounter) optionsByKind[result.encounter.kind] = result.encounter.options.length;
+    for (let i = 0; i < 400 && Object.keys(optionsByKind).length < 4; i++) {
+      for (const edge of SALT_PASS_REGION.edges) {
+        const probe = { ...startFreeExpedition(SALT_PASS_REGION, `var-${i}`), at: edge.a };
+        const result = travel(probe, SALT_PASS_REGION, edge);
+        if (result.encounter) optionsByKind[result.encounter.kind] = result.encounter.options.length;
+      }
     }
     expect(Object.keys(optionsByKind).sort()).toEqual(['caravana', 'manada', 'peaje', 'perdido']);
     expect(optionsByKind['manada']).toBe(2);

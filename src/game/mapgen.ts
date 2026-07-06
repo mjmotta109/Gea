@@ -92,14 +92,24 @@ function blob(
   }
 }
 
+export interface BattlefieldOptions {
+  /** Tier del contrato: los encargos grandes se pelean en campos grandes. */
+  tier?: 'escolta' | 'asalto' | 'caza';
+}
+
 /**
  * Genera un campo de batalla a partir de una clave de texto.
- * Misma clave → mismo campo, siempre.
+ * Misma clave (y mismo tier) → mismo campo, siempre.
  */
-export function generateBattlefield(key: string): GeneratedMap {
+export function generateBattlefield(key: string, opts: BattlefieldOptions = {}): GeneratedMap {
   const rand = mulberry32(hashString(key));
-  const width = 12 + Math.floor(rand() * 4);   // 12-15
-  const height = 9 + Math.floor(rand() * 3);   // 9-11
+  const tierBias = opts.tier === 'caza' ? 2 : opts.tier === 'asalto' ? 1 : 0;
+  const width = opts.tier
+    ? 12 + tierBias + Math.floor(rand() * 2)   // escolta 12-13 · asalto 13-14 · caza 14-15
+    : 12 + Math.floor(rand() * 4);             // libre: 12-15
+  const height = opts.tier
+    ? 9 + Math.floor(rand() * 2) + (opts.tier === 'caza' ? 1 : 0)
+    : 9 + Math.floor(rand() * 3);              // libre: 9-11
   const biome = BIOMES[Math.floor(rand() * BIOMES.length)]!;
 
   const grid: Cell[][] = Array.from({ length: height }, () =>
@@ -108,8 +118,9 @@ export function generateBattlefield(key: string): GeneratedMap {
   // Los flancos de despliegue quedan protegidos: allí no crece nada duro.
   const protectedCol = (x: number): boolean => x <= 1 || x >= width - 2;
 
-  // Lomas: altura 1 con núcleo a 2.
-  for (let i = 0; i < biome.hills; i++) {
+  // Lomas: altura 1 con núcleo a 2. La caza endurece el terreno.
+  const extraHazard = opts.tier === 'caza' ? 1 : 0;
+  for (let i = 0; i < biome.hills + extraHazard; i++) {
     const cx = 2 + Math.floor(rand() * (width - 4));
     const cy = Math.floor(rand() * height);
     blob(grid, rand, cx, cy, 5 + Math.floor(rand() * 4),
@@ -145,7 +156,7 @@ export function generateBattlefield(key: string): GeneratedMap {
   }
 
   // Muros: restos cortos de 2-3 casillas, verticales u horizontales.
-  for (let i = 0; i < biome.walls; i++) {
+  for (let i = 0; i < biome.walls + extraHazard; i++) {
     const wx = 3 + Math.floor(rand() * (width - 6));
     const wy = 1 + Math.floor(rand() * (height - 2));
     const len = 2 + Math.floor(rand() * 2);

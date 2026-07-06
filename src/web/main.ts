@@ -265,8 +265,8 @@ function saveCustomMaps(): void {
 const GEN_MAP = '__gen__';
 
 /** Convierte un mapa generado al formato de campo listo para batalla. */
-function generatedField(key: string): { map: GameMap; playerPos: Position[]; enemyPos: Position[] } {
-  const gen = generateBattlefield(key);
+function generatedField(key: string, tier?: 'escolta' | 'asalto' | 'caza'): { map: GameMap; playerPos: Position[]; enemyPos: Position[] } {
+  const gen = generateBattlefield(key, tier ? { tier } : {});
   return { map: GameMap.fromAscii(gen.rows), playerPos: gen.playerSpawns, enemyPos: gen.enemySpawns };
 }
 
@@ -2983,7 +2983,7 @@ function fightTavernBattle(job: Contract, nodeId: string): void {
     .filter(({ zoid, slot }) => !zoid.destroyed && !isInjured(pilots[PILOT_IDS[slot]!]!));
   if (alive.length === 0) return;
   const node = REGION.nodes.find((n) => n.id === nodeId)!;
-  let field = generatedField(`${job.id}|${nodeId}|${expedition.day}`);
+  let field = generatedField(`${job.id}|${nodeId}|${expedition.day}`, job.tier);
   const custom = customMaps[node.name];
   if (custom) {
     try {
@@ -3139,7 +3139,7 @@ function fightExpeditionBattle(): void {
   // manda; si no existe, se GENERA uno propio de este contrato, este
   // lugar y este día — nunca dos batallas sobre el mismo terreno.
   const node = REGION.nodes.find((n) => n.id === expedition!.at)!;
-  let field = generatedField(`${expedition.contractId}|${expedition.at}|${expedition.day}`);
+  let field = generatedField(`${expedition.contractId}|${expedition.at}|${expedition.day}`, contract.tier);
   const custom = customMaps[node.name];
   if (custom) {
     try {

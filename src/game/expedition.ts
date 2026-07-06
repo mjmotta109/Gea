@@ -30,6 +30,8 @@ export interface CitySpec {
   factory?: 'armas' | 'piezas';
 }
 
+export type EdgeBiome = 'vega' | 'dunas' | 'sierra';
+
 export interface WorldEdge {
   a: string;
   b: string;
@@ -37,6 +39,8 @@ export interface WorldEdge {
   days: number;
   /** Sabor del tramo, para el diario y los eventos. */
   flavor: string;
+  /** Bioma del tramo: sesga qué clase de encuentro puede salir aquí. */
+  biome?: EdgeBiome;
 }
 
 export interface WorldRegion {
@@ -304,6 +308,22 @@ const ENCOUNTERS: Record<Encounter['kind'], { prompt: string; options: Encounter
   },
 };
 
+/**
+ * El territorio dicta a quién te cruzas: en la vega mandan caravanas y
+ * manadas, en las dunas los perdidos, en la sierra los peajes. Sin
+ * bioma, reparto uniforme.
+ */
+const BIOME_ENCOUNTERS: Record<EdgeBiome, Encounter['kind'][]> = {
+  vega: ['caravana', 'caravana', 'manada', 'perdido'],
+  dunas: ['perdido', 'perdido', 'manada', 'caravana'],
+  sierra: ['peaje', 'peaje', 'perdido', 'caravana'],
+};
+
+function pickEncounterKind(biome: EdgeBiome | undefined, rand: () => number): Encounter['kind'] {
+  const pool = biome ? BIOME_ENCOUNTERS[biome] : (Object.keys(ENCOUNTERS) as Encounter['kind'][]);
+  return pool[Math.floor(rand() * pool.length)]!;
+}
+
 /** Resuelve la opción elegida. Determinista: sin dados escondidos. */
 export function resolveEncounter(
   expedition: ExpeditionState,
@@ -490,8 +510,7 @@ export function travel(
     // Encrucijada: la ruta pregunta. La clase se elige aquí (determinista)
     // y las consecuencias viven en resolveEncounter, sin dados escondidos.
     event = 'encounter';
-    const kinds = Object.keys(ENCOUNTERS) as Encounter['kind'][];
-    const kind = kinds[Math.floor(rand() * kinds.length)]!;
+    const kind = pickEncounterKind(edge.biome, rand);
     encounter = {
       id: `${expedition.contractId}|${key}|${expedition.day}`,
       kind,

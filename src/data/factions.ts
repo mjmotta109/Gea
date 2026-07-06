@@ -41,4 +41,5 @@ export const PLACE_FACTIONS: Record<string, string> = {
   'puesto-cardo': 'colonos',
   'villa-brasa': 'colonos',
   'porto-azul': 'colonos',
+  'espejo-del-norte': 'colonos',
 };
