@@ -483,6 +483,7 @@ export class Battle {
       next.hasMoved = false;
       next.hasActed = false;
       next.reactionReady = true;
+      next.overwatch = false; // la vigilancia dura hasta tu próximo turno
       this.activeUnitId = next.id;
       events.push({ type: 'turn-started', unitId: next.id });
       events.push(...this.runSystems((s) => s.onTurnStart?.(next, this.systemContext)));
@@ -630,6 +631,7 @@ export class Battle {
         case 'reload': return this.executeReload(action.unitId, action.weaponId);
         case 'wait': return this.executeWait(action.unitId, action.facing);
         case 'stance': return this.executeStance(action.unitId, action.stance);
+        case 'overwatch': return this.executeOverwatch(action.unitId);
         case 'retreat': return this.executeRetreat(action.unitId);
         case 'eject': return this.executeEject(action.unitId);
       }
@@ -664,6 +666,7 @@ export class Battle {
       : unit.facing;
     unit.hasMoved = true;
     const events: BattleEvent[] = [{ type: 'unit-moved', unitId, path: option.path }];
+    events.push(...this.overwatchShots(unit));
     events.push(...this.resolveOpportunity(watchers, unit));
     return events;
   }
@@ -719,6 +722,7 @@ export class Battle {
       : unit.facing;
     energy.boostedThisTurn = true;
     const events: BattleEvent[] = [{ type: 'unit-boosted', unitId, path: option.path }];
+    events.push(...this.overwatchShots(unit));
     events.push(...this.resolveOpportunity(watchers, unit));
     return events;
   }
@@ -1047,6 +1051,78 @@ export class Battle {
     if (unit.stance === stance) return [];
     unit.stance = stance;
     return [{ type: 'stance-changed', unitId, stance }];
+  }
+
+  /** Multiplicador de daño del disparo de vigilancia (apresurado). */
+  private static readonly OVERWATCH_POWER_MULT = 0.75;
+
+  /**
+   * Vigilancia (XCOM): renuncia a actuar, termina el turno y queda al
+   * acecho — disparará al PRIMER enemigo que se mueva a su alcance.
+   */
+  private executeOverwatch(unitId: string): BattleEvent[] {
+    const unit = this.requireActive(unitId);
+    if (unit.hasActed) throw new Error(`${unitId} ya actuó este turno`);
+    unit.hasActed = true;
+    unit.overwatch = true;
+    const events: BattleEvent[] = [{ type: 'overwatch-set', unitId }];
+    events.push(...this.executeWait(unitId));
+    return events;
+  }
+
+  /**
+   * Disparos de vigilancia contra una unidad que acaba de moverse. A
+   * diferencia del tiro instintivo, es un disparo PLANEADO: exige alcance
+   * y línea de visión reales, paga munición/energía/enfriamiento como
+   * cualquier disparo, y pega al 75%. Un disparo por vigilancia; consume
+   * también el reflejo del tirador (nada de doble castigo).
+   */
+  private overwatchShots(mover: UnitState): BattleEvent[] {
+    const events: BattleEvent[] = [];
+    const watchers = this.units.filter((u) =>
+      u.team !== mover.team && u.hp > 0 && !u.retreated && u.overwatch && !hasStatus(u, 'stunned'));
+    for (const watcher of watchers) {
+      if (this.isOver || mover.hp <= 0 || mover.retreated) break;
+      const abilityId = this.knownAbilityIds(watcher).find((id) => {
+        const ability = this.abilityOf(id);
+        if (!ability.effects.some((e) => e.kind === 'damage')) return false;
+        if (!this.canTargetFrom(watcher, watcher.position, id, mover.position)) return false;
+        return this.checkVetoes({
+          type: 'ability', unitId: watcher.id, abilityId: id, target: mover.position,
+        }) === null;
+      });
+      if (!abilityId) continue; // fuera de tiro: sigue al acecho
+
+      watcher.overwatch = false;
+      watcher.reactionReady = false;
+      watcher.facing = facingTowards(watcher.position, mover.position);
+      events.push({
+        type: 'reaction', unitId: watcher.id, targetUnitId: mover.id,
+        reaction: 'vigilancia', abilityId,
+      });
+      const entry = this.weaponEntry(watcher, abilityId);
+      if (entry?.def.projectile) {
+        const flightTime = manhattan(watcher.position, mover.position) / entry.def.projectile.velocity;
+        events.push({
+          type: 'projectile-fired', unitId: watcher.id, weaponId: entry.def.id,
+          from: { ...watcher.position }, to: { ...mover.position },
+          flightTime: Math.round(flightTime * 100) / 100,
+        });
+      }
+      this.inReaction = true;
+      try {
+        events.push(...this.applyEffects(
+          watcher, mover, this.abilityOf(abilityId), 0, Battle.OVERWATCH_POWER_MULT,
+        ));
+      } finally {
+        this.inReaction = false;
+      }
+      events.push(...this.runSystems((s) => s.onActionResolved?.(
+        { type: 'ability', unitId: watcher.id, abilityId, target: { ...mover.position } },
+        watcher, this.systemContext)));
+      if (this.checkBattleEnd(events)) break;
+    }
+    return events;
   }
 
   private executeWait(unitId: string, facing?: Facing): BattleEvent[] {

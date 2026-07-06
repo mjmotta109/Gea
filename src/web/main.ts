@@ -12,7 +12,7 @@ import { attackArc, type AttackArc } from '../core/combat.js';
 import { GameMap, posKey, terrainLabel, TERRAIN_COVER } from '../core/grid.js';
 import { reachableTiles, type ReachableTile } from '../core/pathfinding.js';
 import {
-  adjustStress, applyXp, awardXp, dominantTrack, healInjury, injurePilot, isInjured, newPilot, observeBattle,
+  adjustStress, applyXp, awardXp, chooseSpecs, healInjury, injurePilot, isInjured, newPilot, observeBattle,
   recordPilotEvent, reframeQuirk, trackLevel,
   TRACK_LEVEL_THRESHOLDS, SPECIALIZATIONS,
   type PilotState, type SpecializationId,
@@ -173,6 +173,28 @@ function loadPilots(): Record<string, PilotState> {
     if (Array.isArray(raw?.quirks)) pilot.quirks = raw.quirks.filter((q) => typeof q === 'string');
     if (raw?.memory && typeof raw.memory === 'object') pilot.memory = { ...raw.memory };
     if (typeof raw?.stress === 'number') pilot.stress = Math.max(0, Math.min(100, Math.round(raw.stress)));
+    if (typeof raw?.injuryDays === 'number') pilot.injuryDays = Math.max(0, Math.round(raw.injuryDays));
+    // Árbol nuevo: guardados de antes reciben la básica (un cuarto de lo
+    // vivido) y sus especializaciones (la dominante + la segunda real).
+    if (typeof raw?.basics === 'number' && raw.basics >= 0) {
+      pilot.basics = Math.round(raw.basics);
+    } else {
+      const total = SPECIALIZATIONS.reduce((n, s) => n + pilot.tracks[s], 0);
+      pilot.basics = Math.round(total * 0.25);
+    }
+    if (raw?.mainSpec && SPECIALIZATIONS.includes(raw.mainSpec)) {
+      pilot.mainSpec = raw.mainSpec;
+      if (raw.sideSpec && SPECIALIZATIONS.includes(raw.sideSpec) && raw.sideSpec !== raw.mainSpec) {
+        pilot.sideSpec = raw.sideSpec;
+      }
+    } else {
+      const total = SPECIALIZATIONS.reduce((n, s) => n + pilot.tracks[s], 0);
+      if (total > 0) {
+        const sorted = [...SPECIALIZATIONS].sort((a, b) => pilot.tracks[b] - pilot.tracks[a]);
+        pilot.mainSpec = sorted[0];
+        if (pilot.tracks[sorted[1]!] > 0) pilot.sideSpec = sorted[1];
+      } // novato de verdad: elegirá en el cuartel
+    }
     pilots[id] = pilot;
   });
   return pilots;
@@ -274,9 +296,15 @@ function saveCustomMaps(): void {
 /** Nombre reservado del modo procedural en el selector de mapas. */
 const GEN_MAP = '__gen__';
 
+/** Tamaño de campo del generador para cada tipo de contrato. */
+const MAPGEN_TIER: Record<Contract['tier'], 'escolta' | 'asalto' | 'caza'> = {
+  escolta: 'escolta', asalto: 'asalto', caza: 'caza',
+  incursion: 'asalto', defensa: 'escolta',
+};
+
 /** Convierte un mapa generado al formato de campo listo para batalla. */
-function generatedField(key: string, tier?: 'escolta' | 'asalto' | 'caza'): { map: GameMap; playerPos: Position[]; enemyPos: Position[] } {
-  const gen = generateBattlefield(key, tier ? { tier } : {});
+function generatedField(key: string, tier?: Contract['tier']): { map: GameMap; playerPos: Position[]; enemyPos: Position[] } {
+  const gen = generateBattlefield(key, tier ? { tier: MAPGEN_TIER[tier] } : {});
   return { map: GameMap.fromAscii(gen.rows), playerPos: gen.playerSpawns, enemyPos: gen.enemySpawns };
 }
 
@@ -555,6 +583,16 @@ function doWait(facing?: Facing): void {
   const unit = playerUnit();
   if (!unit) return;
   logEvents(battle.execute({ type: 'wait', unitId: unit.id, facing }));
+  mode = { kind: 'idle' };
+  pending = null;
+  advance();
+}
+
+/** Vigilancia: cierra el turno al acecho (la tecla V también llega aquí). */
+function doOverwatch(): void {
+  const unit = playerUnit();
+  if (!unit || unit.hasActed) return;
+  logEvents(battle.execute({ type: 'overwatch', unitId: unit.id }));
   mode = { kind: 'idle' };
   pending = null;
   advance();
@@ -861,6 +899,7 @@ document.addEventListener('keydown', (event) => {
     case 'b': case 'B': enterBoost(); return;
     case 'r': case 'R': doReload(); return;
     case 'f': case 'F': enterFacing(); return;
+    case 'v': case 'V': doOverwatch(); return;
     case ' ': event.preventDefault(); enterFacing(); return;
     default: {
       const index = Number(event.key);
@@ -923,6 +962,9 @@ function renderBoard(): void {
   const path = previewPath();
   const faces = facingCells();
 
+  const objective = battle.objective;
+  const zone = objective.kind === 'reach'
+    ? new Set(objective.zone.map(posKey)) : null;
   for (let y = 0; y < battle.map.height; y++) {
     for (let x = 0; x < battle.map.width; x++) {
       const pos = { x, y };
@@ -930,6 +972,13 @@ function renderBoard(): void {
       const tile = battle.map.tileAt(pos);
       const cell = document.createElement('button');
       cell.className = `cell t-${tile.terrain}`;
+      if (zone?.has(key)) {
+        cell.classList.add('hl-zone');
+        const flag = document.createElement('span');
+        flag.className = 'hl-label';
+        flag.textContent = '⚑';
+        cell.appendChild(flag);
+      }
       cell.style.background = shade(TERRAIN_BASE[tile.terrain]!, tile.height);
       if ((x + y) % 2 === 0) cell.classList.add('alt');
       if (tile.height > 0) cell.classList.add(`elev-${Math.min(3, tile.height)}`);
@@ -1065,6 +1114,9 @@ function dioramaScene(): DioramaScene {
         active: battle.getActiveUnit()?.id === u.id,
       };
     });
+  const objective = battle.objective;
+  const zone = objective.kind === 'reach'
+    ? new Set(objective.zone.map(posKey)) : undefined;
   return {
     width: battle.map.width,
     height: battle.map.height,
@@ -1074,6 +1126,7 @@ function dioramaScene(): DioramaScene {
       move: moveSet, boost: boostSet, target: targets,
       path: new Set(path), faces: new Map([...faces].map(([k, f]) => [k, FACING_ARROW[f]])),
       labels, shots,
+      ...(zone ? { zone } : {}),
       ...(pending ? { pending } : {}),
       ...(playerUnit() ? { cursor } : {}),
     },
@@ -1307,6 +1360,13 @@ function renderActionbar(): void {
   if (reloadable) {
     mkBtn(`Recargar ${battle.weaponOf(reloadable).name}`, 'R', doReload, { disabled: unit.hasActed });
   }
+
+  // Vigilancia (XCOM): renuncia a actuar para cubrir el terreno.
+  mkBtn('👁 Vigilancia', 'V', doOverwatch, {
+    disabled: unit.hasActed,
+    title: unit.hasActed ? 'ya actuó'
+      : 'termina el turno al acecho: dispara al primer enemigo que se mueva a tiro (75% de daño; paga munición y energía)',
+  });
 
   // Salidas de emergencia: retirarse por el borde salva la máquina;
   // eyectar la sacrifica para salvar al piloto. Consecuencias anunciadas.
@@ -1633,9 +1693,10 @@ function describe(event: BattleEvent): { text: string; cls?: string } | undefine
     case 'terrain-razed': return { text: `🔥 el bosque de (${event.pos.x},${event.pos.y}) queda arrasado: sin cobertura`, cls: 'warn' };
     case 'round-started': return { text: `━━ RONDA ${event.round} ━━`, cls: 'turn' };
     case 'reaction': return {
-      text: `⚡ ¡${event.reaction === 'oportunidad' ? 'Tiro de oportunidad' : 'Contraataque'} de ${unitLabel(event.unitId)} contra ${event.targetUnitId}!`,
+      text: `⚡ ¡${event.reaction === 'oportunidad' ? 'Tiro de oportunidad' : event.reaction === 'vigilancia' ? 'Disparo de VIGILANCIA' : 'Contraataque'} de ${unitLabel(event.unitId)} contra ${event.targetUnitId}!`,
       cls: 'warn',
     };
+    case 'overwatch-set': return { text: `👁 ${unitLabel(event.unitId)} entra en VIGILANCIA: disparará al primero que se mueva`, cls: 'good' };
     case 'unit-retreated': return { text: `🏳 ${unitLabel(event.unitId)} se retira del campo (la máquina se salva)`, cls: 'warn' };
     case 'unit-ejected': return { text: `🪂 el piloto de ${unitLabel(event.unitId)} EYECTA: la máquina se pierde`, cls: 'warn' };
     case 'reinforcements-arrived': return { text: `🚨 REFUERZOS ENEMIGOS: ${event.unitIds.join(', ')} entran al campo`, cls: 'hit' };
@@ -2064,10 +2125,10 @@ function previewStats(config: SlotConfig, pilotId?: string): ReturnType<Battle['
   }
 }
 
-/** Piezas montadas cuya spec casa con la pista dominante del piloto. */
+/** Piezas montadas cuya spec casa con la escuela PRINCIPAL del piloto. */
 function synergyPieces(config: SlotConfig, pilot: PilotState): { spec: SpecializationId; count: number } | undefined {
-  const dominant = dominantTrack(pilot);
-  if (trackLevel(pilot.tracks[dominant]) === 0) return undefined;
+  const dominant = pilot.mainSpec;
+  if (!dominant || trackLevel(pilot.tracks[dominant]) === 0) return undefined;
   const def = ZOIDS[config.unitTypeId]!;
   const specs: (SpecializationId | undefined)[] = [
     ...config.weapons.map((w) => CATALOGS.weaponCatalog[w]?.spec),
@@ -2083,16 +2144,24 @@ function stressLabel(stress: number): string {
   return tier?.label ?? '';
 }
 
+/** Niveles del árbol ACTIVO: básica + principal + secundaria. */
+function activePilotLevels(pilot: PilotState): number {
+  let levels = trackLevel(pilot.basics ?? 0);
+  if (pilot.mainSpec) levels += trackLevel(pilot.tracks[pilot.mainSpec]);
+  if (pilot.sideSpec) levels += trackLevel(pilot.tracks[pilot.sideSpec]);
+  return levels;
+}
+
 function pilotSummary(pilot: PilotState): string {
-  const bits: string[] = [];
-  for (const spec of Object.keys(pilot.tracks) as SpecializationId[]) {
-    const xp = pilot.tracks[spec];
-    const level = trackLevel(xp);
-    if (xp <= 0) continue;
-    const next = TRACK_LEVEL_THRESHOLDS[level];
-    bits.push(`${SPEC_LABEL[spec]} <b>N${level}</b>${next !== undefined ? ` <span class="gmuted">${xp}/${next}</span>` : ''}`);
+  const bits: string[] = [`Pilotaje <b>N${trackLevel(pilot.basics ?? 0)}</b>`];
+  if (pilot.mainSpec) {
+    bits.push(`★ ${SPEC_LABEL[pilot.mainSpec]} <b>N${trackLevel(pilot.tracks[pilot.mainSpec])}</b>`);
   }
-  return bits.length > 0 ? bits.join(' · ') : '<span class="gmuted">piloto novato — la XP se gana en batalla</span>';
+  if (pilot.sideSpec) {
+    bits.push(`☆ ${SPEC_LABEL[pilot.sideSpec]} <b>N${trackLevel(pilot.tracks[pilot.sideSpec])}</b>`);
+  }
+  if (!pilot.mainSpec) bits.push('<span class="gmuted">sin especializar — elígela en Compañía</span>');
+  return bits.join(' · ');
 }
 
 function renderGarage(): void {
@@ -2235,7 +2304,9 @@ function renderGarage(): void {
 // ── Modo mercenario (pantalla de campaña) ────────────────────────────────
 
 const CAMPAIGN_KEY = 'gea-campaign-v1';
-const TIER_LABEL: Record<Contract['tier'], string> = { escolta: 'Escolta', asalto: 'Asalto', caza: 'Caza' };
+const TIER_LABEL: Record<Contract['tier'], string> = {
+  escolta: 'Escolta', asalto: 'Asalto', caza: 'Caza', incursion: 'Incursión', defensa: 'Defensa',
+};
 
 const factoryLoadout = (unitTypeId: string): { weapons: string[]; slots: Record<string, string> } =>
   ({ weapons: [...(ZOIDS[unitTypeId]!.weapons ?? [])], slots: {} });
@@ -2430,7 +2501,7 @@ function renderAssignments(): void {
       btn.addEventListener('click', () => {
         if (!campaign) return;
         const pilotId = PILOT_IDS[assignment.slot]!;
-        const levels = SPECIALIZATIONS.reduce((n, t) => n + trackLevel(pilots[pilotId]!.tracks[t]), 0);
+        const levels = activePilotLevels(pilots[pilotId]!);
         const report = finishAssignment(assignment, spec, levels);
         campaign = {
           ...campaign,
@@ -2528,7 +2599,9 @@ function renderContracts(): void {
   // El cupo de la mesa depende de cómo te mira el Gremio.
   const guildTier = reputationTier(campaign!.reputation['gremio'] ?? 0);
   const slots = contractSlots(guildTier.id);
-  const offers = contractOffers(campaign!.contractsDone, ECONOMY, CONTRACT_ENEMY_POOL).slice(0, slots);
+  const all = contractOffers(campaign!.contractsDone, ECONOMY, CONTRACT_ENEMY_POOL);
+  const rot = campaign!.contractsDone % all.length;
+  const offers = [...all.slice(rot), ...all.slice(0, rot)].slice(0, slots);
   if (slots < 3) {
     host.insertAdjacentHTML('beforeend',
       `<div class="cnote" style="grid-column:1/-1">⚖ El Gremio te mira con recelo (${guildTier.label}): solo ${slots === 1 ? 'un contrato' : `${slots} contratos`} sobre la mesa. La reputación se repara trabajando… o ayudando en la ruta.</div>`);
@@ -3921,6 +3994,25 @@ function freeAnchorFor(
   return null;
 }
 
+/** Oleada enemiga de refuerzo: dos máquinas más del mismo encargo. */
+function enemyWave(
+  contract: Contract,
+  spawns: UnitSpawn[],
+  field: { enemyPos: Position[] },
+  round: number,
+): ReinforcementWave {
+  return {
+    round,
+    spawns: contract.enemySquad.slice(0, 2).map((unitTypeId, i) => ({
+      id: `E${spawns.filter((s) => s.team === 'enemy').length + i + 1}`,
+      name: ZOIDS[unitTypeId]!.name,
+      unitTypeId,
+      team: 'enemy' as Team,
+      position: field.enemyPos[i] ?? field.enemyPos[0]!,
+    })),
+  };
+}
+
 /** El combate del contrato, al llegar al lugar. */
 function fightExpeditionBattle(): void {
   if (!campaign || !expedition) return;
@@ -4005,17 +4097,22 @@ function fightExpeditionBattle(): void {
       brief.briefing = 'Escolta: el carguero (W1) no puede caer — si cae, el contrato se pierde.';
     }
   } else if (contract.tier === 'asalto') {
-    brief.reinforcements = [{
-      round: 3,
-      spawns: contract.enemySquad.slice(0, 2).map((unitTypeId, i) => ({
-        id: `E${spawns.filter((s) => s.team === 'enemy').length + i + 1}`,
-        name: ZOIDS[unitTypeId]!.name,
-        unitTypeId,
-        team: 'enemy' as Team,
-        position: field.enemyPos[i] ?? field.enemyPos[0]!,
-      })),
-    }];
+    brief.reinforcements = [enemyWave(contract, spawns, field, 3)];
     brief.briefing = 'Asalto: posición defendida — llegará una segunda oleada enemiga en la ronda 3.';
+  } else if (contract.tier === 'incursion') {
+    // La zona: la línea del fondo del mapa (columnas transitables).
+    const zone: Position[] = [];
+    for (let y = 0; y < field.map.height; y++) {
+      for (let x = field.map.width - 2; x < field.map.width; x++) {
+        if (isFinite(field.map.entryCost({ x, y }, 'ground'))) zone.push({ x, y });
+      }
+    }
+    brief.objective = { kind: 'reach', zone };
+    brief.briefing = 'Incursión: planta CUALQUIER máquina en la línea del fondo (⚑) y la misión está hecha — no hace falta derribar a nadie.';
+  } else if (contract.tier === 'defensa') {
+    brief.objective = { kind: 'survive', rounds: 4 };
+    brief.reinforcements = [enemyWave(contract, spawns, field, 2)];
+    brief.briefing = 'Defensa: aguanta 4 rondas en pie — la oleada del asedio llegará en la ronda 2.';
   }
 
   deployedSlots = alive.map(({ slot }) => slot);
@@ -4234,36 +4331,87 @@ function renderPilots(hostId = 'pilots-body'): void {
   host.innerHTML = '';
   for (const pilotId of PILOT_IDS) {
     const pilot = pilots[pilotId]!;
-    const dominant = dominantTrack(pilot);
     const card = document.createElement('div');
     card.className = 'pcard';
     card.innerHTML = `<h3>${escapeHtml(pilot.name)}` +
       (isInjured(pilot) ? `<span class="symptom">🩹 herido: ${pilot.injuryDays} jornada${pilot.injuryDays! > 1 ? 's' : ''}</span>` : '') +
-      (trackLevel(pilot.tracks[dominant]) > 0
-        ? `<span class="dom">◈ ${SPEC_LABEL[dominant]}</span>` : '') + '</h3>';
+      (pilot.mainSpec
+        ? `<span class="dom">★ ${SPEC_LABEL[pilot.mainSpec]}${pilot.sideSpec ? ` · ☆ ${SPEC_LABEL[pilot.sideSpec]}` : ''}</span>`
+        : '<span class="dom" style="color:var(--muted)">sin escuela</span>') + '</h3>';
 
-    for (const spec of SPECIALIZATIONS) {
-      const xp = pilot.tracks[spec];
+    // Pista BÁSICA: siempre activa, aprende de todo.
+    {
+      const xp = pilot.basics ?? 0;
       const level = trackLevel(xp);
       const next = TRACK_LEVEL_THRESHOLDS[level];
       const track = document.createElement('div');
       track.className = 'ptrack';
       track.innerHTML =
-        `<div class="plabel"><b>${SPEC_LABEL[spec]}</b>` +
+        `<div class="plabel"><b>🧭 Pilotaje</b>` +
+        `<span class="pxp">N${level}${next !== undefined ? ` · ${xp}/${next} XP` : ' · MÁX'} · +${level} puntería/evasión</span></div>` +
+        '<div class="pnodes"><span class="pnode unlocked" title="La básica aprende de todo lo que pasa ahí fuera: el 30% de cada ganancia, más toda la XP de pistas sin elegir."><b>oficio puro: crece con cualquier trabajo</b></span></div>';
+      card.appendChild(track);
+    }
+
+    for (const spec of SPECIALIZATIONS) {
+      const xp = pilot.tracks[spec];
+      const level = trackLevel(xp);
+      const next = TRACK_LEVEL_THRESHOLDS[level];
+      const isMain = pilot.mainSpec === spec;
+      const isSide = pilot.sideSpec === spec;
+      const dormant = !isMain && !isSide;
+      const track = document.createElement('div');
+      track.className = 'ptrack' + (dormant ? ' dormant' : '');
+      const tag = isMain ? ' <span class="dom">★ principal</span>'
+        : isSide ? ' <span class="dom">☆ secundaria (XP al 60%)</span>'
+        : ' <span class="gmuted" style="font-size:9px">dormida: su XP fluye a pilotaje</span>';
+      track.innerHTML =
+        `<div class="plabel"><b>${SPEC_LABEL[spec]}</b>${tag}` +
         `<span class="pxp">N${level}${next !== undefined ? ` · ${xp}/${next} XP` : ' · MÁX'}</span></div>`;
       const nodes = document.createElement('div');
       nodes.className = 'pnodes';
       (PERKS.perkNames?.[spec] ?? []).forEach((perk, index) => {
         const node = document.createElement('span');
         node.className = 'pnode' +
-          (index < level ? ' unlocked' : index === level ? ' next' : '');
-        node.title = perk.description;
+          (!dormant && index < level ? ' unlocked' : !dormant && index === level ? ' next' : '');
+        node.title = dormant ? `${perk.description} (dormido: elige esta escuela para activarlo)` : perk.description;
         node.innerHTML = `<b>${index + 1}. ${perk.name}</b>`;
         nodes.appendChild(node);
       });
       track.appendChild(nodes);
       card.appendChild(track);
     }
+
+    // Elegir escuela: UNA principal y UNA secundaria. La XP bancada en
+    // pistas que dejan de estar elegidas queda dormida, no se borra.
+    const choose = document.createElement('button');
+    choose.className = 'gbtn';
+    choose.textContent = pilot.mainSpec ? '⚙ Cambiar especialización' : '⚙ Elegir especialización';
+    choose.addEventListener('click', () => {
+      void uiChoice(`${pilot.name} — elige la escuela PRINCIPAL (su árbol entero se activa y su XP entra al 100%):`,
+        SPECIALIZATIONS.map((s) => ({
+          id: s,
+          label: `${pilot.mainSpec === s ? '★ ' : ''}${SPEC_LABEL[s]} N${trackLevel(pilot.tracks[s])}`,
+          detail: `${pilot.tracks[s]} XP bancada`,
+        }))).then((main) => {
+        const mainSpec = main as SpecializationId;
+        void uiChoice(`Y la SECUNDARIA (árbol activo, XP al 60%):`,
+          [...SPECIALIZATIONS.filter((s) => s !== mainSpec).map((s) => ({
+            id: s,
+            label: `${pilot.sideSpec === s ? '☆ ' : ''}${SPEC_LABEL[s]} N${trackLevel(pilot.tracks[s])}`,
+            detail: `${pilot.tracks[s]} XP bancada`,
+          })), { id: '__none__', label: 'Sin secundaria', detail: 'toda esa XP fluirá a pilotaje' }],
+        ).then((side) => {
+          pilots = {
+            ...pilots,
+            [pilotId]: chooseSpecs(pilot, mainSpec, side === '__none__' ? undefined : side as SpecializationId),
+          };
+          savePilots();
+          renderPilots(hostId);
+        });
+      });
+    });
+    card.appendChild(choose);
 
     const stress = pilot.stress ?? 0;
     const label = stressLabel(stress);

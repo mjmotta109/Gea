@@ -685,3 +685,29 @@ arquitectura del motor van en DESIGN.md.)*
   · TERRENO QUE SUFRE: las explosiones ya derribaban muros; ahora
     también ARRASAN el bosque (terrain-razed): la cobertura muere con
     él.
+- **2026-07-06** — VIGILANCIA + CONTRATOS NUEVOS + ÁRBOL DEL PILOTO
+  ("me parece aplícalos / vigilancia a lo XCOM / árbol: uno básico y
+  especializaciones, solo una principal y una secundaria").
+  · VIGILANCIA (XCOM): acción que renuncia a actuar y cierra el turno
+    al acecho — dispara al PRIMER enemigo que se mueva a su alcance
+    real (rango + línea de visión). Es un disparo PLANEADO: paga
+    munición/energía/enfriamiento, pega al 75% y consume también el
+    reflejo del tirador (nada de doble castigo). Expira al abrir el
+    turno propio. Botón 👁 y tecla V.
+  · CONTRATOS QUE USAN reach/survive: INCURSIÓN (paga bien, chatarra
+    corta: planta cualquier máquina en la línea del fondo, marcada ⚑
+    en plana y diorama, sin obligación de derribar) y DEFENSA (aguanta
+    4 rondas; la oleada del asedio llega en la ronda 2). La mesa de
+    contratos ROTA por ciclo (determinista) para que con cupo limitado
+    se vean los cinco tipos de encargo.
+  · ÁRBOL DEL PILOTO: pista BÁSICA de pilotaje (+1 puntería/+1 evasión
+    por nivel; aprende de TODO: 30% de cada ganancia) + cuatro
+    escuelas de especialización de las que solo UNA PRINCIPAL (XP al
+    100%, árbol activo, sinergia de equipo) y UNA SECUNDARIA (XP al
+    60%, árbol activo) pueden estar elegidas. La XP dirigida a pistas
+    no elegidas fluye entera a la básica; la bancada en pistas que
+    dejan de estar elegidas queda DORMIDA (no se borra). Sin elegir
+    escuela no hay perks: elegir es despertar lo bancado. Se elige y
+    se cambia en Compañía (sin coste, por ahora). Migración: básica =
+    25% de lo vivido; principal = pista dominante; secundaria = la
+    segunda con XP real.

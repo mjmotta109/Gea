@@ -31,7 +31,7 @@ describe('modo mercenario: campaña', () => {
     const a = contractOffers(5, ECONOMY, CONTRACT_ENEMY_POOL);
     const b = contractOffers(5, ECONOMY, CONTRACT_ENEMY_POOL);
     expect(a).toEqual(b);
-    expect(a.map((c) => c.tier)).toEqual(['escolta', 'asalto', 'caza']);
+    expect(a.map((c) => c.tier)).toEqual(['escolta', 'asalto', 'caza', 'incursion', 'defensa']);
     const squadPrice = (squad: string[]): number =>
       squad.reduce((n, id) => n + ECONOMY.zoidPrices[id]!, 0);
     expect(squadPrice(a[1]!.enemySquad)).toBeGreaterThan(squadPrice(a[0]!.enemySquad));

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Battle } from '../src/core/battle.js';
 import {
-  applyXp, awardXp, dominantTrack, newPilot, pilotModifiers, trackLevel,
+  applyXp, awardXp, chooseSpecs, dominantTrack, newPilot, pilotModifiers, trackLevel,
   observeBattle, injurePilot, healInjury, isInjured,
 } from '../src/core/progression.js';
 import type { BattleEvent } from '../src/core/types.js';
@@ -46,6 +46,7 @@ describe('progresión: XP del piloto (el Zoid no gana nada)', () => {
   it("los perks y la sinergia entran por el pipeline de la batalla", async () => {
     const bit = newPilot('bit', 'Bit');
     bit.tracks.assault = 300; // nivel 2: atk+3/eAtk+3 y move+1
+    bit.mainSpec = 'assault'; // sin escuela elegida, el árbol duerme
     const battle = new Battle({
       map: GameMap.fromAscii(['00000000']),
       unitCatalog: ZOIDS,
@@ -123,6 +124,7 @@ describe('progresión: XP del piloto (el Zoid no gana nada)', () => {
   it('pilotModifiers respeta el tope de sinergia', () => {
     const ace = newPilot('a', 'As');
     ace.tracks.sniper = 150;
+    ace.mainSpec = 'sniper'; // la sinergia sigue a la escuela principal
     const mods = pilotModifiers(ace, ['sniper', 'sniper', 'sniper'], PERKS);
     const synergies = mods.filter((m) => m.source === 'synergy:sniper');
     expect(synergies).toHaveLength(2); // cap 2
@@ -148,5 +150,52 @@ describe('heridas: el precio humano de perder la máquina', () => {
   it('curar a un piloto sano no fabrica estados nuevos', () => {
     const pilot = newPilot('p', 'Irvine');
     expect(healInjury(pilot, 3)).toBe(pilot); // misma referencia: sin ruido
+  });
+});
+
+describe('árbol del piloto: básica + una principal y una secundaria', () => {
+  it('la XP se enruta: principal entera, secundaria al 60%, el resto a pilotaje', () => {
+    const base = { ...newPilot('p', 'Vera'), mainSpec: 'assault' as const, sideSpec: 'sniper' as const };
+    const out = applyXp({ p: base }, [
+      { pilotId: 'p', track: 'assault', amount: 100 },
+      { pilotId: 'p', track: 'sniper', amount: 100 },
+      { pilotId: 'p', track: 'support', amount: 100 },
+    ])['p']!;
+    expect(out.tracks.assault).toBe(100);          // principal: entera
+    expect(out.tracks.sniper).toBe(60);            // secundaria: al 60%
+    expect(out.tracks.support).toBe(0);            // sin hueco: nada aquí...
+    expect(out.basics).toBe(30 + 30 + 30 + 100);   // ...fluye a pilotaje (+30% de todo)
+  });
+
+  it('sin escuela elegida, la XP se banca en su pista natural (dormida)', () => {
+    const out = applyXp({ p: newPilot('p', 'Vera') }, [
+      { pilotId: 'p', track: 'defense', amount: 200 },
+    ])['p']!;
+    expect(out.tracks.defense).toBe(200);
+    expect(out.basics).toBe(60);
+    // ...pero sin elegir, el árbol no aporta perks al pipeline.
+    expect(pilotModifiers(out, [], PERKS).filter((m) => m.source.startsWith('pilot:'))).toHaveLength(0);
+  });
+
+  it('los perks de pistas NO elegidas duermen; los de las elegidas viven', () => {
+    const pilot = { ...newPilot('p', 'Vera'), mainSpec: 'defense' as const };
+    pilot.tracks.defense = 300;  // nivel 2, elegida
+    pilot.tracks.assault = 300;  // nivel 2, dormida
+    const sources = pilotModifiers(pilot, [], PERKS).map((m) => m.source);
+    expect(sources.some((s) => s.includes('defense'))).toBe(true);
+    expect(sources.some((s) => s.includes('assault'))).toBe(false);
+  });
+
+  it('la básica da sus bonos planos por nivel, se elija lo que se elija', () => {
+    const pilot = { ...newPilot('p', 'Vera'), basics: 300 }; // nivel 2
+    const mods = pilotModifiers(pilot, [], PERKS).filter((m) => m.source === 'pilotaje');
+    // 2 niveles × (puntería + evasión) = 4 modificadores.
+    expect(mods).toHaveLength(4);
+  });
+
+  it('chooseSpecs no permite repetir escuela: la secundaria se vacía', () => {
+    const pilot = chooseSpecs(newPilot('p', 'Vera'), 'sniper', 'sniper');
+    expect(pilot.mainSpec).toBe('sniper');
+    expect(pilot.sideSpec).toBeUndefined();
   });
 });

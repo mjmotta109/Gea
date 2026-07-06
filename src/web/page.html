@@ -98,6 +98,8 @@
   .cell.hl-boost { outline: 2px dashed var(--energy); outline-offset: -2px; }
   .cell.hl-target { outline: 2px solid var(--danger); outline-offset: -2px; }
   .cell.hl-face { outline: 2px solid var(--muted); outline-offset: -2px; }
+  .cell.hl-zone { outline: 2px dashed var(--player); outline-offset: -3px; }
+  .cell.hl-zone .hl-label { color: var(--player); }
   .cell.path::before {
     content: ''; position: absolute; width: 8px; height: 8px; border-radius: 50%;
     background: var(--player); opacity: 0.75; top: 50%; left: 50%; margin: -4px 0 0 -4px;
@@ -806,6 +808,8 @@
   .ccard.sel { border-color: var(--heat); box-shadow: 0 0 0 1px var(--heat); }
   .ccard .ctier { font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
   .ccard .ctier.caza { color: var(--danger); }
+  .ccard .ctier.incursion { color: var(--player); }
+  .ccard .ctier.defensa { color: var(--heat); }
   .ccard .cname { font-weight: 700; font-size: 12px; margin: 3px 0 5px; color: var(--ink); }
   .ccard .creward { color: var(--energy); }
   .ccard .csquad { color: var(--muted); margin-top: 4px; line-height: 1.5; }

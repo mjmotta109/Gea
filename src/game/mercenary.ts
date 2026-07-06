@@ -78,7 +78,13 @@ export const FULL_HP = Number.MAX_SAFE_INTEGER;
 export interface Contract {
   id: string;
   name: string;
-  tier: 'escolta' | 'asalto' | 'caza';
+  /**
+   * Tipo de encargo — cada uno se JUEGA distinto: escolta protege al
+   * carguero, asalto aguanta refuerzos enemigos, caza derriba al
+   * cabecilla, incursión planta una máquina en la zona marcada y
+   * defensa resiste las rondas del asedio.
+   */
+  tier: 'escolta' | 'asalto' | 'caza' | 'incursion' | 'defensa';
   /** unitTypeIds del equipo enemigo (4). */
   enemySquad: string[];
   reward: number;
@@ -147,11 +153,23 @@ const TIERS: Array<{ tier: Contract['tier']; budget: number; reward: number; sal
     tier: 'caza', budget: 7200, reward: 1900, salvage: 80,
     names: ['Caza del lobo blanco', 'Eliminar a la manada de élite', 'Emboscada en el cañón', 'Cabeza del comandante'],
   },
+  // PROVISIONAL: nombres de primera pasada; la dirección repoblará.
+  {
+    // Incursión: paga bien y la chatarra poco — no vas allí a derribar.
+    tier: 'incursion', budget: 5600, reward: 1500, salvage: 40,
+    names: ['Incursión al archivo sellado', 'Robo del prototipo', 'Sabotaje del repetidor', 'Los planos del dique'],
+  },
+  {
+    // Defensa: contra el asedio (4 iniciales + oleada), chatarra digna.
+    tier: 'defensa', budget: 5800, reward: 1600, salvage: 65,
+    names: ['Aguantar el puesto del vado', 'Asedio a la muralla vieja', 'La noche de las bengalas', 'Última línea del silo'],
+  },
 ];
 
 /**
- * Las tres ofertas de contrato del ciclo actual. Deterministas: mismas
- * ofertas para el mismo (contractsDone, seed de campaña implícita).
+ * Las ofertas de contrato del ciclo actual (una por tipo de encargo).
+ * Deterministas: mismas ofertas para el mismo contractsDone. El cliente
+ * decide cuántas enseñar (reputación) y en qué orden (rotación).
  */
 export function contractOffers(
   contractsDone: number,

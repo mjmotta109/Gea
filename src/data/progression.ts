@@ -76,6 +76,12 @@ export const PERKS: PerkTable = {
     support: { source: 'synergy:support', stat: 'speed', add: 1 },
     defense: { source: 'synergy:defense', stat: 'def', add: 3 },
   },
+  // Pista BÁSICA de pilotaje: oficio puro. +1 puntería y +1 evasión por
+  // nivel — modesto pero universal, se lleve el chasis que se lleve.
+  basicsPerLevel: [
+    { source: 'pilotaje', stat: 'accuracy', add: 1 },
+    { source: 'pilotaje', stat: 'evade', add: 1 },
+  ],
   synergyCap: 2,
   // ── Estrés: temporal, se descansa en las ciudades. Solo aplica el
   //    tramo más alto alcanzado; a 95+ el piloto está para pocas guerras.

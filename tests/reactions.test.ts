@@ -97,6 +97,60 @@ describe('reacciones: el posicionamiento por fin cuesta', () => {
   });
 });
 
+describe('vigilancia: el terreno abierto se paga (XCOM)', () => {
+  it('termina el turno al acecho y dispara al primero que entra a tiro', () => {
+    // Command Wolf (speed 14) vigila; la Molga (11) cruza a su alcance.
+    const battle = arena({ spawns: [P('P1', 'command-wolf', 2, 2), E('E1', 'molga', 6, 2)] });
+    battle.nextTurn();
+    const set = battle.execute({ type: 'overwatch', unitId: 'P1' });
+    expect(set.map((e) => e.type)).toContain('overwatch-set');
+    expect(battle.getActiveUnit()).toBeUndefined(); // el turno se cedió
+    expect(battle.unit('P1').overwatch).toBe(true);
+
+    battle.nextTurn();
+    expect(battle.getActiveUnit()?.id).toBe('E1');
+    // La molga entra al alcance del cañón de impacto (range 4, min 2).
+    const move = battle.execute({ type: 'move', unitId: 'E1', to: { x: 5, y: 2 } });
+    const fired = reactions(move);
+    expect(fired).toHaveLength(1);
+    expect(fired[0]).toMatchObject({ unitId: 'P1', targetUnitId: 'E1', reaction: 'vigilancia' });
+    expect(battle.unit('P1').overwatch).toBe(false); // un disparo por vigilancia
+  });
+
+  it('fuera de alcance no dispara: sigue al acecho hasta su turno', () => {
+    const battle = arena({ spawns: [P('P1', 'command-wolf', 0, 0), E('E1', 'molga', 7, 2)] });
+    battle.nextTurn();
+    battle.execute({ type: 'overwatch', unitId: 'P1' });
+    battle.nextTurn();
+    const move = battle.execute({ type: 'move', unitId: 'E1', to: { x: 7, y: 4 } });
+    expect(reactions(move)).toHaveLength(0);
+    expect(battle.unit('P1').overwatch).toBe(true); // nadie entró a tiro
+    battle.execute({ type: 'wait', unitId: 'E1' });
+    battle.nextTurn(); // el turno propio limpia la vigilancia
+    expect(battle.getActiveUnit()?.id).toBe('P1');
+    expect(battle.unit('P1').overwatch).toBe(false);
+  });
+
+  it('el disparo de vigilancia es planeado: paga munición de verdad', () => {
+    // Gun Sniper con rifle (línea, alcance 7, min 3): E1 cruza su fila.
+    const battle = arena({ spawns: [P('P1', 'gun-sniper', 0, 2), E('E1', 'iron-kong', 6, 3)] });
+    battle.nextTurn();
+    battle.execute({ type: 'overwatch', unitId: 'P1' });
+    const before = battle.unit('P1').components.arsenal!.weapons[0]!.ammo;
+    battle.nextTurn();
+    const move = battle.execute({ type: 'move', unitId: 'E1', to: { x: 6, y: 2 } });
+    expect(reactions(move)).toHaveLength(1);
+    expect(battle.unit('P1').components.arsenal!.weapons[0]!.ammo).toBe(before - 1);
+  });
+
+  it('vigilar tras actuar está prohibido: es renunciar a la acción', () => {
+    const battle = arena({ spawns: [P('P1', 'liger-zero', 2, 2), E('E1', 'iron-kong', 3, 2)] });
+    battle.nextTurn();
+    battle.execute({ type: 'ability', unitId: 'P1', abilityId: 'bite-crush', target: { x: 3, y: 2 } });
+    expect(() => battle.execute({ type: 'overwatch', unitId: 'P1' })).toThrow(/ya actuó/);
+  });
+});
+
 describe('terreno que sufre la batalla', () => {
   it('una explosión arrasa el bosque: la cobertura desaparece', () => {
     const forestMap = GameMap.fromAscii([

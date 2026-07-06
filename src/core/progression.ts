@@ -27,6 +27,21 @@ export interface PilotState {
   name: string;
   /** XP acumulada por pista de especialización. */
   tracks: Record<SpecializationId, number>;
+  /**
+   * XP de la pista BÁSICA de pilotaje: aprende de todo lo que pasa ahí
+   * fuera y crece con cualquier trabajo. Sus niveles dan bonos planos
+   * (tabla del juego: PerkTable.basicsPerLevel).
+   */
+  basics?: number;
+  /**
+   * Especialización PRINCIPAL y SECUNDARIA: las únicas dos pistas cuyo
+   * árbol de perks está activo y cuya XP sigue creciendo (la secundaria
+   * a ritmo reducido). La XP dirigida a pistas no elegidas fluye a la
+   * básica: nada se pierde, pero elegir define al piloto. Sin elegir,
+   * la XP se banca en su pista natural pero NINGÚN perk se activa.
+   */
+  mainSpec?: SpecializationId;
+  sideSpec?: SpecializationId;
   /** Manías adquiridas (ids de la tabla de perks), permanentes. */
   quirks: string[];
   /** Memoria vivida: contadores de experiencias que engendran manías. */
@@ -41,10 +56,29 @@ export function newPilot(id: string, name: string): PilotState {
   return {
     id, name,
     tracks: { assault: 0, sniper: 0, support: 0, defense: 0 },
+    basics: 0,
     quirks: [],
     memory: {},
     stress: 0,
   };
+}
+
+/** Ritmo de aprendizaje de la pista secundaria (la principal va a 1). */
+export const SIDE_SPEC_RATE = 0.6;
+/** Fracción de TODA ganancia que además alimenta la pista básica. */
+export const BASICS_RATE = 0.3;
+
+/**
+ * Elige (o cambia) la especialización principal y secundaria. La XP ya
+ * bancada en otras pistas no se borra: queda dormida hasta que esa pista
+ * vuelva a ser elegida. Si coinciden, la secundaria queda vacía.
+ */
+export function chooseSpecs(
+  pilot: PilotState,
+  mainSpec: SpecializationId,
+  sideSpec?: SpecializationId,
+): PilotState {
+  return { ...pilot, mainSpec, sideSpec: sideSpec === mainSpec ? undefined : sideSpec };
 }
 
 /** Umbrales de XP acumulada para cada nivel de pista (nivel = índice+1). */
@@ -176,7 +210,15 @@ export function awardXp(
     .sort((a, b) => a.pilotId.localeCompare(b.pilotId) || a.track.localeCompare(b.track));
 }
 
-/** Aplica ganancias sobre pilotos sin mutar los originales. */
+/**
+ * Aplica ganancias sobre pilotos sin mutar los originales, enrutándolas
+ * por el árbol elegido:
+ *  - la BÁSICA recibe siempre el 30% de toda ganancia (aprende de todo);
+ *  - la PRINCIPAL cobra su XP entera; la SECUNDARIA, al 60%;
+ *  - la XP de pistas NO elegidas fluye entera a la básica;
+ *  - un piloto sin especialización elegida banca la XP en su pista
+ *    natural (dormida: sin perks hasta elegir).
+ */
 export function applyXp(pilots: Record<string, PilotState>, gains: XpGain[]): Record<string, PilotState> {
   const result: Record<string, PilotState> = {};
   for (const [id, pilot] of Object.entries(pilots)) {
@@ -184,7 +226,15 @@ export function applyXp(pilots: Record<string, PilotState>, gains: XpGain[]): Re
   }
   for (const gain of gains) {
     const pilot = result[gain.pilotId];
-    if (pilot) pilot.tracks[gain.track] += gain.amount;
+    if (!pilot) continue;
+    pilot.basics = (pilot.basics ?? 0) + Math.round(gain.amount * BASICS_RATE);
+    if (pilot.mainSpec === undefined || gain.track === pilot.mainSpec) {
+      pilot.tracks[gain.track] += gain.amount;
+    } else if (gain.track === pilot.sideSpec) {
+      pilot.tracks[gain.track] += Math.round(gain.amount * SIDE_SPEC_RATE);
+    } else {
+      pilot.basics += gain.amount;
+    }
   }
   return result;
 }
@@ -194,6 +244,8 @@ export function applyXp(pilots: Record<string, PilotState>, gains: XpGain[]): Re
 export interface PerkTable {
   /** Modificadores por nivel de pista; el nivel N aplica los índices 0..N-1. */
   perks: Record<SpecializationId, StatModifier[][]>;
+  /** Bonos planos de la pista básica, aplicados una vez POR NIVEL. */
+  basicsPerLevel?: StatModifier[];
   /** Nombre y descripción de cada perk (para el árbol visual). */
   perkNames?: Record<SpecializationId, Array<{ name: string; description: string }>>;
   /** Bonus por pieza/arma montada cuya spec coincide con la pista dominante. */
@@ -233,9 +285,10 @@ export interface QuirkDefinition {
 }
 
 /**
- * Modificadores que un piloto aporta a la unidad que tripula: los perks
- * acumulados de todas sus pistas + la sinergia del equipo etiquetado con
- * su especialización dominante.
+ * Modificadores que un piloto aporta a la unidad que tripula: los bonos
+ * de la pista básica + los perks de sus DOS pistas elegidas (principal y
+ * secundaria; las demás quedan dormidas) + la sinergia del equipo
+ * etiquetado con su especialización principal.
  */
 export function pilotModifiers(
   pilot: PilotState,
@@ -243,19 +296,26 @@ export function pilotModifiers(
   table: PerkTable,
 ): StatModifier[] {
   const mods: StatModifier[] = [];
-  for (const spec of SPECIALIZATIONS) {
+  // La básica siempre acompaña: oficio puro, sin escuela.
+  const basicsLevel = trackLevel(pilot.basics ?? 0);
+  for (let i = 0; i < basicsLevel; i++) {
+    mods.push(...(table.basicsPerLevel ?? []));
+  }
+  const chosen = [pilot.mainSpec, pilot.sideSpec]
+    .filter((s): s is SpecializationId => s !== undefined);
+  for (const spec of chosen) {
     const level = trackLevel(pilot.tracks[spec]);
     for (let i = 0; i < level; i++) {
       mods.push(...(table.perks[spec][i] ?? []));
     }
   }
-  const dominant = dominantTrack(pilot);
-  if (trackLevel(pilot.tracks[dominant]) > 0) {
+  const main = pilot.mainSpec;
+  if (main && trackLevel(pilot.tracks[main]) > 0) {
     const matching = Math.min(
       table.synergyCap,
-      equippedSpecs.filter((s) => s === dominant).length,
+      equippedSpecs.filter((s) => s === main).length,
     );
-    const bonus = table.synergy[dominant];
+    const bonus = table.synergy[main];
     for (let i = 0; i < matching; i++) mods.push(bonus);
   }
   // Las manías del piloto también pilotan la máquina.

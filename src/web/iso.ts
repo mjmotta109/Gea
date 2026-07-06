@@ -35,6 +35,8 @@ export interface DioramaHighlights {
   move: Set<string>;
   boost: Set<string>;
   target: Set<string>;
+  /** Zona de objetivo 'reach': llegar aquí gana la batalla. */
+  zone?: Set<string>;
   path: Set<string>;
   faces: Map<string, string>;   // key → flecha
   labels: Map<string, string>;  // key → texto (p. ej. "62%")
@@ -290,6 +292,14 @@ export function drawDiorama(
       ctx.lineWidth = 2.5;
       diamond(ctx, c.x, c.y);
       ctx.stroke();
+    }
+    if (scene.hl.zone?.has(key)) {
+      ctx.strokeStyle = 'rgba(83,209,224,0.85)';
+      ctx.lineWidth = 1.4;
+      ctx.setLineDash([4, 3]);
+      diamond(ctx, c.x, c.y, TILE_W - 8, TILE_H - 4);
+      ctx.stroke();
+      ctx.setLineDash([]);
     }
     if (scene.hl.cursor && scene.hl.cursor.x === tile.x && scene.hl.cursor.y === tile.y) {
       ctx.strokeStyle = 'rgba(255,255,255,0.9)';

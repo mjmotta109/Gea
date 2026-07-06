@@ -274,10 +274,12 @@ function hashString(text: string): number {
 export function assignTarget(
   region: WorldRegion,
   contractId: string,
-  tier: 'escolta' | 'asalto' | 'caza',
+  tier: 'escolta' | 'asalto' | 'caza' | 'incursion' | 'defensa',
 ): string {
   const dist = distancesFrom(region, region.hq);
-  const range = tier === 'escolta' ? [1, 2] : tier === 'asalto' ? [2, 3] : [3, 99];
+  const range = tier === 'escolta' || tier === 'defensa' ? [1, 2]
+    : tier === 'asalto' ? [2, 3]
+    : [3, 99]; // caza e incursión: lo hondo del mapa
   const candidates = region.nodes
     .filter((n) => n.id !== region.hq)
     .filter((n) => (dist[n.id] ?? 99) >= range[0]! && (dist[n.id] ?? 99) <= range[1]!)
@@ -293,7 +295,7 @@ export function assignTarget(
 export function startExpedition(
   region: WorldRegion,
   contractId: string,
-  tier: 'escolta' | 'asalto' | 'caza',
+  tier: 'escolta' | 'asalto' | 'caza' | 'incursion' | 'defensa',
 ): ExpeditionState {
   const targetNodeId = assignTarget(region, contractId, tier);
   const target = region.nodes.find((n) => n.id === targetNodeId)!;

@@ -369,6 +369,8 @@ export interface UnitState {
   hasActed: boolean;
   /** Reacción disponible (una por ronda; se recupera al abrir turno propio). */
   reactionReady: boolean;
+  /** En vigilancia: disparará al primer enemigo que se mueva a tiro. */
+  overwatch?: boolean;
   /** Salió del campo por el borde: la máquina sobrevive, la batalla sigue sin ella. */
   retreated?: boolean;
   /** El piloto saltó: la máquina se pierde (hp 0) pero él vuelve casi entero. */
@@ -386,6 +388,8 @@ export type BattleAction =
   | { type: 'wait'; unitId: string; facing?: Facing }
   /** Cambio de postura de energía: acción libre, no consume el turno. */
   | { type: 'stance'; unitId: string; stance: StanceId }
+  /** Vigilancia (XCOM): renuncia a actuar y dispara al primero que se mueva. */
+  | { type: 'overwatch'; unitId: string }
   /** Retirada por el borde: la unidad abandona el campo intacta. */
   | { type: 'retreat'; unitId: string }
   /** Eyección: el piloto salta y la máquina queda perdida en el sitio. */
@@ -420,8 +424,10 @@ export type BattleEvent =
   | { type: 'terrain-razed'; pos: Position }
   /** Arranca una ronda nueva (cada unidad actúa ~una vez por ronda). */
   | { type: 'round-started'; round: number }
-  /** Tiro instintivo fuera de turno: oportunidad (fuga) o contraataque. */
-  | { type: 'reaction'; unitId: string; targetUnitId: string; reaction: 'oportunidad' | 'contraataque'; abilityId: string }
+  /** Tiro fuera de turno: oportunidad (fuga), contraataque o vigilancia. */
+  | { type: 'reaction'; unitId: string; targetUnitId: string; reaction: 'oportunidad' | 'contraataque' | 'vigilancia'; abilityId: string }
+  /** La unidad entra en vigilancia y cede el resto de su turno. */
+  | { type: 'overwatch-set'; unitId: string }
   | { type: 'unit-retreated'; unitId: string }
   | { type: 'unit-ejected'; unitId: string }
   /** Oleada de refuerzos desplegada al arrancar la ronda. */
