@@ -87,6 +87,12 @@ const SHAPES: Record<Family, string> = {
 const GENERIC = `
     <path d="M6 24 L9 14 L18 11 L28 12 L34 10 L38 13 L34 16 L30 18 L28 28 L24 28 L25 20 L16 20 L14 28 L10 28 L11 22 Z"/>`;
 
+/** Cuerpo del dibujo (paths) de un chasis: el diorama lo hornea a imagen. */
+export function spriteBody(unitTypeId: string): string {
+  const family = FAMILIES[unitTypeId];
+  return family ? SHAPES[family] : GENERIC;
+}
+
 /**
  * SVG completo de la unidad, morro hacia `facing` ('west' voltea; norte
  * y sur inclinan levemente para leerse sin brújula).

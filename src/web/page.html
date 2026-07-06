@@ -914,6 +914,11 @@
   body.iso-view #floats .float { transform-style: preserve-3d; }
   body.iso-view #floats .float::after { content: ''; }
 
+  /* ── Diorama (canvas isométrico, escalón 3) ── */
+  #diorama { display: none; margin: 0 auto; max-width: 100%; }
+  body.diorama-view #diorama { display: block; }
+  body.diorama-view #board { position: absolute; opacity: 0; pointer-events: none; }
+
   /* ── Terreno con textura (celdas del tablero) ── */
   .cell { overflow: hidden; }
   .cell.alt::before {
@@ -1056,6 +1061,7 @@
       <section id="board-panel">
         <div id="board-stage">
           <div id="board"></div>
+          <canvas id="diorama"></canvas>
           <div id="fx"></div>
           <div id="floats"></div>
         </div>

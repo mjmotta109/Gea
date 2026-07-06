@@ -554,3 +554,19 @@ arquitectura del motor van en DESIGN.md.)*
   navegador respeta transformaciones). Es un ensayo de dirección: la
   decisión pendiente es el escalón 3 (renderer isométrico real en
   canvas estilo FFT, prismas de altura procedurales + billboards).
+- **2026-07-06** — EL DIORAMA (escalón 3, "muéstrame el 3d isométrico"):
+  renderer isométrico REAL en canvas (src/web/iso.ts), fórmula FFT:
+  · Terreno en rombos 2:1 con la ALTURA como prismas apilados (por fin
+    las colinas SE VEN), caras laterales sombreadas, agua hundida que
+    ondula, árboles y piedras procedurales por casilla (deterministas).
+  · Bestias como BILLBOARDS: las siluetas SVG se hornean a imagen con
+    el color del bando y se plantan de pie con sombra elíptica, barra
+    de vida y etiqueta. Todo procedural: cero archivos.
+  · Paridad táctica completa: rangos de movimiento/boost/objetivo
+    tintados en los rombos, camino punteado, ⌖ de tiro, flechas de
+    orientación, % sobre el objetivo, cursor y confirmación. El ratón
+    hace picking real en rombos CON elevación; el teclado, como
+    siempre. Números flotantes y efectos se proyectan al diorama.
+  · Tres vistas ciclables y persistentes en la cabecera de batalla:
+    🗺 plana (DOM) → 🧊 mesa (CSS) → 🏔 diorama (canvas). El motor no
+    cambió ni una línea: el diorama solo PINTA estado resuelto.

@@ -27,7 +27,11 @@ import { generateBattlefield } from '../game/mapgen.js';
 import { adjustReputation, contractSlots, priceFactor, reputationTier, REPUTATION_MAX } from '../game/reputation.js';
 import { FACTIONS, PLACE_FACTIONS } from '../data/factions.js';
 import { playSfx, sfxEnabled, toggleSfx } from './sfx.js';
-import { unitSprite } from './sprites.js';
+import { spriteBody, unitSprite } from './sprites.js';
+import {
+  drawDiorama, isoCanvasSize, isoPick, isoProject,
+  type DioramaScene, type DioramaTile, type DioramaUnit,
+} from './iso.js';
 import { GARAGE_MODULE_OPTIONS, MODULES } from '../data/modules.js';
 import { PERKS } from '../data/progression.js';
 import { withWeaponLibrary } from '../data/weaponLibrary.js';
@@ -838,6 +842,7 @@ function facingCells(): Map<string, Facing> {
 }
 
 function renderBoard(): void {
+  if (currentView() === 'diorama') { renderDioramaView(); return; }
   const board = $('board');
   board.style.gridTemplateColumns = `repeat(${battle.map.width}, 46px)`;
   board.innerHTML = '';
@@ -929,6 +934,108 @@ function renderBoard(): void {
 
 /** Tamaño de celda en píxeles (46 de celda + 2 de separación). */
 const CELL_PX = 48;
+
+// ── El diorama (escalón 3): escena, dibujo y ratón ──────────────────────
+
+const TEAM_COLORS = { player: '#53d1e0', enemy: '#ff8a5c' } as const;
+
+function dioramaScene(): DioramaScene {
+  const unit = playerUnit();
+  const path = previewPath();
+  const faces = facingCells();
+  const tiles: DioramaTile[] = [];
+  const labels = new Map<string, string>();
+  const targets = new Set<string>();
+  const shots = new Set<string>();
+  const moveSet = new Set<string>();
+  const boostSet = new Set<string>();
+  for (let y = 0; y < battle.map.height; y++) {
+    for (let x = 0; x < battle.map.width; x++) {
+      const pos = { x, y };
+      const key = posKey(pos);
+      const tile = battle.map.tileAt(pos);
+      tiles.push({
+        x, y,
+        terrain: tile.terrain as DioramaTile['terrain'],
+        height: tile.height,
+        fill: shade(TERRAIN_BASE[tile.terrain]!, tile.height),
+      });
+      if ((mode.kind === 'move' || mode.kind === 'boost') && mode.tiles.has(key)) {
+        (mode.kind === 'move' ? moveSet : boostSet).add(key);
+        if (mode.shotsFrom.has(key)) shots.add(key);
+      }
+      if (mode.kind === 'ability' && mode.targets.has(key)) {
+        targets.add(key);
+        const label = targetLabel(unit, pos);
+        if (label) labels.set(key, label);
+      }
+    }
+  }
+  const units: DioramaUnit[] = battle.units
+    .filter((u) => u.hp > 0)
+    .map((u) => ({
+      id: u.id,
+      unitTypeId: u.unitTypeId,
+      team: u.team,
+      facing: u.facing,
+      x: u.position.x,
+      y: u.position.y,
+      hpRatio: u.hp / Math.max(1, battle.effectiveStats(u).maxHp),
+      active: battle.getActiveUnit()?.id === u.id,
+    }));
+  return {
+    width: battle.map.width,
+    height: battle.map.height,
+    tiles,
+    units,
+    hl: {
+      move: moveSet, boost: boostSet, target: targets,
+      path: new Set(path), faces: new Map([...faces].map(([k, f]) => [k, FACING_ARROW[f]])),
+      labels, shots,
+      ...(pending ? { pending } : {}),
+      ...(playerUnit() ? { cursor } : {}),
+    },
+    time: performance.now(),
+  };
+}
+
+let dioramaWired = false;
+
+function renderDioramaView(): void {
+  const canvas = $('diorama') as HTMLCanvasElement;
+  const scene = dioramaScene();
+  drawDiorama(canvas, scene, (u) => ({ body: spriteBody(u.unitTypeId), color: TEAM_COLORS[u.team] }),
+    () => renderDioramaView());
+  if (!dioramaWired) {
+    dioramaWired = true;
+    const pickAt = (event: MouseEvent): { x: number; y: number } | null => {
+      const rect = canvas.getBoundingClientRect();
+      const scale = canvas.width / rect.width;
+      return isoPick(
+        { x: (event.clientX - rect.left) * scale, y: (event.clientY - rect.top) * scale },
+        dioramaScene().tiles, battle.map.height);
+    };
+    canvas.addEventListener('mousemove', (event) => {
+      const pos = pickAt(event);
+      if (pos && !samePosition(pos, cursor)) setCursor(pos);
+    });
+    canvas.addEventListener('click', (event) => {
+      const pos = pickAt(event);
+      if (!pos) return;
+      setCursor(pos);
+      const facing = facingCells().get(posKey(pos));
+      if (facing) { doWait(facing); return; }
+      confirm();
+    });
+  }
+}
+
+// El agua del diorama ondula sola: repintado suave cuando está visible.
+window.setInterval(() => {
+  if (currentView() !== 'diorama') return;
+  if (document.hidden || startOpen || mercOpen || worldOpen || cityOpen) return;
+  renderDioramaView();
+}, 140);
 
 /**
  * Animaciones de ficha tras el re-render: desplazamiento a lo largo del
@@ -1438,6 +1545,14 @@ function logEvents(events: BattleEvent[]): void {
 
 /** Centro de una casilla en píxeles dentro del panel del tablero. */
 function fxCenter(pos: Position): { x: number; y: number } {
+  if (currentView() === 'diorama') {
+    const canvas = $('diorama') as HTMLCanvasElement;
+    const rect = { left: canvas.offsetLeft, top: canvas.offsetTop };
+    const scale = canvas.clientWidth > 0 ? canvas.clientWidth / canvas.width : 1;
+    const tile = battle.map.tileAt(pos);
+    const c = isoProject(pos.x, pos.y, tile.terrain === 'wall' ? tile.height + 1 : tile.height, battle.map.height);
+    return { x: rect.left + c.x * scale, y: rect.top + (c.y - 12) * scale };
+  }
   const board = $('board');
   return {
     x: board.offsetLeft + pos.x * CELL_PX + CELL_PX / 2,
@@ -1593,8 +1708,9 @@ function spawnFloat(unitId: string, text: string, cls: string): void {
   const span = document.createElement('span');
   span.className = `float ${cls}`;
   span.textContent = text;
-  span.style.left = `${board.offsetLeft + unit.position.x * CELL_PX + CELL_PX / 2}px`;
-  span.style.top = `${board.offsetTop + unit.position.y * CELL_PX + 6}px`;
+  const at = fxCenter(unit.position);
+  span.style.left = `${at.x}px`;
+  span.style.top = `${at.y - CELL_PX / 2 + 6}px`;
   $('floats').appendChild(span);
   const delay = (floatStagger++ % 3) * 110; // varios impactos no se pisan
   span.style.opacity = '0';
@@ -3875,20 +3991,30 @@ $('merc-btn').addEventListener('click', () => {
   else openMerc();
 });
 $('city-close').addEventListener('click', closeCity);
-// Vista de mesa (isométrica CSS): prueba del escalón 2 de la estética.
-const ISO_KEY = 'gea-iso';
-function applyIsoView(): void {
-  const on = localStorage.getItem(ISO_KEY) === 'on';
-  document.body.classList.toggle('iso-view', on);
-  $('iso-btn').classList.toggle('mode-on', on);
+// Tres vistas de batalla: plana (DOM), mesa (CSS inclinado) y DIORAMA
+// (canvas isométrico real, escalón 3). El botón cicla y se recuerda.
+const VIEW_KEY = 'gea-view';
+type ViewMode = 'plana' | 'mesa' | 'diorama';
+function currentView(): ViewMode {
+  const stored = localStorage.getItem(VIEW_KEY);
+  if (stored === 'mesa' || stored === 'diorama') return stored;
+  if (localStorage.getItem('gea-iso') === 'on') return 'mesa'; // migración
+  return 'plana';
+}
+function applyViewMode(): void {
+  const view = currentView();
+  document.body.classList.toggle('iso-view', view === 'mesa');
+  document.body.classList.toggle('diorama-view', view === 'diorama');
+  $('iso-btn').classList.toggle('mode-on', view !== 'plana');
+  $('iso-btn').textContent = view === 'plana' ? '🗺 plana' : view === 'mesa' ? '🧊 mesa' : '🏔 diorama';
 }
 $('iso-btn').addEventListener('click', () => {
-  try {
-    localStorage.setItem(ISO_KEY, localStorage.getItem(ISO_KEY) === 'on' ? 'off' : 'on');
-  } catch { /* privado */ }
-  applyIsoView();
+  const next: ViewMode = currentView() === 'plana' ? 'mesa' : currentView() === 'mesa' ? 'diorama' : 'plana';
+  try { localStorage.setItem(VIEW_KEY, next); } catch { /* privado */ }
+  applyViewMode();
+  renderAll();
 });
-applyIsoView();
+applyViewMode();
 
 function wireSfxButton(id: string): void {
   const btn = $(id);
