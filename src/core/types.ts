@@ -26,6 +26,22 @@ export interface Tile {
 export type MoveType = 'ground' | 'flying' | 'amphibious';
 
 /**
+ * Objetivo de la batalla. La aniquilación del propio equipo siempre es
+ * derrota y la del rival siempre es victoria (regla de gracia); el
+ * objetivo añade condiciones EXTRA por encima de esas dos:
+ * - assassinate: derribar a una unidad concreta gana aunque queden más.
+ * - protect: si la unidad protegida cae, se pierde.
+ * - reach: victoria al plantar una unidad propia (o una concreta) en la zona.
+ * - survive: victoria al completar N rondas con alguien en pie.
+ */
+export type BattleObjective =
+  | { kind: 'eliminate' }
+  | { kind: 'assassinate'; targetUnitId: string }
+  | { kind: 'protect'; wardUnitId: string }
+  | { kind: 'reach'; zone: Position[]; unitId?: string }
+  | { kind: 'survive'; rounds: number };
+
+/**
  * Clima de la batalla (fase 3). La lluvia acelera la disipación de calor;
  * la tormenta de arena degrada la puntería a distancia. La niebla llegará
  * con los sensores (aplazada por decisión de diseño).
@@ -317,6 +333,12 @@ export interface UnitDefinition {
   heat?: { max: number; dissipationPerTurn: number };
   /** Armas montadas (fase 2): IDs del catálogo de armas. */
   weapons?: string[];
+  /**
+   * Casillas de lado que ocupa (1 por defecto). Un 2 crea una bestia 2×2
+   * anclada en su `position` (esquina noroeste): ocupa cuatro casillas,
+   * es inmune a los empujones y se le puede apuntar a cualquiera de ellas.
+   */
+  size?: number;
 }
 
 export interface UnitState {
@@ -335,6 +357,8 @@ export interface UnitState {
   position: Position;
   facing: Facing;
   hp: number;
+  /** Casillas de lado (copiado de la definición al desplegar). */
+  size: number;
   /** Charge Time: al llegar a CT_THRESHOLD la unidad actúa. */
   ct: number;
   statuses: StatusInstance[];
@@ -343,6 +367,12 @@ export interface UnitState {
   /** Flags del turno activo. */
   hasMoved: boolean;
   hasActed: boolean;
+  /** Reacción disponible (una por ronda; se recupera al abrir turno propio). */
+  reactionReady: boolean;
+  /** Salió del campo por el borde: la máquina sobrevive, la batalla sigue sin ella. */
+  retreated?: boolean;
+  /** El piloto saltó: la máquina se pierde (hp 0) pero él vuelve casi entero. */
+  ejected?: boolean;
 }
 
 /** Acciones que un controlador (jugador o IA) puede pedir al motor. */
@@ -355,7 +385,11 @@ export type BattleAction =
   | { type: 'reload'; unitId: string; weaponId: string }
   | { type: 'wait'; unitId: string; facing?: Facing }
   /** Cambio de postura de energía: acción libre, no consume el turno. */
-  | { type: 'stance'; unitId: string; stance: StanceId };
+  | { type: 'stance'; unitId: string; stance: StanceId }
+  /** Retirada por el borde: la unidad abandona el campo intacta. */
+  | { type: 'retreat'; unitId: string }
+  /** Eyección: el piloto salta y la máquina queda perdida en el sitio. */
+  | { type: 'eject'; unitId: string };
 
 /**
  * Eventos emitidos por el motor al resolver acciones. Un renderer los
@@ -382,6 +416,16 @@ export type BattleEvent =
   | { type: 'unit-pushed'; unitId: string; from: Position; to: Position }
   /** Un muro reventado por una explosión pasa a ser escombros. */
   | { type: 'terrain-destroyed'; pos: Position }
+  /** Un bosque arrasado por una explosión pierde su cobertura. */
+  | { type: 'terrain-razed'; pos: Position }
+  /** Arranca una ronda nueva (cada unidad actúa ~una vez por ronda). */
+  | { type: 'round-started'; round: number }
+  /** Tiro instintivo fuera de turno: oportunidad (fuga) o contraataque. */
+  | { type: 'reaction'; unitId: string; targetUnitId: string; reaction: 'oportunidad' | 'contraataque'; abilityId: string }
+  | { type: 'unit-retreated'; unitId: string }
+  | { type: 'unit-ejected'; unitId: string }
+  /** Oleada de refuerzos desplegada al arrancar la ronda. */
+  | { type: 'reinforcements-arrived'; unitIds: string[]; round: number }
   /** El comandante del equipo cayó: la red de mando se degrada. */
   | { type: 'command-link-lost'; team: Team }
   | { type: 'energy-changed'; unitId: string; current: number; delta: number; reason: string }

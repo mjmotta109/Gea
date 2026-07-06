@@ -27,6 +27,8 @@ export interface DioramaUnit {
   active: boolean;
   /** Elevación explícita (marcha interpolada); si falta, la de su casilla. */
   elev?: number;
+  /** Factor de tamaño del sprite (bestias 2×2 ≈ 1.85; omitir = 1). */
+  scale?: number;
 }
 
 export interface DioramaHighlights {
@@ -310,10 +312,11 @@ export function drawDiorama(
     const c = isoProject(unit.x, unit.y, elev, scene.height);
     const info = sprite(unit);
     const img = spriteImage(info.body, info.color, onSpriteReady);
-    const w = 54, h = 40;
+    const k = unit.scale ?? 1;
+    const w = 54 * k, h = 40 * k;
     ctx.fillStyle = 'rgba(0,0,0,0.4)';
     ctx.beginPath();
-    ctx.ellipse(c.x, c.y + 3, 17, 6, 0, 0, Math.PI * 2);
+    ctx.ellipse(c.x, c.y + 3 * k, 17 * k, 6 * k, 0, 0, Math.PI * 2);
     ctx.fill();
     if (img.complete && img.naturalWidth > 0) {
       ctx.save();
@@ -331,9 +334,9 @@ export function drawDiorama(
       ctx.restore();
     }
     ctx.fillStyle = 'rgba(0,0,0,0.55)';
-    ctx.fillRect(c.x - 14, c.y + 7, 28, 3);
+    ctx.fillRect(c.x - 14 * k, c.y + 7 * k, 28 * k, 3);
     ctx.fillStyle = unit.team === 'player' ? '#7ec96b' : '#ffb066';
-    ctx.fillRect(c.x - 14, c.y + 7, 28 * Math.max(0, Math.min(1, unit.hpRatio)), 3);
+    ctx.fillRect(c.x - 14 * k, c.y + 7 * k, 28 * k * Math.max(0, Math.min(1, unit.hpRatio)), 3);
     ctx.fillStyle = 'rgba(255,255,255,0.8)';
     ctx.font = 'bold 8px monospace';
     ctx.textAlign = 'center';

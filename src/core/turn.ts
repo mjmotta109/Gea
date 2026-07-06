@@ -12,7 +12,7 @@ export type SpeedLookup = (unit: UnitState) => number;
  * función de consulta para no acoplar este módulo al catálogo de datos.
  */
 export function advanceToNextTurn(units: UnitState[], speedOf: SpeedLookup): UnitState | undefined {
-  const alive = units.filter((u) => u.hp > 0);
+  const alive = units.filter((u) => u.hp > 0 && !u.retreated);
   if (alive.length === 0 || alive.every((u) => speedOf(u) <= 0)) return undefined;
 
   for (;;) {
@@ -32,7 +32,7 @@ export function advanceToNextTurn(units: UnitState[], speedOf: SpeedLookup): Uni
  */
 export function forecastTurnOrder(units: UnitState[], speedOf: SpeedLookup, count: number): string[] {
   const sim = units
-    .filter((u) => u.hp > 0 && speedOf(u) > 0)
+    .filter((u) => u.hp > 0 && !u.retreated && speedOf(u) > 0)
     .map((u) => ({ id: u.id, ct: u.ct, speed: speedOf(u) }));
   if (sim.length === 0) return [];
 

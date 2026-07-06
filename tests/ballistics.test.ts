@@ -91,7 +91,7 @@ describe('fase 4: balística', () => {
     const victim = {
       id: 'V', name: 'V', unitTypeId: 'molga', team: 'enemy' as const, isCommander: false,
       position: { x: 1, y: 0 }, facing: 'east' as const, hp: 10, ct: 0,
-      statuses: [], hasMoved: false, hasActed: false, components: {},
+      statuses: [], hasMoved: false, hasActed: false, size: 1, reactionReady: true, components: {},
     };
     expect(knockbackDestination(map, { x: 0, y: 0 }, victim, [victim])).toBeNull(); // muro detrás
     const open = GameMap.fromAscii(['0000']);

@@ -646,3 +646,42 @@ arquitectura del motor van en DESIGN.md.)*
   · GLOBAL: grano de película sutil (feTurbulence), titulares como
     placas estarcidas con muesca ámbar/cian, CTAs de partir con franja
     de rayas de peligro.
+- **2026-07-06** — "APLICA TODO": el bloque grande del motor de combate
+  (los seis huecos del repaso, en un solo golpe). Golden regenerado y
+  declarado — las rondas y reacciones cambian el flujo de las batallas
+  de referencia.
+  · OBJETIVOS DE BATALLA (core, BattleObjective): eliminate (clásico),
+    assassinate (cae el señalado y se acabó), protect (si cae el
+    protegido se pierde), reach (plantar una unidad en la zona) y
+    survive (aguantar N rondas). La aniquilación propia siempre es
+    derrota y la ajena siempre victoria (regla de gracia). RONDAS:
+    cada unidad actúa ~una vez por ronda (evento round-started, a la
+    vista en el HUD).
+  · CONTRATOS CON REGLAS PROPIAS: caza = derriba al cabecilla (bestia
+    2×2 'Gran Brontes', PROVISIONAL); escolta = protege al carguero
+    W1 (chasis 'carguero-colono', speed 0, PROVISIONAL); asalto =
+    segunda oleada enemiga en la ronda 3. Briefing anunciado al abrir
+    el registro táctico: sin letra pequeña.
+  · REACCIONES (1 por ronda, se recupera al abrir turno propio):
+    ataque de oportunidad al despegarse de un enemigo en contacto y
+    contraataque al sobrevivir un golpe a bocajarro. Tiro instintivo:
+    no gasta recursos (los vetos de sistemas sí aplican), pega al 60%
+    y JAMÁS encadena otra reacción. El posicionamiento por fin cuesta.
+  · RETIRADA Y EYECCIÓN (perder sin game over): retirarse exige borde
+    del mapa y salva la máquina con su daño; eyectar sacrifica la
+    máquina y el piloto vuelve con 1 jornada de baja (no 3) y menos
+    estrés. El comandante que se va deja al equipo sin red de mando.
+    Si el actor cae en su PROPIO turno (contraataque letal), el motor
+    cierra el turno solo.
+  · REFUERZOS POR OLEADAS (BattleConfig.reinforcements): entran al
+    arrancar su ronda en la casilla libre más cercana (anillos
+    deterministas); mientras haya oleada en camino, su equipo no
+    pierde por aniquilación — barrer la vanguardia no cierra el asalto.
+  · MULTI-CASILLA (UnitDefinition.size): bestias 2×2 ancladas en su
+    esquina noroeste; ocupan y bloquean su huella entera, se les
+    apunta a cualquier casilla, la cercanía cuenta desde la casilla
+    más próxima, un área les pega UNA sola vez y son inmunes al
+    empuje. Sin precio en tienda: no se pilotan.
+  · TERRENO QUE SUFRE: las explosiones ya derribaban muros; ahora
+    también ARRASAN el bosque (terrain-razed): la cobertura muere con
+    él.

@@ -34,6 +34,8 @@ const FAMILIES: Record<string, Family> = {
   'redler': 'volador',
   'storm-sworder': 'volador',
   'iron-kong': 'gorila',
+  'gran-brontes': 'bisonte',
+  'carguero-colono': 'caracol',
   'dibison': 'bisonte',
   'gordos': 'torreta',
   'brachios': 'cuellilargo',

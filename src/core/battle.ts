@@ -7,7 +7,7 @@ import {
   proximityBonus,
   type AttackArc,
 } from './combat.js';
-import { GameMap, manhattan, posKey, samePos, TERRAIN_COVER } from './grid.js';
+import { footprintDistance, footprintTiles, GameMap, manhattan, posKey, samePos, TERRAIN_COVER } from './grid.js';
 import { hasLineOfSight } from './los.js';
 import { KNOCKBACK_MASS_THRESHOLD, knockbackDestination } from './physics.js';
 import { aoeTiles, reachableTiles, targetableTiles, type ReachableTile } from './pathfinding.js';
@@ -40,6 +40,7 @@ import {
   type AbilityDefinition,
   type BattleAction,
   type BattleEvent,
+  type BattleObjective,
   type Facing,
   type Position,
   type StatModifier,
@@ -82,6 +83,12 @@ export interface UnitSpawn {
   };
 }
 
+/** Oleada de refuerzos: entra al arrancar la ronda indicada. */
+export interface ReinforcementWave {
+  round: number;
+  spawns: UnitSpawn[];
+}
+
 export interface BattleConfig {
   map: GameMap;
   spawns: UnitSpawn[];
@@ -96,6 +103,14 @@ export interface BattleConfig {
   /** Pilotos por unidad (progresión, opt-in) y su tabla de perks. */
   pilots?: Record<string, PilotState>;
   perkTable?: PerkTable;
+  /** Objetivo de la batalla; por defecto, aniquilación clásica. */
+  objective?: BattleObjective;
+  /**
+   * Oleadas de refuerzos. Mientras quede una oleada por llegar, su equipo
+   * no puede perder por aniquilación: barrer la vanguardia no termina un
+   * asalto cuyo grueso está en camino.
+   */
+  reinforcements?: ReinforcementWave[];
   seed: number;
   /**
    * Sistemas activos, invocados en el orden del array (determinista).
@@ -130,6 +145,14 @@ export class Battle {
   private linkLostTeams = new Set<Team>();
   private pilots: Record<string, PilotState>;
   private perkTable: PerkTable | undefined;
+  private objectiveSpec: BattleObjective;
+  private pendingReinforcements: ReinforcementWave[];
+  /** Rondas: cada unidad actúa aproximadamente una vez por ronda. */
+  private roundNumber = 1;
+  private activationsThisRound = 0;
+  private roundQuota: number;
+  /** Candado anti-cadenas: una reacción nunca dispara otra reacción. */
+  private inReaction = false;
 
   constructor(config: BattleConfig) {
     // Clon propio: el terreno es destructible desde la fase 4 y los mapas
@@ -154,9 +177,32 @@ export class Battle {
       units: [],
     };
 
-    this.units = config.spawns.map((spawn) => {
+    this.objectiveSpec = config.objective ?? { kind: 'eliminate' };
+    this.pendingReinforcements = (config.reinforcements ?? []).map((w) => ({
+      round: w.round,
+      spawns: [...w.spawns],
+    }));
+
+    this.units = config.spawns.map((spawn) => this.buildUnit(spawn));
+    this.roundQuota = this.units.length;
+
+    const seen = new Set<string>();
+    for (const u of this.units) {
+      for (const tile of footprintTiles(u.position, u.size)) {
+        const key = posKey(tile);
+        if (seen.has(key)) throw new Error(`Dos unidades en ${key}`);
+        seen.add(key);
+      }
+    }
+    this.systemContext.units = this.units;
+  }
+
+  /** Construye el estado inicial de una unidad (spawns y refuerzos). */
+  private buildUnit(spawn: UnitSpawn): UnitState {
+    {
       const def = this.definitionOf(spawn.unitTypeId);
-      if (!this.map.inBounds(spawn.position)) {
+      const size = def.size ?? 1;
+      if (footprintTiles(spawn.position, size).some((t) => !this.map.inBounds(t))) {
         throw new Error(`Spawn de ${spawn.id} fuera del mapa`);
       }
       // Garaje: aplicar el loadout sobre el frame de fábrica.
@@ -192,6 +238,8 @@ export class Battle {
         isCommander: spawn.commander ?? false,
         team: spawn.team,
         position: { ...spawn.position },
+        size,
+        reactionReady: true,
         facing: spawn.facing ?? (spawn.team === 'player' ? 'east' : 'west'),
         hp: spawn.hp !== undefined ? Math.max(1, Math.min(maxHp, Math.round(spawn.hp))) : maxHp,
         maxHpOverride: spawn.loadout?.slots ? maxHp : undefined,
@@ -224,15 +272,7 @@ export class Battle {
           } : {}),
         },
       };
-    });
-
-    const seen = new Set<string>();
-    for (const u of this.units) {
-      const key = posKey(u.position);
-      if (seen.has(key)) throw new Error(`Dos unidades en ${key}`);
-      seen.add(key);
     }
-    this.systemContext.units = this.units;
   }
 
   /** Invoca un hook en todos los sistemas, en orden de registro. */
@@ -307,7 +347,8 @@ export class Battle {
   }
 
   unitAt(pos: Position): UnitState | undefined {
-    return this.units.find((u) => u.hp > 0 && samePos(u.position, pos));
+    return this.units.find((u) => u.hp > 0 && !u.retreated &&
+      footprintTiles(u.position, u.size).some((t) => samePos(t, pos)));
   }
 
   /**
@@ -393,6 +434,15 @@ export class Battle {
     return this.winnerTeam !== undefined;
   }
 
+  get objective(): BattleObjective {
+    return this.objectiveSpec;
+  }
+
+  /** Ronda en curso (arranca en 1; cada unidad actúa ~una vez por ronda). */
+  get round(): number {
+    return this.roundNumber;
+  }
+
   getActiveUnit(): UnitState | undefined {
     return this.activeUnitId ? this.unit(this.activeUnitId) : undefined;
   }
@@ -418,8 +468,21 @@ export class Battle {
       const next = advanceToNextTurn(this.units, (u) => this.effectiveStats(u).speed);
       if (!next) return events;
 
+      // Cambio de ronda: cuando ya actuaron tantas unidades como había en
+      // pie al abrirla. Aquí entran los refuerzos y se comprueba 'survive'.
+      if (this.activationsThisRound >= this.roundQuota) {
+        this.roundNumber += 1;
+        this.activationsThisRound = 0;
+        events.push({ type: 'round-started', round: this.roundNumber });
+        events.push(...this.arriveReinforcements());
+        this.roundQuota = Math.max(1, this.units.filter((u) => u.hp > 0 && !u.retreated).length);
+        if (this.checkBattleEnd(events)) return events;
+      }
+      this.activationsThisRound += 1;
+
       next.hasMoved = false;
       next.hasActed = false;
+      next.reactionReady = true;
       this.activeUnitId = next.id;
       events.push({ type: 'turn-started', unitId: next.id });
       events.push(...this.runSystems((s) => s.onTurnStart?.(next, this.systemContext)));
@@ -454,6 +517,7 @@ export class Battle {
       jump: stats.jump,
       moveType: this.definitionOf(unit.unitTypeId).moveType,
       team: unit.team,
+      size: unit.size,
     }, this.units).filter((t) => !samePos(t.pos, unit.position));
   }
 
@@ -495,7 +559,8 @@ export class Battle {
   } {
     const arc = attackArc(user.position, victim.position, victim.facing);
     const cover = TERRAIN_COVER[this.map.tileAt(victim.position).terrain];
-    const dist = manhattan(user.position, victim.position);
+    // Contra bestias multi-casilla cuenta la casilla ocupada más cercana.
+    const dist = footprintDistance(user.position, user.size, victim.position, victim.size);
     // Tormenta de arena: la puntería se degrada más allá del combate cercano.
     const weatherPenalty = this.weather === 'sandstorm' && dist > 2 ? 10 : 0;
     // Dispersión balística: los proyectiles pierden precisión con la distancia.
@@ -565,12 +630,23 @@ export class Battle {
         case 'reload': return this.executeReload(action.unitId, action.weaponId);
         case 'wait': return this.executeWait(action.unitId, action.facing);
         case 'stance': return this.executeStance(action.unitId, action.stance);
+        case 'retreat': return this.executeRetreat(action.unitId);
+        case 'eject': return this.executeEject(action.unitId);
       }
     })();
 
     if (!this.isOver) {
       events.push(...this.runSystems((s) => s.onActionResolved?.(action, actor, this.systemContext)));
       this.checkBattleEnd(events);
+    }
+    // El actor pudo caer en su PROPIO turno (contraataque letal): el turno
+    // se cierra solo, sin efectos de fin de turno — ya no hay quien los sufra.
+    if (this.activeUnitId) {
+      const active = this.unit(this.activeUnitId);
+      if (active.hp <= 0) {
+        this.activeUnitId = undefined;
+        events.push({ type: 'turn-ended', unitId: active.id });
+      }
     }
     return events;
   }
@@ -581,12 +657,38 @@ export class Battle {
     const option = this.legalMoves(unitId).find((t) => samePos(t.pos, to));
     if (!option) throw new Error(`Movimiento ilegal a ${to.x},${to.y}`);
 
+    const watchers = this.opportunityWatchers(unit);
     unit.position = { ...to };
     unit.facing = option.path.length > 1
       ? facingTowards(option.path[option.path.length - 2]!, to)
       : unit.facing;
     unit.hasMoved = true;
-    return [{ type: 'unit-moved', unitId, path: option.path }];
+    const events: BattleEvent[] = [{ type: 'unit-moved', unitId, path: option.path }];
+    events.push(...this.resolveOpportunity(watchers, unit));
+    return events;
+  }
+
+  /** Enemigos con reacción lista pegados a la unidad ANTES de moverse. */
+  private opportunityWatchers(mover: UnitState): UnitState[] {
+    return this.units.filter((u) =>
+      u.team !== mover.team && u.hp > 0 && !u.retreated && u.reactionReady &&
+      footprintDistance(u.position, u.size, mover.position, mover.size) === 1);
+  }
+
+  /**
+   * Ataque de oportunidad: despegarse de un enemigo en contacto le regala
+   * un tiro instintivo (uno por ronda). Quedarse a su alcance no lo provoca.
+   */
+  private resolveOpportunity(watchers: UnitState[], mover: UnitState): BattleEvent[] {
+    const events: BattleEvent[] = [];
+    for (const watcher of watchers) {
+      if (this.isOver || mover.hp <= 0) break;
+      if (footprintDistance(watcher.position, watcher.size, mover.position, mover.size) <= 1) continue;
+      const strike = this.reactionStrike(watcher, mover, 'oportunidad');
+      events.push(...strike);
+      if (strike.length > 0) this.checkBattleEnd(events);
+    }
+    return events;
   }
 
   /**
@@ -606,15 +708,19 @@ export class Battle {
       jump: stats.jump,
       moveType: this.definitionOf(unit.unitTypeId).moveType,
       team: unit.team,
+      size: unit.size,
     }, this.units).find((t) => !samePos(t.pos, unit.position) && samePos(t.pos, to));
     if (!option) throw new Error(`Boost ilegal a ${to.x},${to.y}`);
 
+    const watchers = this.opportunityWatchers(unit);
     unit.position = { ...to };
     unit.facing = option.path.length > 1
       ? facingTowards(option.path[option.path.length - 2]!, to)
       : unit.facing;
     energy.boostedThisTurn = true;
-    return [{ type: 'unit-boosted', unitId, path: option.path }];
+    const events: BattleEvent[] = [{ type: 'unit-boosted', unitId, path: option.path }];
+    events.push(...this.resolveOpportunity(watchers, unit));
+    return events;
   }
 
   /** Recargar consume la acción del turno y repone el cargador completo. */
@@ -664,28 +770,99 @@ export class Battle {
     }
 
     const blast = aoeTiles(this.map, target, ability.aoeRadius);
-    const affected = blast
-      .map((pos) => ({ victim: this.unitAt(pos), aoeDist: manhattan(pos, target) }))
-      .filter((entry): entry is { victim: UnitState; aoeDist: number } => entry.victim !== undefined);
+    // Una bestia 2×2 puede pisar varias casillas del área: cuenta UNA vez,
+    // con la distancia al centro más favorable al atacante.
+    const byVictim = new Map<string, { victim: UnitState; aoeDist: number }>();
+    for (const pos of blast) {
+      const victim = this.unitAt(pos);
+      if (!victim) continue;
+      const aoeDist = manhattan(pos, target);
+      const prev = byVictim.get(victim.id);
+      if (!prev || aoeDist < prev.aoeDist) byVictim.set(victim.id, { victim, aoeDist });
+    }
+    const affected = [...byVictim.values()];
 
+    const offensive = ability.effects.some((e) => e.kind === 'damage');
+    const struck: UnitState[] = [];
     for (const { victim, aoeDist } of affected) {
       const isAlly = victim.team === unit.team;
-      const offensive = ability.effects.some((e) => e.kind === 'damage');
       if (offensive && isAlly && !ability.targetsAllies) continue;
+      if (offensive && !isAlly) struck.push(victim);
 
       events.push(...this.applyEffects(unit, victim, ability, aoeDist));
       if (this.checkBattleEnd(events)) return events;
     }
 
+    // Contraataque: sobrevivir un golpe a bocajarro se responde en el acto
+    // (una reacción por ronda; las reacciones no encadenan reacciones).
+    if (offensive && !this.inReaction) {
+      for (const victim of struck) {
+        if (this.isOver || unit.hp <= 0) break;
+        if (victim.hp <= 0 || victim.retreated) continue;
+        if (footprintDistance(victim.position, victim.size, unit.position, unit.size) !== 1) continue;
+        const counter = this.reactionStrike(victim, unit, 'contraataque');
+        events.push(...counter);
+        if (counter.length > 0 && this.checkBattleEnd(events)) return events;
+      }
+    }
+
     // Las explosiones derriban muros del área: escombros transitables
-    // (y las líneas de visión que tapaban se abren — emergente).
+    // (y las líneas de visión que tapaban se abren — emergente). El bosque
+    // queda arrasado: su cobertura desaparece para el resto de la batalla.
     if (ability.aoeRadius > 0) {
       for (const pos of aoeTiles(this.map, target, ability.aoeRadius, true)) {
-        if (this.map.tileAt(pos).terrain === 'wall') {
+        const terrain = this.map.tileAt(pos).terrain;
+        if (terrain === 'wall') {
           this.map.demolish(pos);
           events.push({ type: 'terrain-destroyed', pos: { ...pos } });
+        } else if (terrain === 'forest') {
+          this.map.raze(pos);
+          events.push({ type: 'terrain-razed', pos: { ...pos } });
         }
       }
+    }
+    return events;
+  }
+
+  /** Multiplicador de daño de los tiros instintivos fuera de turno. */
+  private static readonly REACTION_POWER_MULT = 0.6;
+
+  /**
+   * Tiro instintivo fuera de turno: primera habilidad ofensiva pagable de
+   * corto alcance (los sistemas vetan igual que en el turno: sin munición,
+   * montaje destruido...). No gasta recursos — es un reflejo — pero solo
+   * hay uno por ronda y pega al 60%. Nunca encadena otra reacción.
+   */
+  private reactionStrike(
+    reactor: UnitState,
+    victim: UnitState,
+    reaction: 'oportunidad' | 'contraataque',
+  ): BattleEvent[] {
+    if (this.inReaction || !reactor.reactionReady) return [];
+    if (reactor.hp <= 0 || reactor.retreated || victim.hp <= 0 || victim.retreated) return [];
+    if (hasStatus(reactor, 'stunned')) return [];
+    const abilityId = this.knownAbilityIds(reactor).find((id) => {
+      const ability = this.abilityOf(id);
+      if (!ability.effects.some((e) => e.kind === 'damage')) return false;
+      if (ability.minRange > 1) return false;
+      return this.checkVetoes({
+        type: 'ability', unitId: reactor.id, abilityId: id, target: victim.position,
+      }) === null;
+    });
+    if (!abilityId) return [];
+
+    reactor.reactionReady = false;
+    reactor.facing = facingTowards(reactor.position, victim.position);
+    const events: BattleEvent[] = [
+      { type: 'reaction', unitId: reactor.id, targetUnitId: victim.id, reaction, abilityId },
+    ];
+    this.inReaction = true;
+    try {
+      events.push(...this.applyEffects(
+        reactor, victim, this.abilityOf(abilityId), 0, Battle.REACTION_POWER_MULT,
+      ));
+    } finally {
+      this.inReaction = false;
     }
     return events;
   }
@@ -695,6 +872,7 @@ export class Battle {
     target: UnitState,
     ability: AbilityDefinition,
     aoeDist = 0,
+    powerMult = 1,
   ): BattleEvent[] {
     const events: BattleEvent[] = [];
     const userStats = this.effectiveStats(user);
@@ -720,7 +898,7 @@ export class Battle {
           const amount = computeDamage({
             attackerStats: userStats,
             defenderStats: targetStats,
-            power: Math.round(effect.power * falloff),
+            power: Math.round(effect.power * falloff * powerMult),
             damageType: effect.damageType,
             arc,
             heightAdvantage,
@@ -821,6 +999,48 @@ export class Battle {
     return events;
   }
 
+  /**
+   * Retirada: desde una casilla del borde, la unidad abandona el campo.
+   * La máquina sobrevive con el daño que lleve; la batalla sigue sin ella
+   * (perder así un contrato salva a la compañía, no al contrato).
+   */
+  private executeRetreat(unitId: string): BattleEvent[] {
+    const unit = this.requireActive(unitId);
+    const onEdge = footprintTiles(unit.position, unit.size).some((t) =>
+      t.x === 0 || t.y === 0 || t.x === this.map.width - 1 || t.y === this.map.height - 1);
+    if (!onEdge) throw new Error(`${unitId} no está en el borde del mapa`);
+
+    unit.retreated = true;
+    const events: BattleEvent[] = [
+      { type: 'unit-retreated', unitId },
+      ...this.afterDestruction(unit), // el comandante que se va deja al equipo sin red
+      { type: 'turn-ended', unitId },
+    ];
+    this.activeUnitId = undefined;
+    this.checkBattleEnd(events);
+    return events;
+  }
+
+  /**
+   * Eyección: el piloto salta y la máquina queda perdida donde está. Es la
+   * decisión amarga — se pierde el metal para salvar a la persona (la capa
+   * de campaña convierte esto en menos días de baja).
+   */
+  private executeEject(unitId: string): BattleEvent[] {
+    const unit = this.requireActive(unitId);
+    unit.ejected = true;
+    unit.hp = 0;
+    const events: BattleEvent[] = [
+      { type: 'unit-ejected', unitId },
+      { type: 'unit-destroyed', unitId },
+      ...this.afterDestruction(unit),
+      { type: 'turn-ended', unitId },
+    ];
+    this.activeUnitId = undefined;
+    this.checkBattleEnd(events);
+    return events;
+  }
+
   /** Cambio de postura: acción libre — el turno sigue siendo tuyo. */
   private executeStance(unitId: string, stance: StanceId): BattleEvent[] {
     const unit = this.requireActive(unitId);
@@ -871,7 +1091,55 @@ export class Battle {
     }
     const unit = this.unit(unitId);
     if (unit.hp <= 0) throw new Error(`${unitId} está destruida`);
+    if (unit.retreated) throw new Error(`${unitId} ya se retiró del campo`);
     return unit;
+  }
+
+  /**
+   * Despliega las oleadas cuya ronda haya llegado. Cada refuerzo entra en
+   * su casilla pedida o, si está tomada, en la libre más cercana (búsqueda
+   * determinista por anillos). Sin hueco en 6 anillos, ese refuerzo se
+   * pierde — el campo está saturado.
+   */
+  private arriveReinforcements(): BattleEvent[] {
+    const events: BattleEvent[] = [];
+    const due = this.pendingReinforcements.filter((w) => w.round <= this.roundNumber);
+    if (due.length === 0) return events;
+    this.pendingReinforcements = this.pendingReinforcements.filter((w) => w.round > this.roundNumber);
+
+    for (const wave of due) {
+      const unitIds: string[] = [];
+      for (const spawn of wave.spawns) {
+        const def = this.definitionOf(spawn.unitTypeId);
+        const anchor = this.findFreeAnchor(spawn.position, def.size ?? 1, def.moveType);
+        if (!anchor) continue;
+        const unit = this.buildUnit({ ...spawn, position: anchor });
+        this.units.push(unit);
+        unitIds.push(unit.id);
+      }
+      if (unitIds.length > 0) {
+        events.push({ type: 'reinforcements-arrived', unitIds, round: this.roundNumber });
+      }
+    }
+    return events;
+  }
+
+  /** Ancla libre más cercana a `want` donde quepa una huella de `size`. */
+  private findFreeAnchor(want: Position, size: number, moveType: 'ground' | 'flying' | 'amphibious'): Position | null {
+    for (let radius = 0; radius <= 6; radius++) {
+      for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          if (Math.abs(dx) + Math.abs(dy) !== radius) continue;
+          const anchor = { x: want.x + dx, y: want.y + dy };
+          const stamp = footprintTiles(anchor, size);
+          if (stamp.some((t) => !this.map.inBounds(t))) continue;
+          if (stamp.some((t) => !isFinite(this.map.entryCost(t, moveType)))) continue;
+          if (stamp.some((t) => this.unitAt(t) !== undefined)) continue;
+          return anchor;
+        }
+      }
+    }
+    return null;
   }
 
   private assertKnowsAbility(unit: UnitState, abilityId: string): void {
@@ -882,13 +1150,50 @@ export class Battle {
 
   private checkBattleEnd(events: BattleEvent[]): boolean {
     if (this.isOver) return true;
-    const playerAlive = this.units.some((u) => u.team === 'player' && u.hp > 0);
-    const enemyAlive = this.units.some((u) => u.team === 'enemy' && u.hp > 0);
-    if (playerAlive && enemyAlive) return false;
+    // Las oleadas pendientes cuentan como presentes: barrer la vanguardia
+    // no termina una batalla cuyo grueso está en camino.
+    const pending = (team: Team): boolean =>
+      this.pendingReinforcements.some((w) => w.spawns.some((s) => s.team === team));
+    const standing = (team: Team): boolean =>
+      this.units.some((u) => u.team === team && u.hp > 0 && !u.retreated);
+    const playerAlive = standing('player') || pending('player');
+    const enemyAlive = standing('enemy') || pending('enemy');
 
-    this.winnerTeam = playerAlive ? 'player' : 'enemy';
+    let winner: Team | undefined;
+    if (!playerAlive) winner = 'enemy';
+    else if (!enemyAlive) winner = 'player';
+    else winner = this.objectiveOutcome();
+    if (!winner) return false;
+
+    this.winnerTeam = winner;
     this.activeUnitId = undefined;
     events.push({ type: 'battle-ended', winner: this.winnerTeam });
     return true;
+  }
+
+  /** Condiciones EXTRA del objetivo (la aniquilación ya se comprobó). */
+  private objectiveOutcome(): Team | undefined {
+    const objective = this.objectiveSpec;
+    switch (objective.kind) {
+      case 'eliminate':
+        return undefined;
+      case 'assassinate': {
+        const target = this.units.find((u) => u.id === objective.targetUnitId);
+        return target && target.hp <= 0 ? 'player' : undefined;
+      }
+      case 'protect': {
+        const ward = this.units.find((u) => u.id === objective.wardUnitId);
+        return !ward || ward.hp <= 0 ? 'enemy' : undefined;
+      }
+      case 'reach': {
+        const arrived = this.units.some((u) =>
+          u.team === 'player' && u.hp > 0 && !u.retreated &&
+          (objective.unitId === undefined || u.id === objective.unitId) &&
+          footprintTiles(u.position, u.size).some((t) => objective.zone.some((z) => samePos(z, t))));
+        return arrived ? 'player' : undefined;
+      }
+      case 'survive':
+        return this.roundNumber > objective.rounds ? 'player' : undefined;
+    }
   }
 }

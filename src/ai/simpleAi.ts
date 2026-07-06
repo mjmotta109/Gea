@@ -24,7 +24,7 @@ function profileOf(battle: Battle, unit: UnitState): AIProfile {
  * referencia para IAs más serias.
  */
 export function planTurn(battle: Battle, unit: UnitState): BattleAction[] {
-  const enemies = battle.units.filter((u) => u.team !== unit.team && u.hp > 0);
+  const enemies = battle.units.filter((u) => u.team !== unit.team && u.hp > 0 && !u.retreated);
   if (enemies.length === 0) return [{ type: 'wait', unitId: unit.id }];
 
   // Habilidades pagables (los sistemas no vetan: energía, munición,
@@ -40,7 +40,7 @@ export function planTurn(battle: Battle, unit: UnitState): BattleAction[] {
     a.targetsAllies &&
     !a.effects.some((e) => e.kind === 'damage') &&
     a.effects.some((e) => e.kind === 'heal' || e.kind === 'status'));
-  const allies = battle.units.filter((u) => u.team === unit.team && u.hp > 0);
+  const allies = battle.units.filter((u) => u.team === unit.team && u.hp > 0 && !u.retreated);
 
   const canMove = battle.checkVetoes({
     type: 'move', unitId: unit.id, to: unit.position,
@@ -191,6 +191,7 @@ function planBoost(
     jump: stats.jump,
     moveType: battle.definitionOf(unit.unitTypeId).moveType,
     team: unit.team,
+    size: unit.size,
   }, battle.units.filter((u) => u.id !== unit.id));
 
   let bestTile: Position | undefined;

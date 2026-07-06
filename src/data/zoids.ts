@@ -258,4 +258,34 @@ export const ZOIDS: Record<string, UnitDefinition> = {
       { slot: 'tail', moduleId: 'geno-tail' },
     ],
   },
+
+  // ── Unidades de escenario (sin precio: no aparecen en tiendas) ────────
+  // PROVISIONAL — la dirección los rebautizará. Cabecilla de caza mayor:
+  // bestia 2×2 que ancla los contratos de caza (objetivo: derribarla).
+  'gran-brontes': {
+    id: 'gran-brontes',
+    name: 'Gran Brontes',
+    role: 'tank',
+    moveType: 'ground',
+    size: 2,
+    stats: {
+      maxHp: 340, atk: 60, energyAtk: 40, def: 44, energyDef: 36,
+      speed: 9, move: 3, jump: 1, evade: 2, accuracy: 0,
+    },
+    abilityIds: ['bite-crush', 'missile-pod'],
+    aiProfile: { aggression: 0.9, selfPreservation: 0.05, riskTolerance: 0.8 },
+  },
+  // PROVISIONAL — carga civil de los contratos de escolta: no actúa
+  // (speed 0 nunca gana turno), solo hay que mantenerla en pie.
+  'carguero-colono': {
+    id: 'carguero-colono',
+    name: 'Carguero colono',
+    role: 'support',
+    moveType: 'ground',
+    stats: {
+      maxHp: 140, atk: 0, energyAtk: 0, def: 20, energyDef: 20,
+      speed: 0, move: 0, jump: 0, evade: 0, accuracy: 0,
+    },
+    abilityIds: [],
+  },
 };

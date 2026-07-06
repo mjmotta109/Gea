@@ -7,7 +7,7 @@
  * Build: npm run web  →  dist/web/gea.html (autocontenido).
  */
 import { planTurn } from '../ai/simpleAi.js';
-import { Battle, type UnitSpawn } from '../core/battle.js';
+import { Battle, type ReinforcementWave, type UnitSpawn } from '../core/battle.js';
 import { attackArc, type AttackArc } from '../core/combat.js';
 import { GameMap, posKey, terrainLabel, TERRAIN_COVER } from '../core/grid.js';
 import { reachableTiles, type ReachableTile } from '../core/pathfinding.js';
@@ -18,7 +18,7 @@ import {
   type PilotState, type SpecializationId,
 } from '../core/progression.js';
 import { STATUS_DEFINITIONS } from '../core/status.js';
-import type { BattleEvent, Facing, Position, Team, UnitState, WeatherId, FrameState,
+import type { BattleEvent, BattleObjective, Facing, Position, Team, UnitState, WeatherId, FrameState,
 } from '../core/types.js';
 import { ABILITIES } from '../data/abilities.js';
 import { BLUEPRINT_PRICES, CITY_TIERS, CONTRACT_ENEMY_POOL, DIFFICULTIES, ECONOMY, LEISURE_OPTIONS, STARTER_COMPANIONS, THERAPY } from '../data/economy.js';
@@ -341,7 +341,16 @@ function newBattle(seed: number, weather: WeatherId): void {
   startBattle(spawns, seed, weather, field.map);
 }
 
-function startBattle(spawns: UnitSpawn[], seed: number, weather: WeatherId, map: GameMap): void {
+interface BattleBrief {
+  objective?: BattleObjective;
+  reinforcements?: ReinforcementWave[];
+  /** Línea de briefing que abre el registro táctico. */
+  briefing?: string;
+}
+
+function startBattle(
+  spawns: UnitSpawn[], seed: number, weather: WeatherId, map: GameMap, brief: BattleBrief = {},
+): void {
   battle = new Battle({
     map,
     unitCatalog: ZOIDS,
@@ -351,10 +360,13 @@ function startBattle(spawns: UnitSpawn[], seed: number, weather: WeatherId, map:
     weather,
     seed,
     spawns,
+    ...(brief.objective ? { objective: brief.objective } : {}),
+    ...(brief.reinforcements ? { reinforcements: brief.reinforcements } : {}),
     // El id Pn conserva el hueco n aunque falten unidades (campaña con
-    // bajas): el piloto n siempre tripula el hueco n.
+    // bajas): el piloto n siempre tripula el hueco n. Las unidades de
+    // escenario (W1, el carguero) no llevan piloto.
     pilots: Object.fromEntries(
-      spawns.filter((s) => s.team === 'player')
+      spawns.filter((s) => s.team === 'player' && /^P\d+$/.test(s.id))
         .map((s) => [s.id, pilots[PILOT_IDS[Number(s.id.slice(1)) - 1]!]!])),
     perkTable: PERKS,
   });
@@ -368,6 +380,7 @@ function startBattle(spawns: UnitSpawn[], seed: number, weather: WeatherId, map:
   $('log').innerHTML = '';
   $('overlay').classList.remove('show');
   log('— enlace táctico establecido —', 'turn');
+  if (brief.briefing) log(`🎯 ${brief.briefing}`, 'turn');
   advance();
 }
 
@@ -406,7 +419,8 @@ function runEnemyTurn(unit: UnitState): void {
   const actions = planTurn(battle, unit);
   let i = 0;
   const step = (): void => {
-    if (battle.isOver || i >= actions.length) {
+    // El turno pudo cerrarse solo (contraataque letal al propio actor).
+    if (battle.isOver || i >= actions.length || battle.getActiveUnit()?.id !== unit.id) {
       busy = false;
       advance();
       return;
@@ -961,9 +975,13 @@ function renderBoard(): void {
       if (samePosition(cursor, pos) && playerUnit()) cell.classList.add('cursor');
 
       const occupant = battle.unitAt(pos);
-      if (occupant) {
+      if (occupant && samePosition(occupant.position, pos)) {
         const chip = document.createElement('div');
         chip.className = `chip ${occupant.team}`;
+        if (occupant.size > 1) {
+          chip.classList.add('size2');
+          cell.classList.add('has-big');
+        }
         if (active?.id === occupant.id) chip.classList.add('active-unit');
         chip.innerHTML =
           unitSprite(occupant.unitTypeId, occupant.facing) +
@@ -1030,17 +1048,19 @@ function dioramaScene(): DioramaScene {
     }
   }
   const units: DioramaUnit[] = battle.units
-    .filter((u) => u.hp > 0)
+    .filter((u) => u.hp > 0 && !u.retreated)
     .map((u) => {
       const pose = walkingPose(u.id);
+      const center = (u.size - 1) / 2; // la huella 2x2 se ancla a su centro
       return {
         id: u.id,
         unitTypeId: u.unitTypeId,
         team: u.team,
         facing: u.facing,
-        x: pose?.x ?? u.position.x,
-        y: pose?.y ?? u.position.y,
+        x: (pose?.x ?? u.position.x) + center,
+        y: (pose?.y ?? u.position.y) + center,
         ...(pose ? { elev: pose.elev } : {}),
+        ...(u.size > 1 ? { scale: 1 + (u.size - 1) * 0.85 } : {}),
         hpRatio: u.hp / Math.max(1, battle.effectiveStats(u).maxHp),
         active: battle.getActiveUnit()?.id === u.id,
       };
@@ -1180,7 +1200,21 @@ function targetLabel(unit: UnitState | undefined, pos: Position): string | undef
   return preview ? displayedChance(unit, preview.chance, pos) : undefined;
 }
 
+/** El objetivo, en una frase que cabe en el HUD. */
+function objectiveText(): string {
+  const objective = battle.objective;
+  switch (objective.kind) {
+    case 'eliminate': return 'derriba a todo el equipo enemigo';
+    case 'assassinate': return `derriba al cabecilla (${objective.targetUnitId})`;
+    case 'protect': return `protege a ${objective.wardUnitId}: si cae, se pierde`;
+    case 'reach': return 'alcanza la zona marcada';
+    case 'survive': return `aguanta ${objective.rounds} rondas`;
+  }
+}
+
 function renderBanner(): void {
+  const objBar = $('objective-bar');
+  objBar.textContent = `🎯 ${objectiveText()} · ronda ${battle.round}`;
   const banner = $('turn-banner');
   const active = battle.getActiveUnit();
   if (!active) {
@@ -1272,6 +1306,42 @@ function renderActionbar(): void {
   const reloadable = firstReloadable(unit);
   if (reloadable) {
     mkBtn(`Recargar ${battle.weaponOf(reloadable).name}`, 'R', doReload, { disabled: unit.hasActed });
+  }
+
+  // Salidas de emergencia: retirarse por el borde salva la máquina;
+  // eyectar la sacrifica para salvar al piloto. Consecuencias anunciadas.
+  const onEdge = (): boolean => {
+    for (let dy = 0; dy < unit.size; dy++) {
+      for (let dx = 0; dx < unit.size; dx++) {
+        const x = unit.position.x + dx;
+        const y = unit.position.y + dy;
+        if (x === 0 || y === 0 || x === battle.map.width - 1 || y === battle.map.height - 1) return true;
+      }
+    }
+    return false;
+  };
+  if (onEdge()) {
+    mkBtn('🏳 Retirarse', '·', () => {
+      void uiConfirm(`¿Retirar a ${unit.id} ${unit.name} del combate? La máquina se salva con el daño que lleve, pero no volverá a esta batalla.`).then((ok) => {
+        if (!ok) return;
+        logEvents(battle.execute({ type: 'retreat', unitId: unit.id }));
+        mode = { kind: 'idle' };
+        pending = null;
+        advance();
+      });
+    }, { title: 'abandonar el campo por el borde: la máquina sobrevive' });
+  }
+  const hpRatio = unit.hp / Math.max(1, battle.effectiveStats(unit).maxHp);
+  if (hpRatio <= 0.5) {
+    mkBtn('🪂 Eyectar', '·', () => {
+      void uiConfirm(`¿Eyectar del ${unit.name}? La máquina SE PIERDE donde está; el piloto salta y vuelve casi entero (1 jornada de baja en campaña, no 3).`).then((ok) => {
+        if (!ok) return;
+        logEvents(battle.execute({ type: 'eject', unitId: unit.id }));
+        mode = { kind: 'idle' };
+        pending = null;
+        advance();
+      });
+    }, { title: 'sacrificar la máquina para salvar al piloto' });
   }
 
   mkBtn('Fin de turno', 'F', enterFacing, { on: mode.kind === 'facing' });
@@ -1560,6 +1630,15 @@ function describe(event: BattleEvent): { text: string; cls?: string } | undefine
     case 'projectile-fired': return undefined; // el renderer 3D lo animará
     case 'unit-pushed': return { text: `${event.unitId} sale despedido a (${event.to.x},${event.to.y})`, cls: 'warn' };
     case 'terrain-destroyed': return { text: `💥 muro derribado en (${event.pos.x},${event.pos.y})`, cls: 'warn' };
+    case 'terrain-razed': return { text: `🔥 el bosque de (${event.pos.x},${event.pos.y}) queda arrasado: sin cobertura`, cls: 'warn' };
+    case 'round-started': return { text: `━━ RONDA ${event.round} ━━`, cls: 'turn' };
+    case 'reaction': return {
+      text: `⚡ ¡${event.reaction === 'oportunidad' ? 'Tiro de oportunidad' : 'Contraataque'} de ${unitLabel(event.unitId)} contra ${event.targetUnitId}!`,
+      cls: 'warn',
+    };
+    case 'unit-retreated': return { text: `🏳 ${unitLabel(event.unitId)} se retira del campo (la máquina se salva)`, cls: 'warn' };
+    case 'unit-ejected': return { text: `🪂 el piloto de ${unitLabel(event.unitId)} EYECTA: la máquina se pierde`, cls: 'warn' };
+    case 'reinforcements-arrived': return { text: `🚨 REFUERZOS ENEMIGOS: ${event.unitIds.join(', ')} entran al campo`, cls: 'hit' };
     case 'command-link-lost': return { text: `⚠ EQUIPO ${event.team === 'player' ? 'JUGADOR' : 'ENEMIGO'}: comandante caído — enlace de mando perdido (-5 puntería/evasión)`, cls: 'warn' };
     case 'unit-destroyed': return { text: `💥 ${unitLabel(event.unitId)} queda fuera de combate!`, cls: 'hit' };
     case 'battle-ended': return { text: `★ Victoria del equipo ${event.winner === 'player' ? 'JUGADOR' : 'ENEMIGO'} ★`, cls: 'turn' };
@@ -1601,6 +1680,9 @@ function logEvents(events: BattleEvent[]): void {
       case 'ability-missed': spawnFloat(event.targetUnitId, 'ESQUIVA', 'miss'); break;
       case 'unit-healed': spawnFloat(event.targetUnitId, `+${event.amount}`, 'heal'); break;
       case 'status-applied': spawnFloat(event.targetUnitId, STATUS_DEFINITIONS[event.status].name, 'stat'); break;
+      case 'reaction': spawnFloat(event.unitId, '¡REACCIÓN!', 'stat'); break;
+      case 'unit-retreated': spawnFloat(event.unitId, 'RETIRADA', 'miss'); break;
+      case 'unit-ejected': spawnFloat(event.unitId, 'EYECCIÓN', 'miss'); break;
       default: break;
     }
     // Efectos sobre el tablero: trazadoras, impactos, polvo, explosiones.
@@ -1642,6 +1724,22 @@ function logEvents(events: BattleEvent[]): void {
       }
       case 'terrain-destroyed':
         fxExplosion(event.pos, false);
+        fxShake(false);
+        break;
+      case 'terrain-razed':
+        fxExplosion(event.pos, false);
+        break;
+      case 'reaction': {
+        const at = fxUnitPos(event.unitId);
+        if (at) fxSlash(at);
+        break;
+      }
+      case 'unit-retreated': {
+        const at = fxUnitPos(event.unitId);
+        if (at) fxDust([at]);
+        break;
+      }
+      case 'reinforcements-arrived':
         fxShake(false);
         break;
       case 'module-destroyed': {
@@ -1874,7 +1972,7 @@ function renderXpSummary(): string {
 
     // Memoria y manías: lo vivido deja huella en cada piloto desplegado.
     const quirkLines: string[] = [];
-    const playerUnits = battle.units.filter((u) => u.team === 'player');
+    const playerUnits = battle.units.filter((u) => u.team === 'player' && /^P\d+$/.test(u.id));
     const alliesLostTotal = playerUnits.filter((u) => u.hp <= 0).length;
     for (const unit of playerUnits) {
       const pilotId = PILOT_IDS[Number(unit.id.slice(1)) - 1];
@@ -2037,9 +2135,10 @@ function renderGarage(): void {
       card.appendChild(row);
     };
 
-    // Chasis.
+    // Chasis (solo los con precio: las bestias de escenario no se pilotan).
     const zoidSelect = document.createElement('select');
     for (const unit of Object.values(ZOIDS)) {
+      if (ECONOMY.zoidPrices[unit.id] === undefined) continue;
       const opt = document.createElement('option');
       opt.value = unit.id;
       opt.textContent = `${unit.name} · ${ROLE_LABEL[unit.role] ?? unit.role}`;
@@ -2772,7 +2871,8 @@ function settleContract(): string {
   // La compañera (hueco 1) registra la batalla en su núcleo.
   companionMarkLines = [];
   const injuryLines = (): string[] =>
-    injuredNames.map((name) => `<div class="mloss">🩹 ${name} sale herido: 3 jornadas de baja</div>`);
+    injuredNames.map(({ name, days }) =>
+      `<div class="mloss">${days === 1 ? '🪂' : '🩹'} ${name} ${days === 1 ? 'eyectó a tiempo' : 'sale herido'}: ${days} jornada${days === 1 ? '' : 's'} de baja</div>`);
   if (campaign && deployedSlots.includes(0)) {
     const unit = battle.units.find((u) => u.id === 'P1');
     if (unit) {
@@ -2795,18 +2895,22 @@ function settleContract(): string {
   }
   // El precio humano: quien pierde su máquina en combate sale HERIDO —
   // 3 jornadas de baja y un golpe de estrés. Determinista, sin dados.
-  const injuredNames: string[] = [];
+  const injuredNames: Array<{ name: string; days: number }> = [];
   if (campaign) {
     for (const slot of deployedSlots) {
       const unit = battle.units.find((u) => u.id === `P${slot + 1}`);
       const pilotId = PILOT_IDS[slot];
       if (!unit || !pilotId || unit.hp > 0) continue;
-      pilots[pilotId] = adjustStress(injurePilot(pilots[pilotId]!, 3), 15);
-      injuredNames.push(pilots[pilotId]!.name);
+      // Eyectar a tiempo salva al piloto: 1 jornada frente a 3.
+      const days = unit.ejected ? 1 : 3;
+      pilots[pilotId] = adjustStress(injurePilot(pilots[pilotId]!, days), unit.ejected ? 8 : 15);
+      injuredNames.push({ name: pilots[pilotId]!.name, days });
       if (expedition) {
         expedition = {
           ...expedition,
-          log: [...expedition.log, `Día ${expedition.day} — 🩹 ${pilots[pilotId]!.name} sale herido del combate: 3 jornadas de baja.`],
+          log: [...expedition.log, unit.ejected
+            ? `Día ${expedition.day} — 🪂 ${pilots[pilotId]!.name} eyectó a tiempo: 1 jornada de baja.`
+            : `Día ${expedition.day} — 🩹 ${pilots[pilotId]!.name} sale herido del combate: 3 jornadas de baja.`],
         };
       }
     }
@@ -3790,6 +3894,33 @@ function doUseLink(link: import('../game/expedition.js').WorldLink): void {
   renderWorld();
 }
 
+/**
+ * Ancla libre más cercana a `want` donde quepa una huella de `size`
+ * (mismo barrido determinista por anillos que usa el motor con los
+ * refuerzos). `taken` son casillas ya reservadas por otros spawns.
+ */
+function freeAnchorFor(
+  map: GameMap, want: Position, size: number, taken: Set<string>,
+): Position | null {
+  for (let radius = 0; radius <= 6; radius++) {
+    for (let dy = -radius; dy <= radius; dy++) {
+      for (let dx = -radius; dx <= radius; dx++) {
+        if (Math.abs(dx) + Math.abs(dy) !== radius) continue;
+        const anchor = { x: want.x + dx, y: want.y + dy };
+        const stamp: Position[] = [];
+        for (let sy = 0; sy < size; sy++) {
+          for (let sx = 0; sx < size; sx++) stamp.push({ x: anchor.x + sx, y: anchor.y + sy });
+        }
+        if (stamp.some((t) => !map.inBounds(t))) continue;
+        if (stamp.some((t) => !isFinite(map.entryCost(t, 'ground')))) continue;
+        if (stamp.some((t) => taken.has(posKey(t)))) continue;
+        return anchor;
+      }
+    }
+  }
+  return null;
+}
+
 /** El combate del contrato, al llegar al lugar. */
 function fightExpeditionBattle(): void {
   if (!campaign || !expedition) return;
@@ -3840,6 +3971,53 @@ function fightExpeditionBattle(): void {
     })),
   ];
 
+  // Cada tipo de contrato juega distinto (no solo mapa y enemigos):
+  // caza = derriba al cabecilla; escolta = el carguero no puede caer;
+  // asalto = aguanta la segunda oleada. Consecuencias anunciadas.
+  const brief: BattleBrief = {};
+  const taken = new Set(spawns.flatMap((s) => {
+    const size = ZOIDS[s.unitTypeId]?.size ?? 1;
+    const tiles: string[] = [];
+    for (let dy = 0; dy < size; dy++) {
+      for (let dx = 0; dx < size; dx++) tiles.push(posKey({ x: s.position.x + dx, y: s.position.y + dy }));
+    }
+    return tiles;
+  }));
+  if (contract.tier === 'caza') {
+    const lead = spawns.find((s) => s.id === 'E1');
+    const anchor = lead && freeAnchorFor(field.map, lead.position,
+      ZOIDS['gran-brontes']!.size ?? 2, new Set([...taken].filter((k) => k !== posKey(lead.position))));
+    if (lead && anchor) {
+      lead.unitTypeId = 'gran-brontes';
+      lead.name = ZOIDS['gran-brontes']!.name;
+      lead.position = anchor;
+      brief.objective = { kind: 'assassinate', targetUnitId: 'E1' };
+      brief.briefing = 'Caza mayor: derriba al cabecilla (E1) y el resto se dispersará.';
+    }
+  } else if (contract.tier === 'escolta') {
+    const spot = freeAnchorFor(field.map, field.playerPos[3] ?? field.playerPos[0]!, 1, taken);
+    if (spot) {
+      spawns.push({
+        id: 'W1', name: ZOIDS['carguero-colono']!.name, unitTypeId: 'carguero-colono',
+        team: 'player', position: spot,
+      });
+      brief.objective = { kind: 'protect', wardUnitId: 'W1' };
+      brief.briefing = 'Escolta: el carguero (W1) no puede caer — si cae, el contrato se pierde.';
+    }
+  } else if (contract.tier === 'asalto') {
+    brief.reinforcements = [{
+      round: 3,
+      spawns: contract.enemySquad.slice(0, 2).map((unitTypeId, i) => ({
+        id: `E${spawns.filter((s) => s.team === 'enemy').length + i + 1}`,
+        name: ZOIDS[unitTypeId]!.name,
+        unitTypeId,
+        team: 'enemy' as Team,
+        position: field.enemyPos[i] ?? field.enemyPos[0]!,
+      })),
+    }];
+    brief.briefing = 'Asalto: posición defendida — llegará una segunda oleada enemiga en la ronda 3.';
+  }
+
   deployedSlots = alive.map(({ slot }) => slot);
   activeContract = contract;
   returnToMerc = false;
@@ -3848,7 +4026,7 @@ function fightExpeditionBattle(): void {
   const seed = (Number(($('seed') as HTMLInputElement).value) || 42) + campaign.contractsDone * 1009 + expedition.day * 97;
   // La tormenta que nos siguió en ruta manda sobre el selector.
   const weather = expedition.forcedWeather ?? (($('weather') as HTMLSelectElement).value as WeatherId);
-  startBattle(spawns, seed, weather, field.map);
+  startBattle(spawns, seed, weather, field.map, brief);
 }
 
 /** Cierra la expedición en el taller: vende la bodega y abre el cuartel. */

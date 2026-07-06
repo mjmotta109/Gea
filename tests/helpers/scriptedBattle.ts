@@ -58,7 +58,9 @@ export function runScriptedBattle(seed: number, maxTurns = 300): BattleRecord {
     if (!active) break;
     turns++;
     for (const action of planTurn(battle, active)) {
-      if (battle.isOver) break;
+      // Un contraataque letal puede cerrar el turno del actor a mitad de
+      // su plan: el resto de acciones muere con él.
+      if (battle.isOver || battle.getActiveUnit()?.id !== active.id) break;
       events.push(...battle.execute(action));
     }
   }

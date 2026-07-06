@@ -61,6 +61,12 @@ export class GameMap {
     tile.height = 1;
   }
 
+  /** Una explosión arrasa un bosque: pierde su cobertura para siempre. */
+  raze(pos: Position): void {
+    const tile = this.tileAt(pos);
+    tile.terrain = 'plain';
+  }
+
   inBounds(pos: Position): boolean {
     return pos.x >= 0 && pos.x < this.width && pos.y >= 0 && pos.y < this.height;
   }
@@ -112,6 +118,34 @@ export function samePos(a: Position, b: Position): boolean {
 
 export function manhattan(a: Position, b: Position): number {
   return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+}
+
+/**
+ * Casillas que ocupa una unidad de `size` casillas de lado anclada en
+ * `pos` (esquina noroeste). Para size 1 devuelve solo el ancla.
+ */
+export function footprintTiles(pos: Position, size: number): Position[] {
+  if (size <= 1) return [pos];
+  const tiles: Position[] = [];
+  for (let dy = 0; dy < size; dy++) {
+    for (let dx = 0; dx < size; dx++) {
+      tiles.push({ x: pos.x + dx, y: pos.y + dy });
+    }
+  }
+  return tiles;
+}
+
+/** Distancia Manhattan mínima entre las huellas de dos unidades. */
+export function footprintDistance(
+  aPos: Position, aSize: number, bPos: Position, bSize: number,
+): number {
+  let best = Infinity;
+  for (const a of footprintTiles(aPos, aSize)) {
+    for (const b of footprintTiles(bPos, bSize)) {
+      best = Math.min(best, manhattan(a, b));
+    }
+  }
+  return best;
 }
 
 export const CARDINAL_OFFSETS: ReadonlyArray<Position> = [

@@ -1,4 +1,4 @@
-import { CARDINAL_OFFSETS, GameMap, posKey } from './grid.js';
+import { CARDINAL_OFFSETS, footprintTiles, GameMap, posKey } from './grid.js';
 import type { MoveType, Position, Team, UnitState } from './types.js';
 
 export interface ReachableTile {
@@ -13,6 +13,8 @@ interface MoverProfile {
   jump: number;
   moveType: MoveType;
   team: Team;
+  /** Casillas de lado del que se mueve (1 por defecto; 2 = huella 2×2). */
+  size?: number;
 }
 
 /**
@@ -26,10 +28,13 @@ export function reachableTiles(
   mover: MoverProfile,
   units: UnitState[],
 ): ReachableTile[] {
+  const size = mover.size ?? 1;
   const blockers = new Map<string, Team>();
   for (const u of units) {
-    if (u.hp > 0 && !(u.position.x === origin.x && u.position.y === origin.y)) {
-      blockers.set(posKey(u.position), u.team);
+    if (u.hp > 0 && !u.retreated && !(u.position.x === origin.x && u.position.y === origin.y)) {
+      for (const tile of footprintTiles(u.position, u.size)) {
+        blockers.set(posKey(tile), u.team);
+      }
     }
   }
 
@@ -46,19 +51,23 @@ export function reachableTiles(
     const currentHeight = map.tileAt(current.pos).height;
     for (const offset of CARDINAL_OFFSETS) {
       const next: Position = { x: current.pos.x + offset.x, y: current.pos.y + offset.y };
-      if (!map.inBounds(next)) continue;
+      // La huella completa debe caber: bordes, terreno, salto y enemigos
+      // se comprueban casilla a casilla para las unidades grandes.
+      const stamp = footprintTiles(next, size);
+      if (stamp.some((t) => !map.inBounds(t))) continue;
 
       const stepCost = map.entryCost(next, mover.moveType);
-      if (!isFinite(stepCost)) continue;
+      if (stamp.some((t) => !isFinite(map.entryCost(t, mover.moveType)))) continue;
 
       // Los voladores ignoran diferencias de altura.
       if (mover.moveType !== 'flying') {
-        const heightDiff = Math.abs(map.tileAt(next).height - currentHeight);
-        if (heightDiff > mover.jump) continue;
+        if (stamp.some((t) => Math.abs(map.tileAt(t).height - currentHeight) > mover.jump)) continue;
       }
 
-      const blockerTeam = blockers.get(posKey(next));
-      if (blockerTeam !== undefined && blockerTeam !== mover.team) continue;
+      if (stamp.some((t) => {
+        const blockerTeam = blockers.get(posKey(t));
+        return blockerTeam !== undefined && blockerTeam !== mover.team;
+      })) continue;
 
       const totalCost = current.cost + stepCost;
       if (totalCost > mover.move) continue;
@@ -75,7 +84,7 @@ export function reachableTiles(
   // No se puede terminar el movimiento sobre otra unidad (ni aliada).
   const result: ReachableTile[] = [];
   for (const entry of best.values()) {
-    if (blockers.has(posKey(entry.pos))) continue;
+    if (footprintTiles(entry.pos, size).some((t) => blockers.has(posKey(t)))) continue;
     result.push(entry);
   }
   return result;

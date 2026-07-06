@@ -1,4 +1,4 @@
-import { GameMap, samePos } from './grid.js';
+import { footprintTiles, GameMap, samePos } from './grid.js';
 import type { Position, UnitState } from './types.js';
 
 /**
@@ -29,6 +29,8 @@ export function knockbackDestination(
   victim: UnitState,
   units: UnitState[],
 ): Position | null {
+  // Las bestias multi-casilla no se mueven ni con un cañonazo.
+  if (victim.size > 1) return null;
   const dx = victim.position.x - attackerPos.x;
   const dy = victim.position.y - attackerPos.y;
   const step = Math.abs(dx) >= Math.abs(dy)
@@ -43,6 +45,7 @@ export function knockbackDestination(
   }
   const heightDiff = map.tileAt(dest).height - map.tileAt(victim.position).height;
   if (heightDiff > 1) return null; // cuesta arriba no se empuja; caer sí
-  if (units.some((u) => u.hp > 0 && samePos(u.position, dest))) return null;
+  if (units.some((u) => u.hp > 0 && !u.retreated && u.id !== victim.id &&
+    footprintTiles(u.position, u.size).some((t) => samePos(t, dest)))) return null;
   return dest;
 }
