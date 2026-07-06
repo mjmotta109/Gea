@@ -519,6 +519,16 @@ arquitectura del motor van en DESIGN.md.)*
     pasada: la dirección lo repoblará.
   · Web: la región activa sigue a la expedición; el título del mapa
     dice Continente · Región; los transportes aparecen como rutas
-    especiales (🛤/⛴/🚀) con jornadas y pasaje a la vista. Los
-    contratos siguen partiendo de Base Arcadia (contratos por región:
-    pendiente).
+    especiales (🛤/⛴/🚀) con jornadas y pasaje a la vista.
+- **2026-07-06** — LA BASE VIAJA CONTIGO (cierre del atlas, dirección
+  del usuario: "hagamos eso"):
+  · CUARTEL ITINERANTE: homeRegionId en la campaña (migración: Paso
+    de Sal). Cerrar expedición en el taller de otra región MUDA la
+    base allí — el diario lo registra — y los contratos y salidas
+    libres parten del taller de la base actual. Los contratos apuntan
+    a lugares de ESA región: el mismo Gremio, otra tierra.
+  · ENCUENTROS POR CONTINENTE: en El Hierro aflora la CHATARRA (veta
+    tras un derrumbe, 3 opciones: excavar ⌾240 +1 día / avisar a los
+    clanes (Chatarreros +8) / ni tocarlo). Arcadia no la conoce.
+  · TRABAJOS DE CLANES: en ciudad chatarrera el trabajo sucio de
+    taberna paga un 25% mejor y nadie hace preguntas.

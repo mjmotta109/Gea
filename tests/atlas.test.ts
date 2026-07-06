@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  linkDestination, linksFrom, regionOf, startFreeExpedition, useLink,
+  linkDestination, linksFrom, regionOf, startExpedition, startFreeExpedition, travel, useLink,
 } from '../src/game/expedition.js';
 import { WORLD_ATLAS } from '../src/data/world.js';
 
@@ -78,6 +78,35 @@ describe('el atlas: continentes, regiones y transportes', () => {
       expect(from).toContainEqual(link);
       const dest = linkDestination(link, link.a.regionId, link.a.nodeId);
       expect(dest).toEqual(link.b);
+    }
+  });
+});
+
+describe('la vida en cada continente', () => {
+  it('la chatarra solo aflora en El Hierro; Arcadia no la conoce', () => {
+    const kindsOn = (regionId: string): Set<string> => {
+      const region = regionOf(WORLD_ATLAS, regionId);
+      const kinds = new Set<string>();
+      for (let i = 0; i < 300; i++) {
+        for (const edge of region.edges) {
+          const probe = { ...startFreeExpedition(region, `cont-${i}`), at: edge.a };
+          const result = travel(probe, region, edge);
+          if (result.encounter) kinds.add(result.encounter.kind);
+        }
+      }
+      return kinds;
+    };
+    expect(kindsOn('meseta-hierro').has('chatarra')).toBe(true);
+    expect(kindsOn('paso-de-sal').has('chatarra')).toBe(false);
+    expect(kindsOn('costa-esmeralda').has('chatarra')).toBe(false);
+  });
+
+  it('los contratos apuntan dentro de la región base, sea cual sea', () => {
+    for (const region of WORLD_ATLAS.regions) {
+      const exp = startExpedition(region, 'c-regional', 'asalto');
+      expect(exp.regionId).toBe(region.id);
+      expect(region.nodes.some((n) => n.id === exp.targetNodeId)).toBe(true);
+      expect(exp.at).toBe(region.hq);
     }
   });
 });

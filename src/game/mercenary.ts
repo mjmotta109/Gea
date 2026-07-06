@@ -58,6 +58,11 @@ export interface CampaignState {
   reputation: Record<string, number>;
   /** Diario de la compañía: la historia escrita desde los hechos. */
   chronicle: string[];
+  /**
+   * Región donde está la base de operaciones: el último taller donde
+   * se cerró expedición. El contenido (ids) vive en src/data/world.
+   */
+  homeRegionId?: string;
 }
 
 /**

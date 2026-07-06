@@ -337,7 +337,7 @@ export interface EncounterOption {
 export interface Encounter {
   /** Clave determinista (contrato|tramo|día): rehacer no cambia nada. */
   id: string;
-  kind: 'caravana' | 'manada' | 'perdido' | 'peaje';
+  kind: 'caravana' | 'manada' | 'perdido' | 'peaje' | 'chatarra';
   prompt: string;
   options: EncounterOption[];
 }
@@ -361,6 +361,14 @@ const ENCOUNTERS: Record<Encounter['kind'], { prompt: string; options: Encounter
       { id: 'ayudar', label: '⚙ Echar una mano', detail: '+1 jornada; pagan al llegar (bodega); Colonos +8' },
       { id: 'seguir', label: '→ Seguir de largo', detail: 'sin coste; el camino no espera' },
       { id: 'saquear', label: '☠ Quedarse la carga', detail: 'botín ⌾300; Colonos −12, Gremio −6; estrés +10' },
+    ],
+  },
+  chatarra: {
+    prompt: 'Un derrumbe reciente ha destapado una veta de chatarra antigua. El metal aún huele a tormenta.',
+    options: [
+      { id: 'excavar', label: '⛏ Excavar por tu cuenta', detail: '+1 jornada; veta a la bodega (⌾240)' },
+      { id: 'avisar', label: '📻 Marcar y avisar a los clanes', detail: 'lo suyo es suyo: Chatarreros +8' },
+      { id: 'pasar', label: '→ Ni tocarlo', detail: 'sin coste; hay vetas que traen mala sombra' },
     ],
   },
   peaje: {
@@ -400,8 +408,14 @@ const BIOME_ENCOUNTERS: Record<EdgeBiome, Encounter['kind'][]> = {
   sierra: ['peaje', 'peaje', 'perdido', 'caravana'],
 };
 
-function pickEncounterKind(biome: EdgeBiome | undefined, rand: () => number): Encounter['kind'] {
-  const pool = biome ? BIOME_ENCOUNTERS[biome] : (Object.keys(ENCOUNTERS) as Encounter['kind'][]);
+function pickEncounterKind(
+  biome: EdgeBiome | undefined,
+  continentId: string,
+  rand: () => number,
+): Encounter['kind'] {
+  const base = biome ? BIOME_ENCOUNTERS[biome] : (Object.keys(ENCOUNTERS) as Encounter['kind'][]);
+  // En El Hierro la chatarra aflora por todas partes: entra al reparto.
+  const pool = continentId === 'hierro' ? [...base, 'chatarra', 'chatarra'] as Encounter['kind'][] : base;
   return pool[Math.floor(rand() * pool.length)]!;
 }
 
@@ -432,6 +446,20 @@ export function resolveEncounter(
         cargo: { name: 'Botín de la caravana', value: 300 },
         reputation: [{ factionId: 'colonos', delta: -12 }, { factionId: 'gremio', delta: -6 }],
         text: 'Botín ⌾300. Colonos −12, Gremio −6. El silencio en cabina pesa (estrés +10).',
+      };
+    case 'chatarra|excavar':
+      return {
+        expedition: stamp(1, 'Un día de pala y cabrestante: la veta viaja en la bodega.'),
+        supplyDelta: 0, stressDelta: 0,
+        cargo: { name: 'Veta de chatarra antigua', value: 240 },
+        text: 'Metal viejo y bueno: ⌾240 a la bodega. En tierra de clanes, mejor no presumir.',
+      };
+    case 'chatarra|avisar':
+      return {
+        expedition: stamp(0, 'Marcamos la veta y avisamos por radio. Los clanes no olvidan un gesto así.'),
+        supplyDelta: 0, stressDelta: 0,
+        reputation: [{ factionId: 'chatarreros', delta: 8 }],
+        text: 'Lo caído es suyo, y lo saben: Chatarreros +8.',
       };
     case 'peaje|pagar':
       return {
@@ -591,7 +619,7 @@ export function travel(
     // Encrucijada: la ruta pregunta. La clase se elige aquí (determinista)
     // y las consecuencias viven en resolveEncounter, sin dados escondidos.
     event = 'encounter';
-    const kind = pickEncounterKind(edge.biome, rand);
+    const kind = pickEncounterKind(edge.biome, region.continentId, rand);
     encounter = {
       id: `${expedition.contractId}|${key}|${expedition.day}`,
       kind,

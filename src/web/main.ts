@@ -42,7 +42,7 @@ import {
   canExplore, edgesTowardCivilization, exploreSite, neighbors, otherEnd,
   startExpedition, startFreeExpedition, travel, resolveEncounter, edgeKey,
   regionOf, linksFrom, linkDestination, useLink,
-  type ExpeditionState, type WorldEdge,
+  type ExpeditionState, type WorldEdge, type WorldRegion,
 } from '../game/expedition.js';
 import { SALT_PASS_REGION, WORLD_ATLAS } from '../data/world.js';
 import { createSave, describeSave, serializeSave, validateSave, type SaveGame } from '../game/save.js';
@@ -1917,6 +1917,7 @@ function loadCampaign(): CampaignState | null {
     if (!state.companion || typeof state.companion !== 'object') state.companion = newCompanion();
     if (!state.reputation || typeof state.reputation !== 'object') state.reputation = {};
     if (!Array.isArray(state.chronicle)) state.chronicle = [];
+    if (typeof state.homeRegionId !== 'string') state.homeRegionId = SALT_PASS_REGION.id;
     return state;
   } catch {
     return null;
@@ -1977,8 +1978,11 @@ function closeMerc(): void {
 function renderMerc(): void {
   if (!campaign) return;
   const company = localStorage.getItem(COMPANY_KEY);
+  const base = homeRegion();
+  const baseNode = base.nodes.find((n) => n.id === base.hq);
   $('merc-status').textContent =
-    `${company ? `${company} · ` : ''}⌾ ${campaign.credits} créditos · contratos completados: ${campaign.contractsDone}`;
+    `${company ? `${company} · ` : ''}⌾ ${campaign.credits} créditos · contratos completados: ${campaign.contractsDone}` +
+    ` · base: ${baseNode?.name ?? base.name} (${base.name})`;
   renderReputation();
   renderContracts();
   renderMercHangar();
@@ -2330,7 +2334,7 @@ function startContractExpedition(): void {
   const contract = offers.find((c) => c.id === selectedContractId);
   if (!contract) return;
   if (!campaign.roster.some((z) => !z.destroyed)) return;
-  expedition = startExpedition(SALT_PASS_REGION, contract.id, contract.tier);
+  expedition = startExpedition(homeRegion(), contract.id, contract.tier);
   syncRegion();
   saveExpedition();
   closeMerc();
@@ -2341,7 +2345,7 @@ function startContractExpedition(): void {
 function startFreeRoam(): void {
   if (!campaign) return;
   if (!campaign.roster.some((z) => !z.destroyed)) return;
-  expedition = startFreeExpedition(SALT_PASS_REGION, String(Date.now()));
+  expedition = startFreeExpedition(homeRegion(), String(Date.now()));
   syncRegion();
   saveExpedition();
   closeMerc();
@@ -2478,6 +2482,15 @@ function settleContract(): string {
 // ── Expedición: el mapa de mundo ─────────────────────────────────────────
 
 let REGION = SALT_PASS_REGION;
+
+/** La base de operaciones: el último taller donde se cerró expedición. */
+function homeRegion(): WorldRegion {
+  try {
+    return regionOf(WORLD_ATLAS, campaign?.homeRegionId ?? SALT_PASS_REGION.id);
+  } catch {
+    return SALT_PASS_REGION;
+  }
+}
 
 /** La región activa sigue a la expedición; sin expedición, el cuartel. */
 function syncRegion(): void {
@@ -2996,7 +3009,13 @@ function renderCity(): void {
   tavern.insertAdjacentHTML('beforeend',
     '<div class="cnote">Los contratos OFICIALES del gremio se firman en el cuartel (Base Arcadia). Aquí, entre jarras, se consiguen otros encargos…</div>');
   const jobDone = (expedition.tavernJobsDone ?? []).includes(node.id);
-  const job = tavernJob(node.id, city.level, campaign.contractsDone, ECONOMY, CONTRACT_ENEMY_POOL);
+  let job = tavernJob(node.id, city.level, campaign.contractsDone, ECONOMY, CONTRACT_ENEMY_POOL);
+  // En ciudad de clanes, el trabajo sucio paga como lo que es.
+  if (faction?.id === 'chatarreros') {
+    job = { ...job, reward: Math.round(job.reward * 1.25) };
+    tavern.insertAdjacentHTML('beforeend',
+      '<div class="cnote">🔩 Ciudad de clanes: aquí el trabajo sucio paga un 25% mejor y nadie hace preguntas.</div>');
+  }
   if (standing && standing.id === 'odiado') {
     tavern.insertAdjacentHTML('beforeend',
       `<div class="cnote">🚫 El tabernero señala la puerta sin mediar palabra. Aquí no se sirve a los tuyos (${faction!.name}: Odiado).</div>`);
@@ -3249,8 +3268,12 @@ function endExpedition(): void {
   if (expedition.missionDone) {
     campaign = { ...campaign, companion: bondExpedition(campaign.companion, COMPANION_TABLE) };
   }
+  const closingRegion = regionOf(WORLD_ATLAS, expedition.regionId);
+  const moved = campaign.homeRegionId !== undefined && campaign.homeRegionId !== expedition.regionId;
+  campaign = { ...campaign, homeRegionId: expedition.regionId };
   chronicle(...expedition.log,
     `⚒ Día ${expedition.day} — De vuelta al taller${sold.earned > 0 ? `: la bodega paga ⌾${sold.earned}` : ''}. La expedición se cierra.`,
+    ...(moved ? [`⚑ La compañía asienta su base en ${closingRegion.nodes.find((n) => n.id === closingRegion.hq)?.name ?? closingRegion.name} (${closingRegion.name}).`] : []),
     '· · ·');
   expedition = null;
   saveCampaign();
