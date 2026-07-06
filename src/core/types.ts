@@ -64,6 +64,12 @@ export interface Stats {
  * Los sistemas nunca tocan stats directamente: aportan modificadores y
  * core/derived.ts los combina con orden determinista.
  */
+/**
+ * Postura de energía: cómo reparte la máquina su potencia este turno.
+ * Cambiarla es una acción LIBRE (no gasta el turno) y persiste.
+ */
+export type StanceId = 'cazador' | 'galope' | 'tortuga';
+
 export interface StatModifier {
   /** Origen legible para depuración/UI: 'status:armor-up', 'module:leg-l'... */
   source: string;
@@ -332,6 +338,8 @@ export interface UnitState {
   /** Charge Time: al llegar a CT_THRESHOLD la unidad actúa. */
   ct: number;
   statuses: StatusInstance[];
+  /** Postura de energía activa (sin definir = reparto neutro). */
+  stance?: StanceId;
   /** Flags del turno activo. */
   hasMoved: boolean;
   hasActed: boolean;
@@ -345,7 +353,9 @@ export type BattleAction =
   | { type: 'boost'; unitId: string; to: Position }
   /** Recargar un arma consume la acción del turno. */
   | { type: 'reload'; unitId: string; weaponId: string }
-  | { type: 'wait'; unitId: string; facing?: Facing };
+  | { type: 'wait'; unitId: string; facing?: Facing }
+  /** Cambio de postura de energía: acción libre, no consume el turno. */
+  | { type: 'stance'; unitId: string; stance: StanceId };
 
 /**
  * Eventos emitidos por el motor al resolver acciones. Un renderer los
@@ -379,6 +389,7 @@ export type BattleEvent =
   | { type: 'weapon-reloaded'; unitId: string; weaponId: string; ammo: number }
   /** Apagado de emergencia por exceso térmico: pierde el turno y sufre daño interno. */
   | { type: 'unit-shutdown'; unitId: string; damage: number; targetHp: number }
+  | { type: 'stance-changed'; unitId: string; stance: StanceId }
   | { type: 'turn-ended'; unitId: string }
   | { type: 'battle-ended'; winner: Team };
 

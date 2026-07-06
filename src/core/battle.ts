@@ -50,6 +50,7 @@ import {
   type SlotId,
   type WeaponDefinition,
   type WeatherId,
+  StanceId,
 } from './types.js';
 
 export interface UnitSpawn {
@@ -316,6 +317,27 @@ export class Battle {
    * directamente se salta los estados (y, en fases futuras, los módulos
    * dañados, el calor y la energía).
    */
+  /**
+   * Posturas de energía (§pilar 2): tres repartos legibles con sus dos
+   * caras a la vista. Cazador afina la puntería a costa de reflejos;
+   * Galope compra zancada vendiendo blindaje; Tortuga se cierra y pesa.
+   */
+  private static readonly STANCES: Record<StanceId, StatModifier[]> = {
+    cazador: [
+      { source: 'stance:cazador', stat: 'accuracy', add: 10 },
+      { source: 'stance:cazador', stat: 'evade', add: -5 },
+    ],
+    galope: [
+      { source: 'stance:galope', stat: 'move', add: 2 },
+      { source: 'stance:galope', stat: 'def', add: -10 },
+    ],
+    tortuga: [
+      { source: 'stance:tortuga', stat: 'def', add: 10 },
+      { source: 'stance:tortuga', stat: 'energyDef', add: 10 },
+      { source: 'stance:tortuga', stat: 'move', add: -2 },
+    ],
+  };
+
   effectiveStats(unit: UnitState): Stats {
     const def = this.definitionOf(unit.unitTypeId);
     const base = unit.maxHpOverride !== undefined
@@ -337,6 +359,8 @@ export class Battle {
     }
     // Modificadores adjuntos al spawn (campañas: marcas, auras...).
     if (unit.spawnModifiers) mods.push(...unit.spawnModifiers);
+    // Postura de energía: reparto elegido por el piloto, siempre visible.
+    if (unit.stance) mods.push(...Battle.STANCES[unit.stance]);
     // Progresión: el piloto aporta sus perks y la sinergia con el equipo
     // etiquetado con su especialización dominante.
     const pilot = this.pilots[unit.id];
@@ -540,6 +564,7 @@ export class Battle {
         case 'boost': return this.executeBoost(action.unitId, action.to);
         case 'reload': return this.executeReload(action.unitId, action.weaponId);
         case 'wait': return this.executeWait(action.unitId, action.facing);
+        case 'stance': return this.executeStance(action.unitId, action.stance);
       }
     })();
 
@@ -794,6 +819,14 @@ export class Battle {
       }
     }
     return events;
+  }
+
+  /** Cambio de postura: acción libre — el turno sigue siendo tuyo. */
+  private executeStance(unitId: string, stance: StanceId): BattleEvent[] {
+    const unit = this.requireActive(unitId);
+    if (unit.stance === stance) return [];
+    unit.stance = stance;
+    return [{ type: 'stance-changed', unitId, stance }];
   }
 
   private executeWait(unitId: string, facing?: Facing): BattleEvent[] {

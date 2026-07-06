@@ -140,3 +140,46 @@ describe('Battle: habilidades', () => {
     expect(a).toEqual(b); // misma semilla ⇒ misma batalla
   });
 });
+
+describe('posturas de energía: reparto elegido, dos caras a la vista', () => {
+  function stanceBattle(): Battle {
+    const battle = new Battle({
+      map: FLAT_ARENA,
+      unitCatalog: ZOIDS,
+      abilityCatalog: ABILITIES,
+      seed: 7,
+      spawns: [
+        { id: 'P1', name: 'Wolf', unitTypeId: 'command-wolf', team: 'player', position: { x: 0, y: 0 } },
+        { id: 'E1', name: 'Molga', unitTypeId: 'molga', team: 'enemy', position: { x: 5, y: 0 } },
+      ],
+    });
+    battle.nextTurn();
+    return battle;
+  }
+
+  it('cambiar de postura es acción libre, persiste y modifica stats', () => {
+    const battle = stanceBattle();
+    const base = battle.effectiveStats(battle.unit('P1'));
+    const events = battle.execute({ type: 'stance', unitId: 'P1', stance: 'cazador' });
+    expect(events).toEqual([{ type: 'stance-changed', unitId: 'P1', stance: 'cazador' }]);
+    expect(battle.getActiveUnit()?.id).toBe('P1'); // el turno sigue siendo suyo
+    const hunter = battle.effectiveStats(battle.unit('P1'));
+    expect(hunter.accuracy).toBe(base.accuracy + 10);
+    expect(hunter.evade).toBe(base.evade - 5);
+    // Repetir la misma postura no emite nada.
+    expect(battle.execute({ type: 'stance', unitId: 'P1', stance: 'cazador' })).toEqual([]);
+  });
+
+  it('galope compra zancada vendiendo blindaje; tortuga al revés', () => {
+    const battle = stanceBattle();
+    const base = battle.effectiveStats(battle.unit('P1'));
+    battle.execute({ type: 'stance', unitId: 'P1', stance: 'galope' });
+    const gallop = battle.effectiveStats(battle.unit('P1'));
+    expect(gallop.move).toBe(base.move + 2);
+    expect(gallop.def).toBe(base.def - 10);
+    battle.execute({ type: 'stance', unitId: 'P1', stance: 'tortuga' });
+    const turtle = battle.effectiveStats(battle.unit('P1'));
+    expect(turtle.def).toBe(base.def + 10);
+    expect(turtle.move).toBe(base.move - 2);
+  });
+});

@@ -969,7 +969,7 @@ function targetLabel(unit: UnitState | undefined, pos: Position): string | undef
   const ability = battle.abilityOf(mode.abilityId);
   if (target.team === unit.team) return ability.targetsAllies ? '✚' : undefined;
   const preview = battle.attackPreview(unit.id, mode.abilityId, pos);
-  return preview ? `${preview.chance}%` : undefined;
+  return preview ? displayedChance(unit, preview.chance, pos) : undefined;
 }
 
 function renderBanner(): void {
@@ -1013,6 +1013,19 @@ function renderActionbar(): void {
     btn.addEventListener('click', onClick);
     bar.appendChild(btn);
   };
+
+  // Posturas de energía: acción libre, dos caras a la vista en el título.
+  const stances: Array<{ id: 'cazador' | 'galope' | 'tortuga'; label: string; title: string }> = [
+    { id: 'cazador', label: '🐆', title: 'Cazador: puntería +10, evasión −5' },
+    { id: 'galope', label: '🐎', title: 'Galope: movimiento +2, blindaje −10' },
+    { id: 'tortuga', label: '🐢', title: 'Tortuga: blindajes +10, movimiento −2' },
+  ];
+  for (const stance of stances) {
+    mkBtn(stance.label, '·', () => {
+      logEvents(battle.execute({ type: 'stance', unitId: unit.id, stance: stance.id }));
+      renderAll();
+    }, { on: unit.stance === stance.id, title: stance.title });
+  }
 
   const moveVeto = battle.checkVetoes({ type: 'move', unitId: unit.id, to: unit.position });
   mkBtn('Mover', 'M', enterMove, {
@@ -1073,7 +1086,7 @@ function renderPreview(): void {
     if (preview) {
       const { chance, min, max, arc, heightAdvantage, cover, weatherPenalty } = preview;
       lines.push(`<div class="pv-title">${ability.name} → ${occupant.id} ${occupant.name}</div>`);
-      lines.push(`<div>impacto <b>${chance}%</b> · daño <b>${min}–${max}</b> · arco <b class="${arc === 'back' ? 'pv-good' : arc === 'side' ? 'pv-warn' : ''}">${ARC_LABEL[arc]}</b>${heightAdvantage !== 0 ? ` · altura ${heightAdvantage > 0 ? '+' : ''}${heightAdvantage}` : ''}${cover > 0 ? ` · <span class="pv-warn">cobertura −${cover}</span>` : ''}${weatherPenalty > 0 ? ` · <span class="pv-warn">clima −${weatherPenalty}</span>` : ''}</div>`);
+      lines.push(`<div>impacto <b>${displayedChance(unit, chance, cursor)}</b> · daño <b>${min}–${max}</b> · arco <b class="${arc === 'back' ? 'pv-good' : arc === 'side' ? 'pv-warn' : ''}">${ARC_LABEL[arc]}</b>${heightAdvantage !== 0 ? ` · altura ${heightAdvantage > 0 ? '+' : ''}${heightAdvantage}` : ''}${cover > 0 ? ` · <span class="pv-warn">cobertura −${cover}</span>` : ''}${weatherPenalty > 0 ? ` · <span class="pv-warn">clima −${weatherPenalty}</span>` : ''}</div>`);
       const entry = battle.weaponEntry(unit, mode.abilityId);
       if (entry) {
         const cost = entry.def.costs;
@@ -1146,7 +1159,7 @@ function renderRoster(): void {
     const name = document.createElement('div');
     name.className = 'name';
     name.innerHTML = `<span class="tag">${unit.id}</span> ${unit.name}${unit.isCommander ? ' ★' : ''}` +
-      (unit.hp <= 0 ? ' <span class="dead">DESTRUIDO</span>' : '') +
+      (unit.hp <= 0 ? ' <span class="dead">DESTRUIDO</span>' : symptomBadges(unit)) +
       (unit.statuses.length > 0
         ? ` <span style="color:var(--heat);font-size:10px">${unit.statuses.map((s) => STATUS_DEFINITIONS[s.id].name).join(', ')}</span>`
         : '');
@@ -1205,6 +1218,40 @@ function moduleColor(ratio: number): string {
   if (ratio >= 0.7) return 'var(--hp)';
   if (ratio >= 0.35) return 'var(--heat)';
   return 'var(--danger)';
+}
+
+/** Etiquetas de los módulos DESTRUIDOS de una unidad (síntomas). */
+function destroyedTags(unit: UnitState): Set<string> {
+  const tags = new Set<string>();
+  for (const module of unit.components.frame?.modules ?? []) {
+    if (!module.destroyed) continue;
+    for (const tag of MODULES[module.moduleId]?.tags ?? []) tags.add(tag);
+  }
+  return tags;
+}
+
+/** Insignias de síntoma legible: la avería se VE, no se deduce. */
+function symptomBadges(unit: UnitState): string {
+  const tags = destroyedTags(unit);
+  const badges: string[] = [];
+  if (tags.has('locomotion')) badges.push('🦵 cojea');
+  if (tags.has('sensor')) badges.push('📡 sensores rotos');
+  if (tags.has('weapon')) badges.push('🔫 arma inutilizada');
+  return badges.map((b) => `<span class="symptom">${b}</span>`).join('');
+}
+
+/**
+ * Sensores rotos: la consola MIENTE. El % real sigue mandando en el
+ * motor; aquí solo se distorsiona lo que el piloto cree ver.
+ */
+function displayedChance(attacker: UnitState, chance: number, target: Position): string {
+  if (!destroyedTags(attacker).has('sensor')) return `${chance}%`;
+  let h = 2166136261;
+  for (const ch of `${attacker.id}|${attacker.position.x},${attacker.position.y}|${target.x},${target.y}`) {
+    h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+  }
+  const noise = ((h >>> 0) % 41) - 20; // ±20 puntos de mentira
+  return `≈${Math.max(5, Math.min(99, chance + noise))}%?`;
 }
 
 function moduleDiagram(frame: FrameState): string {
@@ -1283,6 +1330,7 @@ function describe(event: BattleEvent): { text: string; cls?: string } | undefine
       return event.delta > 0 ? { text: `🔥 calor de ${event.unitId}: ${event.current} (+${event.delta})`, cls: 'warn' } : undefined;
     case 'weapon-reloaded': return { text: `${event.unitId} recarga (${event.ammo} disparos)`, cls: 'good' };
     case 'unit-shutdown': return { text: `⚠ ${unitLabel(event.unitId)}: APAGADO DE EMERGENCIA (${event.damage} daño interno)`, cls: 'warn' };
+    case 'stance-changed': return { text: `${event.unitId} cambia a postura ${event.stance.toUpperCase()}` };
     case 'projectile-fired': return undefined; // el renderer 3D lo animará
     case 'unit-pushed': return { text: `${event.unitId} sale despedido a (${event.to.x},${event.to.y})`, cls: 'warn' };
     case 'terrain-destroyed': return { text: `💥 muro derribado en (${event.pos.x},${event.pos.y})`, cls: 'warn' };
