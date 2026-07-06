@@ -629,3 +629,20 @@ arquitectura del motor van en DESIGN.md.)*
     batallas de la expedición despliegan SOLO a la formación. No se
     reorganiza en ruta: únicamente en el edificio Formación de una
     ciudad. Expediciones guardadas de antes: van todos (migración).
+- **2026-07-06** — DIRECCIÓN DE ARTE PROCEDURAL ("está MUY plano:
+  necesita más diseño y arte"). Escenas, no paneles — todo dibujado
+  con código, cero archivos:
+  · PORTADA: paisaje nocturno con estrellas, dos lunas, dunas en
+    capas y la compañera en la cresta mirando el cielo; los botones
+    flotan sobre la escena.
+  · CUARTEL: escena del hangar (costillas estructurales, foco cenital,
+    cajas con balizas) con la compañera aparcada en silueta rim-light.
+  · CIUDAD: cielo de atardecer con sol/luna del color de la facción y
+    tejados en DOS capas; las puertas de la plaza son FACHADAS
+    dibujadas (taller a dos aguas, mercader con toldo, fábrica de
+    dientes de sierra, grúa, persiana, pensión, taberna con cartel,
+    banderín de formación) — fuera los emojis planos.
+  · MUNDO: brújula de carta de navegación en el mapa.
+  · GLOBAL: grano de película sutil (feTurbulence), titulares como
+    placas estarcidas con muesca ámbar/cian, CTAs de partir con franja
+    de rayas de peligro.

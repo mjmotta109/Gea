@@ -3146,7 +3146,7 @@ function citySection(title: string): HTMLElement {
   return sec;
 }
 
-/** Horizonte de la ciudad: tejados procedurales, deterministas por id. */
+/** Horizonte de la ciudad: atardecer y tejados en capas, todo por id. */
 function citySkyline(nodeId: string, level: number, accent: string): string {
   let h = 2166136261;
   for (const ch of nodeId) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
@@ -3154,25 +3154,85 @@ function citySkyline(nodeId: string, level: number, accent: string): string {
     h = Math.imul(h ^ (h >>> 15), 2246822519) >>> 0;
     return h % n;
   };
-  const parts: string[] = [];
-  let x = 0;
-  while (x < 100) {
-    const w = 5 + rand(9);
-    const tall = 18 + rand(26) + level * 7;
-    const y = 78 - tall;
-    parts.push(`<rect x="${x}" y="${y}" width="${w}" height="${tall}" fill="#131b23"/>`);
-    // Ventanas encendidas y azoteas.
-    for (let wx = x + 1; wx < x + w - 1; wx += 3) {
-      if (rand(3) === 0) parts.push(`<rect x="${wx}" y="${y + 3 + rand(Math.max(1, tall - 8))}" width="1.4" height="2" fill="${accent}" opacity="0.55"/>`);
+  const layer = (base: number, fill: string, windows: boolean): string => {
+    const parts: string[] = [];
+    let x = -2;
+    while (x < 102) {
+      const w = 5 + rand(9);
+      const tall = 12 + rand(22) + level * 6;
+      const y = base - tall;
+      parts.push(`<rect x="${x}" y="${y}" width="${w}" height="${tall + 4}" fill="${fill}"/>`);
+      if (rand(4) === 0) parts.push(`<polygon points="${x},${y} ${x + w / 2},${y - 4 - rand(4)} ${x + w},${y}" fill="${fill}"/>`);
+      if (windows) {
+        for (let wx = x + 1; wx < x + w - 1; wx += 3) {
+          if (rand(3) === 0) parts.push(`<rect x="${wx}" y="${y + 3 + rand(Math.max(1, tall - 8))}" width="1.4" height="2" fill="${accent}" opacity="0.6"/>`);
+        }
+        if (rand(3) === 0) parts.push(`<rect x="${x + rand(Math.max(1, w - 2))}" y="${y - 6}" width="0.8" height="6" fill="#233240"/>`);
+      }
+      x += w + 1 + rand(3);
     }
-    if (rand(3) === 0) parts.push(`<rect x="${x + rand(Math.max(1, w - 2))}" y="${y - 5}" width="0.8" height="5" fill="#233240"/>`);
-    x += w + 1 + rand(3);
-  }
+    return parts.join('');
+  };
+  const sunX = 15 + (h % 70);
   return `<svg viewBox="0 0 100 80" preserveAspectRatio="none">` +
-    `<rect width="100" height="80" fill="#0a1117"/>` +
-    `<circle cx="${20 + (h % 55)}" cy="14" r="6" fill="${accent}" opacity="0.18"/>` +
-    parts.join('') +
+    `<defs><linearGradient id="csky-${nodeId}" x1="0" y1="0" x2="0" y2="1">` +
+    `<stop offset="0" stop-color="#0a1117"/><stop offset="0.62" stop-color="#152230"/>` +
+    `<stop offset="0.82" stop-color="#2b2b30"/></linearGradient>` +
+    `<radialGradient id="csun-${nodeId}"><stop offset="0" stop-color="${accent}" stop-opacity="0.85"/>` +
+    `<stop offset="1" stop-color="${accent}" stop-opacity="0"/></radialGradient></defs>` +
+    `<rect width="100" height="80" fill="url(#csky-${nodeId})"/>` +
+    `<circle cx="${sunX}" cy="46" r="16" fill="url(#csun-${nodeId})"/>` +
+    `<circle cx="${sunX}" cy="46" r="5.5" fill="${accent}" opacity="0.8"/>` +
+    layer(66, '#0e161d', false) +
+    layer(78, '#131b23', true) +
     `<rect y="77" width="100" height="3" fill="${accent}" opacity="0.35"/></svg>`;
+}
+
+/** Fachadas dibujadas para las puertas de la plaza (nada de emojis planos). */
+function cityDoorArt(key: string, accent: string): string {
+  const A = accent;
+  const body: Record<string, string> = {
+    '⚒ Taller': `<path d="M6 26 L6 14 L20 5 L34 14 L34 26 Z" fill="#141d26" stroke="#2c3d4c"/>
+      <rect x="15" y="17" width="10" height="9" fill="#0a1117"/>
+      <path d="M12 12 l4 -2 m-2 -1 v4" stroke="${A}" stroke-width="1.4"/>
+      <circle cx="27" cy="12" r="2.6" fill="none" stroke="${A}" stroke-width="1.2"/>`,
+    '🏪 Mercader': `<rect x="5" y="12" width="30" height="14" fill="#141d26" stroke="#2c3d4c"/>
+      <path d="M4 12 h32 l-2 -5 h-28 Z" fill="#1a252f"/>
+      <g stroke="${A}" stroke-width="2"><path d="M6 12 v-4 M12 12 v-4 M18 12 v-4 M24 12 v-4 M30 12 v-4 M36 12 v-4"/></g>
+      <rect x="9" y="16" width="7" height="10" fill="#0a1117"/>
+      <rect x="21" y="16" width="10" height="6" fill="#0a1117"/>`,
+    '🏭 Fábrica': `<path d="M5 26 V12 L13 17 V12 L21 17 V12 L29 17 V10 H35 V26 Z" fill="#141d26" stroke="#2c3d4c"/>
+      <rect x="30" y="2" width="4" height="8" fill="#1a252f"/>
+      <circle cx="32" cy="1" r="1.6" fill="${A}" opacity="0.6"/>
+      <rect x="9" y="20" width="5" height="4" fill="${A}" opacity="0.5"/>
+      <rect x="18" y="20" width="5" height="4" fill="${A}" opacity="0.35"/>`,
+    '🏗 Fabricación': `<rect x="6" y="20" width="28" height="6" fill="#141d26" stroke="#2c3d4c"/>
+      <path d="M10 20 V6 H30 M30 6 V12" stroke="#2c3d4c" stroke-width="2" fill="none"/>
+      <path d="M30 12 v4" stroke="${A}" stroke-width="1.4"/>
+      <rect x="27" y="16" width="6" height="4" fill="${A}" opacity="0.5"/>
+      <path d="M10 6 L6 10 M10 10 L14 6" stroke="#2c3d4c"/>`,
+    '🔧 Modificación': `<rect x="5" y="10" width="30" height="16" fill="#141d26" stroke="#2c3d4c"/>
+      <g stroke="#0a1117" stroke-width="2"><path d="M8 13 h24 M8 17 h24 M8 21 h24"/></g>
+      <circle cx="20" cy="6" r="3.4" fill="none" stroke="${A}" stroke-width="1.6"/>
+      <path d="M20 3 v-2 M20 9 v2 M17 6 h-2 M23 6 h2" stroke="${A}"/>`,
+    '😴 Descansos': `<path d="M6 26 V13 L20 5 L34 13 V26 Z" fill="#141d26" stroke="#2c3d4c"/>
+      <rect x="10" y="16" width="6" height="6" fill="${A}" opacity="0.45"/>
+      <rect x="24" y="16" width="6" height="10" fill="#0a1117"/>
+      <path d="M14 9 q2 -2 0 -4 M18 9 q2 -2 0 -4" stroke="#8598a8" fill="none" opacity="0.7"/>`,
+    '🍻 Taberna': `<rect x="5" y="11" width="30" height="15" fill="#141d26" stroke="#2c3d4c"/>
+      <path d="M5 11 L20 4 L35 11" fill="#1a252f" stroke="#2c3d4c"/>
+      <rect x="24" y="15" width="8" height="11" fill="#0a1117"/>
+      <path d="M12 13 v5 h5 v-5 Z" fill="none" stroke="${A}" stroke-width="1.3"/>
+      <path d="M17 14 h2 v2 h-2" fill="none" stroke="${A}"/>
+      <circle cx="14" cy="22" r="1.4" fill="${A}" opacity="0.7"/>`,
+    '🧭 Formación': `<rect x="7" y="8" width="26" height="18" rx="2" fill="#141d26" stroke="#2c3d4c"/>
+      <path d="M11 26 V6 l7 3 -7 3" fill="none" stroke="${A}" stroke-width="1.4"/>
+      <g fill="#0c2b31" stroke="${A}" stroke-width="0.5" transform="translate(16 13) scale(0.55)">
+        <path d="M4 20 L7 12 L14 10 L22 9 L29 10 L33 7 L38 9 L37 13 L33 15 L30 17 L28 22 L26 28 L23 28 L24 21 L18 20 L14 22 L13 28 L10 28 L10 21 L6 24 Z"/>
+      </g>`,
+  };
+  const art = body[key] ?? `<rect x="6" y="8" width="28" height="18" fill="#141d26" stroke="#2c3d4c"/>`;
+  return `<svg viewBox="0 0 40 28" class="bart" aria-hidden="true">${art}</svg>`;
 }
 
 /** Las puertas de la plaza: qué edificios tiene ESTA ciudad. */
@@ -3270,7 +3330,7 @@ function renderCity(): void {
     for (const door of cityDoors(city)) {
       const card = document.createElement('button');
       card.className = 'bldg';
-      card.innerHTML = `<span class="bicon">${door.icon}</span>` +
+      card.innerHTML = cityDoorArt(door.key, accent) +
         `<span class="bname">${door.name}</span><span class="bsub">${door.sub}</span>`;
       card.addEventListener('click', () => {
         playSfx('click');
