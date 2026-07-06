@@ -532,3 +532,15 @@ arquitectura del motor van en DESIGN.md.)*
     clanes (Chatarreros +8) / ni tocarlo). Arcadia no la conoce.
   · TRABAJOS DE CLANES: en ciudad chatarrera el trabajo sucio de
     taberna paga un 25% mejor y nadie hace preguntas.
+- **2026-07-06** — SILUETAS Y TERRENO (dirección del usuario: "estoy
+  cansado de ver bloques moviéndose"). Las fichas dejan de ser
+  bloques: cada FAMILIA de chasis tiene una silueta lateral SVG
+  reconocible a 46px (felino, lobo, raptor, terópodo, oruga, caracol,
+  volador, gorila, bisonte, escorpión, cuellilargo, torreta), morro
+  hacia su facing (oeste voltea, norte/sur inclinan), coloreada por
+  bando vía currentColor, con sombra, etiqueta pequeña y barra de
+  vida. Son siluetas de LECTURA, no ilustraciones: distinguirse de un
+  vistazo es el requisito. El terreno gana textura: agua con ondas
+  animadas, bosque con copas, abrupto punteado, muros con trama
+  diagonal, cotas de altura como filos de luz y damero sutil. Todo
+  inline: cero archivos, build autocontenido.

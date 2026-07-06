@@ -106,15 +106,24 @@
   }
 
   .chip {
-    position: absolute; inset: 6px; border-radius: 4px; display: flex; flex-direction: column;
-    align-items: center; justify-content: center; font-size: 11px; font-weight: 700;
-    font-family: var(--mono); color: #04181d; line-height: 1.1; pointer-events: none;
+    position: absolute; inset: 2px; border-radius: 4px; display: flex; flex-direction: column;
+    align-items: center; justify-content: flex-end; pointer-events: none;
   }
-  .chip.player { background: var(--player); }
-  .chip.enemy { background: var(--enemy); color: #2b1006; }
-  .chip.active-unit { box-shadow: 0 0 0 2px #fff, 0 0 10px 2px rgba(255,255,255,0.35); }
-  .chip .hpbar { width: 80%; height: 3px; background: rgba(0,0,0,0.35); border-radius: 2px; margin-top: 2px; }
-  .chip .hpbar i { display: block; height: 100%; background: rgba(255,255,255,0.9); border-radius: 2px; }
+  .chip .zsprite {
+    position: absolute; inset: 1px 1px 8px; width: auto; height: auto; max-width: 100%;
+    filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.55));
+  }
+  .chip.player { color: var(--player); }
+  .chip.enemy { color: var(--enemy); }
+  .chip .ztag {
+    position: absolute; top: 0; left: 1px; font-family: var(--mono); font-size: 8px;
+    font-weight: 700; letter-spacing: 0.04em; color: rgba(255, 255, 255, 0.75);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9); line-height: 1;
+  }
+  .chip.active-unit .zsprite { filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.85)) drop-shadow(0 2px 2px rgba(0, 0, 0, 0.5)); }
+  .chip .hpbar { width: 82%; height: 3px; background: rgba(0, 0, 0, 0.55); border-radius: 2px; margin-bottom: 1px; }
+  .chip .hpbar i { display: block; height: 100%; background: var(--hp); border-radius: 2px; box-shadow: 0 0 4px rgba(126, 201, 107, 0.6); }
+  .chip.enemy .hpbar i { background: #ffb066; box-shadow: 0 0 4px rgba(255, 176, 102, 0.6); }
 
   #legend { color: var(--muted); font-size: 10px; font-family: var(--mono); margin-top: 10px; text-align: center; }
 
@@ -843,10 +852,7 @@
   #world-actions button:hover { box-shadow: 0 0 20px rgba(255, 159, 69, 0.3); }
   #world-actions button.calm:hover { box-shadow: 0 0 20px rgba(83, 209, 224, 0.3); }
 
-  /* ── Batalla: fichas con volumen y barras con vida ── */
-  .chip { box-shadow: 0 2px 5px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.35); }
-  .chip.player { background: linear-gradient(165deg, #86e4ef 0%, var(--player) 55%, #38b5c6 100%); }
-  .chip.enemy { background: linear-gradient(165deg, #ffab86 0%, var(--enemy) 55%, #e6693c 100%); }
+  /* ── Batalla: barras con vida (las fichas son siluetas, sin bloque) ── */
   .bar { box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5); }
   .bar i { transition: width 0.35s ease-out; }
   #turn-banner {
@@ -873,6 +879,42 @@
     border: 1px solid var(--heat); color: var(--heat);
     font-family: var(--mono); font-size: 9px; font-weight: 700; vertical-align: 1px;
   }
+
+  /* ── Terreno con textura (celdas del tablero) ── */
+  .cell { overflow: hidden; }
+  .cell.alt::before {
+    content: ''; position: absolute; inset: 0; background: rgba(255, 255, 255, 0.025);
+    pointer-events: none;
+  }
+  .cell.t-water {
+    background-image: repeating-linear-gradient(
+      100deg, transparent 0 6px, rgba(140, 200, 255, 0.16) 6px 8px, transparent 8px 14px);
+    background-size: 200% 100%;
+    animation: gea-water 5s linear infinite;
+  }
+  @keyframes gea-water { to { background-position: 46px 0; } }
+  .cell.t-forest {
+    background-image:
+      radial-gradient(circle at 30% 35%, rgba(30, 80, 40, 0.9) 0 7px, transparent 8px),
+      radial-gradient(circle at 68% 60%, rgba(24, 70, 34, 0.9) 0 9px, transparent 10px),
+      radial-gradient(circle at 45% 78%, rgba(36, 92, 48, 0.8) 0 6px, transparent 7px);
+  }
+  .cell.t-rough {
+    background-image:
+      radial-gradient(circle at 25% 30%, rgba(0, 0, 0, 0.25) 0 2px, transparent 3px),
+      radial-gradient(circle at 60% 70%, rgba(0, 0, 0, 0.22) 0 3px, transparent 4px),
+      radial-gradient(circle at 80% 25%, rgba(255, 255, 255, 0.07) 0 2px, transparent 3px),
+      radial-gradient(circle at 40% 55%, rgba(0, 0, 0, 0.18) 0 2px, transparent 3px);
+  }
+  .cell.t-wall {
+    background-image: repeating-linear-gradient(
+      45deg, rgba(0, 0, 0, 0.35) 0 4px, transparent 4px 9px);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08), inset 0 -3px 5px rgba(0, 0, 0, 0.5);
+  }
+  .cell.elev-1 { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.10); }
+  .cell.elev-2 { box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.14), inset 0 0 12px rgba(255, 255, 255, 0.06); }
+  .cell.elev-3 { box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.18), inset 0 0 14px rgba(255, 255, 255, 0.09); }
+  .cell .h { color: rgba(255, 255, 255, 0.45); font-weight: 700; text-shadow: 0 1px 2px rgba(0,0,0,0.8); }
 
   /* ── Diagrama de módulos del Zoid (tarjeta de unidad) ── */
   .mdiag { display: block; width: 100%; max-width: 190px; margin: 6px 0 2px; }

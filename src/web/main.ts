@@ -27,6 +27,7 @@ import { generateBattlefield } from '../game/mapgen.js';
 import { adjustReputation, contractSlots, priceFactor, reputationTier, REPUTATION_MAX } from '../game/reputation.js';
 import { FACTIONS, PLACE_FACTIONS } from '../data/factions.js';
 import { playSfx, sfxEnabled, toggleSfx } from './sfx.js';
+import { unitSprite } from './sprites.js';
 import { GARAGE_MODULE_OPTIONS, MODULES } from '../data/modules.js';
 import { PERKS } from '../data/progression.js';
 import { withWeaponLibrary } from '../data/weaponLibrary.js';
@@ -851,12 +852,10 @@ function renderBoard(): void {
       const key = posKey(pos);
       const tile = battle.map.tileAt(pos);
       const cell = document.createElement('button');
-      cell.className = 'cell';
+      cell.className = `cell t-${tile.terrain}`;
       cell.style.background = shade(TERRAIN_BASE[tile.terrain]!, tile.height);
-      if (tile.terrain === 'water') cell.textContent = '~';
-      if (tile.terrain === 'rough') cell.textContent = '▒';
-      if (tile.terrain === 'forest') cell.textContent = '♣';
-      cell.style.color = 'rgba(255,255,255,0.25)';
+      if ((x + y) % 2 === 0) cell.classList.add('alt');
+      if (tile.height > 0) cell.classList.add(`elev-${Math.min(3, tile.height)}`);
 
       if (tile.height > 0 && tile.terrain !== 'wall') {
         const h = document.createElement('span');
@@ -903,7 +902,9 @@ function renderBoard(): void {
         const chip = document.createElement('div');
         chip.className = `chip ${occupant.team}`;
         if (active?.id === occupant.id) chip.classList.add('active-unit');
-        chip.innerHTML = `<span>${occupant.id}${FACING_ARROW[occupant.facing]}</span>`;
+        chip.innerHTML =
+          unitSprite(occupant.unitTypeId, occupant.facing) +
+          `<span class="ztag">${occupant.id}</span>`;
         const bar = document.createElement('div');
         bar.className = 'hpbar';
         const fill = document.createElement('i');
