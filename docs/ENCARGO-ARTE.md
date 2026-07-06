@@ -133,3 +133,84 @@ El diorama dibuja prismas por código; lo que necesita del arte es la
 2. Los 3 emblemas de facción + 6 retratos.
 3. Las 6 losetas.
 4. Los 4 loops de audio.
+
+---
+
+# LISTA MAESTRA DE IMÁGENES (inventario completo, 2026-07-06)
+
+Cada línea trae su nombre de archivo para el buzón `art/` — con ese
+nombre, la integración es automática. Total: **~69 piezas**; el
+paquete mínimo que transforma el juego son las **22 de prioridad 1-2**.
+
+## Prioridad 1 — Identidad (13 piezas)
+
+| # | Pieza | Archivo | Tamaño |
+|---|---|---|---|
+| 1-12 | Las 12 bestias (lateral, morro a la DERECHA, monocromo) | `bestias/felino.svg` `lobo` `raptor` `teropodo` `oruga` `caracol` `volador` `gorila` `bisonte` `escorpion` `cuellilargo` `torreta` | SVG o PNG 512×384 |
+| 13 | Logotipo GEA | `iconos/logo-gea.svg` | SVG |
+
+## Prioridad 2 — Alma (11 piezas)
+
+| # | Pieza | Archivo | Tamaño |
+|---|---|---|---|
+| 14-21 | 8 retratos de piloto (busto, ropa de taller, expresión con carácter) | `retratos/piloto-01.png` … `piloto-08.png` | 512×512 |
+| 22-24 | 3 emblemas de facción (Gremio / Colonos / Clanes) | `iconos/faccion-gremio.svg` `-colonos` `-chatarreros` | SVG 64×64 |
+
+## Prioridad 3 — Los lugares (17 piezas)
+
+| # | Pieza | Archivo | Tamaño |
+|---|---|---|---|
+| 25-32 | 8 fachadas de plaza: taller, mercader, fábrica, fabricación (grúa), modificación, descansos, taberna, formación | `fachadas/taller.png` etc. | 400×280, fondo transparente |
+| 33-40 | 8 interiores de edificio (viñeta banner al cruzar la puerta) | `interiores/taller.png` etc. | 1200×300 |
+| 41 | Escena del hangar del cuartel (bestia aparcada, foco cenital) | `escenas/hangar.png` | 1600×400 |
+
+## Prioridad 4 — Los momentos (13 piezas)
+
+| # | Pieza | Archivo | Tamaño |
+|---|---|---|---|
+| 42 | Key art de portada (piloto y bestia ante dos lunas) | `escenas/portada.png` | 1920×1080 |
+| 43-47 | 5 viñetas de encrucijada: caravana volcada, manada salvaje, piloto perdido, peaje chatarrero, veta de chatarra | `encuentros/caravana.png` etc. | 800×450 |
+| 48-50 | 3 cartas de destacamento: escolta, prospección, rastreo | `destacamentos/escolta.png` etc. | 600×338 |
+| 51-52 | Victoria / derrota (sello o viñeta de fin de batalla) | `escenas/victoria.png` `derrota.png` | 800×450 |
+| 53-54 | Horizontes de ciudad por facción (opcional: hay procedural) | `escenas/horizonte-colonos.png` `-chatarreros.png` | 1600×300 |
+
+## Prioridad 5 — La quincalla (~15 piezas + audio)
+
+| # | Pieza | Archivo | Tamaño |
+|---|---|---|---|
+| 55-60 | 6 losetas isométricas (cara superior del rombo) | `losetas/llanura.png` `bosque` `agua` `roca` `arena` `ruina` | 128×64 |
+| 61-69 | ~9 iconos UI restantes (garra, cañón, rifle, escudo, calor, energía, herido, suministros, contrato) | `iconos/*.svg` | 24×24 |
+| — | 4 loops ambientales + 12 SFX (ver sección de audio) | `audio/*.ogg` | — |
+
+## Herramientas recomendadas (según la pieza)
+
+- **Bestias y fachadas (vector)**: **Recraft** — genera SVG de verdad,
+  que es justo nuestro formato; estilo "flat vector" consistente.
+- **Consistencia de estilo entre 12+ piezas**: **Midjourney** con
+  `--sref` (referencia de estilo: generas la primera bestia que te
+  guste y las demás la citan) o **Scenario.gg** (entrenas un estilo
+  propio con 10-20 ejemplos y todo sale hermanado — pensado para
+  juegos).
+- **Retratos**: aquí rinde más un **artista humano** (Fiverr/ArtStation
+  buscando "character portrait game", r/gameDevClassifieds): las caras
+  con alma son lo más difícil para la IA de mantener coherentes entre
+  8 personajes. Si es IA: Midjourney con --cref (referencia de
+  personaje).
+- **Logotipo y emblemas**: **Ideogram** (el mejor con letras) o Recraft.
+- **Local y gratis**: **Stable Diffusion + LoRA** (con ControlNet
+  puedes forzar la pose lateral exacta de cada bestia usando mis
+  siluetas como plantilla — se las paso como PNG guía si vas por ahí).
+- **Audio**: **Suno/Udio** para los loops (revisar licencia comercial
+  del plan) o un músico de Fiverr con el brief "4 loops ambientales
+  30-60s, mecánico-desértico, sin melodía protagonista".
+
+## El flujo que recomiendo
+
+1. Genera **UNA bestia (el felino) en 3 estilos** distintos.
+2. Me pegas las 3 aquí en el chat → te digo cuál casa con el juego y
+   por qué → eliges dirección.
+3. Con la elegida como referencia de estilo (`--sref`/Scenario),
+   produces las 11 restantes + logo (prioridad 1).
+4. Suben al buzón `art/` → las integro → juzgamos en pantalla.
+5. Solo entonces encargas prioridades 2-3. Nunca compres el paquete
+   entero a ciegas.
