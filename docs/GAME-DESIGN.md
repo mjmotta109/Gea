@@ -570,3 +570,17 @@ arquitectura del motor van en DESIGN.md.)*
   · Tres vistas ciclables y persistentes en la cabecera de batalla:
     🗺 plana (DOM) → 🧊 mesa (CSS) → 🏔 diorama (canvas). El motor no
     cambió ni una línea: el diorama solo PINTA estado resuelto.
+- **2026-07-06** — EL DIORAMA POR DEFECTO + MARCHA + LECTOR DE CASCO
+  (dirección del usuario: "pásalo a 3D" y "mejora los diagramas de
+  estado, están muy básicos").
+  · El diorama es la VISTA POR DEFECTO de batalla (quien eligió otra,
+    la conserva).
+  · MARCHA INTERPOLADA: las bestias CAMINAN por su camino casilla a
+    casilla (110 ms/casilla, saltito de zancada, la elevación se
+    interpola entre cotas). reduced-motion la apaga.
+  · LECTOR DE CASCO: el diagrama de módulos se rehace como consola de
+    cabina — la SILUETA del propio chasis en fantasma de fondo, cada
+    módulo como nodo-anilla (la anilla es la fracción de HP) cableado
+    al torso, ✕ pulsante en destruidos, parpadeo en críticos,
+    esquinas de visor y rejilla de fósforo. Arte procedural: cuando
+    exista arte encargado, se sustituye pieza a pieza.

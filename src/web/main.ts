@@ -29,7 +29,7 @@ import { FACTIONS, PLACE_FACTIONS } from '../data/factions.js';
 import { playSfx, sfxEnabled, toggleSfx } from './sfx.js';
 import { spriteBody, unitSprite } from './sprites.js';
 import {
-  drawDiorama, isoCanvasSize, isoPick, isoProject,
+  drawDiorama, isoCanvasSize, isoPick, isoProject, ELEV_STEP,
   type DioramaScene, type DioramaTile, type DioramaUnit,
 } from './iso.js';
 import { GARAGE_MODULE_OPTIONS, MODULES } from '../data/modules.js';
@@ -973,16 +973,20 @@ function dioramaScene(): DioramaScene {
   }
   const units: DioramaUnit[] = battle.units
     .filter((u) => u.hp > 0)
-    .map((u) => ({
-      id: u.id,
-      unitTypeId: u.unitTypeId,
-      team: u.team,
-      facing: u.facing,
-      x: u.position.x,
-      y: u.position.y,
-      hpRatio: u.hp / Math.max(1, battle.effectiveStats(u).maxHp),
-      active: battle.getActiveUnit()?.id === u.id,
-    }));
+    .map((u) => {
+      const pose = walkingPose(u.id);
+      return {
+        id: u.id,
+        unitTypeId: u.unitTypeId,
+        team: u.team,
+        facing: u.facing,
+        x: pose?.x ?? u.position.x,
+        y: pose?.y ?? u.position.y,
+        ...(pose ? { elev: pose.elev } : {}),
+        hpRatio: u.hp / Math.max(1, battle.effectiveStats(u).maxHp),
+        active: battle.getActiveUnit()?.id === u.id,
+      };
+    });
   return {
     width: battle.map.width,
     height: battle.map.height,
@@ -996,6 +1000,35 @@ function dioramaScene(): DioramaScene {
       ...(playerUnit() ? { cursor } : {}),
     },
     time: performance.now(),
+  };
+}
+
+/** Marcha en curso dentro del diorama (unidad + camino + reloj). */
+let dioramaWalk: { unitId: string; path: Position[]; start: number } | null = null;
+const WALK_MS_PER_TILE = 110;
+
+/** Posición y elevación interpoladas de la unidad en marcha. */
+function walkingPose(unitId: string): { x: number; y: number; elev: number } | null {
+  if (!dioramaWalk || dioramaWalk.unitId !== unitId) return null;
+  const steps = dioramaWalk.path.length - 1;
+  if (steps <= 0) return null;
+  const t = (performance.now() - dioramaWalk.start) / (steps * WALK_MS_PER_TILE);
+  if (t >= 1) { dioramaWalk = null; return null; }
+  const at = t * steps;
+  const i = Math.min(steps - 1, Math.floor(at));
+  const f = at - i;
+  const a = dioramaWalk.path[i]!;
+  const b = dioramaWalk.path[i + 1]!;
+  const elevOf = (pos: Position): number => {
+    const tile = battle.map.tileAt(pos);
+    return tile.terrain === 'wall' ? tile.height + 1 : tile.height;
+  };
+  // Un saltito por casilla: la zancada se nota.
+  const hop = Math.sin(f * Math.PI) * 3.5;
+  return {
+    x: a.x + (b.x - a.x) * f,
+    y: a.y + (b.y - a.y) * f,
+    elev: elevOf(a) + (elevOf(b) - elevOf(a)) * f + hop / ELEV_STEP,
   };
 }
 
@@ -1030,12 +1063,18 @@ function renderDioramaView(): void {
   }
 }
 
-// El agua del diorama ondula sola: repintado suave cuando está visible.
+// El agua ondula y las marchas fluyen: repintado suave cuando toca.
 window.setInterval(() => {
   if (currentView() !== 'diorama') return;
   if (document.hidden || startOpen || mercOpen || worldOpen || cityOpen) return;
   renderDioramaView();
 }, 140);
+function walkFrame(): void {
+  if (dioramaWalk && currentView() === 'diorama') {
+    renderDioramaView();
+    requestAnimationFrame(walkFrame);
+  }
+}
 
 /**
  * Animaciones de ficha tras el re-render: desplazamiento a lo largo del
@@ -1303,7 +1342,7 @@ function renderRoster(): void {
         }
       }
       if (frame) {
-        card.insertAdjacentHTML('beforeend', moduleDiagram(frame));
+        card.insertAdjacentHTML('beforeend', moduleDiagram(frame, unit.unitTypeId));
       }
     }
     el.appendChild(card);
@@ -1316,13 +1355,13 @@ function renderRoster(): void {
  * son cadenas libres del frame: se asignan a regiones por patrón y lo
  * que no encaje se apila como bloque extra a la izquierda.
  */
-const DIAGRAM_REGIONS: Array<{ match: RegExp; x: number; y: number; w: number; h: number }> = [
-  { match: /head/, x: 118, y: 12, w: 34, h: 22 },
-  { match: /torso|body|core/, x: 50, y: 26, w: 64, h: 26 },
-  { match: /weapon|cannon|claws|gun/, x: 62, y: 6, w: 40, h: 16 },
-  { match: /backpack|tail|booster/, x: 10, y: 20, w: 34, h: 18 },
-  { match: /front|-r$/, x: 100, y: 56, w: 20, h: 18 },
-  { match: /rear|-l$/, x: 58, y: 56, w: 20, h: 18 },
+const DIAGRAM_ANCHORS: Array<{ match: RegExp; x: number; y: number }> = [
+  { match: /head/, x: 128, y: 22 },
+  { match: /torso|body|core/, x: 76, y: 42 },
+  { match: /weapon|cannon|claws|gun/, x: 76, y: 13 },
+  { match: /backpack|tail|booster/, x: 22, y: 24 },
+  { match: /front|-r$/, x: 108, y: 74 },
+  { match: /rear|-l$/, x: 46, y: 74 },
 ];
 
 function moduleColor(ratio: number): string {
@@ -1365,36 +1404,54 @@ function displayedChance(attacker: UnitState, chance: number, target: Position):
   return `≈${Math.max(5, Math.min(99, chance + noise))}%?`;
 }
 
-function moduleDiagram(frame: FrameState): string {
+/*
+ * Lector de casco: la SILUETA del propio chasis como fondo del
+ * diagnóstico, con cada módulo como nodo-anilla anclado a su zona del
+ * cuerpo (anilla = fracción de HP; ✕ pulsante = destruido). Es la
+ * consola de la cabina, no una tabla.
+ */
+function moduleDiagram(frame: FrameState, unitTypeId: string): string {
   const used = new Set<number>();
-  let extraY = 44; // bloques sin región conocida, apilados al fondo
-  const pieces: string[] = [];
+  let extraY = 16;
+  const nodes: string[] = [];
+  const wires: string[] = [];
+  const R = 10.5;
+  const CIRC = 2 * Math.PI * R;
   for (const module of frame.modules) {
     const def = MODULES[module.moduleId];
     const maxHp = def?.hp ?? Math.max(1, module.hp);
-    const idx = DIAGRAM_REGIONS.findIndex((r, i) => !used.has(i) && r.match.test(module.slot));
-    let box: { x: number; y: number; w: number; h: number };
-    if (idx >= 0) {
-      used.add(idx);
-      box = DIAGRAM_REGIONS[idx]!;
-    } else {
-      box = { x: 10, y: extraY, w: 22, h: 14 };
-      extraY += 16;
-    }
+    const idx = DIAGRAM_ANCHORS.findIndex((a, i) => !used.has(i) && a.match.test(module.slot));
+    let at: { x: number; y: number };
+    if (idx >= 0) { used.add(idx); at = DIAGRAM_ANCHORS[idx]!; }
+    else { at = { x: 12, y: extraY }; extraY += 24; }
     const ratio = Math.max(0, Math.min(1, module.hp / maxHp));
-    const fill = module.destroyed ? '#3a3f45' : moduleColor(ratio);
-    const label = module.destroyed ? '✕' : String(module.hp);
+    const color = moduleColor(ratio);
+    const critical = !module.destroyed && ratio < 0.35;
     const title = `${def?.name ?? module.slot} — ${module.destroyed ? 'DESTRUIDO' : `${module.hp}/${maxHp}`}`;
-    pieces.push(
-      `<g class="mpart${module.destroyed ? ' broken' : ''}"><title>${escapeHtml(title)}</title>` +
-      `<rect x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" rx="4" fill="${fill}" fill-opacity="${module.destroyed ? 0.5 : 0.28}" stroke="${fill}"/>` +
-      `<text x="${box.x + box.w / 2}" y="${box.y + box.h / 2 + 3}">${label}</text></g>`);
+    // Cable del nodo al corazón del casco (el torso), tenue.
+    if (!/torso|body|core/.test(module.slot)) {
+      wires.push(`<line x1="${at.x}" y1="${at.y}" x2="76" y2="42" class="wire${module.destroyed ? ' dead' : ''}"/>`);
+    }
+    if (module.destroyed) {
+      nodes.push(
+        `<g class="mnode broken"><title>${escapeHtml(title)}</title>` +
+        `<circle cx="${at.x}" cy="${at.y}" r="${R}" class="socket"/>` +
+        `<circle cx="${at.x}" cy="${at.y}" r="${R}" fill="none" stroke="var(--danger)" stroke-width="1.6" stroke-dasharray="3 3" opacity="0.8"/>` +
+        `<text x="${at.x}" y="${at.y + 3.5}" class="broken-x">✕</text></g>`);
+    } else {
+      nodes.push(
+        `<g class="mnode${critical ? ' critical' : ''}"><title>${escapeHtml(title)}</title>` +
+        `<circle cx="${at.x}" cy="${at.y}" r="${R}" class="socket"/>` +
+        `<circle cx="${at.x}" cy="${at.y}" r="${R}" fill="none" stroke="${color}" stroke-width="2.4"` +
+        ` stroke-dasharray="${(CIRC * ratio).toFixed(1)} ${CIRC.toFixed(1)}"` +
+        ` transform="rotate(-90 ${at.x} ${at.y})" stroke-linecap="round"/>` +
+        `<text x="${at.x}" y="${at.y + 3.5}" style="fill:${color}">${module.hp}</text></g>`);
+    }
   }
-  return `<svg class="mdiag" viewBox="0 0 162 80" role="img">` +
-    // línea de tierra y espinazo: pura silueta, sin significado mecánico
-    `<line x1="6" y1="76" x2="156" y2="76" class="ground"/>` +
-    `<path d="M 44 39 H 118" class="spine"/>` +
-    pieces.join('') + '</svg>';
+  return `<svg class="mdiag" viewBox="0 0 160 92" role="img">` +
+    `<g transform="translate(14 14) scale(3.3)" class="ghost">${spriteBody(unitTypeId)}</g>` +
+    `<path d="M2 8 V2 H10 M150 2 H158 V8 M158 84 V90 H150 M10 90 H2 V84" class="corner"/>` +
+    wires.join('') + nodes.join('') + '</svg>';
 }
 
 function renderAll(): void {
@@ -1466,6 +1523,11 @@ function logEvents(events: BattleEvent[]): void {
   for (const event of events) {
     if (event.type === 'unit-moved' || event.type === 'unit-boosted') {
       pendingMoveAnim = { unitId: event.unitId, path: event.path };
+      if (currentView() === 'diorama' && !reducedMotion && event.path.length > 1) {
+        dioramaWalk = { unitId: event.unitId, path: event.path, start: performance.now() };
+        pendingMoveAnim = null; // el diorama anima por su cuenta
+        requestAnimationFrame(walkFrame);
+      }
     }
     if (event.type === 'unit-pushed') {
       pendingMoveAnim = { unitId: event.unitId, path: [event.from, event.to] };
@@ -3997,9 +4059,9 @@ const VIEW_KEY = 'gea-view';
 type ViewMode = 'plana' | 'mesa' | 'diorama';
 function currentView(): ViewMode {
   const stored = localStorage.getItem(VIEW_KEY);
-  if (stored === 'mesa' || stored === 'diorama') return stored;
+  if (stored === 'plana' || stored === 'mesa' || stored === 'diorama') return stored;
   if (localStorage.getItem('gea-iso') === 'on') return 'mesa'; // migración
-  return 'plana';
+  return 'diorama'; // la vista por defecto es el diorama
 }
 function applyViewMode(): void {
   const view = currentView();

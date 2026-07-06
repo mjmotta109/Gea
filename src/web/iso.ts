@@ -25,6 +25,8 @@ export interface DioramaUnit {
   y: number;
   hpRatio: number;
   active: boolean;
+  /** Elevación explícita (marcha interpolada); si falta, la de su casilla. */
+  elev?: number;
 }
 
 export interface DioramaHighlights {
@@ -224,9 +226,6 @@ export function drawDiorama(
   }
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  const byPos = new Map<string, DioramaUnit>();
-  for (const unit of scene.units) byPos.set(`${unit.x},${unit.y}`, unit);
-
   // Pintor: de atrás (x+y menor) hacia delante.
   const tiles = [...scene.tiles].sort((a, b) => (a.x + a.y) - (b.x + b.y) || a.y - b.y);
   for (const tile of tiles) {
@@ -297,52 +296,63 @@ export function drawDiorama(
       ctx.stroke();
     }
 
-    // La bestia de esta casilla: billboard de pie con sombra.
-    const unit = byPos.get(key);
-    if (unit) {
-      const info = sprite(unit);
-      const img = spriteImage(info.body, info.color, onSpriteReady);
-      const w = 54, h = 40;
-      ctx.fillStyle = 'rgba(0,0,0,0.4)';
-      ctx.beginPath();
-      ctx.ellipse(c.x, c.y + 3, 17, 6, 0, 0, Math.PI * 2);
-      ctx.fill();
-      if (img.complete && img.naturalWidth > 0) {
-        ctx.save();
-        if (unit.active) {
-          ctx.shadowColor = 'rgba(255,255,255,0.85)';
-          ctx.shadowBlur = 10;
-        }
-        if (unit.facing === 'west' || unit.facing === 'north') {
-          ctx.translate(c.x, 0);
-          ctx.scale(-1, 1);
-          ctx.drawImage(img, -w / 2, c.y - h + 2, w, h);
-        } else {
-          ctx.drawImage(img, c.x - w / 2, c.y - h + 2, w, h);
-        }
-        ctx.restore();
-      }
-      // Etiqueta y barra de vida a los pies.
-      ctx.fillStyle = 'rgba(0,0,0,0.55)';
-      ctx.fillRect(c.x - 14, c.y + 7, 28, 3);
-      ctx.fillStyle = unit.team === 'player' ? '#7ec96b' : '#ffb066';
-      ctx.fillRect(c.x - 14, c.y + 7, 28 * Math.max(0, Math.min(1, unit.hpRatio)), 3);
-      ctx.fillStyle = 'rgba(255,255,255,0.8)';
-      ctx.font = 'bold 8px monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText(unit.id, c.x, c.y - h + 2);
-    }
+  }
 
-    // La etiqueta táctica (p. ej. el %) SIEMPRE por encima de la bestia.
-    const label = scene.hl.labels.get(key);
-    if (label) {
-      ctx.font = 'bold 12px monospace';
-      ctx.textAlign = 'center';
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = 'rgba(0,0,0,0.85)';
-      ctx.strokeText(label, c.x, c.y - 26);
-      ctx.fillStyle = '#ffffff';
-      ctx.fillText(label, c.x, c.y - 26);
+  // Pasada 2 — las bestias, de atrás hacia delante. Su x/y puede ser
+  // FLOTANTE (marcha interpolada): se proyectan por su cuenta.
+  const tileAt = new Map<string, DioramaTile>();
+  for (const tile of scene.tiles) tileAt.set(`${tile.x},${tile.y}`, tile);
+  const sortedUnits = [...scene.units].sort((a, b) => (a.x + a.y) - (b.x + b.y));
+  for (const unit of sortedUnits) {
+    const under = tileAt.get(`${Math.round(unit.x)},${Math.round(unit.y)}`);
+    const elev = unit.elev ??
+      (under ? (under.terrain === 'wall' ? Math.min(3, under.height) + 1 : Math.min(3, under.height)) : 0);
+    const c = isoProject(unit.x, unit.y, elev, scene.height);
+    const info = sprite(unit);
+    const img = spriteImage(info.body, info.color, onSpriteReady);
+    const w = 54, h = 40;
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.beginPath();
+    ctx.ellipse(c.x, c.y + 3, 17, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+    if (img.complete && img.naturalWidth > 0) {
+      ctx.save();
+      if (unit.active) {
+        ctx.shadowColor = 'rgba(255,255,255,0.85)';
+        ctx.shadowBlur = 10;
+      }
+      if (unit.facing === 'west' || unit.facing === 'north') {
+        ctx.translate(c.x, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(img, -w / 2, c.y - h + 2, w, h);
+      } else {
+        ctx.drawImage(img, c.x - w / 2, c.y - h + 2, w, h);
+      }
+      ctx.restore();
     }
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillRect(c.x - 14, c.y + 7, 28, 3);
+    ctx.fillStyle = unit.team === 'player' ? '#7ec96b' : '#ffb066';
+    ctx.fillRect(c.x - 14, c.y + 7, 28 * Math.max(0, Math.min(1, unit.hpRatio)), 3);
+    ctx.fillStyle = 'rgba(255,255,255,0.8)';
+    ctx.font = 'bold 8px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(unit.id, c.x, c.y - h + 2);
+  }
+
+  // Pasada 3 — etiquetas tácticas (el %): por encima de todo.
+  for (const tile of tiles) {
+    const key = `${tile.x},${tile.y}`;
+    const label = scene.hl.labels.get(key);
+    if (!label) continue;
+    const visualElev = tile.terrain === 'wall' ? Math.min(3, tile.height) + 1 : Math.min(3, tile.height);
+    const c = isoProject(tile.x, tile.y, visualElev, scene.height);
+    ctx.font = 'bold 12px monospace';
+    ctx.textAlign = 'center';
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+    ctx.strokeText(label, c.x, c.y - 26);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(label, c.x, c.y - 26);
   }
 }
