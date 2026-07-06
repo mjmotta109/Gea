@@ -26,6 +26,7 @@ import { VALLEY_CROSSING } from '../data/maps.js';
 import { generateBattlefield } from '../game/mapgen.js';
 import { adjustReputation, contractSlots, priceFactor, reputationTier, REPUTATION_MAX } from '../game/reputation.js';
 import { FACTIONS, PLACE_FACTIONS } from '../data/factions.js';
+import { playSfx, sfxEnabled, toggleSfx } from './sfx.js';
 import { GARAGE_MODULE_OPTIONS, MODULES } from '../data/modules.js';
 import { PERKS } from '../data/progression.js';
 import { withWeaponLibrary } from '../data/weaponLibrary.js';
@@ -670,6 +671,7 @@ function uiChoice(prompt: string, options: Array<{ id: string; label: string; de
   const host = $('dlg-opts');
   host.innerHTML = '';
   dlgChoiceMode = true;
+  playSfx('choice');
   $('dlg').classList.add('show');
   return new Promise((resolve) => {
     const finish = (id: string): void => {
@@ -1469,6 +1471,7 @@ function fxTracer(from: Position, to: Position, flightTime: number): void {
   el.style.top = `${a.y}px`;
   el.style.transform = `rotate(${angle}deg)`;
   $('fx').appendChild(el);
+  playSfx(beam ? 'beam' : 'shot');
   const duration = Math.max(90, Math.min(380, flightTime * 1000));
   el.animate([
     { transform: `translate(0, 0) rotate(${angle}deg)`, opacity: 1 },
@@ -1484,6 +1487,7 @@ function fxTracer(from: Position, to: Position, flightTime: number): void {
 
 /** Impacto: anillo expansivo + chispas radiales. */
 function fxImpact(pos: Position, heavy: boolean): void {
+  playSfx('impact');
   fxSpawn('fx-ring', pos, [
     { opacity: 1, transform: 'translate(-50%, -50%) scale(0.5)' },
     { opacity: 0, transform: `translate(-50%, -50%) scale(${heavy ? 4 : 2.6})` },
@@ -1501,6 +1505,7 @@ function fxImpact(pos: Position, heavy: boolean): void {
 
 /** Tajo cuerpo a cuerpo: arco blanco que barre el objetivo. */
 function fxSlash(pos: Position): void {
+  playSfx('slash');
   fxSpawn('fx-slash', pos, [
     { opacity: 0, transform: 'translate(-50%, -50%) rotate(-160deg) scale(0.7)' },
     { opacity: 1, transform: 'translate(-50%, -50%) rotate(-40deg) scale(1.05)', offset: 0.4 },
@@ -1510,6 +1515,7 @@ function fxSlash(pos: Position): void {
 
 /** Polvo bajo las patas: una nube por casilla del camino, escalonada. */
 function fxDust(path: Position[]): void {
+  if (path.length > 1) playSfx('step');
   path.forEach((pos, i) => {
     fxSpawn('fx-dust', pos, [
       { opacity: 0.9, transform: 'translate(-50%, -30%) scale(0.6)' },
@@ -1520,6 +1526,7 @@ function fxDust(path: Position[]): void {
 
 /** Explosión: núcleo brillante, humo y metralla. */
 function fxExplosion(pos: Position, big: boolean): void {
+  playSfx('explosion');
   fxSpawn('fx-boom', pos, [
     { opacity: 1, transform: 'translate(-50%, -50%) scale(0.5)' },
     { opacity: 1, transform: `translate(-50%, -50%) scale(${big ? 2.6 : 1.7})`, offset: 0.35 },
@@ -1544,6 +1551,7 @@ function fxExplosion(pos: Position, big: boolean): void {
 
 /** Reparación: motas verdes que suben. */
 function fxHeal(pos: Position): void {
+  playSfx('heal');
   for (let i = 0; i < 4; i++) {
     fxSpawn('fx-heal', pos, [
       { opacity: 1, transform: `translate(${(i - 1.5) * 9 - 3}px, 6px)` },
@@ -3786,6 +3794,15 @@ $('merc-btn').addEventListener('click', () => {
   else openMerc();
 });
 $('city-close').addEventListener('click', closeCity);
+function wireSfxButton(id: string): void {
+  const btn = $(id);
+  const paint = (): void => { btn.textContent = sfxEnabled() ? '🔊' : '🔇'; };
+  paint();
+  btn.addEventListener('click', () => { toggleSfx(); paint(); (document.querySelectorAll('.sfxbtn') as NodeListOf<HTMLElement>).forEach((b) => { b.textContent = sfxEnabled() ? '🔊' : '🔇'; }); });
+}
+wireSfxButton('sfx-btn');
+wireSfxButton('merc-sfx');
+
 $('merc-chronicle').addEventListener('click', openChronicle);
 $('chronicle-close').addEventListener('click', closeChronicle);
 $('merc-deploy').addEventListener('click', startContractExpedition);
