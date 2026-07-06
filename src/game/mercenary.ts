@@ -56,6 +56,8 @@ export interface CampaignState {
   companion: { markIds: string[]; memory: Record<string, number>; rapport: number };
   /** Reputación con cada facción (id → −100..+100; ausente = 0). */
   reputation: Record<string, number>;
+  /** Diario de la compañía: la historia escrita desde los hechos. */
+  chronicle: string[];
 }
 
 /**
@@ -106,6 +108,7 @@ export function newCampaign(
     cargo: [], moduleBlueprints: [],
     companion: { markIds: [], memory: {}, rapport: 0 },
     reputation: {},
+    chronicle: [],
   };
 }
 

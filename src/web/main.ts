@@ -723,6 +723,10 @@ document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') closeGarage();
     return;
   }
+  if (chronicleOpen) {
+    if (event.key === 'Escape') closeChronicle();
+    return;
+  }
   if (mercOpen) {
     if (event.key === 'Escape') { if (inCampaign()) openStart(); else closeMerc(); }
     return;
@@ -1855,6 +1859,7 @@ function loadCampaign(): CampaignState | null {
     if (!Array.isArray(state.moduleBlueprints)) state.moduleBlueprints = [];
     if (!state.companion || typeof state.companion !== 'object') state.companion = newCompanion();
     if (!state.reputation || typeof state.reputation !== 'object') state.reputation = {};
+    if (!Array.isArray(state.chronicle)) state.chronicle = [];
     return state;
   } catch {
     return null;
@@ -1872,6 +1877,12 @@ let returnToMerc = false;
 let mercOpen = false;
 /** Marcas grabadas por la compañera en la última batalla (parte). */
 let companionMarkLines: string[] = [];
+
+/** Apunta líneas en el diario de la compañía (el que llama, guarda). */
+function chronicle(...lines: string[]): void {
+  if (!campaign) return;
+  campaign = { ...campaign, chronicle: [...campaign.chronicle, ...lines].slice(-400) };
+}
 
 function saveCampaign(): void {
   try {
@@ -1923,6 +1934,26 @@ function renderMerc(): void {
 }
 
 /** Panel de reputación del cuartel: cómo nos mira cada facción. */
+let chronicleOpen = false;
+
+function openChronicle(): void {
+  if (!campaign) return;
+  chronicleOpen = true;
+  const host = $('chronicle-body');
+  host.innerHTML = campaign.chronicle.length === 0
+    ? '<div class="cempty">Aún no hay nada escrito. Sal ahí fuera: el diario se escribe solo.</div>'
+    : [...campaign.chronicle].reverse().map((line) => {
+        const cls = line === '· · ·' ? ' sep' : line.includes('⚠') || line.startsWith('✝') ? ' warn' : line.includes('❤') ? ' mark' : '';
+        return `<div class="cline${cls}">${escapeHtml(line)}</div>`;
+      }).join('');
+  $('chronicle').classList.add('show');
+}
+
+function closeChronicle(): void {
+  chronicleOpen = false;
+  $('chronicle').classList.remove('show');
+}
+
 function renderReputation(): void {
   const host = $('merc-rep');
   host.innerHTML = '';
@@ -2276,6 +2307,12 @@ function settleContract(): string {
       for (const mark of observed.gained) {
         companionMarkLines.push(
           `<div>❤ La compañera graba una marca: <b class="lvlup">${mark.name}</b> — <span style="color:var(--muted)">${mark.description}</span></div>`);
+        if (expedition) {
+          expedition = {
+            ...expedition,
+            log: [...expedition.log, `Día ${expedition.day} — ❤ La compañera graba una marca: ${mark.name}.`],
+          };
+        }
       }
     }
   }
@@ -2323,6 +2360,8 @@ function settleContract(): string {
       returnToWorld = true;
       returnToMerc = false;
     } else {
+      chronicle(...expedition.log,
+        `✝ Día ${expedition.day} — Retirada en ${REGION.nodes.find((n) => n.id === expedition!.at)?.name ?? 'campo abierto'}: la expedición se pierde.`);
       expedition = null;
       returnToWorld = false;
       returnToMerc = true;
@@ -3057,6 +3096,9 @@ function endExpedition(): void {
   if (expedition.missionDone) {
     campaign = { ...campaign, companion: bondExpedition(campaign.companion, COMPANION_TABLE) };
   }
+  chronicle(...expedition.log,
+    `⚒ Día ${expedition.day} — De vuelta al taller${sold.earned > 0 ? `: la bodega paga ⌾${sold.earned}` : ''}. La expedición se cierra.`,
+    '· · ·');
   expedition = null;
   saveCampaign();
   saveExpedition();
@@ -3610,11 +3652,15 @@ function foundCompany(): void {
       freshPilots[id] = newPilot(id, value || DEFAULT_PILOT_NAMES[i]!);
     });
     localStorage.setItem(PILOTS_KEY, JSON.stringify(freshPilots));
-    localStorage.setItem(CAMPAIGN_KEY, JSON.stringify(newCampaign(ECONOMY, factoryLoadout, {
+    const founded = newCampaign(ECONOMY, factoryLoadout, {
       credits: diff.credits,
       supplies: diff.supplies,
       starterRoster: [ngCompanion, 'command-wolf', 'gun-sniper', 'gustav'],
-    })));
+    });
+    founded.chronicle = [
+      `⚑ Se funda ${company}. Dificultad ${diff.name}: ⌾${diff.credits} y ${diff.supplies} suministros. La compañera: ${ZOIDS[ngCompanion]?.name ?? ngCompanion}.`,
+    ];
+    localStorage.setItem(CAMPAIGN_KEY, JSON.stringify(founded));
     localStorage.setItem(COMPANY_KEY, company);
     sessionStorage.setItem(SKIP_MENU_FLAG, '1');
   } catch { /* privado */ }
@@ -3651,6 +3697,8 @@ $('merc-btn').addEventListener('click', () => {
   else openMerc();
 });
 $('city-close').addEventListener('click', closeCity);
+$('merc-chronicle').addEventListener('click', openChronicle);
+$('chronicle-close').addEventListener('click', closeChronicle);
 $('merc-deploy').addEventListener('click', startContractExpedition);
 $('merc-freeroam').addEventListener('click', startFreeRoam);
 $('merc-skirmish').addEventListener('click', enterSandbox);

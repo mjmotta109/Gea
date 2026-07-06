@@ -527,6 +527,25 @@
   }
   #ng-found:hover { background: var(--player); color: #04181d; }
 
+  /* ── Diario de la compañía ── */
+  #chronicle {
+    display: none; position: fixed; inset: 0; background: rgba(4, 8, 11, 0.94);
+    z-index: 26; overflow-y: auto; padding: 20px 14px;
+  }
+  #chronicle.show { display: block; }
+  #chronicle .gbox {
+    max-width: 780px; margin: 0 auto; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px 20px;
+  }
+  #chronicle .gtop { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  #chronicle .gtop h2 { margin: 0; font-size: 14px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--player); }
+  #chronicle-body { font-family: var(--mono); font-size: 12px; line-height: 1.9; color: var(--ink); }
+  #chronicle-body .cline { border-left: 2px solid var(--line); padding-left: 12px; margin-bottom: 2px; }
+  #chronicle-body .cline.warn { color: var(--heat); border-left-color: var(--heat); }
+  #chronicle-body .cline.mark { color: var(--player); border-left-color: var(--player); }
+  #chronicle-body .cline.sep { border: 0; color: #3a4a58; text-align: center; }
+  #chronicle-body .cempty { color: var(--muted); font-style: italic; }
+
   /* ── Diálogo propio (el visor embebido bloquea confirm/prompt nativos) ── */
   #dlg {
     display: none; position: fixed; inset: 0; background: rgba(4, 8, 11, 0.8);
@@ -1016,6 +1035,17 @@
     </div>
   </div>
 
+  <div id="chronicle">
+    <div class="gbox">
+      <div class="gtop">
+        <h2>📜 Diario de la compañía</h2>
+        <span class="gnote">la historia, escrita desde los hechos — lo más reciente arriba</span>
+        <button id="chronicle-close" class="gsub">← volver</button>
+      </div>
+      <div id="chronicle-body"></div>
+    </div>
+  </div>
+
   <div id="dlg">
     <div class="dbox">
       <div id="dlg-msg"></div>
@@ -1123,6 +1153,7 @@
       <div class="gtop">
         <h2>Compañía mercenaria</h2>
         <span class="gnote" id="merc-status"></span>
+        <button id="merc-chronicle" class="gsub">📜 Diario</button>
         <button id="merc-saves" class="gsub">💾</button>
         <button id="merc-menu" class="gsub">☰ menú</button>
         <button id="pilots-btn-m" class="gsub">🧠 Pilotos</button>
