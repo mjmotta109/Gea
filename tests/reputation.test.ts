@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { adjustReputation, reputationTier, REPUTATION_MAX, REPUTATION_MIN } from '../src/game/reputation.js';
+import { adjustReputation, contractSlots, priceFactor, reputationTier, REPUTATION_MAX, REPUTATION_MIN } from '../src/game/reputation.js';
 import { availableEdges, resolveEncounter, startFreeExpedition, travel } from '../src/game/expedition.js';
 import type { Encounter } from '../src/game/expedition.js';
 import { newCampaign } from '../src/game/mercenary.js';
@@ -35,6 +35,21 @@ describe('reputación: cómo nos miran las facciones', () => {
   it('la campaña nueva arranca sin deudas ni favores', () => {
     const campaign = newCampaign(ECONOMY, noLoadout, { starterRoster: [] });
     expect(campaign.reputation).toEqual({});
+  });
+
+  it('los precios premian al amigo y castigan al enemigo, sin gratis', () => {
+    expect(priceFactor('aliado')).toBeLessThan(1);
+    expect(priceFactor('apreciado')).toBeLessThan(1);
+    expect(priceFactor('neutral')).toBe(1);
+    expect(priceFactor('hostil')).toBeGreaterThan(1);
+    expect(priceFactor('odiado')).toBeGreaterThan(priceFactor('hostil'));
+    expect(priceFactor('aliado')).toBeGreaterThan(0.5); // nunca regalado
+  });
+
+  it('el Gremio recorta la mesa a los mal mirados', () => {
+    expect(contractSlots('neutral')).toBe(3);
+    expect(contractSlots('hostil')).toBe(2);
+    expect(contractSlots('odiado')).toBe(1); // nunca cero: siempre hay salida
   });
 
   it('toda ciudad adscrita responde a una facción que existe', () => {

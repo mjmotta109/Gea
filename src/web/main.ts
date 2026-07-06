@@ -24,7 +24,7 @@ import { ABILITIES } from '../data/abilities.js';
 import { BLUEPRINT_PRICES, CITY_TIERS, CONTRACT_ENEMY_POOL, DIFFICULTIES, ECONOMY, LEISURE_OPTIONS, STARTER_COMPANIONS, THERAPY } from '../data/economy.js';
 import { VALLEY_CROSSING } from '../data/maps.js';
 import { generateBattlefield } from '../game/mapgen.js';
-import { adjustReputation, reputationTier, REPUTATION_MAX } from '../game/reputation.js';
+import { adjustReputation, contractSlots, priceFactor, reputationTier, REPUTATION_MAX } from '../game/reputation.js';
 import { FACTIONS, PLACE_FACTIONS } from '../data/factions.js';
 import { GARAGE_MODULE_OPTIONS, MODULES } from '../data/modules.js';
 import { PERKS } from '../data/progression.js';
@@ -1946,7 +1946,14 @@ function renderReputation(): void {
 function renderContracts(): void {
   const host = $('contracts');
   host.innerHTML = '';
-  const offers = contractOffers(campaign!.contractsDone, ECONOMY, CONTRACT_ENEMY_POOL);
+  // El cupo de la mesa depende de cómo te mira el Gremio.
+  const guildTier = reputationTier(campaign!.reputation['gremio'] ?? 0);
+  const slots = contractSlots(guildTier.id);
+  const offers = contractOffers(campaign!.contractsDone, ECONOMY, CONTRACT_ENEMY_POOL).slice(0, slots);
+  if (slots < 3) {
+    host.insertAdjacentHTML('beforeend',
+      `<div class="cnote" style="grid-column:1/-1">⚖ El Gremio te mira con recelo (${guildTier.label}): solo ${slots === 1 ? 'un contrato' : `${slots} contratos`} sobre la mesa. La reputación se repara trabajando… o ayudando en la ruta.</div>`);
+  }
   if (!offers.some((c) => c.id === selectedContractId)) selectedContractId = null;
   for (const contract of offers) {
     const card = document.createElement('div');
@@ -2561,15 +2568,18 @@ function renderCity(): void {
   const factionId = PLACE_FACTIONS[node.id];
   const faction = FACTIONS.find((f) => f.id === factionId);
   const standing = faction ? reputationTier(campaign.reputation[faction.id] ?? 0) : null;
+  const priceMul = standing ? priceFactor(standing.id) : 1;
   $('city-status').textContent =
     `⌾${campaign.credits} · suministros ${campaign.supplies} · día ${expedition.day}` +
-    (faction && standing ? ` · ${faction.name}: ${standing.label}` : '');
+    (faction && standing ? ` · ${faction.name}: ${standing.label}` : '') +
+    (priceMul !== 1 ? ` · precios ${priceMul > 1 ? '+' : '−'}${Math.round(Math.abs(priceMul - 1) * 100)}%` : '');
+  const px = (base: number): number => Math.max(1, Math.round(base * priceMul));
   $('city-body').innerHTML = '';
 
   // ⚒ TALLER — arreglos básicos, siempre; eliges cuánto gastar.
   const taller = citySection('⚒ Taller — arreglos básicos');
   taller.insertAdjacentHTML('beforeend',
-    `<div class="cnote">Repara hasta el ${Math.round(tier.repairCapRatio * 100)}% del casco a ⌾${tier.repairCostPerHp}/HP. La munición se repone al desplegar (incluida).</div>`);
+    `<div class="cnote">Repara hasta el ${Math.round(tier.repairCapRatio * 100)}% del casco a ⌾${px(tier.repairCostPerHp)}/HP. La munición se repone al desplegar (incluida).</div>`);
   let anyRepair = false;
   campaign.roster.forEach((zoid, slot) => {
     if (zoid.destroyed) {
@@ -2588,14 +2598,14 @@ function renderCity(): void {
     row.innerHTML = `<span class="lbl">${ZOIDS[zoid.unitTypeId]!.name} · ${current}/${maxHp} HP</span>`;
     for (const fraction of [0.25, 0.5, 1]) {
       const heal = Math.max(0, Math.round(healable * fraction));
-      const cost = Math.round(heal * tier.repairCostPerHp);
+      const cost = Math.round(heal * px(tier.repairCostPerHp));
       if (heal <= 0) continue;
       const btn = document.createElement('button');
       btn.className = 'gbtn';
       btn.textContent = `+${heal} HP (⌾${cost})`;
       btn.disabled = campaign!.credits < cost;
       btn.addEventListener('click', () => {
-        campaign = cityRepair(campaign!, slot, campaignMaxHp(slot), tier.repairCostPerHp, tier.repairCapRatio, fraction);
+        campaign = cityRepair(campaign!, slot, campaignMaxHp(slot), px(tier.repairCostPerHp), tier.repairCapRatio, fraction);
         saveCampaign(); renderCity();
       });
       row.appendChild(btn);
@@ -2607,9 +2617,9 @@ function renderCity(): void {
   // 🏪 MERCADER — suministros, bodega, jornal y armas de segunda mano.
   const store = citySection('🏪 Mercader');
   for (const count of [1, 5]) {
-    cityButton(store, `📦 +${count} suministro${count > 1 ? 's' : ''} (⌾${tier.supplyPrice * count})`,
-      campaign.credits < tier.supplyPrice * count,
-      () => { campaign = buySupplies(campaign!, count, ECONOMY, tier.supplyPrice); saveCampaign(); });
+    cityButton(store, `📦 +${count} suministro${count > 1 ? 's' : ''} (⌾${px(tier.supplyPrice) * count})`,
+      campaign.credits < px(tier.supplyPrice) * count,
+      () => { campaign = buySupplies(campaign!, count, ECONOMY, px(tier.supplyPrice)); saveCampaign(); });
   }
   if (campaign.cargo.length > 0) {
     const total = Math.round(campaign.cargo.reduce((n, c) => n + c.value, 0) * tier.cargoRate);
@@ -2766,16 +2776,16 @@ function renderCity(): void {
     cityDay(1, line);
     savePilots(); saveCampaign();
   };
-  cityButton(rest, `😴 Pensión (−${tier.restRelief} estrés, ⌾${tier.restCost}, 1 día)`,
-    campaign.credits < tier.restCost || maxStress === 0,
-    () => restDay(tier.restRelief, tier.restCost, `Descanso en ${node.name}.`));
+  cityButton(rest, `😴 Pensión (−${tier.restRelief} estrés, ⌾${px(tier.restCost)}, 1 día)`,
+    campaign.credits < px(tier.restCost) || maxStress === 0,
+    () => restDay(tier.restRelief, px(tier.restCost), `Descanso en ${node.name}.`));
   for (const leisure of LEISURE_OPTIONS) {
     if (city.level < leisure.minLevel) continue;
     const icon = leisure.id === 'vela' ? '🕯' : leisure.id === 'cantina' ? '🍺' : '🏮';
-    cityButton(rest, `${icon} ${leisure.name} (−${leisure.relief}, ⌾${leisure.cost}, 1 día)`,
-      campaign.credits < leisure.cost || maxStress === 0,
+    cityButton(rest, `${icon} ${leisure.name} (−${leisure.relief}, ⌾${px(leisure.cost)}, 1 día)`,
+      campaign.credits < px(leisure.cost) || maxStress === 0,
       () => {
-        let cost = leisure.cost;
+        let cost = px(leisure.cost);
         let line = `${leisure.name} en ${node.name}.`;
         if (leisure.rowdy) {
           const roll = (Math.imul(expedition!.day * 2654435761 ^ node.id.length * 97, 668265263) >>> 0) / 4294967296;
@@ -2819,7 +2829,13 @@ function renderCity(): void {
     '<div class="cnote">Los contratos OFICIALES del gremio se firman en el cuartel (Base Arcadia). Aquí, entre jarras, se consiguen otros encargos…</div>');
   const jobDone = (expedition.tavernJobsDone ?? []).includes(node.id);
   const job = tavernJob(node.id, city.level, campaign.contractsDone, ECONOMY, CONTRACT_ENEMY_POOL);
-  if (jobDone) {
+  if (standing && standing.id === 'odiado') {
+    tavern.insertAdjacentHTML('beforeend',
+      `<div class="cnote">🚫 El tabernero señala la puerta sin mediar palabra. Aquí no se sirve a los tuyos (${faction!.name}: Odiado).</div>`);
+  } else if (standing && standing.id === 'hostil') {
+    tavern.insertAdjacentHTML('beforeend',
+      `<div class="cnote">🥃 Te sirven, de lejos y sin conversación. Nadie te confiaría un encargo (${faction!.name}: Hostil).</div>`);
+  } else if (jobDone) {
     tavern.insertAdjacentHTML('beforeend', '<div class="cnote">✓ Ya hiciste el trabajo sucio de esta ciudad. El tabernero te sirve gratis la primera.</div>');
   } else {
     cityButton(tavern,
