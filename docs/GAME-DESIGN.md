@@ -715,3 +715,20 @@ arquitectura del motor van en DESIGN.md.)*
   TORTUGA ("es más aesthetic"): caparazón abovedado con banda de
   placas, cabeza corta al frente y patas rechonchas. La llevan el
   Gustav y el carguero de escolta. El encargo de arte se actualiza.
+- **2026-07-06** — DIORAMA GIRATORIO + CLIMA CON PESO Y PRESENCIA.
+  · GIRO DE CÁMARA: el diorama rota en cuartos de vuelta (botón ⟳ y
+    tecla Q, persistido). La cámara gira, el mundo no: el motor sigue
+    sin enterarse; proyección, orden del pintor, facing de sprites y
+    picking giran juntos (tests de ida y vuelta en tests/iso.test.ts).
+  · CLIMA VISIBLE: la lluvia raya y azulea el campo; la tormenta de
+    arena arrastra velos de polvo y entibia la luz. Capa final del
+    canvas, determinista respecto al reloj de escena.
+  · CLIMA REGIONAL CON PESO: cada región tiene su perfil de cielos
+    (Paso de Sal traga arena, Costa Esmeralda llueve, la Meseta del
+    Hierro respira polvo). weatherFor(región, día) es determinista:
+    recargar no cambia el tiempo, viajar sí. Las batallas de campaña
+    pelean bajo el cielo del día (la tormenta que nos siguió en ruta
+    aún manda); el selector de la cabecera queda para escaramuzas.
+    El PESO: en batalla ya restaba (lluvia disipa calor, arena ciega
+    a distancia); ahora viajar bajo tormenta come +1 suministro, y el
+    mapa de mundo anuncia el cielo del día (☀/🌧/🌪).

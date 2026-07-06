@@ -11,6 +11,8 @@ export const SALT_PASS_REGION: WorldRegion = {
   name: 'Región del Paso de Sal',
   continentId: 'arcadia',
   hq: 'base-arcadia',
+  // Tierra de sal y dunas: la arena manda cuando el cielo se tuerce.
+  weather: { clear: 5, rain: 1, sandstorm: 4 },
   nodes: [
     {
       id: 'base-arcadia', name: 'Base Arcadia', kind: 'taller', x: 8, y: 55,
@@ -87,6 +89,8 @@ export const EMERALD_COAST_REGION: WorldRegion = {
   name: 'Costa Esmeralda',
   continentId: 'arcadia',
   hq: 'faro-verde',
+  // Costa húmeda: aquí llueve más de lo que despeja.
+  weather: { clear: 4, rain: 5, sandstorm: 1 },
   nodes: [
     {
       id: 'faro-verde', name: 'Faro Verde', kind: 'taller', x: 14, y: 50,
@@ -129,6 +133,8 @@ export const IRON_PLATEAU_REGION: WorldRegion = {
   name: 'Meseta del Hierro',
   continentId: 'hierro',
   hq: 'campamento-yunque',
+  // Meseta ventosa: polvo de mineral en el aire la mitad del año.
+  weather: { clear: 5, rain: 2, sandstorm: 3 },
   nodes: [
     {
       id: 'campamento-yunque', name: 'Campamento Yunque', kind: 'taller', x: 18, y: 42,

@@ -53,6 +53,31 @@ export interface DioramaScene {
   hl: DioramaHighlights;
   /** Milisegundos monotónicos para las aguas y los brillos. */
   time: number;
+  /** Giro de cámara en cuartos de vuelta (0-3), sentido horario. */
+  rotation?: number;
+  /** Clima de la batalla: lluvia y tormenta se VEN, no solo restan. */
+  weather?: 'clear' | 'rain' | 'sandstorm';
+}
+
+/**
+ * Coordenadas de pantalla de un punto del mundo bajo un giro de cámara
+ * de `r` cuartos de vuelta. Acepta flotantes (marchas interpoladas).
+ */
+export function rotatePoint(
+  x: number, y: number, w: number, h: number, r: number,
+): { x: number; y: number } {
+  switch (((r % 4) + 4) % 4) {
+    case 1: return { x: h - 1 - y, y: x };
+    case 2: return { x: w - 1 - x, y: h - 1 - y };
+    case 3: return { x: y, y: w - 1 - x };
+    default: return { x, y };
+  }
+}
+
+/** El facing también gira con la cámara (orden horario E→S→O→N). */
+const FACING_RING = ['east', 'south', 'west', 'north'] as const;
+export function rotateFacing(facing: DioramaUnit['facing'], r: number): DioramaUnit['facing'] {
+  return FACING_RING[(FACING_RING.indexOf(facing) + ((r % 4) + 4) % 4) % 4]!;
 }
 
 // Proyección 2:1 clásica. La elevación sube en pasos fijos.
@@ -72,7 +97,16 @@ export function isoProject(x: number, y: number, height: number, mapH: number): 
   };
 }
 
-/** Tamaño de lienzo necesario para un mapa w×h. */
+/** isoProject con giro de cámara: la vía para clientes con rotación. */
+export function isoProjectView(
+  x: number, y: number, height: number, mapW: number, mapH: number, rotation = 0,
+): IsoPoint {
+  const p = rotatePoint(x, y, mapW, mapH, rotation);
+  const viewH = rotation % 2 === 1 ? mapW : mapH;
+  return isoProject(p.x, p.y, height, viewH);
+}
+
+/** Tamaño de lienzo necesario para un mapa w×h (el giro lo conserva). */
 export function isoCanvasSize(w: number, h: number): { width: number; height: number } {
   return {
     width: (w + h) * (TILE_W / 2) + MARGIN_X * 2 - TILE_W / 2,
@@ -85,11 +119,16 @@ export function isoCanvasSize(w: number, h: number): { width: number; height: nu
  * prueba el rombo superior de cada prisma (la elevación cuenta).
  */
 export function isoPick(
-  point: IsoPoint, tiles: DioramaTile[], mapH: number,
+  point: IsoPoint, tiles: DioramaTile[], mapW: number, mapH: number, rotation = 0,
 ): { x: number; y: number } | null {
-  const sorted = [...tiles].sort((a, b) => (b.x + b.y) - (a.x + a.y));
+  const depth = (t: DioramaTile): number => {
+    const p = rotatePoint(t.x, t.y, mapW, mapH, rotation);
+    return p.x + p.y;
+  };
+  const sorted = [...tiles].sort((a, b) => depth(b) - depth(a));
   for (const tile of sorted) {
-    const c = isoProject(tile.x, tile.y, tile.terrain === 'wall' ? tile.height + 1 : tile.height, mapH);
+    const c = isoProjectView(
+      tile.x, tile.y, tile.terrain === 'wall' ? tile.height + 1 : tile.height, mapW, mapH, rotation);
     const dx = Math.abs(point.x - c.x) / (TILE_W / 2);
     const dy = Math.abs(point.y - c.y) / (TILE_H / 2);
     if (dx + dy <= 1) return { x: tile.x, y: tile.y };
@@ -230,19 +269,31 @@ export function drawDiorama(
   }
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Pintor: de atrás (x+y menor) hacia delante.
-  const tiles = [...scene.tiles].sort((a, b) => (a.x + a.y) - (b.x + b.y) || a.y - b.y);
+  // Giro de cámara: todo se proyecta en coordenadas de PANTALLA; las
+  // claves de resaltado siguen siendo del mundo (el motor no gira).
+  const rot = scene.rotation ?? 0;
+  const proj = (x: number, y: number, height: number): IsoPoint =>
+    isoProjectView(x, y, height, scene.width, scene.height, rot);
+  const viewDepth = (x: number, y: number): number => {
+    const p = rotatePoint(x, y, scene.width, scene.height, rot);
+    return p.x + p.y;
+  };
+
+  // Pintor: de atrás hacia delante EN PANTALLA.
+  const tiles = [...scene.tiles].sort((a, b) =>
+    viewDepth(a.x, a.y) - viewDepth(b.x, b.y) ||
+    rotatePoint(a.x, a.y, scene.width, scene.height, rot).y - rotatePoint(b.x, b.y, scene.width, scene.height, rot).y);
   for (const tile of tiles) {
     const key = `${tile.x},${tile.y}`;
     const elev = Math.min(3, tile.height);
     const wall = tile.terrain === 'wall';
     const visualElev = wall ? elev + 1 : elev;
-    const c = isoProject(tile.x, tile.y, visualElev, scene.height);
+    const c = proj(tile.x, tile.y, visualElev);
     const depth = visualElev * ELEV_STEP + 6; // faldón mínimo: nada flota
 
     if (tile.terrain === 'water') {
       // El agua vive hundida y ondula.
-      const wc = isoProject(tile.x, tile.y, 0, scene.height);
+      const wc = proj(tile.x, tile.y, 0);
       const wave = Math.sin(scene.time / 900 + (tile.x + tile.y * 1.7)) * 1.5;
       prism(ctx, wc.x, wc.y + 4 + wave * 0.4, 3, tile.fill);
       ctx.fillStyle = 'rgba(140, 200, 255, 0.18)';
@@ -314,12 +365,12 @@ export function drawDiorama(
   // FLOTANTE (marcha interpolada): se proyectan por su cuenta.
   const tileAt = new Map<string, DioramaTile>();
   for (const tile of scene.tiles) tileAt.set(`${tile.x},${tile.y}`, tile);
-  const sortedUnits = [...scene.units].sort((a, b) => (a.x + a.y) - (b.x + b.y));
+  const sortedUnits = [...scene.units].sort((a, b) => viewDepth(a.x, a.y) - viewDepth(b.x, b.y));
   for (const unit of sortedUnits) {
     const under = tileAt.get(`${Math.round(unit.x)},${Math.round(unit.y)}`);
     const elev = unit.elev ??
       (under ? (under.terrain === 'wall' ? Math.min(3, under.height) + 1 : Math.min(3, under.height)) : 0);
-    const c = isoProject(unit.x, unit.y, elev, scene.height);
+    const c = proj(unit.x, unit.y, elev);
     const info = sprite(unit);
     const img = spriteImage(info.body, info.color, onSpriteReady);
     const k = unit.scale ?? 1;
@@ -334,7 +385,8 @@ export function drawDiorama(
         ctx.shadowColor = 'rgba(255,255,255,0.85)';
         ctx.shadowBlur = 10;
       }
-      if (unit.facing === 'west' || unit.facing === 'north') {
+      const viewFacing = rotateFacing(unit.facing, rot);
+      if (viewFacing === 'west' || viewFacing === 'north') {
         ctx.translate(c.x, 0);
         ctx.scale(-1, 1);
         ctx.drawImage(img, -w / 2, c.y - h + 2, w, h);
@@ -359,7 +411,7 @@ export function drawDiorama(
     const label = scene.hl.labels.get(key);
     if (!label) continue;
     const visualElev = tile.terrain === 'wall' ? Math.min(3, tile.height) + 1 : Math.min(3, tile.height);
-    const c = isoProject(tile.x, tile.y, visualElev, scene.height);
+    const c = proj(tile.x, tile.y, visualElev);
     ctx.font = 'bold 12px monospace';
     ctx.textAlign = 'center';
     ctx.lineWidth = 3;
@@ -367,5 +419,47 @@ export function drawDiorama(
     ctx.strokeText(label, c.x, c.y - 26);
     ctx.fillStyle = '#ffffff';
     ctx.fillText(label, c.x, c.y - 26);
+  }
+
+  // Pasada 4 — el clima: la lluvia raya y azulea; la tormenta de arena
+  // arrastra velos de polvo. Determinista respecto al reloj de escena.
+  weatherOverlay(ctx, canvas.width, canvas.height, scene.weather ?? 'clear', scene.time);
+}
+
+function weatherOverlay(
+  ctx: CanvasRenderingContext2D, w: number, h: number,
+  weather: 'clear' | 'rain' | 'sandstorm', time: number,
+): void {
+  if (weather === 'rain') {
+    ctx.fillStyle = 'rgba(38, 66, 105, 0.15)';
+    ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = 'rgba(172, 206, 255, 0.35)';
+    ctx.lineWidth = 1;
+    const drops = Math.floor(w / 9);
+    for (let i = 0; i < drops; i++) {
+      const seed = (i * 2654435761) >>> 0;
+      const x0 = seed % w;
+      const speed = 0.6 + ((seed >>> 8) % 40) / 80;
+      const len = 9 + ((seed >>> 16) % 9);
+      const y0 = ((time * speed) / 2.4 + ((seed >>> 4) % (h + 60))) % (h + 60) - 30;
+      ctx.beginPath();
+      ctx.moveTo(x0 - len * 0.32, y0 - len);
+      ctx.lineTo(x0, y0);
+      ctx.stroke();
+    }
+  } else if (weather === 'sandstorm') {
+    ctx.fillStyle = 'rgba(198, 148, 72, 0.16)';
+    ctx.fillRect(0, 0, w, h);
+    for (let i = 0; i < 30; i++) {
+      const seed = (i * 2246822519) >>> 0;
+      const y0 = seed % h;
+      const speed = 1 + ((seed >>> 6) % 60) / 40;
+      const x0 = ((time * speed) / 5 + ((seed >>> 10) % (w + 240))) % (w + 240) - 120;
+      const rx = 24 + ((seed >>> 16) % 46);
+      ctx.fillStyle = `rgba(228, 188, 122, ${(6 + ((seed >>> 20) % 8)) / 100})`;
+      ctx.beginPath();
+      ctx.ellipse(x0, y0 + Math.sin(time / 700 + i) * 5, rx, 4 + ((seed >>> 22) % 4), 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 }

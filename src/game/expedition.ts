@@ -51,6 +51,31 @@ export interface WorldRegion {
   hq: string;
   nodes: WorldNode[];
   edges: WorldEdge[];
+  /**
+   * Perfil de clima de la región: pesos relativos de cada cielo. El
+   * clima es variable, pero cada región tiene el suyo — la costa llueve,
+   * las dunas tragan arena. Sin perfil: mayormente despejado.
+   */
+  weather?: { clear: number; rain: number; sandstorm: number };
+}
+
+/** Perfil por defecto: cielos mayormente amables. */
+const DEFAULT_WEATHER = { clear: 6, rain: 2, sandstorm: 2 };
+
+/**
+ * El cielo de una región en una jornada concreta. Determinista por
+ * (región, día): recargar no cambia el tiempo, viajar sí. El clima
+ * PESA: en batalla ya resta (lluvia disipa calor, la arena ciega a
+ * distancia) y la tormenta cobra suministros extra en ruta.
+ */
+export function weatherFor(region: WorldRegion, day: number): 'clear' | 'rain' | 'sandstorm' {
+  const profile = region.weather ?? DEFAULT_WEATHER;
+  const rand = mulberry32(hashString(`${region.id}|clima|${day}`))();
+  const total = profile.clear + profile.rain + profile.sandstorm;
+  const roll = rand * total;
+  if (roll < profile.clear) return 'clear';
+  if (roll < profile.clear + profile.rain) return 'rain';
+  return 'sandstorm';
 }
 
 // ── El atlas: continentes, regiones y los transportes que los unen ──────

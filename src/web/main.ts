@@ -33,7 +33,7 @@ import {
 import { playSfx, sfxEnabled, toggleSfx } from './sfx.js';
 import { spriteBody, unitSprite } from './sprites.js';
 import {
-  drawDiorama, isoCanvasSize, isoPick, isoProject, ELEV_STEP,
+  drawDiorama, isoCanvasSize, isoPick, isoProjectView, ELEV_STEP,
   type DioramaScene, type DioramaTile, type DioramaUnit,
 } from './iso.js';
 import { GARAGE_MODULE_OPTIONS, MODULES } from '../data/modules.js';
@@ -50,7 +50,7 @@ import {
 import {
   canExplore, edgesTowardCivilization, exploreSite, neighbors, otherEnd,
   startExpedition, startFreeExpedition, travel, resolveEncounter, edgeKey,
-  regionOf, linksFrom, linkDestination, useLink,
+  regionOf, linksFrom, linkDestination, useLink, weatherFor,
   type ExpeditionState, type WorldEdge, type WorldRegion,
 } from '../game/expedition.js';
 import { SALT_PASS_REGION, WORLD_ATLAS } from '../data/world.js';
@@ -900,6 +900,7 @@ document.addEventListener('keydown', (event) => {
     case 'r': case 'R': doReload(); return;
     case 'f': case 'F': enterFacing(); return;
     case 'v': case 'V': doOverwatch(); return;
+    case 'q': case 'Q': if (currentView() === 'diorama') rotateDiorama(); return;
     case ' ': event.preventDefault(); enterFacing(); return;
     default: {
       const index = Number(event.key);
@@ -1131,6 +1132,8 @@ function dioramaScene(): DioramaScene {
       ...(playerUnit() ? { cursor } : {}),
     },
     time: performance.now(),
+    rotation: dioramaRot,
+    weather: battle.weather,
   };
 }
 
@@ -1163,6 +1166,17 @@ function walkingPose(unitId: string): { x: number; y: number; elev: number } | n
   };
 }
 
+/** Giro de cámara del diorama en cuartos de vuelta (persistido). */
+let dioramaRot = (() => {
+  try { return (Number(localStorage.getItem('gea-rot')) || 0) & 3; } catch { return 0; }
+})();
+
+function rotateDiorama(): void {
+  dioramaRot = (dioramaRot + 1) & 3;
+  try { localStorage.setItem('gea-rot', String(dioramaRot)); } catch { /* privado */ }
+  renderAll();
+}
+
 let dioramaWired = false;
 
 function renderDioramaView(): void {
@@ -1177,7 +1191,7 @@ function renderDioramaView(): void {
       const scale = canvas.width / rect.width;
       return isoPick(
         { x: (event.clientX - rect.left) * scale, y: (event.clientY - rect.top) * scale },
-        dioramaScene().tiles, battle.map.height);
+        dioramaScene().tiles, battle.map.width, battle.map.height, dioramaRot);
     };
     canvas.addEventListener('mousemove', (event) => {
       const pos = pickAt(event);
@@ -1829,7 +1843,8 @@ function fxCenter(pos: Position): { x: number; y: number } {
     const rect = { left: canvas.offsetLeft, top: canvas.offsetTop };
     const scale = canvas.clientWidth > 0 ? canvas.clientWidth / canvas.width : 1;
     const tile = battle.map.tileAt(pos);
-    const c = isoProject(pos.x, pos.y, tile.terrain === 'wall' ? tile.height + 1 : tile.height, battle.map.height);
+    const c = isoProjectView(pos.x, pos.y, tile.terrain === 'wall' ? tile.height + 1 : tile.height,
+      battle.map.width, battle.map.height, dioramaRot);
     return { x: rect.left + c.x * scale, y: rect.top + (c.y - 12) * scale };
   }
   const board = $('board');
@@ -3072,6 +3087,10 @@ function settleContract(): string {
 
 let REGION = SALT_PASS_REGION;
 
+const WEATHER_BADGE: Record<WeatherId, string> = {
+  clear: '☀ despejado', rain: '🌧 lluvia', sandstorm: '🌪 tormenta de arena',
+};
+
 /** La base de operaciones: el último taller donde se cerró expedición. */
 function homeRegion(): WorldRegion {
   try {
@@ -3151,8 +3170,9 @@ function renderWorld(): void {
   const here = REGION.nodes.find((n) => n.id === expedition!.at)!;
   const continent = WORLD_ATLAS.continents.find((c) => c.id === REGION.continentId);
   $('world-title').textContent = `${continent ? `${continent.name} · ` : ''}${REGION.name}`;
+  const sky = expedition.forcedWeather ?? weatherFor(REGION, expedition.day);
   $('world-status').textContent =
-    `Día ${expedition.day} · suministros ${campaign.supplies} · ⌾${campaign.credits}` +
+    `Día ${expedition.day} · ${WEATHER_BADGE[sky]} · suministros ${campaign.supplies} · ⌾${campaign.credits}` +
     (contract ? ` · misión: ${contract.name} → ${target.name}${expedition.missionDone ? ' ✔' : ''}` : '');
 
   // Tramos como líneas SVG (los rotos, discontinuos).
@@ -3844,7 +3864,7 @@ function fightTavernBattle(job: Contract, nodeId: string): void {
   closeCity();
   closeWorld();
   const seed = (Number(($('seed') as HTMLInputElement).value) || 42) + expedition.day * 131 + nodeId.length * 17;
-  const weather = expedition.forcedWeather ?? (($('weather') as HTMLSelectElement).value as WeatherId);
+  const weather = expedition.forcedWeather ?? weatherFor(REGION, expedition.day);
   startBattle(spawns, seed, weather, field.map);
 }
 
@@ -3871,10 +3891,17 @@ function doExplore(): void {
 function doTravel(edge: WorldEdge): void {
   if (!campaign || !expedition) return;
   const dayBefore = expedition.day;
+  const stormToll = weatherFor(REGION, dayBefore) === 'sandstorm' ? 1 : 0;
   const result = travel(expedition, REGION, edge);
   expedition = result.expedition;
+  if (stormToll > 0) {
+    expedition = {
+      ...expedition,
+      log: [...expedition.log, `Día ${expedition.day} — 🌪 Viajar bajo la tormenta de arena come raciones: +1 suministro.`],
+    };
+  }
   healingDays(expedition.day - dayBefore);
-  const consumed = consumeSupplies(campaign, result.supplyCost);
+  const consumed = consumeSupplies(campaign, result.supplyCost + stormToll);
   campaign = consumed.state;
   if (consumed.shortage > 0) {
     // Marcha forzada: sin suministros, las máquinas sufren (nunca mueren
@@ -4121,8 +4148,8 @@ function fightExpeditionBattle(): void {
   returnToWorld = false;
   closeWorld();
   const seed = (Number(($('seed') as HTMLInputElement).value) || 42) + campaign.contractsDone * 1009 + expedition.day * 97;
-  // La tormenta que nos siguió en ruta manda sobre el selector.
-  const weather = expedition.forcedWeather ?? (($('weather') as HTMLSelectElement).value as WeatherId);
+  // El cielo del día de la región; la tormenta que nos siguió aún manda.
+  const weather = expedition.forcedWeather ?? weatherFor(REGION, expedition.day);
   startBattle(spawns, seed, weather, field.map, brief);
 }
 
@@ -4805,9 +4832,11 @@ function applyViewMode(): void {
   const view = currentView();
   document.body.classList.toggle('iso-view', view === 'mesa');
   document.body.classList.toggle('diorama-view', view === 'diorama');
+  ($('rot-btn') as HTMLElement).style.display = view === 'diorama' ? '' : 'none';
   $('iso-btn').classList.toggle('mode-on', view !== 'plana');
   $('iso-btn').textContent = view === 'plana' ? '🗺 plana' : view === 'mesa' ? '🧊 mesa' : '🏔 diorama';
 }
+$('rot-btn').addEventListener('click', rotateDiorama);
 $('iso-btn').addEventListener('click', () => {
   const next: ViewMode = currentView() === 'plana' ? 'mesa' : currentView() === 'mesa' ? 'diorama' : 'plana';
   try { localStorage.setItem(VIEW_KEY, next); } catch { /* privado */ }
