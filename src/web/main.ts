@@ -12,7 +12,7 @@ import { attackArc, type AttackArc } from '../core/combat.js';
 import { GameMap, posKey, terrainLabel, TERRAIN_COVER } from '../core/grid.js';
 import { reachableTiles, type ReachableTile } from '../core/pathfinding.js';
 import {
-  adjustStress, applyXp, awardXp, dominantTrack, newPilot, observeBattle,
+  adjustStress, applyXp, awardXp, dominantTrack, healInjury, injurePilot, isInjured, newPilot, observeBattle,
   recordPilotEvent, reframeQuirk, trackLevel,
   TRACK_LEVEL_THRESHOLDS, SPECIALIZATIONS,
   type PilotState, type SpecializationId,
@@ -2065,7 +2065,7 @@ function renderMercHangar(): void {
       `<b style="font-family:var(--mono);font-size:13px">${def.name}</b>` +
       (slot === 0 ? '<span class="gmuted" style="font-size:9px;letter-spacing:0.14em"> COMPAÑERA</span>' : '') +
       '</div>' +
-      `<div class="gtracks">${escapeHtml(pilot.name)} · ${pilotSummary(pilot)}</div>`;
+      `<div class="gtracks">${escapeHtml(pilot.name)}${isInjured(pilot) ? ` <span class="symptom">🩹 ${pilot.injuryDays}j</span>` : ''} · ${pilotSummary(pilot)}</div>`;
     if (slot === 0) {
       const bio = document.createElement('div');
       bio.className = 'gbio';
@@ -2344,6 +2344,8 @@ function settleContract(): string {
   const isTavern = contract.id.startsWith('tav-');
   // La compañera (hueco 1) registra la batalla en su núcleo.
   companionMarkLines = [];
+  const injuryLines = (): string[] =>
+    injuredNames.map((name) => `<div class="mloss">🩹 ${name} sale herido: 3 jornadas de baja</div>`);
   if (campaign && deployedSlots.includes(0)) {
     const unit = battle.units.find((u) => u.id === 'P1');
     if (unit) {
@@ -2363,6 +2365,25 @@ function settleContract(): string {
         }
       }
     }
+  }
+  // El precio humano: quien pierde su máquina en combate sale HERIDO —
+  // 3 jornadas de baja y un golpe de estrés. Determinista, sin dados.
+  const injuredNames: string[] = [];
+  if (campaign) {
+    for (const slot of deployedSlots) {
+      const unit = battle.units.find((u) => u.id === `P${slot + 1}`);
+      const pilotId = PILOT_IDS[slot];
+      if (!unit || !pilotId || unit.hp > 0) continue;
+      pilots[pilotId] = adjustStress(injurePilot(pilots[pilotId]!, 3), 15);
+      injuredNames.push(pilots[pilotId]!.name);
+      if (expedition) {
+        expedition = {
+          ...expedition,
+          log: [...expedition.log, `Día ${expedition.day} — 🩹 ${pilots[pilotId]!.name} sale herido del combate: 3 jornadas de baja.`],
+        };
+      }
+    }
+    if (injuredNames.length > 0) savePilots();
   }
   // Trabajo de taberna: paga y daña, pero no toca la misión oficial ni
   // el ciclo de contratos; gane o pierda, se vuelve al mapa.
@@ -2387,6 +2408,7 @@ function settleContract(): string {
     saveExpedition();
     const lines = [
       ...companionMarkLines,
+      ...injuryLines(),
       `<div><b>${contract.name}</b> — trabajo de taberna</div>`,
       `<div class="mgain">+⌾${settled.report.creditsEarned}${settled.report.rewardPaid ? '' : ' (sin paga: solo chatarra)'}</div>`,
     ];
@@ -2431,6 +2453,7 @@ function settleContract(): string {
 
   const lines = [
     ...companionMarkLines,
+    ...injuryLines(),
     `<div><b>${contract.name}</b> — ${TIER_LABEL[contract.tier]}</div>`,
     `<div class="mgain">+⌾${report.creditsEarned} (${report.rewardPaid ? `recompensa ⌾${contract.reward} + ` : 'sin recompensa · '}chatarra ⌾${report.salvage})</div>`,
   ];
@@ -2636,12 +2659,24 @@ function cityButton(host: HTMLElement, label: string, disabled: boolean, onClick
 }
 
 /** Un día pasa en la ciudad (descansos, jornales, terapias). */
+/** El tiempo cura: cada jornada descuenta baja médica a los heridos. */
+function healingDays(days: number): void {
+  if (days <= 0) return;
+  let changed = false;
+  for (const id of PILOT_IDS) {
+    const healed = healInjury(pilots[id]!, days);
+    if (healed !== pilots[id]) { pilots[id] = healed; changed = true; }
+  }
+  if (changed) savePilots();
+}
+
 function cityDay(days: number, line: string): void {
   expedition = {
     ...expedition!,
     day: expedition!.day + days,
     log: [...expedition!.log, `Día ${expedition!.day + days} — ${line}`],
   };
+  healingDays(days);
   saveExpedition();
 }
 
@@ -2937,7 +2972,7 @@ function fightTavernBattle(job: Contract, nodeId: string): void {
   if (!campaign || !expedition) return;
   const alive = campaign.roster
     .map((zoid, slot) => ({ zoid, slot }))
-    .filter(({ zoid }) => !zoid.destroyed);
+    .filter(({ zoid, slot }) => !zoid.destroyed && !isInjured(pilots[PILOT_IDS[slot]!]!));
   if (alive.length === 0) return;
   const node = REGION.nodes.find((n) => n.id === nodeId)!;
   let field = generatedField(`${job.id}|${nodeId}|${expedition.day}`);
@@ -2987,6 +3022,7 @@ function doExplore(): void {
   if (!campaign || !expedition) return;
   const result = exploreSite(expedition, REGION);
   expedition = result.expedition;
+  healingDays(1);
   if (result.cargo) {
     const before = campaign.cargo.length;
     campaign = stashCargo(campaign, result.cargo, CARGO_CAPACITY);
@@ -3003,8 +3039,10 @@ function doExplore(): void {
 
 function doTravel(edge: WorldEdge): void {
   if (!campaign || !expedition) return;
+  const dayBefore = expedition.day;
   const result = travel(expedition, REGION, edge);
   expedition = result.expedition;
+  healingDays(expedition.day - dayBefore);
   const consumed = consumeSupplies(campaign, result.supplyCost);
   campaign = consumed.state;
   if (consumed.shortage > 0) {
@@ -3046,8 +3084,10 @@ function doTravel(edge: WorldEdge): void {
     const encounter = result.encounter;
     void uiChoice(encounter.prompt, encounter.options).then((optionId) => {
       if (!campaign || !expedition) return;
+      const dayBeforeChoice = expedition.day;
       const outcome = resolveEncounter(expedition, encounter, optionId);
       expedition = outcome.expedition;
+      healingDays(expedition.day - dayBeforeChoice);
       if (outcome.supplyDelta > 0) {
         campaign = { ...campaign, supplies: campaign.supplies + outcome.supplyDelta };
       } else if (outcome.supplyDelta < 0) {
@@ -3084,7 +3124,7 @@ function fightExpeditionBattle(): void {
   if (!contract) return;
   const alive = campaign.roster
     .map((zoid, slot) => ({ zoid, slot }))
-    .filter(({ zoid }) => !zoid.destroyed);
+    .filter(({ zoid, slot }) => !zoid.destroyed && !isInjured(pilots[PILOT_IDS[slot]!]!));
   if (alive.length === 0) return;
 
   // El lugar elige el mapa: un mapa del editor con el nombre del nodo
@@ -3341,6 +3381,7 @@ function renderPilots(): void {
     const card = document.createElement('div');
     card.className = 'pcard';
     card.innerHTML = `<h3>${escapeHtml(pilot.name)}` +
+      (isInjured(pilot) ? `<span class="symptom">🩹 herido: ${pilot.injuryDays} jornada${pilot.injuryDays! > 1 ? 's' : ''}</span>` : '') +
       (trackLevel(pilot.tracks[dominant]) > 0
         ? `<span class="dom">◈ ${SPEC_LABEL[dominant]}</span>` : '') + '</h3>';
 

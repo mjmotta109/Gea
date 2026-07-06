@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Battle } from '../src/core/battle.js';
 import {
   applyXp, awardXp, dominantTrack, newPilot, pilotModifiers, trackLevel,
-  observeBattle,
+  observeBattle, injurePilot, healInjury, isInjured,
 } from '../src/core/progression.js';
 import type { BattleEvent } from '../src/core/types.js';
 import { GameMap } from '../src/core/grid.js';
@@ -126,5 +126,27 @@ describe('progresión: XP del piloto (el Zoid no gana nada)', () => {
     const mods = pilotModifiers(ace, ['sniper', 'sniper', 'sniper'], PERKS);
     const synergies = mods.filter((m) => m.source === 'synergy:sniper');
     expect(synergies).toHaveLength(2); // cap 2
+  });
+});
+
+describe('heridas: el precio humano de perder la máquina', () => {
+  it('herir aplica la baja más larga y curar descuenta hasta cero', () => {
+    let pilot = newPilot('p', 'Vera');
+    expect(isInjured(pilot)).toBe(false);
+    pilot = injurePilot(pilot, 3);
+    expect(isInjured(pilot)).toBe(true);
+    expect(pilot.injuryDays).toBe(3);
+    pilot = injurePilot(pilot, 1); // una lesión menor no acorta la mayor
+    expect(pilot.injuryDays).toBe(3);
+    pilot = healInjury(pilot, 2);
+    expect(pilot.injuryDays).toBe(1);
+    pilot = healInjury(pilot, 5);
+    expect(pilot.injuryDays).toBe(0);
+    expect(isInjured(pilot)).toBe(false);
+  });
+
+  it('curar a un piloto sano no fabrica estados nuevos', () => {
+    const pilot = newPilot('p', 'Irvine');
+    expect(healInjury(pilot, 3)).toBe(pilot); // misma referencia: sin ruido
   });
 });

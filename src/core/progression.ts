@@ -33,6 +33,8 @@ export interface PilotState {
   memory: Record<string, number>;
   /** Estrés acumulado (0-100): sube en combate, baja descansando. */
   stress: number;
+  /** Jornadas de baja médica: herido no despliega; cura pasando días. */
+  injuryDays?: number;
 }
 
 export function newPilot(id: string, name: string): PilotState {
@@ -271,6 +273,21 @@ export function pilotModifiers(
 }
 
 /** Ajusta el estrés de un piloto, acotado a [0, 100]. Sin mutar. */
+/** Baja médica: si ya estaba herido, manda la lesión más larga. */
+export function injurePilot(pilot: PilotState, days: number): PilotState {
+  return { ...pilot, injuryDays: Math.max(pilot.injuryDays ?? 0, days) };
+}
+
+/** El tiempo cura: cada jornada que pasa descuenta baja. */
+export function healInjury(pilot: PilotState, days: number): PilotState {
+  const left = Math.max(0, (pilot.injuryDays ?? 0) - days);
+  return left === (pilot.injuryDays ?? 0) ? pilot : { ...pilot, injuryDays: left };
+}
+
+export function isInjured(pilot: PilotState): boolean {
+  return (pilot.injuryDays ?? 0) > 0;
+}
+
 export function adjustStress(pilot: PilotState, delta: number): PilotState {
   const stress = Math.max(0, Math.min(100, Math.round((pilot.stress ?? 0) + delta)));
   return { ...pilot, stress };
