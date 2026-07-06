@@ -3875,6 +3875,21 @@ $('merc-btn').addEventListener('click', () => {
   else openMerc();
 });
 $('city-close').addEventListener('click', closeCity);
+// Vista de mesa (isométrica CSS): prueba del escalón 2 de la estética.
+const ISO_KEY = 'gea-iso';
+function applyIsoView(): void {
+  const on = localStorage.getItem(ISO_KEY) === 'on';
+  document.body.classList.toggle('iso-view', on);
+  $('iso-btn').classList.toggle('mode-on', on);
+}
+$('iso-btn').addEventListener('click', () => {
+  try {
+    localStorage.setItem(ISO_KEY, localStorage.getItem(ISO_KEY) === 'on' ? 'off' : 'on');
+  } catch { /* privado */ }
+  applyIsoView();
+});
+applyIsoView();
+
 function wireSfxButton(id: string): void {
   const btn = $(id);
   const paint = (): void => { btn.textContent = sfxEnabled() ? '🔊' : '🔇'; };

@@ -544,3 +544,13 @@ arquitectura del motor van en DESIGN.md.)*
   animadas, bosque con copas, abrupto punteado, muros con trama
   diagonal, cotas de altura como filos de luz y damero sutil. Todo
   inline: cero archivos, build autocontenido.
+- **2026-07-06** — VISTA DE MESA (prueba del escalón 2 de la escalera
+  estética, a petición del usuario antes de decidir el escalón 3).
+  Botón 🧊 ISO en la cabecera de batalla (persistente): el tablero se
+  inclina 46° como mesa de guerra, las COTAS suben como escalones
+  físicos (translateZ por nivel), los muros se levantan, y las bestias
+  quedan DE PIE como figuras (contra-rotación desde los pies, escala
+  +25%). El picking del ratón funciona inclinado (el hit-testing del
+  navegador respeta transformaciones). Es un ensayo de dirección: la
+  decisión pendiente es el escalón 3 (renderer isométrico real en
+  canvas estilo FFT, prismas de altura procedurales + billboards).
