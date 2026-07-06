@@ -500,3 +500,25 @@ arquitectura del motor van en DESIGN.md.)*
      sierra, las caravanas en la vega); el tier del contrato escala el
      campo de batalla (escolta 12-13 → caza 14-15 de ancho, más lomas
      y restos en la caza).
+- **2026-07-06** — EL ATLAS: CONTINENTES, REGIONES Y TRANSPORTES
+  (dirección del usuario: "amplía el mundo por regiones y continentes
+  y ferris o lanzaderas que unan esos continentes").
+  · Capa de juego: WorldAtlas {continents, regions, links}; toda
+    región pertenece a un continente y la expedición lleva regionId
+    (migración: las antiguas viven en el Paso de Sal). Enlaces de tres
+    clases — CAMINO (marcha normal: consume suministros, gratis),
+    FERRY (con horario: pasaje ⌾, sin eventos ni suministros a bordo)
+    y LANZADERA (cara y rápida: cruza en 1 jornada). useLink es
+    determinista y simétrico.
+  · Mundo inicial: continente ARCADIA (Paso de Sal + COSTA ESMERALDA,
+    con Puerto Esmeralda nivel 2) y continente EL HIERRO (MESETA DEL
+    HIERRO: tierra chatarrera con Forja Alta nivel 2 y el Muelle del
+    Óxido). Camino Cruce del Río↔Marjal de la Luz; ferry Puerto
+    Esmeralda↔Muelle del Óxido (3 jornadas, ⌾120); lanzadera Espejo
+    del Norte↔Forja Alta (1 jornada, ⌾300). Contenido de primera
+    pasada: la dirección lo repoblará.
+  · Web: la región activa sigue a la expedición; el título del mapa
+    dice Continente · Región; los transportes aparecen como rutas
+    especiales (🛤/⛴/🚀) con jornadas y pasaje a la vista. Los
+    contratos siguen partiendo de Base Arcadia (contratos por región:
+    pendiente).

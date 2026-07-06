@@ -5,7 +5,7 @@ import type { Encounter } from '../src/game/expedition.js';
 import { newCampaign } from '../src/game/mercenary.js';
 import { ECONOMY } from '../src/data/economy.js';
 import { FACTIONS, PLACE_FACTIONS } from '../src/data/factions.js';
-import { SALT_PASS_REGION } from '../src/data/world.js';
+import { SALT_PASS_REGION, WORLD_ATLAS } from '../src/data/world.js';
 
 const noLoadout = (): { weapons: string[]; slots: Record<string, string> } => ({ weapons: [], slots: {} });
 
@@ -56,7 +56,7 @@ describe('reputación: cómo nos miran las facciones', () => {
     const ids = new Set(FACTIONS.map((f) => f.id));
     for (const [place, factionId] of Object.entries(PLACE_FACTIONS)) {
       expect(ids.has(factionId), `${place} → ${factionId}`).toBe(true);
-      expect(SALT_PASS_REGION.nodes.some((n) => n.id === place), place).toBe(true);
+      expect(WORLD_ATLAS.regions.some((r) => r.nodes.some((n) => n.id === place)), place).toBe(true);
     }
   });
 });

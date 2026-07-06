@@ -46,9 +46,86 @@ export interface WorldEdge {
 export interface WorldRegion {
   id: string;
   name: string;
+  /** Continente al que pertenece (WorldAtlas). */
+  continentId: string;
   hq: string;
   nodes: WorldNode[];
   edges: WorldEdge[];
+}
+
+// ── El atlas: continentes, regiones y los transportes que los unen ──────
+
+export interface WorldContinent {
+  id: string;
+  name: string;
+  blurb: string;
+}
+
+/** Camino de tierra entre regiones, o travesía con horario y pasaje. */
+export type LinkKind = 'camino' | 'ferry' | 'lanzadera';
+
+export interface WorldLink {
+  id: string;
+  kind: LinkKind;
+  a: { regionId: string; nodeId: string };
+  b: { regionId: string; nodeId: string };
+  /** Jornadas de viaje. Ferry y lanzadera van con horario: sin eventos. */
+  days: number;
+  /** Pasaje en créditos (0 = camino de tierra). */
+  fare: number;
+  flavor: string;
+}
+
+export interface WorldAtlas {
+  continents: WorldContinent[];
+  regions: WorldRegion[];
+  links: WorldLink[];
+}
+
+export function regionOf(atlas: WorldAtlas, regionId: string): WorldRegion {
+  const region = atlas.regions.find((r) => r.id === regionId);
+  if (!region) throw new Error(`Región desconocida: ${regionId}`);
+  return region;
+}
+
+/** Transportes disponibles desde un lugar concreto. */
+export function linksFrom(atlas: WorldAtlas, regionId: string, nodeId: string): WorldLink[] {
+  return atlas.links.filter((l) =>
+    (l.a.regionId === regionId && l.a.nodeId === nodeId) ||
+    (l.b.regionId === regionId && l.b.nodeId === nodeId));
+}
+
+/** El otro extremo de un enlace visto desde una orilla. */
+export function linkDestination(link: WorldLink, regionId: string, nodeId: string): { regionId: string; nodeId: string } {
+  return link.a.regionId === regionId && link.a.nodeId === nodeId ? link.b : link.a;
+}
+
+/**
+ * Tomar un transporte interregional. Ferry y lanzadera viajan con
+ * horario: cuestan pasaje (lo cobra quien llama) pero no consumen
+ * suministros ni tiran eventos. El camino de tierra es marcha normal:
+ * consume suministros por jornada.
+ */
+export function useLink(
+  expedition: ExpeditionState,
+  atlas: WorldAtlas,
+  link: WorldLink,
+): { expedition: ExpeditionState; supplyCost: number } {
+  const to = linkDestination(link, expedition.regionId, expedition.at);
+  const target = regionOf(atlas, to.regionId).nodes.find((n) => n.id === to.nodeId)!;
+  const day = expedition.day + link.days;
+  const verb = link.kind === 'ferry' ? 'El ferry cruza' : link.kind === 'lanzadera' ? 'La lanzadera salta' : 'La marcha sigue';
+  return {
+    expedition: {
+      ...expedition,
+      regionId: to.regionId,
+      at: to.nodeId,
+      day,
+      forcedWeather: undefined,
+      log: [...expedition.log, `Día ${day} — ${link.flavor}: ${verb} hasta ${target.name}.`],
+    },
+    supplyCost: link.kind === 'camino' ? link.days : 0,
+  };
 }
 
 export type TravelEventKind = 'bridge' | 'find' | 'storm' | 'encounter' | 'calm';
@@ -60,6 +137,8 @@ export interface CargoItem {
 
 export interface ExpeditionState {
   contractId: string;
+  /** Región del atlas donde está la expedición. */
+  regionId: string;
   targetNodeId: string;
   at: string;
   day: number;
@@ -214,6 +293,7 @@ export function startExpedition(
   const target = region.nodes.find((n) => n.id === targetNodeId)!;
   return {
     contractId,
+    regionId: region.id,
     targetNodeId,
     at: region.hq,
     day: 0,
@@ -232,6 +312,7 @@ export function startExpedition(
 export function startFreeExpedition(region: WorldRegion, key: string): ExpeditionState {
   return {
     contractId: `libre|${key}`,
+    regionId: region.id,
     targetNodeId: region.hq,
     at: region.hq,
     day: 0,

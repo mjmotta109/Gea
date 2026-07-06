@@ -1,4 +1,4 @@
-import type { WorldRegion } from '../game/expedition.js';
+import type { WorldAtlas, WorldRegion } from '../game/expedition.js';
 
 /**
  * La primera región del mundo: el Paso de Sal. Dibujada a mano — siete
@@ -9,6 +9,7 @@ import type { WorldRegion } from '../game/expedition.js';
 export const SALT_PASS_REGION: WorldRegion = {
   id: 'paso-de-sal',
   name: 'Región del Paso de Sal',
+  continentId: 'arcadia',
   hq: 'base-arcadia',
   nodes: [
     {
@@ -73,5 +74,119 @@ export const SALT_PASS_REGION: WorldRegion = {
     { a: 'porto-azul', b: 'espejo-del-norte', days: 2, flavor: 'La ruta de los espejos', biome: 'vega' },
     { a: 'ruinas-de-helio', b: 'espejo-del-norte', days: 1, flavor: 'La cuesta de las antenas', biome: 'sierra' },
     { a: 'nido-del-grande', b: 'espejo-del-norte', days: 2, flavor: 'El filo del cráter', biome: 'sierra' },
+  ],
+};
+
+/**
+ * Costa Esmeralda: la salida al mar del continente de Arcadia. Vegas,
+ * marjales y el puerto del ferry. Contenido de primera pasada: la
+ * dirección lo repoblará.
+ */
+export const EMERALD_COAST_REGION: WorldRegion = {
+  id: 'costa-esmeralda',
+  name: 'Costa Esmeralda',
+  continentId: 'arcadia',
+  hq: 'faro-verde',
+  nodes: [
+    {
+      id: 'faro-verde', name: 'Faro Verde', kind: 'taller', x: 14, y: 50,
+      description: 'Un faro reconvertido en taller del Gremio. Huele a salitre y grasa.',
+    },
+    {
+      id: 'marjal-luz', name: 'Marjal de la Luz', kind: 'paraje', x: 34, y: 30,
+      description: 'Aguas someras que espejean al atardecer. Las patas se hunden, los sensores sueñan.',
+    },
+    {
+      id: 'aldea-junco', name: 'Aldea Junco', kind: 'ciudad', x: 40, y: 72,
+      description: 'Casas sobre pilotes y redes tendidas. Nadie tiene prisa, todo llega.',
+      city: { level: 1 },
+    },
+    {
+      id: 'puerto-esmeralda', name: 'Puerto Esmeralda', kind: 'ciudad', x: 68, y: 46,
+      description: 'El puerto del ferry: grúas, aduanas y el olor del otro continente.',
+      city: { level: 2, factory: 'piezas' },
+    },
+    {
+      id: 'ruinas-abisales', name: 'Ruinas Abisales', kind: 'ruinas', x: 84, y: 18,
+      description: 'Estructuras que el mar devuelve a trozos. Nadie sabe qué las hundió.',
+    },
+  ],
+  edges: [
+    { a: 'faro-verde', b: 'marjal-luz', days: 1, flavor: 'La senda del marjal', biome: 'vega' },
+    { a: 'faro-verde', b: 'aldea-junco', days: 1, flavor: 'El camino de las redes', biome: 'vega' },
+    { a: 'marjal-luz', b: 'puerto-esmeralda', days: 1, flavor: 'La calzada de mareas', biome: 'vega' },
+    { a: 'aldea-junco', b: 'puerto-esmeralda', days: 1, flavor: 'La costanera', biome: 'vega' },
+    { a: 'puerto-esmeralda', b: 'ruinas-abisales', days: 2, flavor: 'El espigón roto', biome: 'sierra' },
+  ],
+};
+
+/**
+ * Meseta del Hierro: la puerta del continente del Hierro. Tierra de
+ * clanes chatarreros, minas viejas y viento con arenilla.
+ */
+export const IRON_PLATEAU_REGION: WorldRegion = {
+  id: 'meseta-hierro',
+  name: 'Meseta del Hierro',
+  continentId: 'hierro',
+  hq: 'campamento-yunque',
+  nodes: [
+    {
+      id: 'campamento-yunque', name: 'Campamento Yunque', kind: 'taller', x: 18, y: 42,
+      description: 'La avanzada del Gremio al otro lado del mar. Media tienda, medio taller.',
+    },
+    {
+      id: 'muelle-oxido', name: 'Muelle del Óxido', kind: 'paraje', x: 10, y: 78,
+      description: 'El amarre del ferry: pontones remachados y contenedores con historia.',
+    },
+    {
+      id: 'forja-alta', name: 'Forja Alta', kind: 'ciudad', x: 52, y: 30,
+      description: 'La ciudad-horno de los clanes. El cielo naranja no es el atardecer.',
+      city: { level: 2, factory: 'armas' },
+    },
+    {
+      id: 'canon-clavos', name: 'Cañón de los Clavos', kind: 'paso', x: 46, y: 66,
+      description: 'Paredes de mineral imantado. Las brújulas mienten y los peajes no.',
+    },
+    {
+      id: 'ruinas-magneticas', name: 'Ruinas Magnéticas', kind: 'ruinas', x: 82, y: 52,
+      description: 'Chatarra antigua pegada en columnas imposibles. Canta cuando sopla el viento.',
+    },
+  ],
+  edges: [
+    { a: 'muelle-oxido', b: 'campamento-yunque', days: 1, flavor: 'La rampa del muelle', biome: 'sierra' },
+    { a: 'campamento-yunque', b: 'forja-alta', days: 1, flavor: 'La pista de escoria', biome: 'dunas' },
+    { a: 'campamento-yunque', b: 'canon-clavos', days: 1, flavor: 'El desvío imantado', biome: 'sierra' },
+    { a: 'forja-alta', b: 'canon-clavos', days: 1, flavor: 'La bajada del horno', biome: 'sierra' },
+    { a: 'canon-clavos', b: 'ruinas-magneticas', days: 2, flavor: 'El llano que canta', biome: 'dunas' },
+    { a: 'forja-alta', b: 'ruinas-magneticas', days: 2, flavor: 'La ruta de las columnas', biome: 'dunas' },
+  ],
+};
+
+/** Los continentes y los transportes que los unen. */
+export const WORLD_ATLAS: WorldAtlas = {
+  continents: [
+    { id: 'arcadia', name: 'Arcadia', blurb: 'El continente de partida: vegas, sal y caminos de carreta.' },
+    { id: 'hierro', name: 'El Hierro', blurb: 'El continente de los clanes: mineral, viento y deudas.' },
+  ],
+  regions: [SALT_PASS_REGION, EMERALD_COAST_REGION, IRON_PLATEAU_REGION],
+  links: [
+    {
+      id: 'camino-esmeralda', kind: 'camino',
+      a: { regionId: 'paso-de-sal', nodeId: 'cruce-del-rio' },
+      b: { regionId: 'costa-esmeralda', nodeId: 'marjal-luz' },
+      days: 1, fare: 0, flavor: 'El portazgo del oeste',
+    },
+    {
+      id: 'ferry-esmeralda-oxido', kind: 'ferry',
+      a: { regionId: 'costa-esmeralda', nodeId: 'puerto-esmeralda' },
+      b: { regionId: 'meseta-hierro', nodeId: 'muelle-oxido' },
+      days: 3, fare: 120, flavor: 'La travesía del Estrecho Gris',
+    },
+    {
+      id: 'lanzadera-espejo-forja', kind: 'lanzadera',
+      a: { regionId: 'paso-de-sal', nodeId: 'espejo-del-norte' },
+      b: { regionId: 'meseta-hierro', nodeId: 'forja-alta' },
+      days: 1, fare: 300, flavor: 'La catapulta orbital de los espejos',
+    },
   ],
 };

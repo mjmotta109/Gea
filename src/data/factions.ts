@@ -42,4 +42,9 @@ export const PLACE_FACTIONS: Record<string, string> = {
   'villa-brasa': 'colonos',
   'porto-azul': 'colonos',
   'espejo-del-norte': 'colonos',
+  'faro-verde': 'gremio',
+  'aldea-junco': 'colonos',
+  'puerto-esmeralda': 'colonos',
+  'campamento-yunque': 'gremio',
+  'forja-alta': 'chatarreros',
 };

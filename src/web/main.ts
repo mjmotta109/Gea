@@ -41,9 +41,10 @@ import {
 import {
   canExplore, edgesTowardCivilization, exploreSite, neighbors, otherEnd,
   startExpedition, startFreeExpedition, travel, resolveEncounter, edgeKey,
+  regionOf, linksFrom, linkDestination, useLink,
   type ExpeditionState, type WorldEdge,
 } from '../game/expedition.js';
-import { SALT_PASS_REGION } from '../data/world.js';
+import { SALT_PASS_REGION, WORLD_ATLAS } from '../data/world.js';
 import { createSave, describeSave, serializeSave, validateSave, type SaveGame } from '../game/save.js';
 import {
   bondExpedition, companionModifiers, newCompanion, observeCompanionBattle, recordCompanionEvent,
@@ -2329,7 +2330,8 @@ function startContractExpedition(): void {
   const contract = offers.find((c) => c.id === selectedContractId);
   if (!contract) return;
   if (!campaign.roster.some((z) => !z.destroyed)) return;
-  expedition = startExpedition(REGION, contract.id, contract.tier);
+  expedition = startExpedition(SALT_PASS_REGION, contract.id, contract.tier);
+  syncRegion();
   saveExpedition();
   closeMerc();
   openWorld();
@@ -2339,7 +2341,8 @@ function startContractExpedition(): void {
 function startFreeRoam(): void {
   if (!campaign) return;
   if (!campaign.roster.some((z) => !z.destroyed)) return;
-  expedition = startFreeExpedition(REGION, String(Date.now()));
+  expedition = startFreeExpedition(SALT_PASS_REGION, String(Date.now()));
+  syncRegion();
   saveExpedition();
   closeMerc();
   openWorld();
@@ -2474,7 +2477,16 @@ function settleContract(): string {
 
 // ── Expedición: el mapa de mundo ─────────────────────────────────────────
 
-const REGION = SALT_PASS_REGION;
+let REGION = SALT_PASS_REGION;
+
+/** La región activa sigue a la expedición; sin expedición, el cuartel. */
+function syncRegion(): void {
+  try {
+    REGION = regionOf(WORLD_ATLAS, expedition?.regionId ?? SALT_PASS_REGION.id);
+  } catch {
+    REGION = SALT_PASS_REGION;
+  }
+}
 const EXPEDITION_KEY = 'gea-expedition-v1';
 const CARGO_CAPACITY = 4;
 /** Daño de marcha forzada por jornada sin suministros (fracción de maxHp). */
@@ -2485,8 +2497,12 @@ function loadExpedition(): ExpeditionState | null {
     const raw = localStorage.getItem(EXPEDITION_KEY);
     if (!raw) return null;
     const exp = JSON.parse(raw) as ExpeditionState;
-    const validNode = (id: string): boolean => REGION.nodes.some((n) => n.id === id);
-    if (!validNode(exp.at) || !validNode(exp.targetNodeId) || !Array.isArray(exp.log)) return null;
+    // Expediciones de antes del atlas: vivían en el Paso de Sal.
+    if (typeof exp.regionId !== 'string') exp.regionId = SALT_PASS_REGION.id;
+    const home = WORLD_ATLAS.regions.find((r) => r.id === exp.regionId);
+    if (!home) return null;
+    const validNode = (id: string): boolean => home.nodes.some((n) => n.id === id);
+    if (!validNode(exp.at) || !Array.isArray(exp.log)) return null;
     return exp;
   } catch {
     return null;
@@ -2494,6 +2510,7 @@ function loadExpedition(): ExpeditionState | null {
 }
 
 let expedition: ExpeditionState | null = loadExpedition();
+syncRegion();
 let worldOpen = false;
 /** Tras liquidar un contrato de expedición ganado, se vuelve al mapa. */
 let returnToWorld = false;
@@ -2530,7 +2547,8 @@ function renderWorld(): void {
   const contract = expeditionContract();
   const target = REGION.nodes.find((n) => n.id === expedition!.targetNodeId)!;
   const here = REGION.nodes.find((n) => n.id === expedition!.at)!;
-  $('world-title').textContent = REGION.name;
+  const continent = WORLD_ATLAS.continents.find((c) => c.id === REGION.continentId);
+  $('world-title').textContent = `${continent ? `${continent.name} · ` : ''}${REGION.name}`;
   $('world-status').textContent =
     `Día ${expedition.day} · suministros ${campaign.supplies} · ⌾${campaign.credits}` +
     (contract ? ` · misión: ${contract.name} → ${target.name}${expedition.missionDone ? ' ✔' : ''}` : '');
@@ -2582,6 +2600,26 @@ function renderWorld(): void {
     btn.disabled = locked;
     btn.innerHTML = `${locked ? '🔒 ' : broken ? '⛏ ' : '→ '}<b>${destination.name}</b> · ${broken ? 'vadear el puente caído' : edge.flavor} · <span class="cost">${days} jornada${days > 1 ? 's' : ''}</span>`;
     if (!locked) btn.addEventListener('click', () => doTravel(edge));
+    routes.appendChild(btn);
+  }
+
+  // Transportes interregionales desde este lugar: caminos, ferris y
+  // lanzaderas. Con horario y pasaje a la vista; sin sorpresas a bordo.
+  for (const link of linksFrom(WORLD_ATLAS, REGION.id, expedition.at)) {
+    const to = linkDestination(link, REGION.id, expedition.at);
+    const destRegion = regionOf(WORLD_ATLAS, to.regionId);
+    const destNode = destRegion.nodes.find((n) => n.id === to.nodeId)!;
+    const destContinent = WORLD_ATLAS.continents.find((c) => c.id === destRegion.continentId);
+    const icon = link.kind === 'ferry' ? '⛴' : link.kind === 'lanzadera' ? '🚀' : '🛤';
+    const btn = document.createElement('button');
+    btn.className = 'wroute wlink';
+    const broke = link.fare > 0 && campaign.credits < link.fare;
+    btn.disabled = broke;
+    btn.innerHTML = `${icon} <b>${destNode.name}</b> · ${destRegion.name}` +
+      `${destContinent && destContinent.id !== REGION.continentId ? ` (${destContinent.name})` : ''}` +
+      ` · ${link.flavor} · <span class="cost">${link.days} jornada${link.days > 1 ? 's' : ''}${link.fare > 0 ? ` · pasaje ⌾${link.fare}` : ''}</span>` +
+      (broke ? ' · sin fondos' : '');
+    if (!broke) btn.addEventListener('click', () => doUseLink(link));
     routes.appendChild(btn);
   }
 
@@ -3123,6 +3161,25 @@ function doTravel(edge: WorldEdge): void {
       renderWorld();
     });
   }
+}
+
+/** Tomar un transporte interregional: pasaje por delante, sin eventos. */
+function doUseLink(link: import('../game/expedition.js').WorldLink): void {
+  if (!campaign || !expedition) return;
+  if (link.fare > 0 && campaign.credits < link.fare) return;
+  const dayBefore = expedition.day;
+  const result = useLink(expedition, WORLD_ATLAS, link);
+  expedition = result.expedition;
+  if (link.fare > 0) campaign = { ...campaign, credits: campaign.credits - link.fare };
+  if (result.supplyCost > 0) {
+    const consumed = consumeSupplies(campaign, result.supplyCost);
+    campaign = consumed.state;
+  }
+  healingDays(expedition.day - dayBefore);
+  syncRegion();
+  saveCampaign();
+  saveExpedition();
+  renderWorld();
 }
 
 /** El combate del contrato, al llegar al lugar. */
