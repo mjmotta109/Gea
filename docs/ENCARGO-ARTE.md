@@ -149,6 +149,28 @@ paquete mínimo que transforma el juego son las **22 de prioridad 1-2**.
 | 1-12 | Las 12 bestias (lateral, morro a la DERECHA, monocromo) | `bestias/felino.svg` `lobo` `raptor` `teropodo` `oruga` `caracol` `volador` `gorila` `bisonte` `escorpion` `cuellilargo` `torreta` | SVG o PNG 512×384 |
 | 13 | Logotipo GEA | `iconos/logo-gea.svg` | SVG |
 
+## Prioridad 1-bis — Láminas técnicas del lector de casco (12 piezas, empezar con 2)
+
+El indicador de estado del Zoid necesita un BLUEPRINT por familia:
+vista lateral (morro a la derecha), línea fina clara sobre fondo
+transparente, panelado interior visible, estilo manual técnico, SIN
+sombreado. Monocromo: el juego tiñe cada zona según su estado.
+
+**Requisito de oro**: las ZONAS de impacto (cabeza / torso / patas
+delanteras / patas traseras / arma / mochila-cola) separables —
+ideal SVG con grupos nombrados (`<g id="zona-cabeza">`); si es PNG
+de IA, que las zonas se distingan a línea limpia (el desarrollo
+recorta las máscaras).
+
+| # | Pieza | Archivo | Tamaño |
+|---|---|---|---|
+| 13b-24b | Lámina técnica por familia — EMPEZAR por felino y terópodo | `laminas/felino.svg` … (mismos nombres que bestias/) | SVG con grupos, o PNG 1024×768 |
+
+**Prompt**: technical blueprint line drawing of a mechanical [lion]
+robot, side view facing right, thin clean white lines on transparent
+background, panel lines and joints visible, engineering manual style,
+no text, no shading, no background
+
 ## Prioridad 2 — Alma (11 piezas)
 
 | # | Pieza | Archivo | Tamaño |
