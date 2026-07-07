@@ -784,3 +784,32 @@ arquitectura del motor van en DESIGN.md.)*
     enemigo (terminan en 26-44 turnos). Es señal de BALANCE del escenario,
     no de rotura: el motor sigue determinista. Los números (3 / 20 / 2)
     quedan calibrables.
+- **2026-07-07** — MUNDO AMPLIADO + RUINAS SECRETAS Y DESCUBRIMIENTO
+  (dirección del usuario: "amplía continentes y regiones; quiero ruinas y
+  ruinas secretas y partes del mapa que requieran explorar").
+  · TERCER CONTINENTE — EL VELO, con la región CINTURÓN DE CENIZA
+    (src/data/world.ts): tierra volcánica de escoria, la más dura y la que
+    más esconde. Capital nivel 3 (Catedral Fundida), fábrica de piezas
+    (Ciudad de Hollín), puerto de ferry y dos secretos. Enlazada al mundo
+    por un ferry (Puerto Esmeralda↔Puerto de Brea, ⌾220) y una lanzadera
+    (Forja Alta↔Catedral Fundida, ⌾380). Contenido de primera pasada.
+  · DESCUBRIMIENTO DEL MUNDO (game/expedition.ts, capa pura — NO es la
+    niebla de guerra táctica, que sigue aplazada): los nodos pueden ser
+    `hidden` (no se dibujan ni se viajan hasta descubrirlos) y sus tramos
+    quedan LATENTES; un lugar puede `reveals` otros al explorarlo. Estado
+    persistente `CampaignState.discovered` (migración: ausente = nada
+    descubierto). Helpers isNodeVisible/visibleNodes/isEdgeVisible;
+    availableEdges y canExplore reciben `discovered`; assignTarget NUNCA
+    apunta a un nodo oculto (no se encarga lo que no está en el mapa).
+  · RUINAS SECRETAS (`hidden` + `secret`): 4, una por región — Cripta de
+    Sal, Templo Sumergido, Bóveda Imantada y la Sima de los Primeros. Se
+    revelan explorando la ruina normal vecina (o registrando un paraje con
+    secretos, como el Foso de Vidrio). Botín SECRET_RUIN_FINDS (640-900,
+    vs 300-500 de las normales) y mejores probabilidades, pero el susto
+    muerde más. Explorar un PARAJE con secretos ahora también es una acción
+    ("registrar el lugar"): descubre sin dar botín.
+  · Web: el mapa de mundo filtra nodos/tramos/rutas por visibilidad; el
+    botón de explorar se adapta (ruina / ruina secreta / registrar); lo
+    descubierto se persiste y se queda para siempre. Todo determinista por
+    clave; consecuencias anunciadas. Tests: exploration.test.ts (5) +
+    atlas/expedition intactos.

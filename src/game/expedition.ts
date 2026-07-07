@@ -21,6 +21,22 @@ export interface WorldNode {
   y: number;
   /** Servicios urbanos, si el lugar es (o tiene) una ciudad. */
   city?: CitySpec;
+  /**
+   * OCULTO en el mapa hasta descubrirlo: no se dibuja ni se puede viajar
+   * a él mientras no esté en la lista de descubiertos de la campaña. Sus
+   * tramos quedan latentes. Es el "hay partes del mapa que exigen explorar".
+   */
+  hidden?: boolean;
+  /**
+   * RUINA SECRETA: oculta por defecto y con botín más rico (y peor susto)
+   * al explorarla. El pago de llegar tan lejos.
+   */
+  secret?: boolean;
+  /**
+   * Al EXPLORAR/registrar este lugar se revelan estos nodos ocultos
+   * (rumores, mapas viejos, un sendero entre los escombros). Determinista.
+   */
+  reveals?: string[];
 }
 
 export interface CitySpec {
@@ -111,6 +127,29 @@ export function regionOf(atlas: WorldAtlas, regionId: string): WorldRegion {
   const region = atlas.regions.find((r) => r.id === regionId);
   if (!region) throw new Error(`Región desconocida: ${regionId}`);
   return region;
+}
+
+// ── Descubrimiento: partes del mapa que exigen explorar ─────────────────
+
+/**
+ * ¿Es visible este nodo? Los ocultos solo si ya se descubrieron. El
+ * conjunto `discovered` es persistente (vive en la campaña, no en la
+ * expedición): una ruina secreta descubierta se queda en el mapa.
+ */
+export function isNodeVisible(node: WorldNode, discovered: string[] = []): boolean {
+  return !node.hidden || discovered.includes(node.id);
+}
+
+/** Los nodos que se dibujan en el mapa: los visibles. */
+export function visibleNodes(region: WorldRegion, discovered: string[] = []): WorldNode[] {
+  return region.nodes.filter((n) => isNodeVisible(n, discovered));
+}
+
+/** Un tramo solo se ve/usa si sus DOS extremos son visibles. */
+export function isEdgeVisible(region: WorldRegion, edge: WorldEdge, discovered: string[] = []): boolean {
+  const a = region.nodes.find((n) => n.id === edge.a);
+  const b = region.nodes.find((n) => n.id === edge.b);
+  return !!a && !!b && isNodeVisible(a, discovered) && isNodeVisible(b, discovered);
 }
 
 /** Transportes disponibles desde un lugar concreto. */
@@ -305,14 +344,16 @@ export function assignTarget(
   const range = tier === 'escolta' || tier === 'defensa' ? [1, 2]
     : tier === 'asalto' ? [2, 3]
     : [3, 99]; // caza e incursión: lo hondo del mapa
-  const candidates = region.nodes
-    .filter((n) => n.id !== region.hq)
+  // Los contratos NUNCA apuntan a nodos ocultos: no se puede ir a lo que
+  // aún no está en el mapa. Los secretos se ganan explorando, no por encargo.
+  const reachable = region.nodes.filter((n) => n.id !== region.hq && !n.hidden);
+  const candidates = reachable
     .filter((n) => (dist[n.id] ?? 99) >= range[0]! && (dist[n.id] ?? 99) <= range[1]!)
     .map((n) => n.id)
     .sort();
   const pool = candidates.length > 0
     ? candidates
-    : region.nodes.filter((n) => n.id !== region.hq).map((n) => n.id).sort();
+    : reachable.map((n) => n.id).sort();
   const rand = mulberry32(hashString(contractId));
   return pool[Math.floor(rand() * pool.length)]!;
 }
@@ -672,10 +713,21 @@ export function travel(
   return { expedition: next, supplyCost: edge.days, event, eventText, cargo, encounter };
 }
 
-/** Tramos transitables desde la posición actual (los rotos no). */
-export function availableEdges(expedition: ExpeditionState, region: WorldRegion): WorldEdge[] {
+/**
+ * Tramos transitables desde la posición actual: ni rotos, ni hacia lugares
+ * aún ocultos (los secretos no aparecen hasta descubrirlos).
+ */
+export function availableEdges(
+  expedition: ExpeditionState,
+  region: WorldRegion,
+  discovered: string[] = [],
+): WorldEdge[] {
   return neighbors(region, expedition.at)
-    .filter((e) => !expedition.blockedEdges.includes(edgeKey(e.a, e.b)));
+    .filter((e) => !expedition.blockedEdges.includes(edgeKey(e.a, e.b)))
+    .filter((e) => {
+      const dest = region.nodes.find((n) => n.id === otherEnd(e, expedition.at));
+      return !!dest && isNodeVisible(dest, discovered);
+    });
 }
 
 // ── Exploración de sitios (ruinas): riesgo y recompensa ──────────────────
@@ -687,6 +739,12 @@ export interface ExploreResult {
   cargo?: CargoItem;
   /** Estrés que el susto añade a TODOS los pilotos (0 si no hubo). */
   stressDelta: number;
+  /**
+   * Nodos OCULTOS que la exploración sacó a la luz. El cliente los añade a
+   * la lista persistente de descubiertos de la campaña (no a la expedición:
+   * un secreto hallado se queda en el mapa para siempre).
+   */
+  discovered?: string[];
 }
 
 const RUIN_FINDS: CargoItem[] = [
@@ -696,43 +754,89 @@ const RUIN_FINDS: CargoItem[] = [
   { name: 'Sello de una casa extinta', value: 500 },
 ];
 
-/** ¿El lugar admite exploración (y aún no se exploró en este viaje)? */
-export function canExplore(expedition: ExpeditionState, region: WorldRegion): boolean {
+/** Botín de las ruinas SECRETAS: el que llega tan lejos, cobra distinto. */
+const SECRET_RUIN_FINDS: CargoItem[] = [
+  { name: 'Núcleo prohibido intacto', value: 780 },
+  { name: 'Códice de una guerra olvidada', value: 640 },
+  { name: 'Aleación de estrella caída', value: 900 },
+  { name: 'Corona de datos de los Primeros', value: 720 },
+];
+
+/**
+ * ¿El lugar admite exploración (y aún no se exploró en este viaje)? Se
+ * explora una RUINA (por botín) o cualquier lugar con secretos por revelar
+ * (por descubrimiento). Un paraje pelado no tiene nada que registrar.
+ */
+export function canExplore(
+  expedition: ExpeditionState,
+  region: WorldRegion,
+  discovered: string[] = [],
+): boolean {
   const node = region.nodes.find((n) => n.id === expedition.at);
-  return node?.kind === 'ruinas' && !(expedition.explored ?? []).includes(node.id);
+  if (!node || (expedition.explored ?? []).includes(node.id)) return false;
+  const isRuin = node.kind === 'ruinas';
+  const hasSecretsToReveal = (node.reveals ?? []).some((id) => !discovered.includes(id));
+  return isRuin || hasSecretsToReveal;
 }
 
 /**
- * Explorar las ruinas: cuesta un día, y lo que pase es determinista por
- * (contrato, lugar). Nadie vuelve con las manos vacías... casi nadie.
+ * Explorar un lugar: cuesta un día, y lo que pase es determinista por
+ * (contrato, lugar). Las ruinas pagan botín (las secretas, más rico); y la
+ * exploración a fondo REVELA los caminos ocultos que el lugar escondía.
+ * Nadie vuelve con las manos vacías... casi nadie.
  */
-export function exploreSite(expedition: ExpeditionState, region: WorldRegion): ExploreResult {
+export function exploreSite(
+  expedition: ExpeditionState,
+  region: WorldRegion,
+  discovered: string[] = [],
+): ExploreResult {
   const node = region.nodes.find((n) => n.id === expedition.at)!;
   const rand = mulberry32(hashString(`${expedition.contractId}|explore|${node.id}`));
   const roll = rand();
   const day = expedition.day + 1;
   const explored = [...(expedition.explored ?? []), node.id];
+  const newlyRevealed = (node.reveals ?? []).filter((id) => !discovered.includes(id));
+
+  const isRuin = node.kind === 'ruinas';
+  const finds = node.secret ? SECRET_RUIN_FINDS : RUIN_FINDS;
+  // Las secretas: mejores probabilidades de hallazgo, pero el susto muerde más.
+  const findCut = node.secret ? 0.7 : 0.45;
+  const dustCut = node.secret ? 0.85 : 0.7;
+  const scareLoot = node.secret ? 0.7 : 0.5;
 
   let outcome: ExploreResult['outcome'];
   let eventText: string;
   let cargo: CargoItem | undefined;
   let stressDelta = 0;
 
-  if (roll < 0.45) {
+  if (!isRuin) {
+    // Registrar un paraje: no hay botín, pero puede sacar secretos a la luz.
+    outcome = 'dust';
+    eventText = newlyRevealed.length > 0
+      ? 'Peinamos el lugar palmo a palmo.'
+      : 'Nada que rascar aquí.';
+  } else if (roll < findCut) {
     outcome = 'find';
-    cargo = RUIN_FINDS[Math.floor(rand() * RUIN_FINDS.length)]!;
+    cargo = finds[Math.floor(rand() * finds.length)]!;
     eventText = `Bajo los escombros: ${cargo.name} (⌾${cargo.value}).`;
-  } else if (roll < 0.7) {
+  } else if (roll < dustCut) {
     outcome = 'dust';
     eventText = 'Solo polvo y ecos. Alguien llegó antes.';
   } else {
     outcome = 'scare';
-    stressDelta = 12;
+    stressDelta = node.secret ? 16 : 12;
     eventText = 'Algo se movió entre las vigas. Nadie lo vio bien. Nadie quiere volver a mirar.';
-    if (rand() < 0.5) {
-      cargo = RUIN_FINDS[Math.floor(rand() * RUIN_FINDS.length)]!;
+    if (rand() < scareLoot) {
+      cargo = finds[Math.floor(rand() * finds.length)]!;
       eventText += ` Aun así, salió con ${cargo.name} (⌾${cargo.value}).`;
     }
+  }
+
+  // El descubrimiento: la exploración a fondo cambia el mapa.
+  let revealText = '';
+  if (newlyRevealed.length > 0) {
+    const names = newlyRevealed.map((id) => region.nodes.find((n) => n.id === id)?.name ?? id);
+    revealText = ` Entre lo hallado, un rastro cambia el mapa: ${names.join(', ')} sale de las sombras.`;
   }
 
   return {
@@ -740,11 +844,12 @@ export function exploreSite(expedition: ExpeditionState, region: WorldRegion): E
       ...expedition,
       day,
       explored,
-      log: [...expedition.log, `Día ${day} — Exploramos ${node.name}. ${eventText}`],
+      log: [...expedition.log, `Día ${day} — Exploramos ${node.name}. ${eventText}${revealText}`],
     },
     outcome,
-    eventText,
+    eventText: eventText + revealText,
     cargo,
     stressDelta,
+    ...(newlyRevealed.length > 0 ? { discovered: newlyRevealed } : {}),
   };
 }

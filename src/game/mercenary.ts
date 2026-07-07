@@ -126,6 +126,12 @@ export interface CampaignState {
   homeRegionId?: string;
   /** Destacamentos en curso (src/game/assignment.ts). */
   assignments?: import('./assignment.js').ActiveAssignment[];
+  /**
+   * Nodos OCULTOS ya descubiertos (ruinas secretas, parajes velados). Es
+   * PERSISTENTE entre expediciones: un secreto hallado se queda en el mapa.
+   * Ausente = nada descubierto (migración de partidas viejas).
+   */
+  discovered?: string[];
 }
 
 /**

@@ -52,6 +52,7 @@ import {
   canExplore, edgesTowardCivilization, exploreSite, neighbors, otherEnd,
   startExpedition, startFreeExpedition, travel, resolveEncounter, edgeKey,
   regionOf, linksFrom, linkDestination, useLink, weatherFor,
+  isNodeVisible, isEdgeVisible,
   type ExpeditionState, type WorldEdge, type WorldRegion,
 } from '../game/expedition.js';
 import { SALT_PASS_REGION, WORLD_ATLAS } from '../data/world.js';
@@ -3230,6 +3231,7 @@ function renderWorld(): void {
   const contract = expeditionContract();
   const target = REGION.nodes.find((n) => n.id === expedition!.targetNodeId)!;
   const here = REGION.nodes.find((n) => n.id === expedition!.at)!;
+  const discovered = campaign.discovered ?? [];
   const continent = WORLD_ATLAS.continents.find((c) => c.id === REGION.continentId);
   $('world-title').textContent = `${continent ? `${continent.name} · ` : ''}${REGION.name}`;
   const sky = expedition.forcedWeather ?? weatherFor(REGION, expedition.day);
@@ -3238,27 +3240,32 @@ function renderWorld(): void {
     (contract ? ` · misión: ${contract.name} → ${target.name}${expedition.missionDone ? ' ✔' : ''}` : '');
 
   // Tramos como líneas SVG (los rotos, discontinuos).
+  // Tramos: solo los que unen dos lugares YA visibles (los latentes de un
+  // secreto no descubierto no se dibujan).
   const svg = $('world-svg');
-  svg.innerHTML = REGION.edges.map((e) => {
+  svg.innerHTML = REGION.edges.filter((e) => isEdgeVisible(REGION, e, discovered)).map((e) => {
     const a = REGION.nodes.find((n) => n.id === e.a)!;
     const b = REGION.nodes.find((n) => n.id === e.b)!;
     const blocked = expedition!.blockedEdges.includes(edgeKey(e.a, e.b));
     return `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"${blocked ? ' class="blocked"' : ''}/>`;
   }).join('');
 
-  // Nodos.
+  // Nodos: los ocultos no se dibujan hasta descubrirlos.
   const nodesHost = $('world-nodes');
   nodesHost.innerHTML = '';
   for (const node of REGION.nodes) {
+    if (!isNodeVisible(node, discovered)) continue;
     const el = document.createElement('div');
     el.className = 'wnode' +
       (node.id === expedition.at ? ' cur' : '') +
       (node.id === expedition.targetNodeId && !expedition.missionDone ? ' target' : '') +
-      (node.id === REGION.hq ? ' hq' : '');
+      (node.id === REGION.hq ? ' hq' : '') +
+      (node.kind === 'ruinas' ? ' ruin' : '');
     el.style.left = `${node.x}%`;
     el.style.top = `${node.y}%`;
     el.title = node.description;
-    el.innerHTML = `<div class="dot"></div><span class="tag">${node.id === REGION.hq ? '⚒ ' : ''}${node.id === expedition.targetNodeId && !expedition.missionDone ? '🎯 ' : ''}</span>${node.name}`;
+    const glyph = node.secret ? '✦ ' : node.kind === 'ruinas' ? '🏛 ' : '';
+    el.innerHTML = `<div class="dot"></div><span class="tag">${node.id === REGION.hq ? '⚒ ' : ''}${node.id === expedition.targetNodeId && !expedition.missionDone ? '🎯 ' : ''}${glyph}</span>${node.name}`;
     nodesHost.appendChild(el);
   }
 
@@ -3276,6 +3283,7 @@ function renderWorld(): void {
   }
   for (const edge of neighbors(REGION, expedition.at)) {
     const destination = REGION.nodes.find((n) => n.id === otherEnd(edge, expedition!.at))!;
+    if (!isNodeVisible(destination, discovered)) continue; // destino aún oculto
     const broken = expedition.blockedEdges.includes(edgeKey(edge.a, edge.b));
     const locked = allowed !== null && !allowed.has(edgeKey(edge.a, edge.b));
     const days = edge.days + (broken ? 1 : 0);
@@ -3325,9 +3333,11 @@ function renderWorld(): void {
     home.addEventListener('click', endExpedition);
     actions.appendChild(home);
   }
-  if (canExplore(expedition, REGION)) {
+  if (canExplore(expedition, REGION, discovered)) {
     const explore = document.createElement('button');
-    explore.textContent = '🔦 Explorar las ruinas (1 día)';
+    explore.textContent = here.kind === 'ruinas'
+      ? (here.secret ? '✦ Registrar la ruina secreta (1 día)' : '🔦 Explorar las ruinas (1 día)')
+      : '🧭 Registrar el lugar (1 día)';
     explore.addEventListener('click', doExplore);
     actions.appendChild(explore);
   }
@@ -3933,9 +3943,13 @@ function fightTavernBattle(job: Contract, nodeId: string): void {
 /** Explorar las ruinas: un día, y lo que haya dentro. */
 function doExplore(): void {
   if (!campaign || !expedition) return;
-  const result = exploreSite(expedition, REGION);
+  const result = exploreSite(expedition, REGION, campaign.discovered ?? []);
   expedition = result.expedition;
   healingDays(1);
+  // Un secreto hallado se queda en el mapa PARA SIEMPRE (persiste en la campaña).
+  if (result.discovered && result.discovered.length > 0) {
+    campaign = { ...campaign, discovered: [...(campaign.discovered ?? []), ...result.discovered] };
+  }
   if (result.cargo) {
     const before = campaign.cargo.length;
     campaign = stashCargo(campaign, result.cargo, CARGO_CAPACITY);
