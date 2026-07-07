@@ -1,5 +1,15 @@
 import type { Position, Tile, TerrainType } from './types.js';
 
+/** Coste de mover por terreno difícil (abrupto/bosque) para no voladores. */
+export const ROUGH_MOVE_COST = 2;
+
+/**
+ * Coste de VADEAR agua para unidades terrestres. El agua ya no es un muro:
+ * se puede entrar, pero cuesta más que el terreno abrupto — dentro del agua
+ * la movilidad queda limitada. Voladores y anfibios la cruzan por 1.
+ */
+export const WATER_WADE_COST = 3;
+
 /**
  * Mapa de batalla: rejilla rectangular de tiles con terreno y altura.
  * La ocupación de unidades vive en Battle, no aquí; el mapa es estático.
@@ -76,7 +86,11 @@ export class GameMap {
     return this.tiles[pos.y * this.width + pos.x]!;
   }
 
-  /** Coste de entrar a un tile según terreno y tipo de movimiento. Infinity = intransitable. */
+  /**
+   * Coste de entrar a un tile según terreno y tipo de movimiento.
+   * Infinity = intransitable (solo el muro lo es). El agua se vadea a un
+   * coste alto: los terrestres pueden entrar, pero les cuesta.
+   */
   entryCost(pos: Position, moveType: 'ground' | 'flying' | 'amphibious'): number {
     const tile = this.tileAt(pos);
     switch (tile.terrain) {
@@ -86,10 +100,10 @@ export class GameMap {
         return 1;
       case 'rough':
       case 'forest':
-        return moveType === 'flying' ? 1 : 2;
+        return moveType === 'flying' ? 1 : ROUGH_MOVE_COST;
       case 'water':
         if (moveType === 'flying' || moveType === 'amphibious') return 1;
-        return Infinity;
+        return WATER_WADE_COST;
     }
   }
 }

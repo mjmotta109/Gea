@@ -749,3 +749,38 @@ arquitectura del motor van en DESIGN.md.)*
     plana, mesa, diorama y en la carta del hangar (silueta + resumen).
     Las máquinas de escaramuza no llevan historial: cicatrices solo en
     campaña.
+- **2026-07-07** — TERRENO TRANSITABLE: EL AGUA SE VADEA Y TODO SE ESCALA
+  (dirección del usuario: "necesito que los mapas puedan ser transitables
+  de un lado a otro —encuentro algunos con el paso cortado—; haz que sea
+  posible entrar al agua, pero en el agua el ataque y la movilidad
+  limitados, y que todo se pueda escalar aunque cueste"). El ÚNICO terreno
+  que corta el paso pasa a ser el MURO.
+  · AGUA VADEABLE (core/grid.ts): el coste de entrar al agua para
+    terrestres deja de ser Infinity y vale WATER_WADE_COST=3 (más que el
+    abrupto: la movilidad dentro del agua queda limitada por el coste).
+    Voladores y anfibios la cruzan por 1. El vado del río deja de ser un
+    muro y pasa a ser el cruce BARATO — decisión táctica, no puerta.
+  · ATAQUE LIMITADO EN EL AGUA (core/combat.ts + battle.ts hitContext): un
+    terrestre que dispara o golpea vadeando sufre −WATER_ATTACK_PENALTY
+    (=20) de puntería (sin suelo firme). Anfibios y voladores exentos. Se
+    refleja en el % del pronóstico: consecuencia anunciada. El agua sigue
+    dando +5 de cobertura al que la ocupa — te oculta las piernas pero
+    apuntas peor: tensión nueva.
+  · ESCALADA SIN TOPE (core/pathfinding.ts): desaparece el tope duro de
+    salto. Cualquier desnivel se sube o baja; el salto (jump) es cuántos
+    niveles se salvan GRATIS y cada nivel de más cuesta
+    CLIMB_COST_PER_LEVEL (=2) de movimiento. Los muros (altura 99, coste
+    Infinity) siguen sin escalarse; los voladores siguen ignorando la
+    altura.
+  · CONECTIVIDAD GARANTIZADA DE VERDAD (game/mapgen.ts): como solo el muro
+    corta, la garantía se vuelve fiable. El BFS de rescate esquiva ahora
+    solo muros (no agua) y conecta TODOS los spawns de ambos bandos —no
+    solo los enemigos— desde el primero del jugador; el pasillo de rescate
+    derriba los muros que cruce. Verificado con el pathfinding real: 1400
+    spawns en 200 mapas generados, 0 inalcanzables.
+  · Golden master regenerado y DECLARADO: en el valle, con el río ya
+    vadeable y el cañón de partículas del Geno castigando a quien cruza a
+    campo abierto con −20, las tres batallas de referencia se inclinan al
+    enemigo (terminan en 26-44 turnos). Es señal de BALANCE del escenario,
+    no de rotura: el motor sigue determinista. Los números (3 / 20 / 2)
+    quedan calibrables.

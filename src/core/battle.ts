@@ -5,6 +5,7 @@ import {
   facingTowards,
   hitChance,
   proximityBonus,
+  WATER_ATTACK_PENALTY,
   type AttackArc,
 } from './combat.js';
 import { footprintDistance, footprintTiles, GameMap, manhattan, posKey, samePos, TERRAIN_COVER } from './grid.js';
@@ -567,8 +568,13 @@ export class Battle {
     // Dispersión balística: los proyectiles pierden precisión con la distancia.
     const projectile = this.weaponEntry(user, ability.id)?.def.projectile;
     const dispersionPenalty = projectile ? Math.round(projectile.dispersion * dist) : 0;
+    // Vadear penaliza la puntería: un terrestre disparando desde el agua no
+    // tiene suelo firme. Anfibios y voladores están exentos.
+    const wading = this.map.tileAt(user.position).terrain === 'water'
+      && this.definitionOf(user.unitTypeId).moveType === 'ground';
+    const waterPenalty = wading ? WATER_ATTACK_PENALTY : 0;
     const chance = hitChance({
-      accuracy: ability.accuracy - weatherPenalty - dispersionPenalty,
+      accuracy: ability.accuracy - weatherPenalty - dispersionPenalty - waterPenalty,
       attackerAccuracy: this.effectiveStats(user).accuracy,
       arc,
       defenderEvade: this.effectiveStats(victim).evade + cover,

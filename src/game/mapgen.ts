@@ -181,11 +181,14 @@ export function generateBattlefield(key: string, opts: BattlefieldOptions = {}):
     grid[spot.y]![spot.x] = { kind: 'plain', height: 0 };
   }
 
-  // Conectividad garantizada: todo spawn enemigo alcanzable desde el
-  // primero del jugador caminando por tierra (ni agua ni muro).
+  // Conectividad garantizada: el mapa es transitable de lado a lado. El
+  // agua se vadea y cualquier altura se escala (a un coste), así que el
+  // ÚNICO terreno que corta el paso es el muro. Todo spawn — de ambos
+  // bandos — debe ser alcanzable desde el primero del jugador esquivando
+  // solo muros; si no lo es, se abre un pasillo de rescate.
   const passable = (x: number, y: number): boolean => {
     const cell = grid[y]?.[x];
-    return cell !== undefined && cell.kind !== 'water' && cell.kind !== 'wall';
+    return cell !== undefined && cell.kind !== 'wall';
   };
   const reachable = (): Set<string> => {
     const seen = new Set<string>();
@@ -199,15 +202,15 @@ export function generateBattlefield(key: string, opts: BattlefieldOptions = {}):
     }
     return seen;
   };
-  for (const target of enemySpawns) {
+  for (const target of [...playerSpawns.slice(1), ...enemySpawns]) {
     if (reachable().has(`${target.x},${target.y}`)) continue;
-    // Pasillo de rescate: línea recta escalonada que abre lo que toque.
+    // Pasillo de rescate: línea recta escalonada que derriba los muros que
+    // encuentre (el agua no hace falta abrirla: ya es transitable).
     let { x, y } = playerSpawns[0]!;
     while (x !== target.x || y !== target.y) {
       if (x !== target.x && (y === target.y || rand() < 0.5)) x += Math.sign(target.x - x);
       else y += Math.sign(target.y - y);
-      const cell = grid[y]![x]!;
-      if (cell.kind === 'water' || cell.kind === 'wall') grid[y]![x] = { kind: 'plain', height: 0 };
+      if (grid[y]![x]!.kind === 'wall') grid[y]![x] = { kind: 'plain', height: 0 };
     }
   }
 
