@@ -27,6 +27,19 @@ export interface EconomyTable {
 }
 
 /** Un Zoid en propiedad, con su daño y su montaje persistentes. */
+/**
+ * Hoja de servicio de UNA máquina: la unidad no gana experiencia (ley
+ * del diseño), pero sí HISTORIA. Se graba al liquidar cada batalla y
+ * en el taller; las cicatrices cosméticas de la silueta salen de aquí.
+ */
+export interface ZoidRecord {
+  battles: number;
+  kills: number;
+  rebuilds: number;
+  ejections: number;
+  retreats: number;
+}
+
 export interface OwnedZoid {
   unitTypeId: string;
   /** HP actual; el maxHp lo calcula el motor según el montaje. */
@@ -34,6 +47,54 @@ export interface OwnedZoid {
   destroyed: boolean;
   weapons: string[];
   slots: Record<string, string>;
+  /** Hoja de servicio (ausente en guardados viejos = a estrenar). */
+  record?: ZoidRecord;
+}
+
+/** Hoja de servicio con huecos a cero (guardados viejos incluidos). */
+export function zoidRecord(zoid: OwnedZoid): ZoidRecord {
+  return {
+    battles: zoid.record?.battles ?? 0,
+    kills: zoid.record?.kills ?? 0,
+    rebuilds: zoid.record?.rebuilds ?? 0,
+    ejections: zoid.record?.ejections ?? 0,
+    retreats: zoid.record?.retreats ?? 0,
+  };
+}
+
+/** Acumula sucesos en la hoja de servicio. Sin mutar. */
+export function updateZoidRecord(zoid: OwnedZoid, delta: Partial<ZoidRecord>): OwnedZoid {
+  const record = zoidRecord(zoid);
+  return {
+    ...zoid,
+    record: {
+      battles: record.battles + (delta.battles ?? 0),
+      kills: record.kills + (delta.kills ?? 0),
+      rebuilds: record.rebuilds + (delta.rebuilds ?? 0),
+      ejections: record.ejections + (delta.ejections ?? 0),
+      retreats: record.retreats + (delta.retreats ?? 0),
+    },
+  };
+}
+
+/** Tramos de veteranía del chasis, por batallas servidas. */
+export const SERVICE_TIERS = [
+  { id: 'a-estrenar', label: 'a estrenar', min: 0 },
+  { id: 'curtido', label: 'curtido', min: 3 },
+  { id: 'veterano', label: 'veterano', min: 8 },
+  { id: 'leyenda', label: 'leyenda del taller', min: 15 },
+] as const;
+
+export function serviceTier(record: ZoidRecord): (typeof SERVICE_TIERS)[number] {
+  return [...SERVICE_TIERS].reverse().find((t) => record.battles >= t.min) ?? SERVICE_TIERS[0];
+}
+
+/**
+ * Cicatrices visibles de la silueta (0-4): una por cada 4 batallas y
+ * una por reconstrucción. El metal cuenta lo vivido sin decir palabra.
+ */
+export function scarLevel(record: ZoidRecord): number {
+  return Math.min(4, Math.floor(record.battles / 4) + record.rebuilds);
 }
 
 export interface CampaignState {
@@ -281,7 +342,7 @@ export function rebuildZoid(
   const cost = rebuildCost(zoid, economy);
   if (state.credits < cost) return state;
   const roster = state.roster.map((z, i) =>
-    (i === slot ? { ...z, hp: maxHp, destroyed: false } : z));
+    (i === slot ? updateZoidRecord({ ...z, hp: maxHp, destroyed: false }, { rebuilds: 1 }) : z));
   return { ...state, roster, credits: state.credits - cost };
 }
 

@@ -90,20 +90,50 @@ const GENERIC = `
     <path d="M6 24 L9 14 L18 11 L28 12 L34 10 L38 13 L34 16 L30 18 L28 28 L24 28 L25 20 L16 20 L14 28 L10 28 L11 22 Z"/>`;
 
 /** Cuerpo del dibujo (paths) de un chasis: el diorama lo hornea a imagen. */
-export function spriteBody(unitTypeId: string): string {
+/**
+ * Cicatrices de guerra sobre la silueta: `level` marcas (0-4) grabadas
+ * en posiciones deterministas del cuerpo. Alternan zarpazo (arañazo
+ * oscuro doble) y parche soldado (placa clara): el metal cuenta lo
+ * vivido sin decir palabra. El nivel sale de la hoja de servicio.
+ */
+export function scarOverlay(unitTypeId: string, level: number): string {
+  if (level <= 0) return '';
+  let h = 2166136261;
+  for (let i = 0; i < unitTypeId.length; i++) {
+    h ^= unitTypeId.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  const marks: string[] = [];
+  for (let i = 0; i < Math.min(4, level); i++) {
+    const seed = (h ^ (i * 2654435761)) >>> 0;
+    const x = 10 + (seed % 17);
+    const y = 11 + ((seed >>> 5) % 8);
+    if (i % 2 === 0) {
+      marks.push(
+        `<path d="M${x} ${y} l4 3 M${x + 2} ${y - 1} l3 4" stroke="rgba(0,0,0,0.55)" stroke-width="1.1" fill="none"/>`);
+    } else {
+      const tilt = ((seed >>> 9) % 40) - 20;
+      marks.push(
+        `<rect x="${x}" y="${y}" width="4.5" height="3" fill="rgba(255,255,255,0.30)" transform="rotate(${tilt} ${x + 2} ${y + 1})"/>`);
+    }
+  }
+  return marks.join('');
+}
+
+export function spriteBody(unitTypeId: string, scars = 0): string {
   const family = FAMILIES[unitTypeId];
-  return family ? SHAPES[family] : GENERIC;
+  return (family ? SHAPES[family] : GENERIC) + scarOverlay(unitTypeId, scars);
 }
 
 /**
  * SVG completo de la unidad, morro hacia `facing` ('west' voltea; norte
  * y sur inclinan levemente para leerse sin brújula).
  */
-export function unitSprite(unitTypeId: string, facing: 'north' | 'south' | 'east' | 'west'): string {
-  const family = FAMILIES[unitTypeId];
-  const shape = family ? SHAPES[family] : GENERIC;
+export function unitSprite(
+  unitTypeId: string, facing: 'north' | 'south' | 'east' | 'west', scars = 0,
+): string {
   const flip = facing === 'west' ? 'scale(-1,1) translate(-40,0)' : '';
   const tilt = facing === 'north' ? 'rotate(-8 20 15)' : facing === 'south' ? 'rotate(8 20 15)' : '';
   return `<svg class="zsprite" viewBox="0 0 40 30" aria-hidden="true">` +
-    `<g transform="${flip} ${tilt}" fill="currentColor">${shape}</g></svg>`;
+    `<g transform="${flip} ${tilt}" fill="currentColor">${spriteBody(unitTypeId, scars)}</g></svg>`;
 }

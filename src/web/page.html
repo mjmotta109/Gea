@@ -99,6 +99,11 @@
   .cell.hl-target { outline: 2px solid var(--danger); outline-offset: -2px; }
   .cell.hl-face { outline: 2px solid var(--muted); outline-offset: -2px; }
   .cell.hl-zone { outline: 2px dashed var(--player); outline-offset: -3px; }
+  /* Hoja de servicio del hangar: la silueta cicatrizada + el resumen. */
+  .gservice { display: flex; align-items: center; gap: 8px; margin-top: 5px;
+    font-family: var(--mono); font-size: 10px; color: var(--muted); }
+  .gservice .gsil { width: 46px; flex: none; color: var(--player); }
+  .gservice .gsil svg { width: 100%; height: auto; display: block; }
   .cell.hl-zone .hl-label { color: var(--player); }
   .cell.path::before {
     content: ''; position: absolute; width: 8px; height: 8px; border-radius: 50%;

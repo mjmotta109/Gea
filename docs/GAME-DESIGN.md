@@ -732,3 +732,20 @@ arquitectura del motor van en DESIGN.md.)*
     El PESO: en batalla ya restaba (lluvia disipa calor, arena ciega
     a distancia); ahora viajar bajo tormenta come +1 suministro, y el
     mapa de mundo anuncia el cielo del día (☀/🌧/🌪).
+- **2026-07-07** — HOJA DE SERVICIO DEL CHASIS + CICATRICES ("¿qué pasó
+  con las marcas de batalla en el zoid?" → aplícalo). La LEY se mantiene:
+  la máquina NO gana experiencia — pero sí HISTORIA.
+  · ZoidRecord por máquina: batallas servidas, derribos, reconstrucciones,
+    eyecciones y retiradas. Se graba al liquidar cada batalla (los
+    derribos se atribuyen por el log de eventos) y en el taller (cada
+    reconstrucción queda anotada). Guardados viejos: hoja a cero, sin
+    migración (lectura con huecos por defecto).
+  · VETERANÍA del chasis por batallas: a estrenar → curtido (3) →
+    veterano (8) → leyenda del taller (15). Cruzar tramo deja línea en
+    el diario de expedición.
+  · CICATRICES COSMÉTICAS: nivel 0-4 (una por cada 4 batallas + una por
+    reconstrucción, tope 4). Marcas deterministas sobre la silueta —
+    zarpazos oscuros y parches soldados alternados — visibles en vista
+    plana, mesa, diorama y en la carta del hangar (silueta + resumen).
+    Las máquinas de escaramuza no llevan historial: cicatrices solo en
+    campaña.

@@ -44,7 +44,8 @@ import { ZOIDS } from '../data/zoids.js';
 import {
   buyBlueprint, buySupplies, buyWeapon, buyZoid, cityRepair, consumeSupplies,
   contractOffers, mountedCount, newCampaign, rebuildCost, rebuildZoid, repairCost,
-  repairZoid, resolveContract, sellCargo, sellWeapon, setMountedWeapons, stashCargo, tavernJob,
+  repairZoid, resolveContract, scarLevel, sellCargo, sellWeapon, serviceTier,
+  setMountedWeapons, stashCargo, tavernJob, updateZoidRecord, zoidRecord,
   type CampaignState, type Contract,
 } from '../game/mercenary.js';
 import {
@@ -1034,7 +1035,7 @@ function renderBoard(): void {
         }
         if (active?.id === occupant.id) chip.classList.add('active-unit');
         chip.innerHTML =
-          unitSprite(occupant.unitTypeId, occupant.facing) +
+          unitSprite(occupant.unitTypeId, occupant.facing, scarsFor(occupant.id)) +
           `<span class="ztag">${occupant.id}</span>`;
         const bar = document.createElement('div');
         bar.className = 'hpbar';
@@ -1064,6 +1065,15 @@ const CELL_PX = 48;
 // ── El diorama (escalón 3): escena, dibujo y ratón ──────────────────────
 
 const TEAM_COLORS = { player: '#53d1e0', enemy: '#ff8a5c' } as const;
+
+/** Cicatrices de la máquina que ocupa el hueco Pn (0 para el resto). */
+function scarsFor(unitId: string): number {
+  if (!campaign || !/^P\d+$/.test(unitId)) return 0;
+  const slot = Number(unitId.slice(1)) - 1;
+  if (!deployedSlots.includes(slot)) return 0; // escaramuza: sin historial
+  const zoid = campaign.roster[slot];
+  return zoid ? scarLevel(zoidRecord(zoid)) : 0;
+}
 
 function dioramaScene(): DioramaScene {
   const unit = playerUnit();
@@ -1182,7 +1192,8 @@ let dioramaWired = false;
 function renderDioramaView(): void {
   const canvas = $('diorama') as HTMLCanvasElement;
   const scene = dioramaScene();
-  drawDiorama(canvas, scene, (u) => ({ body: spriteBody(u.unitTypeId), color: TEAM_COLORS[u.team] }),
+  drawDiorama(canvas, scene,
+    (u) => ({ body: spriteBody(u.unitTypeId, scarsFor(u.id)), color: TEAM_COLORS[u.team] }),
     () => renderDioramaView());
   if (!dioramaWired) {
     dioramaWired = true;
@@ -2654,6 +2665,17 @@ function renderMercHangar(): void {
       (slot === 0 ? '<span class="gmuted" style="font-size:9px;letter-spacing:0.14em"> COMPAÑERA</span>' : '') +
       '</div>' +
       `<div class="gtracks">${escapeHtml(pilot.name)}${isInjured(pilot) ? ` <span class="symptom">🩹 ${pilot.injuryDays}j</span>` : ''}${assignmentOf(slot) ? ' <span class="symptom" style="border-color:var(--player);color:var(--player)">📡 destacado</span>' : ''} · ${pilotSummary(pilot)}</div>`;
+    {
+      const record = zoidRecord(zoid);
+      const tier = serviceTier(record);
+      const scars = scarLevel(record);
+      card.insertAdjacentHTML('beforeend',
+        `<div class="gservice"><span class="gsil">${unitSprite(zoid.unitTypeId, 'east', scars)}</span>` +
+        `<span>📜 ${tier.label} · ${record.battles} batalla${record.battles === 1 ? '' : 's'} · ${record.kills} derribo${record.kills === 1 ? '' : 's'}` +
+        `${record.rebuilds > 0 ? ` · ${record.rebuilds} ${record.rebuilds === 1 ? 'reconstrucción' : 'reconstrucciones'}` : ''}` +
+        `${record.ejections > 0 ? ` · ${record.ejections} ${record.ejections === 1 ? 'eyección' : 'eyecciones'}` : ''}` +
+        `${scars > 0 ? ` · <span class="symptom">${'✚'.repeat(scars)} cicatrices</span>` : ''}</span></div>`);
+    }
     if (slot === 0) {
       const bio = document.createElement('div');
       bio.className = 'gbio';
@@ -3003,6 +3025,46 @@ function settleContract(): string {
       }
     }
     if (injuredNames.length > 0) savePilots();
+  }
+  // La hoja de servicio del metal: cada batalla queda grabada en la
+  // máquina que la peleó (batallas, derribos, eyecciones, retiradas).
+  if (campaign) {
+    const kills = new Map<string, number>();
+    let lastAttacker: string | undefined;
+    for (const event of allEvents) {
+      if (event.type === 'damage-dealt') lastAttacker = event.unitId;
+      else if (event.type === 'unit-destroyed' && lastAttacker && lastAttacker !== event.unitId) {
+        kills.set(lastAttacker, (kills.get(lastAttacker) ?? 0) + 1);
+      }
+    }
+    const serviceLines: string[] = [];
+    campaign = {
+      ...campaign,
+      roster: campaign.roster.map((zoid, slot) => {
+        if (!deployedSlots.includes(slot)) return zoid;
+        const unit = battle.units.find((u) => u.id === `P${slot + 1}`);
+        if (!unit) return zoid;
+        const before = serviceTier(zoidRecord(zoid));
+        const updated = updateZoidRecord(zoid, {
+          battles: 1,
+          kills: kills.get(unit.id) ?? 0,
+          ejections: unit.ejected ? 1 : 0,
+          retreats: unit.retreated ? 1 : 0,
+        });
+        const after = serviceTier(zoidRecord(updated));
+        if (after.min > before.min) {
+          const record = zoidRecord(updated);
+          serviceLines.push(`⭐ El ${ZOIDS[zoid.unitTypeId]!.name} ya es ${after.label.toUpperCase()}: ${record.battles} batallas y ${record.kills} derribos a cuestas.`);
+        }
+        return updated;
+      }),
+    };
+    if (expedition && serviceLines.length > 0) {
+      expedition = {
+        ...expedition,
+        log: [...expedition.log, ...serviceLines.map((line) => `Día ${expedition!.day} — ${line}`)],
+      };
+    }
   }
   // Trabajo de taberna: paga y daña, pero no toca la misión oficial ni
   // el ciclo de contratos; gane o pierda, se vuelve al mapa.
