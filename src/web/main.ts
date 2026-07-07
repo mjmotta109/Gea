@@ -18,7 +18,7 @@ import {
   type PilotState, type SpecializationId,
 } from '../core/progression.js';
 import { STATUS_DEFINITIONS } from '../core/status.js';
-import type { BattleEvent, BattleObjective, Facing, Position, StatModifier, Team, UnitState, WeatherId, FrameState,
+import type { BattleAction, BattleEvent, BattleObjective, Facing, Position, StatModifier, Team, UnitState, WeatherId, FrameState,
 } from '../core/types.js';
 import { ABILITIES } from '../data/abilities.js';
 import { BLUEPRINT_PRICES, CITY_TIERS, CONTRACT_ENEMY_POOL, DIFFICULTIES, ECONOMY, LEISURE_OPTIONS, STARTER_COMPANIONS, THERAPY } from '../data/economy.js';
@@ -379,6 +379,118 @@ interface BattleBrief {
   briefing?: string;
 }
 
+// ── Tutorial de primera batalla: siete lecciones y a volar ──────────────
+
+const TUTORIAL_KEY = 'gea-tutorial-v1';
+const TUTORIAL_STEPS = [
+  'Bienvenido al enlace táctico, comandante. Arriba a la izquierda tienes el 🎯 OBJETIVO y la ronda: cada contrato se gana de una forma distinta — léelo siempre antes de mover.',
+  'MUÉVETE con la tecla M o pulsando una casilla cian. El símbolo ⌖ señala las casillas desde las que tendrás al menos un enemigo a tiro.',
+  'DISPARA con las teclas 1-9 o sus botones. El % de impacto es la verdad completa (arco, cobertura, clima y cercanía)… y nunca llega al 100: la certeza no existe.',
+  'Acciones LIBRES: las posturas 🐆 🐎 🐢 reparten la energía de tu máquina sin gastar el turno. Y 👁 VIGILANCIA (V) cierra el turno al acecho: dispara al primero que se mueva.',
+  'El posicionamiento cuesta: DESPEGARTE de un enemigo en contacto le regala un tiro de oportunidad, y pegar a bocajarro puede costarte un contraataque.',
+  'Si la cosa pinta mal: 🏳 RETÍRATE por el borde del mapa (la máquina se salva con su daño) o 🪂 EYECTA (la máquina se pierde, el piloto vuelve casi entero).',
+  'Tus máquinas RECUERDAN: hoja de servicio, cicatrices y marcas de núcleo. El piloto también — estrés, manías y escuelas. Cuida el metal y a la gente. ¡Suerte!',
+];
+let tutStep = -1;
+
+function tutorialDone(): boolean {
+  try { return localStorage.getItem(TUTORIAL_KEY) === 'done'; } catch { return true; }
+}
+
+function showTutorialStep(index: number): void {
+  tutStep = index;
+  $('tut-step').textContent = `Instructor · ${index + 1}/${TUTORIAL_STEPS.length}`;
+  $('tut-text').textContent = TUTORIAL_STEPS[index]!;
+  $('tut').classList.add('show');
+}
+
+function finishTutorial(): void {
+  tutStep = -1;
+  $('tut').classList.remove('show');
+  try { localStorage.setItem(TUTORIAL_KEY, 'done'); } catch { /* privado */ }
+}
+
+function maybeStartTutorial(): void {
+  if (tutorialDone() || !campaign || !activeContract) return;
+  showTutorialStep(0);
+}
+
+// ── Repeticiones: el determinismo lo regala ──────────────────────────────
+// Se graba la RECETA de la batalla (config serializada + acciones en
+// orden); reproducirla es reconstruir el motor y repetir las órdenes.
+
+interface ReplayRecipe {
+  seed: number;
+  weather: WeatherId;
+  mapRows: string[];
+  spawns: UnitSpawn[];
+  pilots: Record<string, PilotState>;
+  objective?: BattleObjective;
+  reinforcements?: ReinforcementWave[];
+  actions: BattleAction[];
+}
+
+let actionLog: BattleAction[] = [];
+let replaySetup: Omit<ReplayRecipe, 'actions'> | null = null;
+let replayData: ReplayRecipe | null = null;
+let replayActive = false;
+let replayTimer = 0;
+
+/** Única puerta de ejecución del combate: registra para la repetición. */
+function execTracked(action: BattleAction): BattleEvent[] {
+  if (!replayActive) actionLog.push(action);
+  return battle.execute(action);
+}
+
+function startReplay(): void {
+  if (!replayData || replayActive) return;
+  const recipe = replayData;
+  replayActive = true;
+  busy = true;
+  $('overlay').classList.remove('show');
+  battle = new Battle({
+    map: GameMap.fromAscii(recipe.mapRows),
+    unitCatalog: ZOIDS,
+    abilityCatalog: CATALOGS.abilityCatalog,
+    moduleCatalog: MODULES,
+    weaponCatalog: CATALOGS.weaponCatalog,
+    weather: recipe.weather,
+    seed: recipe.seed,
+    spawns: recipe.spawns,
+    pilots: recipe.pilots,
+    perkTable: PERKS,
+    ...(recipe.objective ? { objective: recipe.objective } : {}),
+    ...(recipe.reinforcements ? { reinforcements: recipe.reinforcements } : {}),
+  });
+  $('log').innerHTML = '';
+  log('— 📼 REPETICIÓN (Esc para salir) —', 'turn');
+  mode = { kind: 'idle' };
+  pending = null;
+  let idx = 0;
+  const step = (): void => {
+    if (!replayActive) return; // abortada con Esc
+    if (battle.isOver || idx >= recipe.actions.length) { endReplay(); return; }
+    if (!battle.getActiveUnit()) logEvents(battle.nextTurn());
+    if (!battle.isOver && battle.getActiveUnit() && idx < recipe.actions.length) {
+      logEvents(battle.execute(recipe.actions[idx++]!));
+    }
+    renderAll();
+    replayTimer = window.setTimeout(step, 260);
+  };
+  renderAll();
+  replayTimer = window.setTimeout(step, 400);
+}
+
+function endReplay(): void {
+  if (!replayActive) return;
+  replayActive = false;
+  window.clearTimeout(replayTimer);
+  busy = false;
+  renderAll();
+  // El parte ya se liquidó en su día: el overlay solo se re-enseña.
+  showOverlay();
+}
+
 function startBattle(
   spawns: UnitSpawn[], seed: number, weather: WeatherId, map: GameMap, brief: BattleBrief = {},
 ): void {
@@ -402,6 +514,17 @@ function startBattle(
     perkTable: PERKS,
   });
   allEvents = [];
+  actionLog = [];
+  replaySetup = {
+    seed, weather,
+    mapRows: map.toAscii(),
+    spawns: JSON.parse(JSON.stringify(spawns)) as UnitSpawn[],
+    pilots: JSON.parse(JSON.stringify(Object.fromEntries(
+      spawns.filter((s) => s.team === 'player' && /^P\d+$/.test(s.id))
+        .map((s) => [s.id, pilots[PILOT_IDS[Number(s.id.slice(1)) - 1]!]!])))) as Record<string, PilotState>,
+    ...(brief.objective ? { objective: brief.objective } : {}),
+    ...(brief.reinforcements ? { reinforcements: brief.reinforcements } : {}),
+  };
   startPositions = Object.fromEntries(spawns.map((s) => [s.id, { ...s.position }]));
   unitTeams = Object.fromEntries(spawns.map((s) => [s.id, s.team]));
   xpAwarded = false;
@@ -412,6 +535,7 @@ function startBattle(
   $('overlay').classList.remove('show');
   log('— enlace táctico establecido —', 'turn');
   if (brief.briefing) log(`🎯 ${brief.briefing}`, 'turn');
+  maybeStartTutorial();
   advance();
 }
 
@@ -457,11 +581,11 @@ function runEnemyTurn(unit: UnitState): void {
       return;
     }
     try {
-      logEvents(battle.execute(actions[i]!));
+      logEvents(execTracked(actions[i]!));
     } catch (error) {
       log(`⚠ IA enemiga: ${(error as Error).message}`, 'warn');
       if (battle.getActiveUnit()?.id === unit.id) {
-        logEvents(battle.execute({ type: 'wait', unitId: unit.id }));
+        logEvents(execTracked({ type: 'wait', unitId: unit.id }));
       }
       i = actions.length;
     }
@@ -574,7 +698,7 @@ function doReload(): void {
   const weapon = firstReloadable(unit);
   if (!weapon) return;
   try {
-    logEvents(battle.execute({ type: 'reload', unitId: unit.id, weaponId: weapon }));
+    logEvents(execTracked({ type: 'reload', unitId: unit.id, weaponId: weapon }));
   } catch (error) {
     log(`⚠ ${(error as Error).message}`, 'warn');
   }
@@ -585,7 +709,7 @@ function doReload(): void {
 function doWait(facing?: Facing): void {
   const unit = playerUnit();
   if (!unit) return;
-  logEvents(battle.execute({ type: 'wait', unitId: unit.id, facing }));
+  logEvents(execTracked({ type: 'wait', unitId: unit.id, facing }));
   mode = { kind: 'idle' };
   pending = null;
   advance();
@@ -595,7 +719,7 @@ function doWait(facing?: Facing): void {
 function doOverwatch(): void {
   const unit = playerUnit();
   if (!unit || unit.hasActed) return;
-  logEvents(battle.execute({ type: 'overwatch', unitId: unit.id }));
+  logEvents(execTracked({ type: 'overwatch', unitId: unit.id }));
   mode = { kind: 'idle' };
   pending = null;
   advance();
@@ -636,14 +760,14 @@ function confirm(): void {
 
   try {
     if (mode.kind === 'move' && mode.tiles.has(key)) {
-      logEvents(battle.execute({ type: 'move', unitId: unit.id, to: cursor }));
+      logEvents(execTracked({ type: 'move', unitId: unit.id, to: cursor }));
       afterAction();
     } else if (mode.kind === 'boost' && mode.tiles.has(key)) {
-      logEvents(battle.execute({ type: 'boost', unitId: unit.id, to: cursor }));
+      logEvents(execTracked({ type: 'boost', unitId: unit.id, to: cursor }));
       afterAction();
     } else if (mode.kind === 'ability' && mode.targets.has(key)) {
       if (pending && samePosition(pending, cursor)) {
-        logEvents(battle.execute({ type: 'ability', unitId: unit.id, abilityId: mode.abilityId, target: cursor }));
+        logEvents(execTracked({ type: 'ability', unitId: unit.id, abilityId: mode.abilityId, target: cursor }));
         pending = null;
         afterAction();
       } else {
@@ -818,6 +942,12 @@ function uiParty(
 // ── Teclado ──────────────────────────────────────────────────────────────
 
 document.addEventListener('keydown', (event) => {
+  // Durante la repetición, el único mando es salir de ella.
+  if (replayActive) {
+    if (event.key === 'Escape') endReplay();
+    event.preventDefault();
+    return;
+  }
   if (dlgOpen()) {
     if (dlgChoiceMode) {
       const digit = Number(event.key);
@@ -1359,7 +1489,7 @@ function renderActionbar(): void {
   ];
   for (const stance of stances) {
     mkBtn(stance.label, '·', () => {
-      logEvents(battle.execute({ type: 'stance', unitId: unit.id, stance: stance.id }));
+      logEvents(execTracked({ type: 'stance', unitId: unit.id, stance: stance.id }));
       renderAll();
     }, { on: unit.stance === stance.id, title: stance.title });
   }
@@ -1429,7 +1559,7 @@ function renderActionbar(): void {
     mkBtn('🏳 Retirarse', '·', () => {
       void uiConfirm(`¿Retirar a ${unit.id} ${unit.name} del combate? La máquina se salva con el daño que lleve, pero no volverá a esta batalla.`).then((ok) => {
         if (!ok) return;
-        logEvents(battle.execute({ type: 'retreat', unitId: unit.id }));
+        logEvents(execTracked({ type: 'retreat', unitId: unit.id }));
         mode = { kind: 'idle' };
         pending = null;
         advance();
@@ -1441,7 +1571,7 @@ function renderActionbar(): void {
     mkBtn('🪂 Eyectar', '·', () => {
       void uiConfirm(`¿Eyectar del ${unit.name}? La máquina SE PIERDE donde está; el piloto salta y vuelve casi entero (1 jornada de baja en campaña, no 3).`).then((ok) => {
         if (!ok) return;
-        logEvents(battle.execute({ type: 'eject', unitId: unit.id }));
+        logEvents(execTracked({ type: 'eject', unitId: unit.id }));
         mode = { kind: 'idle' };
         pending = null;
         advance();
@@ -2049,6 +2179,10 @@ function spawnFloat(unitId: string, text: string, cls: string): void {
 }
 
 function showOverlay(): void {
+  if (!replayActive && replaySetup) {
+    replayData = { ...replaySetup, actions: [...actionLog] };
+  }
+  ($('ov-replay') as HTMLElement).style.display = replayData ? '' : 'none';
   const won = battle.winner === 'player';
   $('ov-title').textContent = won ? 'Victoria' : 'Derrota';
   $('ov-title').style.color = won ? 'var(--player)' : 'var(--enemy)';
@@ -4937,6 +5071,7 @@ function restart(): void {
   newBattle(seed, weather);
 }
 
+$('ov-replay').addEventListener('click', startReplay);
 $('restart').addEventListener('click', () => { returnToMerc = false; restart(); });
 $('ov-restart').addEventListener('click', restart);
 $('garage-btn').addEventListener('click', openGarage);
@@ -4981,6 +5116,13 @@ function wireSfxButton(id: string): void {
   paint();
   btn.addEventListener('click', () => { toggleSfx(); paint(); (document.querySelectorAll('.sfxbtn') as NodeListOf<HTMLElement>).forEach((b) => { b.textContent = sfxEnabled() ? '🔊' : '🔇'; }); });
 }
+$('tut-next').addEventListener('click', () => {
+  if (tutStep < 0) return;
+  if (tutStep + 1 >= TUTORIAL_STEPS.length) finishTutorial();
+  else showTutorialStep(tutStep + 1);
+});
+$('tut-skip').addEventListener('click', finishTutorial);
+
 wireSfxButton('sfx-btn');
 wireSfxButton('merc-sfx');
 wireSfxButton('world-sfx');

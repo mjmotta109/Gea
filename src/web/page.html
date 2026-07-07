@@ -64,6 +64,27 @@
     background: var(--panel); border-radius: 4px;
   }
   #turn-banner.enemy { border-left-color: var(--enemy); color: var(--enemy); }
+  #tut {
+    position: fixed; left: 18px; bottom: 18px; max-width: 350px; z-index: 90;
+    background: var(--panel); border: 1px solid var(--line);
+    border-left: 3px solid var(--energy); border-radius: 6px;
+    padding: 12px 14px; display: none;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.55);
+  }
+  #tut.show { display: block; }
+  #tut #tut-step {
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.14em;
+    color: var(--energy); text-transform: uppercase; margin-bottom: 5px;
+  }
+  #tut #tut-text { font-size: 12.5px; line-height: 1.45; margin-bottom: 9px; }
+  #tut .tut-row { display: flex; gap: 8px; }
+  #tut button {
+    font-family: var(--mono); font-size: 11px; padding: 5px 10px; cursor: pointer;
+    background: transparent; border: 1px solid var(--line); border-radius: 4px; color: var(--ink);
+  }
+  #tut #tut-next { border-color: var(--energy); color: var(--energy); }
+  #tut #tut-skip { color: var(--muted); }
+
   #objective-bar {
     font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em;
     color: var(--muted); text-transform: uppercase; margin-bottom: 4px;
@@ -1332,7 +1353,15 @@
     </div>
   </div>
 
-  <div id="overlay"><div class="box"><h2 id="ov-title"></h2><p id="ov-sub"></p><div id="ov-merc"></div><div id="ov-xp"></div><button id="ov-restart">Nueva batalla</button></div></div>
+  <div id="tut" aria-live="polite">
+    <div id="tut-step"></div>
+    <div id="tut-text"></div>
+    <div class="tut-row">
+      <button id="tut-next">Entendido →</button>
+      <button id="tut-skip">Saltar tutorial</button>
+    </div>
+  </div>
+  <div id="overlay"><div class="box"><h2 id="ov-title"></h2><p id="ov-sub"></p><div id="ov-merc"></div><div id="ov-xp"></div><button id="ov-replay">📼 Ver repetición</button> <button id="ov-restart">Nueva batalla</button></div></div>
 
   <div id="editor">
     <div class="gbox">

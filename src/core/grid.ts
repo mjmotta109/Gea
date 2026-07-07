@@ -47,6 +47,30 @@ export class GameMap {
   }
 
   /**
+   * Serializa al mismo arte ASCII que lee fromAscii (repeticiones y
+   * guardados): fromAscii(toAscii(m)) reproduce el mapa exacto.
+   */
+  toAscii(): string[] {
+    const rows: string[] = [];
+    for (let y = 0; y < this.height; y++) {
+      let row = '';
+      for (let x = 0; x < this.width; x++) {
+        const tile = this.tileAt({ x, y });
+        const h = Math.min(9, Math.max(0, tile.height));
+        switch (tile.terrain) {
+          case 'plain': row += String(h); break;
+          case 'rough': row += String.fromCharCode(97 + h); break;
+          case 'forest': row += String.fromCharCode(65 + h); break;
+          case 'water': row += '~'; break;
+          case 'wall': row += '#'; break;
+        }
+      }
+      rows.push(row);
+    }
+    return rows;
+  }
+
+  /**
    * Copia profunda. Battle clona su mapa al construirse: desde la fase 4
    * el terreno es destructible y los mapas del catálogo no deben mutar.
    */

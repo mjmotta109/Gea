@@ -767,3 +767,25 @@ arquitectura del motor van en DESIGN.md.)*
     biografía de la compañera.
   · El hangar enseña el núcleo de las cuatro cartas; cambiar de chasis
     con historia grabada pide confirmación (el nuevo llega verde).
+- **2026-07-07** — EL DÍA DE LOS CUATRO BLOQUES ("aplica la 1 2 3 y 4").
+  · IA CON EL ARSENAL NUEVO (commit propio): vigilancia cuando no hay
+    tiro y el enemigo se acerca; retirada REAL del malherido prudente
+    (corre al borde y abandona — se te puede escapar la presa); olfato
+    de misión en escoltas (+40 de utilidad al carguero protegido).
+    Golden regenerado y declarado. Nota de diseño: dos bandos pasivos
+    aún pueden empatar sin fin (los Gordos que mantienen posición);
+    contra un jugador que avanza no ocurre — vigilar si molesta.
+  · HABILIDADES ACTIVAS POR ESCUELA (commit propio): usesPerBattle en
+    el motor + extraAbilityIds por spawn; Embestida / Tiro calibrado /
+    Reparación de emergencia / Postura de hierro (PROVISIONAL), una por
+    batalla, otorgadas al desplegar con la escuela elegida a N1+.
+  · REPETICIONES: el determinismo las regala. GameMap.toAscii (inverso
+    exacto de fromAscii, testeado), receta = config serializada +
+    acciones en orden (execTracked es la única puerta de ejecución), y
+    «📼 Ver repetición» en el parte final reconstruye el motor y repite
+    las órdenes a 260ms/acción (Esc sale). Los pilotos van fotografiados
+    en la receta: la XP ganada después no altera la repetición.
+  · TUTORIAL DE PRIMERA BATALLA: siete lecciones del instructor en una
+    tarjeta fija (objetivo/rondas, mover, disparar sin certezas,
+    posturas+vigilancia, reacciones, retirada/eyección, memoria del
+    metal), con Saltar; se guarda en localStorage y no vuelve a sonar.
