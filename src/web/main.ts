@@ -1667,6 +1667,9 @@ function renderForecast(): void {
 
 /** Piloto a los mandos de una unidad del jugador (P1..P4 → pilotos). */
 function pilotOfUnit(unit: UnitState): PilotState | undefined {
+  // En repetición manda el piloto FOTOGRAFIADO en la receta: la XP y el
+  // estrés ganados al liquidar el parte no existían durante la batalla.
+  if (replayActive) return replayData?.pilots[unit.id];
   const match = /^P(\d+)$/.exec(unit.id);
   if (!match) return undefined;
   const pilotId = PILOT_IDS[Number(match[1]) - 1];
@@ -1679,7 +1682,6 @@ function pilotOfUnit(unit: UnitState): PilotState | undefined {
  * sensores: casco, estados y conducta.
  */
 function rosterCard(unit: UnitState, detailed: boolean): HTMLElement {
-  const stats = battle.effectiveStats(unit);
   const card = document.createElement('div');
   const active = battle.getActiveUnit();
   card.className = `ucard ${unit.team}${active?.id === unit.id ? ' oncall' : ''}`;
@@ -1701,6 +1703,7 @@ function rosterCard(unit: UnitState, detailed: boolean): HTMLElement {
   card.appendChild(name);
 
   if (!out) {
+    const stats = battle.effectiveStats(unit);
     const bars = document.createElement('div');
     bars.className = 'bars';
     const addBar = (lbl: string, cls: string, value: number, max: number): void => {
@@ -1711,8 +1714,9 @@ function rosterCard(unit: UnitState, detailed: boolean): HTMLElement {
     };
     addBar('HP', 'hp', unit.hp, stats.maxHp);
     const { energy, heat, arsenal, frame } = unit.components;
-    if (energy) addBar('⚡', 'en', energy.current, energy.capacity);
-    if (heat) addBar('🔥', 'ht', heat.current, heat.max);
+    // Energía y calor son telemetría de a bordo: solo de los tuyos.
+    if (detailed && energy) addBar('⚡', 'en', energy.current, energy.capacity);
+    if (detailed && heat) addBar('🔥', 'ht', heat.current, heat.max);
     card.appendChild(bars);
 
     if (detailed) {

@@ -803,3 +803,10 @@ arquitectura del motor van en DESIGN.md.)*
   tecla Q nunca giraba el diorama porque el case de cancelar la
   capturaba antes (case duplicado = código muerto); ahora Q gira en
   diorama y cancela en vista plana.
+- **2026-07-07** — PULIDO DE LA REVISIÓN ("revisa los últimos cambios →
+  aplica"). Cuatro arreglos del panel de destacamento: la repetición
+  enseña al piloto FOTOGRAFIADO en la receta (no al del presente, que ya
+  cobró XP y estrés); las barras ⚡/🔥 enemigas desaparecen — energía y
+  calor son telemetría de a bordo, solo de los tuyos; la leyenda dice
+  «Q gira el diorama» (en vista plana Q cancela); y las cartas de los
+  que ya salieron del campo no calculan stats que nadie pinta.
