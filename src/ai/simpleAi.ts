@@ -1,5 +1,5 @@
 import type { Battle } from '../core/battle.js';
-import { manhattan, samePos } from '../core/grid.js';
+import { footprintTiles, manhattan, samePos } from '../core/grid.js';
 import { reachableTiles } from '../core/pathfinding.js';
 import type { AIProfile, BattleAction, Position, UnitState } from '../core/types.js';
 
@@ -26,6 +26,31 @@ function profileOf(battle: Battle, unit: UnitState): AIProfile {
 export function planTurn(battle: Battle, unit: UnitState): BattleAction[] {
   const enemies = battle.units.filter((u) => u.team !== unit.team && u.hp > 0 && !u.retreated);
   if (enemies.length === 0) return [{ type: 'wait', unitId: unit.id }];
+
+  // Retirada REAL: el malherido prudente no maniobra — abandona el campo
+  // por el borde (vivir hoy es pelear mañana). El motor exige pisar borde.
+  const fleeProfile = profileOf(battle, unit);
+  const badlyHurt = unit.hp < battle.effectiveStats(unit).maxHp * 0.3;
+  if (badlyHurt && fleeProfile.selfPreservation >= 0.7) {
+    const onEdge = (pos: Position): boolean =>
+      footprintTiles(pos, unit.size).some((t) =>
+        t.x === 0 || t.y === 0 || t.x === battle.map.width - 1 || t.y === battle.map.height - 1);
+    if (onEdge(unit.position)) return [{ type: 'retreat', unitId: unit.id }];
+    const canFlee = battle.checkVetoes({ type: 'move', unitId: unit.id, to: unit.position }) === null;
+    if (canFlee && !unit.hasMoved) {
+      // El borde alcanzable más lejos de los enemigos: huida con cabeza.
+      const nearestEnemyDist = (pos: Position): number =>
+        Math.min(...enemies.map((e) => manhattan(pos, e.position)));
+      const exits = battle.legalMoves(unit.id).filter((t) => onEdge(t.pos));
+      if (exits.length > 0) {
+        const exit = exits.reduce((a, b) => (nearestEnemyDist(b.pos) > nearestEnemyDist(a.pos) ? b : a));
+        return [
+          { type: 'move', unitId: unit.id, to: exit.pos },
+          { type: 'retreat', unitId: unit.id },
+        ];
+      }
+    }
+  }
 
   // Habilidades pagables (los sistemas no vetan: energía, munición,
   // enfriamiento, montaje destruido...), separadas por intención.
@@ -71,6 +96,10 @@ export function planTurn(battle: Battle, unit: UnitState): BattleAction[] {
         const power = damage && damage.kind === 'damage' ? damage.power : 0;
         // Utilidad base: potencia, rematar bajos de vida y precisión...
         let score = power + (100 - (enemy.hp / battle.effectiveStats(enemy).maxHp) * 100) + ability.accuracy / 10;
+        // Olfato de misión: si el objetivo es proteger a alguien, ese
+        // alguien es EL blanco — la IA también lee el contrato.
+        const objective = battle.objective;
+        if (objective.kind === 'protect' && enemy.id === objective.wardUnitId) score += 40;
         // ...sesgada por personalidad (fase 5): los prudentes descartan
         // tiros dudosos, los conservadores no terminan rodeados.
         score += (ability.accuracy - 80) * (1 - profile.riskTolerance) * 0.5;
@@ -165,6 +194,18 @@ export function planTurn(battle: Battle, unit: UnitState): BattleAction[] {
   });
   if (emptyWeapon && !unit.hasActed) {
     actions.push({ type: 'reload', unitId: unit.id, weaponId: emptyWeapon.weaponId });
+    actions.push({ type: 'wait', unitId: unit.id });
+    return actions;
+  }
+
+  // Vigilancia: sin tiro posible pero con enemigos a menos de 10, cubrir
+  // el terreno castiga al que avance (paga sus costes como un disparo).
+  const watchFrom = standAt;
+  const closingIn = enemies.some((e) => manhattan(watchFrom, e.position) <= 10);
+  const canWatch = !unit.hasActed && closingIn && offensiveAbilities.length > 0;
+  if (canWatch) {
+    actions.push({ type: 'overwatch', unitId: unit.id });
+    return actions; // la vigilancia ya cierra el turno
   }
 
   actions.push({ type: 'wait', unitId: unit.id });
