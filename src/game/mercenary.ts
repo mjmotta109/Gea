@@ -8,6 +8,7 @@
  * Vive en src/game/ — ni motor (src/core) ni cliente (src/web): la capa
  * de juego que el motor no debe conocer.
  */
+import { newCompanion, type CompanionState } from './companion.js';
 
 export interface EconomyTable {
   startingCredits: number;
@@ -49,6 +50,17 @@ export interface OwnedZoid {
   slots: Record<string, string>;
   /** Hoja de servicio (ausente en guardados viejos = a estrenar). */
   record?: ZoidRecord;
+  /**
+   * Núcleo de la máquina: TODO Zoid está vivo — también los que no son
+   * la compañera graban marcas y estrechan compenetración (con los
+   * techos más bajos de CORE_TABLE). Ausente = núcleo verde.
+   */
+  core?: CompanionState;
+}
+
+/** Núcleo con valores verdes para guardados viejos (sin migración). */
+export function zoidCore(zoid: OwnedZoid): CompanionState {
+  return zoid.core ?? newCompanion();
 }
 
 /** Hoja de servicio con huecos a cero (guardados viejos incluidos). */

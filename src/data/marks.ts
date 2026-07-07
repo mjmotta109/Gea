@@ -80,3 +80,16 @@ export const COMPANION_TABLE: CompanionTable = {
     },
   ],
 };
+
+/**
+ * Núcleo de las DEMÁS máquinas del roster: TODO Zoid está vivo y graba
+ * lo vivido, pero el vínculo del viaje es único — menos espacios de
+ * marca y techo de compenetración más bajo que la compañera. Los tramos
+ * altos ('Una sola pieza', 'Leyenda del taller') son solo suyos.
+ */
+export const CORE_TABLE: CompanionTable = {
+  ...COMPANION_TABLE,
+  markCap: 3,
+  rapportCap: 6,
+  rapportTiers: COMPANION_TABLE.rapportTiers.filter((tier) => tier.min <= 6),
+};

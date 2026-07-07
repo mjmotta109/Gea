@@ -749,3 +749,21 @@ arquitectura del motor van en DESIGN.md.)*
     plana, mesa, diorama y en la carta del hangar (silueta + resumen).
     Las máquinas de escaramuza no llevan historial: cicatrices solo en
     campaña.
+- **2026-07-07** — TODO ZOID ESTÁ VIVO ("todos los zoids tienen historia
+  y núcleo, no solo el mío"). Ley de universo: cada máquina del roster
+  tiene NÚCLEO — marcas grabadas por lo vivido y compenetración con su
+  piloto — no solo la compañera.
+  · OwnedZoid.core (misma forma que el de la compañera); guardados
+    viejos leen núcleo verde, sin migración.
+  · CORE_TABLE (data/marks.ts): mismas marcas, pero el vínculo menor
+    tiene TECHOS más bajos — 3 espacios de marca (vs 6) y compenetración
+    6 (vs 12); los tramos altos ('Una sola pieza', 'Leyenda del taller')
+    son SOLO de la compañera. El viaje sigue siendo con ella.
+  · Graban: cada batalla desplegada (tormentas, apagados, bajas, cazas,
+    roces — anunciado al liquidar y en el diario), cada reconstrucción
+    en el taller, y cada expedición cumplida estrecha la compenetración
+    de TODA la formación que fue.
+  · Sus marcas y tramos aportan modificadores al desplegar, como la
+    biografía de la compañera.
+  · El hangar enseña el núcleo de las cuatro cartas; cambiar de chasis
+    con historia grabada pide confirmación (el nuevo llega verde).

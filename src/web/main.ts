@@ -18,7 +18,7 @@ import {
   type PilotState, type SpecializationId,
 } from '../core/progression.js';
 import { STATUS_DEFINITIONS } from '../core/status.js';
-import type { BattleEvent, BattleObjective, Facing, Position, Team, UnitState, WeatherId, FrameState,
+import type { BattleEvent, BattleObjective, Facing, Position, StatModifier, Team, UnitState, WeatherId, FrameState,
 } from '../core/types.js';
 import { ABILITIES } from '../data/abilities.js';
 import { BLUEPRINT_PRICES, CITY_TIERS, CONTRACT_ENEMY_POOL, DIFFICULTIES, ECONOMY, LEISURE_OPTIONS, STARTER_COMPANIONS, THERAPY } from '../data/economy.js';
@@ -45,8 +45,8 @@ import {
   buyBlueprint, buySupplies, buyWeapon, buyZoid, cityRepair, consumeSupplies,
   contractOffers, mountedCount, newCampaign, rebuildCost, rebuildZoid, repairCost,
   repairZoid, resolveContract, scarLevel, sellCargo, sellWeapon, serviceTier,
-  setMountedWeapons, stashCargo, tavernJob, updateZoidRecord, zoidRecord,
-  type CampaignState, type Contract,
+  setMountedWeapons, stashCargo, tavernJob, updateZoidRecord, zoidCore, zoidRecord,
+  type CampaignState, type Contract, type OwnedZoid,
 } from '../game/mercenary.js';
 import {
   canExplore, edgesTowardCivilization, exploreSite, neighbors, otherEnd,
@@ -59,7 +59,7 @@ import { createSave, describeSave, serializeSave, validateSave, type SaveGame } 
 import {
   bondExpedition, companionModifiers, newCompanion, observeCompanionBattle, recordCompanionEvent,
 } from '../game/companion.js';
-import { COMPANION_TABLE } from '../data/marks.js';
+import { COMPANION_TABLE, CORE_TABLE } from '../data/marks.js';
 
 // Catálogos completos del cliente: base + anexo de la librería de armas.
 // Los Zoids de segunda generación montan armas 'lib-*' y los necesitan.
@@ -1065,6 +1065,12 @@ const CELL_PX = 48;
 // ── El diorama (escalón 3): escena, dibujo y ratón ──────────────────────
 
 const TEAM_COLORS = { player: '#53d1e0', enemy: '#ff8a5c' } as const;
+
+/** Modificadores del núcleo propio al desplegar una no-compañera. */
+function coreSpawnModifiers(zoid: OwnedZoid): { modifiers: StatModifier[] } | Record<string, never> {
+  const mods = companionModifiers(zoidCore(zoid), CORE_TABLE);
+  return mods.length > 0 ? { modifiers: mods } : {};
+}
 
 /** Cicatrices de la máquina que ocupa el hueco Pn (0 para el resto). */
 function scarsFor(unitId: string): number {
@@ -2676,21 +2682,24 @@ function renderMercHangar(): void {
         `${record.ejections > 0 ? ` · ${record.ejections} ${record.ejections === 1 ? 'eyección' : 'eyecciones'}` : ''}` +
         `${scars > 0 ? ` · <span class="symptom">${'✚'.repeat(scars)} cicatrices</span>` : ''}</span></div>`);
     }
-    if (slot === 0) {
+    {
+      // Todo Zoid está vivo: cada carta enseña su núcleo. La compañera
+      // usa su tabla completa; el resto, la de núcleo (techos más bajos).
       const bio = document.createElement('div');
       bio.className = 'gbio';
-      const companion = campaign!.companion;
-      const tier = [...COMPANION_TABLE.rapportTiers].sort((a, b) => b.min - a.min)
-        .find((t) => companion.rapport >= t.min);
-      const chips = companion.markIds.map((id) => {
-        const mark = COMPANION_TABLE.marks[id];
+      const core = slot === 0 ? campaign!.companion : zoidCore(zoid);
+      const table = slot === 0 ? COMPANION_TABLE : CORE_TABLE;
+      const tier = [...table.rapportTiers].sort((a, b) => b.min - a.min)
+        .find((t) => core.rapport >= t.min);
+      const chips = core.markIds.map((id) => {
+        const mark = table.marks[id];
         return mark ? `<span class="pquirk" title="${escapeHtml(mark.description)}">${mark.name}</span>` : '';
       }).join('');
-      const empty = Array.from({ length: Math.max(0, COMPANION_TABLE.markCap - companion.markIds.length) })
+      const empty = Array.from({ length: Math.max(0, table.markCap - core.markIds.length) })
         .map(() => '<span class="pquirk empty" title="Espacio de núcleo libre: las marcas se graban viviendo.">· · ·</span>').join('');
       bio.innerHTML =
-        `<div class="qtitle">Núcleo (${companion.markIds.length}/${COMPANION_TABLE.markCap})</div>${chips}${empty}` +
-        `<div class="qtitle" style="margin-top:5px">Compenetración ${companion.rapport}/${COMPANION_TABLE.rapportCap}` +
+        `<div class="qtitle">Núcleo (${core.markIds.length}/${table.markCap})</div>${chips}${empty}` +
+        `<div class="qtitle" style="margin-top:5px">Compenetración ${core.rapport}/${table.rapportCap}` +
         (tier ? ` · <span style="color:var(--energy)">${tier.label}</span>` : '') + '</div>';
       card.appendChild(bio);
     }
@@ -2710,6 +2719,12 @@ function renderMercHangar(): void {
         if (slot === 0) {
           const marked = recordCompanionEvent(campaign.companion, 'reconstrucciones', COMPANION_TABLE);
           campaign = { ...campaign, companion: marked.companion };
+        } else {
+          const marked = recordCompanionEvent(zoidCore(campaign.roster[slot]!), 'reconstrucciones', CORE_TABLE);
+          campaign = {
+            ...campaign,
+            roster: campaign.roster.map((z, i) => (i === slot ? { ...z, core: marked.companion } : z)),
+          };
         }
         saveCampaign();
         renderMerc();
@@ -2770,6 +2785,14 @@ function renderMercHangar(): void {
         if (!(await uiConfirm('Es tu COMPAÑERA. Cambiar de chasis borra sus marcas y la compenetración — la biografía no se compra de vuelta. ¿Seguro?'))) {
           renderMerc();
           return;
+        }
+      } else if (slot !== 0) {
+        const core = zoidCore(zoid);
+        if (core.markIds.length > 0 || core.rapport > 0) {
+          if (!(await uiConfirm('El núcleo de esta máquina tiene historia grabada. El chasis nuevo llega verde: marcas y compenetración se pierden. ¿Seguro?'))) {
+            renderMerc();
+            return;
+          }
         }
       }
       const before = campaign!;
@@ -3056,7 +3079,20 @@ function settleContract(): string {
           const record = zoidRecord(updated);
           serviceLines.push(`⭐ El ${ZOIDS[zoid.unitTypeId]!.name} ya es ${after.label.toUpperCase()}: ${record.battles} batallas y ${record.kills} derribos a cuestas.`);
         }
-        return updated;
+        // Todo Zoid está vivo: su núcleo también graba (la compañera lo
+        // hace aparte, con su tabla completa).
+        if (slot === 0) return updated;
+        const observed = observeCompanionBattle(zoidCore(updated), {
+          events: allEvents, unitId: `P${slot + 1}`,
+          finalHpRatio: unit.hp / Math.max(1, battle.effectiveStats(unit).maxHp),
+          weather: battle.weather,
+        }, CORE_TABLE);
+        for (const mark of observed.gained) {
+          serviceLines.push(`❖ El núcleo del ${ZOIDS[zoid.unitTypeId]!.name} graba una marca: ${mark.name}.`);
+          companionMarkLines.push(
+            `<div>❖ El núcleo del <b>${ZOIDS[zoid.unitTypeId]!.name}</b> graba una marca: <b class="lvlup">${mark.name}</b> — <span style="color:var(--muted)">${escapeHtml(mark.description)}</span></div>`);
+        }
+        return { ...updated, core: observed.companion };
       }),
     };
     if (expedition && serviceLines.length > 0) {
@@ -3907,7 +3943,9 @@ function fightTavernBattle(job: Contract, nodeId: string): void {
         weapons: [...zoid.weapons],
         ...(Object.keys(zoid.slots).length > 0 ? { slots: { ...zoid.slots } } : {}),
       },
-      ...(slot === 0 ? { modifiers: companionModifiers(campaign!.companion, COMPANION_TABLE) } : {}),
+      ...(slot === 0
+        ? { modifiers: companionModifiers(campaign!.companion, COMPANION_TABLE) }
+        : coreSpawnModifiers(zoid)),
       ...(k === 0 ? { commander: true } : {}),
     })),
     ...job.enemySquad.map((unitTypeId, i) => ({
@@ -4138,8 +4176,10 @@ function fightExpeditionBattle(): void {
         weapons: [...zoid.weapons],
         ...(Object.keys(zoid.slots).length > 0 ? { slots: { ...zoid.slots } } : {}),
       },
-      // La compañera (hueco 1) lleva su biografía a la batalla.
-      ...(slot === 0 ? { modifiers: companionModifiers(campaign!.companion, COMPANION_TABLE) } : {}),
+      // Cada núcleo lleva su biografía a la batalla (la compañera, la suya).
+      ...(slot === 0
+        ? { modifiers: companionModifiers(campaign!.companion, COMPANION_TABLE) }
+        : coreSpawnModifiers(zoid)),
       ...(k === 0 ? { commander: true } : {}),
     })),
     ...contract.enemySquad.map((unitTypeId, i) => ({
@@ -4222,6 +4262,15 @@ function endExpedition(): void {
   campaign = sold.state;
   if (expedition.missionDone) {
     campaign = { ...campaign, companion: bondExpedition(campaign.companion, COMPANION_TABLE) };
+    // El resto de la formación también vuelve conociéndose mejor.
+    const party = expedition.party ?? [0, 1, 2, 3];
+    campaign = {
+      ...campaign,
+      roster: campaign.roster.map((zoid, slot) =>
+        slot !== 0 && party.includes(slot) && !zoid.destroyed
+          ? { ...zoid, core: bondExpedition(zoidCore(zoid), CORE_TABLE) }
+          : zoid),
+    };
   }
   const closingRegion = regionOf(WORLD_ATLAS, expedition.regionId);
   const moved = campaign.homeRegionId !== undefined && campaign.homeRegionId !== expedition.regionId;

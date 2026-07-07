@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
-  newCampaign, rebuildZoid, scarLevel, serviceTier, updateZoidRecord, zoidRecord,
+  buyZoid, newCampaign, rebuildZoid, scarLevel, serviceTier, updateZoidRecord,
+  zoidCore, zoidRecord,
   type OwnedZoid,
 } from '../src/game/mercenary.js';
+import { bondExpedition, newCompanion, observeCompanionBattle } from '../src/game/companion.js';
+import { COMPANION_TABLE, CORE_TABLE } from '../src/data/marks.js';
 import { ECONOMY } from '../src/data/economy.js';
 import { scarOverlay, spriteBody } from '../src/web/sprites.js';
 
@@ -79,5 +82,49 @@ describe('cicatrices en la silueta: deterministas y visibles', () => {
     const scarred = spriteBody('gustav', 2);
     expect(scarred.startsWith(clean)).toBe(true);
     expect(scarred.length).toBeGreaterThan(clean.length);
+  });
+});
+
+describe('todo Zoid está vivo: núcleo para las no-compañeras', () => {
+  it('los guardados viejos leen un núcleo verde', () => {
+    expect(zoidCore(bare())).toEqual({ markIds: [], memory: {}, rapport: 0 });
+  });
+
+  it('CORE_TABLE es el vínculo menor: 3 marcas, compenetración 6, sin tramos altos', () => {
+    expect(CORE_TABLE.markCap).toBe(3);
+    expect(CORE_TABLE.rapportCap).toBe(6);
+    expect(CORE_TABLE.rapportTiers.every((t) => t.min <= 6)).toBe(true);
+    // La compañera conserva su techo completo: su vínculo sigue único.
+    expect(COMPANION_TABLE.markCap).toBeGreaterThan(CORE_TABLE.markCap);
+    expect(COMPANION_TABLE.rapportCap).toBeGreaterThan(CORE_TABLE.rapportCap);
+  });
+
+  it('el núcleo menor deja de grabar al llenar sus 3 espacios', () => {
+    let core = newCompanion();
+    // Memoria al borde de CUATRO umbrales a la vez: solo caben 3 marcas.
+    core = { ...core, memory: { tormentas: 2, apagados: 2, roces: 3, reconstrucciones: 1 } };
+    const observed = observeCompanionBattle(core, {
+      events: [], unitId: 'P2', finalHpRatio: 1, weather: 'clear',
+    }, CORE_TABLE);
+    expect(observed.companion.markIds).toHaveLength(3);
+  });
+
+  it('la compenetración del núcleo menor se corta en 6', () => {
+    let core = newCompanion();
+    for (let i = 0; i < 12; i++) core = bondExpedition(core, CORE_TABLE);
+    expect(core.rapport).toBe(6);
+  });
+
+  it('cambiar de chasis entrega una máquina verde: el núcleo no se muda', () => {
+    let state = newCampaign(ECONOMY, factoryLoadout);
+    state = {
+      ...state,
+      credits: 99999,
+      roster: state.roster.map((z, i) =>
+        (i === 1 ? { ...z, core: { markIds: ['diente-mellado'], memory: { bajas: 10 }, rapport: 4 } } : z)),
+    };
+    const after = buyZoid(state, 1, 'molga', 120, ECONOMY, factoryLoadout);
+    expect(after).not.toBe(state); // la compra ocurrió
+    expect(after.roster[1]!.core).toBeUndefined();
   });
 });
