@@ -68,30 +68,38 @@ export const THERAPY = {
   stressRelief: 20,
 };
 
-/** Dificultades de campaña: recursos iniciales (el mundo no cambia). */
+/**
+ * Dificultades de campaña. NO son esponjas de balas: nunca inflan el HP ni
+ * cambian la matemática de combate. Cambian los recursos iniciales y, sobre
+ * todo, el DESGASTE (`wear`): cuánto castiga el daño acumulado a una máquina
+ * (puntería, evasión, movimiento por tramos de HP). Más difícil = cada
+ * impacto pesa más, no que el enemigo aguante más. El determinismo es ley.
+ */
 export interface DifficultySpec {
   id: string;
   name: string;
   description: string;
   credits: number;
   supplies: number;
+  /** Severidad del desgaste de combate (BattleConfig.wear). */
+  wear: number;
 }
 
 export const DIFFICULTIES: DifficultySpec[] = [
   {
     id: 'cadete', name: 'Cadete',
-    description: 'Arcas llenas y despensa generosa. Para aprender el oficio.',
-    credits: 3400, supplies: 12,
+    description: 'Arcas llenas y despensa generosa. El daño apenas pasa factura: para aprender el oficio.',
+    credits: 3400, supplies: 12, wear: 0.5,
   },
   {
     id: 'mercenario', name: 'Mercenario',
-    description: 'Lo justo para empezar. El equilibrio pensado del juego.',
-    credits: 2500, supplies: 8,
+    description: 'Lo justo para empezar. Cada golpe deja marca: la máquina dañada apunta y se mueve peor.',
+    credits: 2500, supplies: 8, wear: 1,
   },
   {
     id: 'leyenda', name: 'Leyenda',
-    description: 'Deudas, hambre y una reputación por construir. Duele.',
-    credits: 1600, supplies: 5,
+    description: 'Deudas, hambre y máquinas que se desmoronan bajo el fuego. Un tren roto es media máquina. Duele.',
+    credits: 1600, supplies: 5, wear: 1.6,
   },
 ];
 

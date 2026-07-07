@@ -31,7 +31,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
       { source: 'module:liger-legs-front', stat: 'speed', add: 2 },
       { source: 'module:liger-legs-front', stat: 'evade', add: 5 },
     ],
-    onDestroyed: [],
+    onDestroyed: [{ source: 'module:liger-legs-front', stat: 'accuracy', add: -10 }],
     tags: ['low-profile', 'locomotion'],
   },
   'liger-legs-rear': {
@@ -43,7 +43,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
       { source: 'module:liger-legs-rear', stat: 'speed', add: 2 },
       { source: 'module:liger-legs-rear', stat: 'evade', add: 5 },
     ],
-    onDestroyed: [],
+    onDestroyed: [{ source: 'module:liger-legs-rear', stat: 'accuracy', add: -10 }],
     tags: ['low-profile', 'locomotion'],
   },
   'strike-claws': {
@@ -84,7 +84,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
       { source: 'module:geno-leg-l', stat: 'speed', add: 2 },
       { source: 'module:geno-leg-l', stat: 'evade', add: 3 },
     ],
-    onDestroyed: [],
+    onDestroyed: [{ source: 'module:geno-leg-l', stat: 'accuracy', add: -10 }],
     tags: ['low-profile', 'locomotion'],
   },
   'geno-leg-r': {
@@ -95,7 +95,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
       { source: 'module:geno-leg-r', stat: 'speed', add: 2 },
       { source: 'module:geno-leg-r', stat: 'evade', add: 3 },
     ],
-    onDestroyed: [],
+    onDestroyed: [{ source: 'module:geno-leg-r', stat: 'accuracy', add: -10 }],
     tags: ['low-profile', 'locomotion'],
   },
   'particle-intake': {

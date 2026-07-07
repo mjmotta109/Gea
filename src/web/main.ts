@@ -8,6 +8,7 @@
  */
 import { planTurn } from '../ai/simpleAi.js';
 import { Battle, type ReinforcementWave, type UnitSpawn } from '../core/battle.js';
+import { wearTier } from '../core/wear.js';
 import { attackArc, type AttackArc } from '../core/combat.js';
 import { GameMap, posKey, terrainLabel, TERRAIN_COVER } from '../core/grid.js';
 import { reachableTiles, type ReachableTile } from '../core/pathfinding.js';
@@ -378,6 +379,16 @@ interface BattleBrief {
   briefing?: string;
 }
 
+/**
+ * Severidad del desgaste según la dificultad de la campaña. Sin campaña
+ * (escaramuza) rige el desgaste base (Mercenario): cada impacto pesa, pero
+ * sin castigo extra. No infla HP: escala cuánto degrada el daño acumulado.
+ */
+function campaignWear(): number {
+  const id = campaign?.difficulty ?? 'mercenario';
+  return DIFFICULTIES.find((d) => d.id === id)?.wear ?? 1;
+}
+
 function startBattle(
   spawns: UnitSpawn[], seed: number, weather: WeatherId, map: GameMap, brief: BattleBrief = {},
 ): void {
@@ -388,6 +399,7 @@ function startBattle(
     moduleCatalog: MODULES,
     weaponCatalog: CATALOGS.weaponCatalog,
     weather,
+    wear: campaignWear(),
     seed,
     spawns,
     ...(brief.objective ? { objective: brief.objective } : {}),
@@ -1598,6 +1610,12 @@ function destroyedTags(unit: UnitState): Set<string> {
 function symptomBadges(unit: UnitState): string {
   const tags = destroyedTags(unit);
   const badges: string[] = [];
+  // Desgaste: el daño acumulado se VE. Solo cuando la dificultad lo activa.
+  if (battle && battle.wear > 0 && unit.hp > 0) {
+    const tier = wearTier(unit.hp, battle.effectiveStats(unit).maxHp);
+    if (tier === 'castigada') badges.push('⚠ castigada');
+    else if (tier === 'malherida') badges.push('🩸 malherida');
+  }
   if (tags.has('locomotion')) badges.push('🦵 cojea');
   if (tags.has('sensor')) badges.push('📡 sensores rotos');
   if (tags.has('weapon')) badges.push('🔫 arma inutilizada');
@@ -4853,6 +4871,7 @@ function foundCompany(): void {
       credits: diff.credits,
       supplies: diff.supplies,
       starterRoster: [ngCompanion, 'command-wolf', 'gun-sniper', 'gustav'],
+      difficulty: diff.id,
     });
     founded.chronicle = [
       `⚑ Se funda ${company}. Dificultad ${diff.name}: ⌾${diff.credits} y ${diff.supplies} suministros. La compañera: ${ZOIDS[ngCompanion]?.name ?? ngCompanion}.`,

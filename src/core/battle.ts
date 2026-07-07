@@ -13,6 +13,7 @@ import { hasLineOfSight } from './los.js';
 import { KNOCKBACK_MASS_THRESHOLD, knockbackDestination } from './physics.js';
 import { aoeTiles, reachableTiles, targetableTiles, type ReachableTile } from './pathfinding.js';
 import { applyModifiers } from './derived.js';
+import { wearModifiers } from './wear.js';
 import {
   applyDamageToModule,
   buildFrameState,
@@ -101,6 +102,13 @@ export interface BattleConfig {
   weaponCatalog?: Record<string, WeaponDefinition>;
   /** Clima de la batalla; por defecto despejado. */
   weather?: WeatherId;
+  /**
+   * Severidad del DESGASTE de combate (0 = sin desgaste, por defecto). No es
+   * más HP: escala cuánto degrada a una máquina el daño acumulado (puntería,
+   * evasión, movimiento) por tramos de HP. La dificultad de campaña lo fija;
+   * el motor solo lo aplica. Con 0, comportamiento y golden master idénticos.
+   */
+  wear?: number;
   /** Pilotos por unidad (progresión, opt-in) y su tabla de perks. */
   pilots?: Record<string, PilotState>;
   perkTable?: PerkTable;
@@ -133,6 +141,8 @@ export class Battle {
   readonly map: GameMap;
   readonly units: UnitState[];
   readonly weather: WeatherId;
+  /** Severidad del desgaste de combate (0 = apagado). Lo fija la campaña. */
+  readonly wear: number;
   private definitions: Record<string, UnitDefinition>;
   private abilities: Record<string, AbilityDefinition>;
   private modules: ModuleCatalog;
@@ -164,6 +174,7 @@ export class Battle {
     this.modules = config.moduleCatalog ?? {};
     this.rng = new Rng(config.seed);
     this.weather = config.weather ?? 'clear';
+    this.wear = config.wear ?? 0;
     this.weapons = config.weaponCatalog ?? {};
     this.pilots = config.pilots ?? {};
     this.perkTable = config.perkTable;
@@ -400,6 +411,9 @@ export class Battle {
       ...statusModifiers(unit),
       ...energyModifiers(unit),
       ...heatModifiers(unit),
+      // Desgaste de combate: el daño acumulado degrada la máquina (nunca
+      // infla HP). Severidad 0 = sin efecto (motor y golden intactos).
+      ...wearModifiers(unit.hp, base.maxHp, this.wear),
     ];
     if (this.linkLostTeams.has(unit.team) && unit.hp > 0) {
       // Sin comandante, la coordinación del equipo se resiente (fase 5).

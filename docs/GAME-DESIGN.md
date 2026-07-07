@@ -813,3 +813,29 @@ arquitectura del motor van en DESIGN.md.)*
     descubierto se persiste y se queda para siempre. Todo determinista por
     clave; consecuencias anunciadas. Tests: exploration.test.ts (5) +
     atlas/expedition intactos.
+- **2026-07-07** — DESGASTE DE COMBATE Y DIFICULTAD SIN ESPONJAS
+  (aclaración del usuario: "no quiero esponjas de balas en dificultades
+  altas; con tanto desgaste visible en cada Zoid, que cueste y que cada
+  impacto deje marca — sin una pata te mueves menos y apuntas peor —, más
+  dinámico pero con reglas claras y opciones"). La dificultad deja de ser
+  solo el punto de partida económico y pasa a escalar la CONSECUENCIA del
+  daño, NUNCA el HP.
+  · WEAR (core/wear.ts): función pura del HP, sin azar. Tramos por fracción
+    — entera (>66%), CASTIGADA (≤66%: −6 punt/−4 eva/−1 mov a severidad 1)
+    y MALHERIDA (≤33%: −14/−8/−2). Entra al pipeline de stats como un
+    modificador más. `BattleConfig.wear` (severidad, 0 por defecto) la fija
+    la campaña; el motor genérico no sabe de dificultad. Con severidad 0,
+    comportamiento y golden IDÉNTICOS (verificado). No toca maxHp jamás.
+  · DIFICULTAD (data/economy.ts): Cadete wear 0.5, Mercenario 1, Leyenda
+    1.6 — mismo Zoid al 15% de HP: −7/−14/−22 de puntería, el HP intacto en
+    los tres. Escaramuza usa el desgaste base (Mercenario). Guardada en
+    CampaignState.difficulty (migración: ausente = mercenario).
+  · SIN UNA PATA (data/modules.ts): las cuatro patas (Liger CAS, Geno CP)
+    ganan onDestroyed −10 de puntería: perder un tren no solo quita
+    movimiento (contribución perdida) — además cuesta apuntar. El retroceso
+    fuerte ya existe (physics.ts knockback), ahora con más sentido (el agua
+    es vadeable: te pueden empujar dentro).
+  · SÍNTOMA LEGIBLE (web): insignias ⚠ castigada / 🩸 malherida junto a las
+    de avería; el % de acierto y el rango de movimiento ya reflejan el
+    desgaste. Reglas claras, decisión del piloto (aguantar/replegarse/
+    cambiar de postura). Tests: wear.test.ts (5). Golden intacto.

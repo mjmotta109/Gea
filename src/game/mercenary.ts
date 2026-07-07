@@ -132,6 +132,12 @@ export interface CampaignState {
    * Ausente = nada descubierto (migración de partidas viejas).
    */
   discovered?: string[];
+  /**
+   * Dificultad elegida al fundar la compañía. Fija el DESGASTE de combate
+   * (no infla HP: el determinismo es ley). Ausente = 'mercenario' (partidas
+   * viejas y migración).
+   */
+  difficulty?: string;
 }
 
 /**
@@ -166,6 +172,8 @@ export interface NewCampaignConfig {
   supplies?: number;
   /** Roster inicial (la posición 1 es la compañera). */
   starterRoster?: string[];
+  /** Dificultad elegida: fija el desgaste de combate. */
+  difficulty?: string;
 }
 
 export function newCampaign(
@@ -189,6 +197,7 @@ export function newCampaign(
     companion: { markIds: [], memory: {}, rapport: 0 },
     reputation: {},
     chronicle: [],
+    ...(config.difficulty ? { difficulty: config.difficulty } : {}),
   };
 }
 

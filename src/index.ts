@@ -10,6 +10,7 @@ export { attackArc, computeDamage, damageRange, facingTowards, hitChance, type A
 export { advanceToNextTurn, forecastTurnOrder } from './core/turn.js';
 export { applyStatus, hasStatus, tickStatuses, STATUS_DEFINITIONS, STATUS_INFO } from './core/status.js';
 export { applyModifiers, type StatModifier } from './core/derived.js';
+export { wearModifiers, wearTier, WEAR_BRUISED_FRACTION, WEAR_CRIPPLED_FRACTION, type WearTier } from './core/wear.js';
 export {
   applyDamageToModule,
   buildFrameState,
