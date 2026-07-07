@@ -889,3 +889,27 @@ arquitectura del motor van en DESIGN.md.)*
   · LECTOR DE CASCO (web): anilla exterior cian = blindaje; punteada roja =
     EXPUESTO; el registro avisa "🛡✕ blindaje ROTO". Tests: plating.test.ts
     (5). 273 tests en verde, tsc limpio, golden intacto.
+- **2026-07-07** — REFUERZO DE BLINDAJE: BÚNKER MONTABLE EN EL TALLER
+  (dirección del usuario: "que el blindaje se repare en el taller; puedes
+  dar extra blindaje para una misión pero serás más lento"). El hermano de
+  CAMPAÑA del blindaje por módulos: un búnker a nivel de máquina que vale
+  para TODO chasis (también los monocasco).
+  · MOTOR (core: UnitSpawn.armor → UnitState.armor): un búnker de placas que
+    absorbe daño ANTES que el casco o los módulos. La penetración del
+    proyectil se cuela sin gastarlo; el resto lo frena hasta agotarse (evento
+    unit-armor-broken). Absorbe también el daño de reacciones. Con armor 0
+    (por defecto) el motor se comporta idéntico: golden INTACTO.
+  · TALLER (game/mercenary.ts + data/economy.ts): OwnedZoid.reinforced +
+    armor. `reinforceArmor` monta el búnker (⌾400, 30 de placas), `repairArmor`
+    lo repara a tope (⌾3/punto gastado), `stripReinforcement` lo quita. El
+    blindaje gastado en batalla PERSISTE (resolveContract.finalArmor) y se
+    repara en el taller — igual que el HP.
+  · EL PRECIO: reforzar resta MOV −1 y velocidad −3 al desplegar
+    (reinforcementModifiers, sumados a las marcas de la compañera). Extra
+    aguante a cambio de ir más lento — consecuencia anunciada. Verificado:
+    Command Wolf reforzado MOV 5→4 con 30 de búnker; vuelve a 8/30 y el
+    taller lo repara a 30/30 por ⌾66.
+  · WEB: el hangar del cuartel gana Reforzar / Reparar blindaje / Quitar
+    refuerzo por máquina; el despliegue aplica búnker + penalización; el
+    registro avisa cuando el búnker se agota. Tests: armor.test.ts (6).
+    279 tests en verde, tsc limpio, golden intacto.

@@ -43,10 +43,11 @@ import { withWeaponLibrary } from '../data/weaponLibrary.js';
 import { WEAPONS } from '../data/weapons.js';
 import { ZOIDS } from '../data/zoids.js';
 import {
-  buyBlueprint, buySupplies, buyWeapon, buyZoid, cityRepair, consumeSupplies,
-  contractOffers, mountedCount, newCampaign, rebuildCost, rebuildZoid, repairCost,
-  repairZoid, resolveContract, scarLevel, sellCargo, sellWeapon, serviceTier,
-  setMountedWeapons, stashCargo, tavernJob, updateZoidRecord, zoidRecord,
+  armorRepairCost, buyBlueprint, buySupplies, buyWeapon, buyZoid, cityRepair, consumeSupplies,
+  contractOffers, mountedCount, newCampaign, rebuildCost, rebuildZoid, reinforceArmor,
+  reinforcementModifiers, repairArmor, repairCost, repairZoid, resolveContract, scarLevel,
+  sellCargo, sellWeapon, serviceTier, setMountedWeapons, stashCargo, stripReinforcement,
+  tavernJob, updateZoidRecord, zoidRecord,
   type CampaignState, type Contract,
 } from '../game/mercenary.js';
 import {
@@ -1734,6 +1735,8 @@ function describe(event: BattleEvent): { text: string; cls?: string } | undefine
     case 'ability-missed': return { text: `...${event.targetUnitId} lo esquiva!`, cls: 'good' };
     case 'damage-dealt': return { text: `${event.targetUnitId} recibe ${event.amount} de daño (${event.targetHp} HP)`, cls: 'hit' };
     case 'hit-location-rolled': return undefined;
+    case 'unit-armor-damaged': return undefined; // el goteo del búnker no satura el registro
+    case 'unit-armor-broken': return { text: `🛡✕ el blindaje de refuerzo de ${unitLabel(event.unitId)} se AGOTA: el casco queda al descubierto`, cls: 'warn' };
     case 'module-armor-damaged': return undefined; // el goteo del blindaje no satura el registro
     case 'module-armor-broken': return { text: `🛡✕ blindaje de ${event.slot} de ${event.targetUnitId} ROTO: la pieza queda EXPUESTA`, cls: 'warn' };
     case 'module-damaged': return { text: `→ impacto en ${event.slot} (${event.moduleHp} HP del módulo)` };
@@ -2777,6 +2780,40 @@ function renderMercHangar(): void {
       }
     }
 
+    // Refuerzo de blindaje: un búnker que absorbe antes que el casco, a
+    // cambio de velocidad. Se monta, se repara y se quita en el taller.
+    if (!zoid.destroyed) {
+      const r = ECONOMY.reinforcement;
+      if (zoid.reinforced) {
+        const armor = Math.max(0, Math.min(zoid.armor ?? r.armor, r.armor));
+        const note = document.createElement('div');
+        note.className = 'gnote';
+        note.textContent = `🛡 Blindaje de refuerzo: ${armor}/${r.armor}${armor < r.armor ? ' (gastado)' : ''} · −${r.movePenalty} MOV al desplegar`;
+        card.appendChild(note);
+        const repCost = armorRepairCost(zoid, ECONOMY);
+        if (repCost > 0) {
+          const rb = document.createElement('button');
+          rb.className = 'gbtn';
+          rb.textContent = `Reparar blindaje (⌾${repCost})`;
+          rb.disabled = campaign!.credits < repCost;
+          rb.addEventListener('click', () => { campaign = repairArmor(campaign!, slot, ECONOMY); saveCampaign(); renderMerc(); });
+          card.appendChild(rb);
+        }
+        const sb = document.createElement('button');
+        sb.className = 'gbtn';
+        sb.textContent = 'Quitar refuerzo (recupera velocidad)';
+        sb.addEventListener('click', () => { campaign = stripReinforcement(campaign!, slot); saveCampaign(); renderMerc(); });
+        card.appendChild(sb);
+      } else {
+        const fb = document.createElement('button');
+        fb.className = 'gbtn';
+        fb.textContent = `🛡 Reforzar blindaje (⌾${r.fitCost}: +${r.armor} búnker, −${r.movePenalty} MOV)`;
+        fb.disabled = campaign!.credits < r.fitCost;
+        fb.addEventListener('click', () => { campaign = reinforceArmor(campaign!, slot, ECONOMY); saveCampaign(); renderMerc(); });
+        card.appendChild(fb);
+      }
+    }
+
     const mkRow = (label: string, control: HTMLElement): void => {
       const row = document.createElement('label');
       row.className = 'grow';
@@ -3110,9 +3147,11 @@ function settleContract(): string {
   if (isTavern && expedition && campaign) {
     const finalHpT = campaign.roster.map((_, slot) =>
       deployedSlots.includes(slot) ? battle.unit(`P${slot + 1}`).hp : undefined);
+    const finalArmorT = campaign.roster.map((z, slot) =>
+      z.reinforced && deployedSlots.includes(slot) ? battle.unit(`P${slot + 1}`).armor ?? 0 : undefined);
     const enemiesDownT = battle.units.filter((u) => u.team === 'enemy' && u.hp <= 0).length;
     const settled = resolveContract(campaign, contract, {
-      winner: battle.winner, finalHp: finalHpT, enemiesDestroyed: enemiesDownT,
+      winner: battle.winner, finalHp: finalHpT, finalArmor: finalArmorT, enemiesDestroyed: enemiesDownT,
     });
     // resolveContract avanza el ciclo oficial: lo devolvemos a su sitio.
     campaign = { ...settled.state, contractsDone: campaign.contractsDone };
@@ -3162,10 +3201,13 @@ function settleContract(): string {
   }
   const finalHp = campaign!.roster.map((_, slot) =>
     deployedSlots.includes(slot) ? battle.unit(`P${slot + 1}`).hp : undefined);
+  const finalArmor = campaign!.roster.map((z, slot) =>
+    z.reinforced && deployedSlots.includes(slot) ? battle.unit(`P${slot + 1}`).armor ?? 0 : undefined);
   const enemiesDestroyed = battle.units.filter((u) => u.team === 'enemy' && u.hp <= 0).length;
   const { state, report } = resolveContract(campaign!, contract, {
     winner: battle.winner,
     finalHp,
+    finalArmor,
     enemiesDestroyed,
   });
   campaign = state;
@@ -3944,20 +3986,29 @@ function fightTavernBattle(job: Contract, nodeId: string): void {
     } catch { /* cae al generado */ }
   }
   const spawns: UnitSpawn[] = [
-    ...alive.map(({ zoid, slot }, k) => ({
-      id: `P${slot + 1}`,
-      name: ZOIDS[zoid.unitTypeId]!.name,
-      unitTypeId: zoid.unitTypeId,
-      team: 'player' as Team,
-      position: field.playerPos[k]!,
-      hp: zoid.hp,
-      loadout: {
-        weapons: [...zoid.weapons],
-        ...(Object.keys(zoid.slots).length > 0 ? { slots: { ...zoid.slots } } : {}),
-      },
-      ...(slot === 0 ? { modifiers: companionModifiers(campaign!.companion, COMPANION_TABLE) } : {}),
-      ...(k === 0 ? { commander: true } : {}),
-    })),
+    ...alive.map(({ zoid, slot }, k) => {
+      // El refuerzo de blindaje da búnker (UnitSpawn.armor) a cambio de
+      // velocidad (modificadores), sumado a las marcas de la compañera.
+      const mods = [
+        ...(slot === 0 ? companionModifiers(campaign!.companion, COMPANION_TABLE) : []),
+        ...(zoid.reinforced ? reinforcementModifiers(ECONOMY) : []),
+      ];
+      return {
+        id: `P${slot + 1}`,
+        name: ZOIDS[zoid.unitTypeId]!.name,
+        unitTypeId: zoid.unitTypeId,
+        team: 'player' as Team,
+        position: field.playerPos[k]!,
+        hp: zoid.hp,
+        loadout: {
+          weapons: [...zoid.weapons],
+          ...(Object.keys(zoid.slots).length > 0 ? { slots: { ...zoid.slots } } : {}),
+        },
+        ...(zoid.reinforced ? { armor: zoid.armor ?? ECONOMY.reinforcement.armor } : {}),
+        ...(mods.length > 0 ? { modifiers: mods } : {}),
+        ...(k === 0 ? { commander: true } : {}),
+      };
+    }),
     ...job.enemySquad.map((unitTypeId, i) => ({
       id: `E${i + 1}`,
       name: ZOIDS[unitTypeId]!.name,
@@ -4179,21 +4230,29 @@ function fightExpeditionBattle(): void {
   }
 
   const spawns: UnitSpawn[] = [
-    ...alive.map(({ zoid, slot }, k) => ({
-      id: `P${slot + 1}`,
-      name: ZOIDS[zoid.unitTypeId]!.name,
-      unitTypeId: zoid.unitTypeId,
-      team: 'player' as Team,
-      position: field.playerPos[k]!,
-      hp: zoid.hp,
-      loadout: {
-        weapons: [...zoid.weapons],
-        ...(Object.keys(zoid.slots).length > 0 ? { slots: { ...zoid.slots } } : {}),
-      },
-      // La compañera (hueco 1) lleva su biografía a la batalla.
-      ...(slot === 0 ? { modifiers: companionModifiers(campaign!.companion, COMPANION_TABLE) } : {}),
-      ...(k === 0 ? { commander: true } : {}),
-    })),
+    ...alive.map(({ zoid, slot }, k) => {
+      // La compañera (hueco 1) lleva su biografía; el refuerzo de blindaje
+      // añade búnker a cambio de velocidad.
+      const mods = [
+        ...(slot === 0 ? companionModifiers(campaign!.companion, COMPANION_TABLE) : []),
+        ...(zoid.reinforced ? reinforcementModifiers(ECONOMY) : []),
+      ];
+      return {
+        id: `P${slot + 1}`,
+        name: ZOIDS[zoid.unitTypeId]!.name,
+        unitTypeId: zoid.unitTypeId,
+        team: 'player' as Team,
+        position: field.playerPos[k]!,
+        hp: zoid.hp,
+        loadout: {
+          weapons: [...zoid.weapons],
+          ...(Object.keys(zoid.slots).length > 0 ? { slots: { ...zoid.slots } } : {}),
+        },
+        ...(zoid.reinforced ? { armor: zoid.armor ?? ECONOMY.reinforcement.armor } : {}),
+        ...(mods.length > 0 ? { modifiers: mods } : {}),
+        ...(k === 0 ? { commander: true } : {}),
+      };
+    }),
     ...contract.enemySquad.map((unitTypeId, i) => ({
       id: `E${i + 1}`,
       name: ZOIDS[unitTypeId]!.name,

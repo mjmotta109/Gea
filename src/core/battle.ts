@@ -71,6 +71,8 @@ export interface UnitSpawn {
    * persistente). Se acota a [1, maxHp real]; si se omite, sale a tope.
    */
   hp?: number;
+  /** Blindaje de refuerzo (búnker que absorbe antes que el casco). 0 = sin refuerzo. */
+  armor?: number;
   /** Modificadores adjuntos a la unidad durante toda la batalla. */
   modifiers?: StatModifier[];
   /**
@@ -254,6 +256,7 @@ export class Battle {
         reactionReady: true,
         facing: spawn.facing ?? (spawn.team === 'player' ? 'east' : 'west'),
         hp: spawn.hp !== undefined ? Math.max(1, Math.min(maxHp, Math.round(spawn.hp))) : maxHp,
+        armor: Math.max(0, Math.round(spawn.armor ?? 0)),
         maxHpOverride: spawn.loadout?.slots ? maxHp : undefined,
         ...(spawn.modifiers && spawn.modifiers.length > 0
           ? { spawnModifiers: spawn.modifiers.map((m) => ({ ...m })) } : {}),
@@ -936,8 +939,28 @@ export class Battle {
           }, this.rng);
           const projectile = this.weaponEntry(user, ability.id)?.def.projectile;
 
+          // Blindaje de refuerzo (nivel máquina): el búnker de placas absorbe
+          // antes que el casco o los módulos. La penetración del proyectil se
+          // cuela sin gastarlo; el resto lo frena hasta agotarse.
+          let dmg = amount;
+          const armorNow = target.armor ?? 0;
+          if (armorNow > 0 && dmg > 0) {
+            const pierced = Math.min(Math.max(0, projectile?.penetration ?? 0), dmg);
+            const absorbed = Math.min(armorNow, dmg - pierced);
+            target.armor = armorNow - absorbed;
+            dmg -= absorbed;
+            events.push({ type: 'unit-armor-damaged', unitId: target.id, amount: absorbed, armor: target.armor });
+            if (target.armor === 0) events.push({ type: 'unit-armor-broken', unitId: target.id });
+          }
+
           const frame = target.components.frame;
-          if (frame) {
+          if (dmg <= 0) {
+            // El blindaje de refuerzo se comió el golpe entero: el chasis
+            // queda intacto (el impacto se registra, pero no hay daño real).
+            events.push({
+              type: 'damage-dealt', unitId: user.id, targetUnitId: target.id, amount, targetHp: target.hp,
+            });
+          } else if (frame) {
             // Daño localizado: se elige el módulo golpeado y su armadura
             // (menos la penetración del proyectil) absorbe antes de tocar
             // HP; el exceso desborda al núcleo.
@@ -952,12 +975,12 @@ export class Battle {
             });
             const damageEventIndex = events.length - 1;
             events.push(...applyDamageToModule(
-              frame, this.modules, location, amount, target.id, projectile?.penetration ?? 0,
+              frame, this.modules, location, dmg, target.id, projectile?.penetration ?? 0,
             ));
             target.hp = deriveUnitHp(frame, this.modules);
             (events[damageEventIndex] as Extract<BattleEvent, { type: 'damage-dealt' }>).targetHp = target.hp;
           } else {
-            target.hp = Math.max(0, target.hp - amount);
+            target.hp = Math.max(0, target.hp - dmg);
             events.push({
               type: 'damage-dealt',
               unitId: user.id,

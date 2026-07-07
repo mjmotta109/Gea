@@ -8,9 +8,30 @@
  * Vive en src/game/ — ni motor (src/core) ni cliente (src/web): la capa
  * de juego que el motor no debe conocer.
  */
+import type { StatModifier } from '../core/types.js';
+
+/**
+ * Refuerzo de blindaje: un búnker de placas que se monta en el taller. Da
+ * aguante (absorbe daño antes que el casco) a cambio de velocidad. Se gasta
+ * en batalla y se repara en el taller.
+ */
+export interface ReinforcementSpec {
+  /** Puntos de blindaje que aporta el refuerzo. */
+  armor: number;
+  /** Coste de montar el refuerzo. */
+  fitCost: number;
+  /** Coste de reparar cada punto de blindaje gastado. */
+  repairPerPoint: number;
+  /** Casillas de movimiento que resta (más lento). */
+  movePenalty: number;
+  /** CT que resta (carga más despacio). */
+  speedPenalty: number;
+}
 
 export interface EconomyTable {
   startingCredits: number;
+  /** Refuerzo de blindaje montable en el taller. */
+  reinforcement: ReinforcementSpec;
   /** unitTypeIds del hangar inicial (orden = huecos de despliegue). */
   starterRoster: string[];
   repairCostPerHp: number;
@@ -49,6 +70,10 @@ export interface OwnedZoid {
   slots: Record<string, string>;
   /** Hoja de servicio (ausente en guardados viejos = a estrenar). */
   record?: ZoidRecord;
+  /** Refuerzo de blindaje montado (búnker de placas). Ausente = sin refuerzo. */
+  reinforced?: boolean;
+  /** Blindaje de refuerzo ACTUAL: se gasta en batalla, se repara en el taller. */
+  armor?: number;
 }
 
 /** Hoja de servicio con huecos a cero (guardados viejos incluidos). */
@@ -287,6 +312,8 @@ export interface ContractOutcome {
   winner: 'player' | 'enemy' | undefined;
   /** HP final de cada hueco del roster que se desplegó (índice = hueco). */
   finalHp: Array<number | undefined>;
+  /** Blindaje de refuerzo restante de cada hueco (se gasta en batalla). */
+  finalArmor?: Array<number | undefined>;
   enemiesDestroyed: number;
 }
 
@@ -311,7 +338,9 @@ export function resolveContract(
       lost.push(zoid.unitTypeId);
       return { ...zoid, hp: 0, destroyed: true };
     }
-    return { ...zoid, hp };
+    // El blindaje de refuerzo gastado persiste: se repara en el taller.
+    const armor = zoid.reinforced ? outcome.finalArmor?.[i] : undefined;
+    return armor !== undefined ? { ...zoid, hp, armor } : { ...zoid, hp };
   });
   const rewardPaid = outcome.winner === 'player';
   const salvage = outcome.enemiesDestroyed * contract.salvagePerKill;
@@ -342,6 +371,69 @@ export function repairZoid(
   const cost = repairCost(zoid, maxHp, economy);
   if (cost === 0 || state.credits < cost) return state;
   const roster = state.roster.map((z, i) => (i === slot ? { ...z, hp: maxHp } : z));
+  return { ...state, roster, credits: state.credits - cost };
+}
+
+// ── Refuerzo de blindaje: aguante extra a cambio de velocidad ───────────
+
+/** Tope de blindaje de refuerzo de una máquina (0 si no está reforzada). */
+export function armorMax(zoid: OwnedZoid, economy: EconomyTable): number {
+  return zoid.reinforced ? economy.reinforcement.armor : 0;
+}
+
+/**
+ * Modificadores del refuerzo al desplegar: la máquina va más lenta (menos
+ * movimiento y CT). Los aplica el cliente como spawnModifiers junto al
+ * blindaje (UnitSpawn.armor). El aguante lo da el búnker, no estos números.
+ */
+export function reinforcementModifiers(economy: EconomyTable): StatModifier[] {
+  const r = economy.reinforcement;
+  return [
+    { source: 'refuerzo:blindaje', stat: 'move', add: -r.movePenalty },
+    { source: 'refuerzo:blindaje', stat: 'speed', add: -r.speedPenalty },
+  ];
+}
+
+/**
+ * Monta el refuerzo de blindaje en el taller: sale a tope de placas. Cuesta
+ * créditos y, al desplegar, la máquina irá más lenta. Sin mutar si no se
+ * puede (destruida, ya reforzada, o sin fondos).
+ */
+export function reinforceArmor(state: CampaignState, slot: number, economy: EconomyTable): CampaignState {
+  const zoid = state.roster[slot];
+  if (!zoid || zoid.destroyed || zoid.reinforced) return state;
+  const cost = economy.reinforcement.fitCost;
+  if (state.credits < cost) return state;
+  const roster = state.roster.map((z, i) =>
+    (i === slot ? { ...z, reinforced: true, armor: economy.reinforcement.armor } : z));
+  return { ...state, roster, credits: state.credits - cost };
+}
+
+/** Desmonta el refuerzo (recupera velocidad; no reembolsa). */
+export function stripReinforcement(state: CampaignState, slot: number): CampaignState {
+  const zoid = state.roster[slot];
+  if (!zoid || !zoid.reinforced) return state;
+  const roster = state.roster.map((z, i) =>
+    (i === slot ? { ...z, reinforced: false, armor: 0 } : z));
+  return { ...state, roster };
+}
+
+/** Coste de reparar el blindaje de refuerzo gastado (0 si no hay refuerzo o está a tope). */
+export function armorRepairCost(zoid: OwnedZoid, economy: EconomyTable): number {
+  if (!zoid.reinforced) return 0;
+  const max = economy.reinforcement.armor;
+  const missing = max - Math.max(0, Math.min(zoid.armor ?? 0, max));
+  return Math.max(0, Math.round(missing * economy.reinforcement.repairPerPoint));
+}
+
+/** Repara el blindaje de refuerzo a tope, si hay con qué pagar. */
+export function repairArmor(state: CampaignState, slot: number, economy: EconomyTable): CampaignState {
+  const zoid = state.roster[slot];
+  if (!zoid || !zoid.reinforced) return state;
+  const cost = armorRepairCost(zoid, economy);
+  if (cost === 0 || state.credits < cost) return state;
+  const roster = state.roster.map((z, i) =>
+    (i === slot ? { ...z, armor: economy.reinforcement.armor } : z));
   return { ...state, roster, credits: state.credits - cost };
 }
 

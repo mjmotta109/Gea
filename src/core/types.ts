@@ -369,6 +369,14 @@ export interface UnitState {
   position: Position;
   facing: Facing;
   hp: number;
+  /**
+   * BLINDAJE de refuerzo a nivel de máquina: un búnker de placas que
+   * absorbe daño ANTES que el casco/módulos. Se monta en el taller (a
+   * cambio de ir más lento), se gasta en batalla y se repara en el taller.
+   * 0/ausente = sin refuerzo. Es el hermano de campaña del blindaje por
+   * módulos del frame.
+   */
+  armor?: number;
   /** Casillas de lado (copiado de la definición al desplegar). */
   size: number;
   /** Charge Time: al llegar a CT_THRESHOLD la unidad actúa. */
@@ -418,6 +426,8 @@ export type BattleEvent =
   | { type: 'ability-missed'; unitId: string; targetUnitId: string }
   | { type: 'damage-dealt'; unitId: string; targetUnitId: string; amount: number; targetHp: number }
   | { type: 'hit-location-rolled'; targetUnitId: string; slot: SlotId }
+  | { type: 'unit-armor-damaged'; unitId: string; amount: number; armor: number }
+  | { type: 'unit-armor-broken'; unitId: string }
   | { type: 'module-armor-damaged'; targetUnitId: string; slot: SlotId; amount: number; plating: number }
   | { type: 'module-armor-broken'; targetUnitId: string; slot: SlotId }
   | { type: 'module-damaged'; targetUnitId: string; slot: SlotId; amount: number; moduleHp: number }

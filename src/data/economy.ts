@@ -134,6 +134,9 @@ export const BLUEPRINT_PRICES: Record<string, number> = {
  */
 export const ECONOMY: EconomyTable = {
   startingCredits: 2500,
+  // Refuerzo de blindaje: 30 de búnker por ⌾400, reparar a ⌾3/punto; el
+  // precio es ir 1 casilla más lento y cargar CT más despacio.
+  reinforcement: { armor: 30, fitCost: 400, repairPerPoint: 3, movePenalty: 1, speedPenalty: 3 },
   starterRoster: ['liger-zero', 'command-wolf', 'gun-sniper', 'gustav'],
   repairCostPerHp: 2,
   supplyPrice: 40,
