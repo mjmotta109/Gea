@@ -913,3 +913,19 @@ arquitectura del motor van en DESIGN.md.)*
     refuerzo por máquina; el despliegue aplica búnker + penalización; el
     registro avisa cuando el búnker se agota. Tests: armor.test.ts (6).
     279 tests en verde, tsc limpio, golden intacto.
+- **2026-07-07** — ARREGLOS (reporte del usuario): fin de contrato y
+  descansos. Verificado en el juego real (Playwright headless).
+  · FIN DE CONTRATO: al volver al mapa o al cuartel, el overlay de
+    Victoria/Derrota NO se cerraba (solo lo cerraba startBattle); como
+    #world/#merc lo tapan por z-index, "a veces" parecía no volver. Ahora
+    restart() cierra el overlay SIEMPRE. Además el destino de vuelta se fija
+    al inicio de settleContract (antes de liquidar nada: un fallo al repartir
+    ya no manda a una escaramuza suelta), y el botón/subtítulo del overlay
+    DICEN a dónde se vuelve ("🗺 Volver al mapa" / "⚒ Volver al cuartel")
+    en vez del engañoso "Nueva batalla".
+  · DESCANSOS: estaban TODOS deshabilitados cuando ningún piloto tenía
+    estrés (maxStress===0) — es decir, en cuanto la tripulación estaba
+    tranquila (y en toda partida recién fundada). Ahora descansar solo se
+    limita por el bolsillo: pasa una jornada (cura heridas, avanza
+    destacamentos), alivia el estrés que haya y la vela es un momento con la
+    compañera. La vela, además, es GRATIS de verdad (0, no el mínimo de px).

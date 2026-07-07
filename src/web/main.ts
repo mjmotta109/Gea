@@ -2074,10 +2074,29 @@ function showOverlay(): void {
   const won = battle.winner === 'player';
   $('ov-title').textContent = won ? 'Victoria' : 'Derrota';
   $('ov-title').style.color = won ? 'var(--player)' : 'var(--enemy)';
-  $('ov-sub').textContent = won
-    ? 'El equipo cian controla el valle. [Enter] para otra batalla.'
-    : 'Tus Zoids quedan fuera de combate. [Enter] para reintentar.';
+  // Liquida el contrato (fija el destino de vuelta) ANTES de decidir el texto.
   $('ov-merc').innerHTML = activeContract ? settleContract() : '';
+  // El botón y el subtítulo dicen A DÓNDE se vuelve — mismas condiciones que
+  // restart(), para que texto y acción nunca mientan.
+  const toWorld = returnToWorld && !!expedition && !!campaign;
+  const toMerc = !toWorld && returnToMerc && !!campaign;
+  const restartBtn = $('ov-restart');
+  if (toWorld) {
+    $('ov-sub').textContent = won
+      ? 'Contrato cumplido. [Enter] para volver al mapa (seguir o volver).'
+      : 'Toca replegarse. [Enter] para volver al mapa.';
+    restartBtn.textContent = '🗺 Volver al mapa';
+  } else if (toMerc) {
+    $('ov-sub').textContent = won
+      ? 'Misión cerrada. [Enter] para volver al cuartel.'
+      : 'La expedición se pierde. [Enter] para volver al cuartel.';
+    restartBtn.textContent = '⚒ Volver al cuartel';
+  } else {
+    $('ov-sub').textContent = won
+      ? 'El equipo cian controla el campo. [Enter] para otra batalla.'
+      : 'Tus Zoids quedan fuera de combate. [Enter] para reintentar.';
+    restartBtn.textContent = 'Nueva batalla';
+  }
   $('ov-xp').innerHTML = renderXpSummary();
   $('overlay').classList.add('show');
 }
@@ -3054,6 +3073,15 @@ function settleContract(): string {
   const contract = activeContract!;
   activeContract = null;
   const isTavern = contract.id.startsWith('tav-');
+  // Destino de vuelta fijado YA, antes de liquidar nada: pase lo que pase
+  // (o falle) en el reparto, el jugador vuelve a donde toca — al mapa si la
+  // expedición sigue, al cuartel si se cierra — NUNCA a una escaramuza
+  // suelta. Las ramas de abajo lo confirman; este es el seguro.
+  if (isTavern || (expedition && battle.winner === 'player')) {
+    returnToWorld = true; returnToMerc = false;
+  } else {
+    returnToWorld = false; returnToMerc = true;
+  }
   // La compañera (hueco 1) registra la batalla en su núcleo.
   companionMarkLines = [];
   const injuryLines = (): string[] =>
@@ -3886,7 +3914,9 @@ function renderCity(): void {
 
   // 😴 DESCANSOS — de la vela al Farol Rojo, y el consultorio.
   const rest = citySection('😴 Descansos y consultorio');
-  const maxStress = Math.max(...PILOT_IDS.map((id) => pilots[id]!.stress ?? 0));
+  // Descansar SIEMPRE es útil: pasa una jornada (cura heridas y avanza
+  // destacamentos), alivia el estrés que haya, y la vela es un momento con
+  // la compañera. No se bloquea por estar tranquilos — solo por el bolsillo.
   const restDay = (relief: number, cost: number, line: string): void => {
     campaign = { ...campaign!, credits: campaign!.credits - cost };
     for (const id of PILOT_IDS) pilots[id] = adjustStress(pilots[id]!, -relief);
@@ -3894,15 +3924,18 @@ function renderCity(): void {
     savePilots(); saveCampaign();
   };
   cityButton(rest, `😴 Pensión (−${tier.restRelief} estrés, ⌾${px(tier.restCost)}, 1 día)`,
-    campaign.credits < px(tier.restCost) || maxStress === 0,
+    campaign.credits < px(tier.restCost),
     () => restDay(tier.restRelief, px(tier.restCost), `Descanso en ${node.name}.`));
   for (const leisure of LEISURE_OPTIONS) {
     if (city.level < leisure.minLevel) continue;
     const icon = leisure.id === 'vela' ? '🕯' : leisure.id === 'cantina' ? '🍺' : '🏮';
-    cityButton(rest, `${icon} ${leisure.name} (−${leisure.relief}, ⌾${px(leisure.cost)}, 1 día)`,
-      campaign.credits < px(leisure.cost) || maxStress === 0,
+    // La vela es GRATIS de verdad (0, no el mínimo de px): un momento con la
+    // compañera siempre al alcance, aun sin un crédito.
+    const leisureCost = leisure.cost === 0 ? 0 : px(leisure.cost);
+    cityButton(rest, `${icon} ${leisure.name} (−${leisure.relief}, ${leisureCost === 0 ? 'gratis' : `⌾${leisureCost}`}, 1 día)`,
+      campaign.credits < leisureCost,
       () => {
-        let cost = px(leisure.cost);
+        let cost = leisureCost;
         let line = `${leisure.name} en ${node.name}.`;
         if (leisure.rowdy) {
           const roll = (Math.imul(expedition!.day * 2654435761 ^ node.id.length * 97, 668265263) >>> 0) / 4294967296;
@@ -4965,14 +4998,18 @@ function foundCompany(): void {
 // ── Arranque ─────────────────────────────────────────────────────────────
 
 function restart(): void {
+  // Cerrar SIEMPRE el overlay de fin de batalla: al volver al mapa o al
+  // cuartel no se hacía (solo lo cerraba startBattle), y el cartel de
+  // Victoria/Derrota se quedaba encima — parecía que no te mandaba de vuelta.
+  $('overlay').classList.remove('show');
   if (returnToWorld && expedition && campaign) {
     returnToWorld = false;
     openWorld();
     return;
   }
   if (returnToMerc && campaign) {
-    // La batalla de contrato ya se liquidó: "Nueva batalla" vuelve al
-    // cuartel para reparar, comprar y elegir el siguiente contrato.
+    // La batalla de contrato ya se liquidó: vuelve al cuartel para reparar,
+    // comprar y elegir el siguiente contrato.
     openMerc();
     return;
   }
