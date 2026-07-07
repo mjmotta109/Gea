@@ -839,3 +839,27 @@ arquitectura del motor van en DESIGN.md.)*
     de avería; el % de acierto y el rango de movimiento ya reflejan el
     desgaste. Reglas claras, decisión del piloto (aguantar/replegarse/
     cambiar de postura). Tests: wear.test.ts (5). Golden intacto.
+- **2026-07-07** — PASADA DE BALANCE (revisión con datos tras el terreno,
+  el mundo y el desgaste). Las herramientas de balance vuelven a correr:
+  · ARREGLADO npm run balance:hangar (roto desde que se añadieron las
+    unidades de escenario): (a) el driver ejecutaba el plan entero de una
+    unidad aunque un contraataque letal cerrara su turno a mitad ("No es el
+    turno de…") — ahora usa el guard de scriptedBattle; (b) el POOL incluía
+    bestias 2×2 y el carguero inmóvil, que se salían del mapa o no combaten
+    — ahora solo chasis pilotables (size 1, speed>0).
+  · MEDICIÓN (wear 0 en las herramientas, aíslan el terreno): el valle
+    queda 44% jugador / 56% enemigo — DENTRO de la banda 42-58%. El terreno
+    (agua vadeable, escalada) NO rompió el escenario; las 3 semillas golden
+    inclinadas a enemy eran muestreo, no tendencia.
+  · HANGAR (800 batallas 4v4 aleatorias): banda ~40-60%. Fuertes gun-sniper
+    (~60%), dibison y geno-saurer (~59%); débiles rev-raptor (~40%, muere
+    92%) y liger-zero-cas (~42%, muere 90%) — melee frágil que cruza campo
+    abierto contra fuego. Consistente con el límite conocido de la IA greedy
+    (favorece el standoff), que la dirección ya decidió NO sobre-ajustar.
+  · DECISIÓN: valorada la penalización de vadeo (−20→−15): no mueve el
+    balance (43.7% vs 44.0%, ruido), se mantiene −20 por claridad de feel.
+    NO se tocan stats de chasis: los outliers están a ~2pp de la banda y
+    nerfear al gun-sniper (fuerte en el hangar) hundiría al jugador del
+    valle (donde lo pilota) — conflicto entre escenarios. Herramientas
+    listas para una pasada medida futura. Flags para la dirección:
+    gun-sniper/dibison/geno (por arriba), rev-raptor (por abajo).
