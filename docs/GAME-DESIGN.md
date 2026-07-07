@@ -789,3 +789,17 @@ arquitectura del motor van en DESIGN.md.)*
     tarjeta fija (objetivo/rondas, mover, disparar sin certezas,
     posturas+vigilancia, reacciones, retirada/eyección, memoria del
     metal), con Saltar; se guarda en localStorage y no vuelve a sonar.
+- **2026-07-07** — ESTADO DEL DESTACAMENTO EN BATALLA ("me gustaría ver
+  el estado de mis zoids mientras peleo"). El panel Unidades deja de ser
+  una lista plana: los TUYOS van primero con carta completa — piloto a
+  los mandos (nombre, escuela principal/secundaria con nivel, 💢 si el
+  estrés pesa), barras, munición por arma, estados, cupo de escuela
+  (✦ Embestida — lista/gastada) y diagrama de módulos si el chasis lo
+  tiene. Debajo, «— fuerzas hostiles —»: del enemigo solo lo que verían
+  tus sensores (casco, estados, 👁 vigila). Sellos de salida: 🏳 RETIRADO
+  / 💺 EYECTADO en vez de un genérico "no está". La carta del que actúa
+  se resalta, y CLIC en cualquier carta salta el cursor a esa unidad en
+  el campo (localizar de un vistazo). De regalo, un bug real cazado: la
+  tecla Q nunca giraba el diorama porque el case de cancelar la
+  capturaba antes (case duplicado = código muerto); ahora Q gira en
+  diorama y cancela en vista plana.

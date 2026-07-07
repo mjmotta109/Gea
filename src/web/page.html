@@ -200,6 +200,14 @@
   .ucard.player .tag { background: var(--player-dim); color: var(--player); }
   .ucard.enemy .tag { background: var(--enemy-dim); color: var(--enemy); }
   .ucard .dead { color: var(--danger); font-weight: 700; }
+  .ucard.oncall { background: rgba(255, 255, 255, 0.045); border-radius: 4px; padding-left: 6px; padding-right: 6px; margin: 0 -6px; border-top-color: transparent; }
+  .ucard.locatable { cursor: pointer; }
+  .ucard.locatable:hover { background: rgba(255, 255, 255, 0.03); }
+  .ucard .seal { color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: 0.5px; }
+  .ucard.player .seal.watch { color: var(--player); }
+  .ucard.enemy .seal.watch { color: var(--enemy); }
+  .ucard .pilotline { color: var(--ink); opacity: 0.85; }
+  .udivider { margin: 10px 0 2px; color: var(--enemy); font-family: var(--mono); font-size: 10px; letter-spacing: 1.5px; opacity: 0.7; }
   .bars { display: grid; grid-template-columns: 14px 1fr 62px; gap: 4px 6px; align-items: center; margin-top: 4px; }
   .bars .lbl { color: var(--muted); font-size: 10px; font-family: var(--mono); }
   .bars .num { color: var(--muted); font-size: 10px; font-family: var(--mono); text-align: right; font-variant-numeric: tabular-nums; }

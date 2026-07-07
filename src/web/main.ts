@@ -1027,13 +1027,17 @@ document.addEventListener('keydown', (event) => {
     case 'ArrowLeft': case 'a': case 'A': event.preventDefault(); moveCursor(-1, 0); return;
     case 'ArrowRight': case 'd': case 'D': event.preventDefault(); moveCursor(1, 0); return;
     case 'Enter': case 'e': case 'E': event.preventDefault(); confirm(); return;
-    case 'Escape': case 'q': case 'Q': event.preventDefault(); cancel(); return;
+    case 'Escape': event.preventDefault(); cancel(); return;
+    // Q gira el diorama; en vista plana no hay nada que girar y cancela.
+    case 'q': case 'Q':
+      event.preventDefault();
+      if (currentView() === 'diorama') rotateDiorama(); else cancel();
+      return;
     case 'm': case 'M': enterMove(); return;
     case 'b': case 'B': enterBoost(); return;
     case 'r': case 'R': doReload(); return;
     case 'f': case 'F': enterFacing(); return;
     case 'v': case 'V': doOverwatch(); return;
-    case 'q': case 'Q': if (currentView() === 'diorama') rotateDiorama(); return;
     case ' ': event.preventDefault(); enterFacing(); return;
     default: {
       const index = Number(event.key);
@@ -1661,38 +1665,66 @@ function renderForecast(): void {
   }
 }
 
-function renderRoster(): void {
-  const el = $('roster');
-  el.innerHTML = '';
-  for (const unit of battle.units) {
-    const stats = battle.effectiveStats(unit);
-    const card = document.createElement('div');
-    card.className = `ucard ${unit.team}`;
+/** Piloto a los mandos de una unidad del jugador (P1..P4 → pilotos). */
+function pilotOfUnit(unit: UnitState): PilotState | undefined {
+  const match = /^P(\d+)$/.exec(unit.id);
+  if (!match) return undefined;
+  const pilotId = PILOT_IDS[Number(match[1]) - 1];
+  return pilotId ? pilots[pilotId] : undefined;
+}
 
-    const name = document.createElement('div');
-    name.className = 'name';
-    name.innerHTML = `<span class="tag">${unit.id}</span> ${unit.name}${unit.isCommander ? ' ★' : ''}` +
-      (unit.hp <= 0 ? ' <span class="dead">DESTRUIDO</span>' : symptomBadges(unit)) +
-      (unit.statuses.length > 0
-        ? ` <span style="color:var(--heat);font-size:10px">${unit.statuses.map((s) => STATUS_DEFINITIONS[s.id].name).join(', ')}</span>`
-        : '');
-    card.appendChild(name);
+/**
+ * Carta de estado de una unidad. Las tuyas van con todo (piloto, armas,
+ * módulos, cupos de escuela); del enemigo solo se ve lo que verían tus
+ * sensores: casco, estados y conducta.
+ */
+function rosterCard(unit: UnitState, detailed: boolean): HTMLElement {
+  const stats = battle.effectiveStats(unit);
+  const card = document.createElement('div');
+  const active = battle.getActiveUnit();
+  card.className = `ucard ${unit.team}${active?.id === unit.id ? ' oncall' : ''}`;
 
-    if (unit.hp > 0) {
-      const bars = document.createElement('div');
-      bars.className = 'bars';
-      const addBar = (lbl: string, cls: string, value: number, max: number): void => {
-        bars.insertAdjacentHTML('beforeend',
-          `<span class="lbl">${lbl}</span>` +
-          `<span class="bar ${cls}"><i style="width:${Math.max(0, Math.min(100, (value / max) * 100))}%"></i></span>` +
-          `<span class="num">${value}/${max}</span>`);
-      };
-      addBar('HP', 'hp', unit.hp, stats.maxHp);
-      const { energy, heat, arsenal, frame } = unit.components;
-      if (energy) addBar('⚡', 'en', energy.current, energy.capacity);
-      if (heat) addBar('🔥', 'ht', heat.current, heat.max);
-      card.appendChild(bars);
+  // Sello de salida: la carta cuenta CÓMO dejó el campo, no solo que falta.
+  const seal = unit.retreated ? ' <span class="seal">🏳 RETIRADO</span>'
+    : unit.ejected ? ' <span class="seal">💺 EYECTADO</span>'
+    : unit.hp <= 0 ? ' <span class="dead">DESTRUIDO</span>' : '';
+  const out = unit.hp <= 0 || unit.retreated === true;
 
+  const name = document.createElement('div');
+  name.className = 'name';
+  name.innerHTML = `<span class="tag">${unit.id}</span> ${unit.name}${unit.isCommander ? ' ★' : ''}` +
+    (seal || symptomBadges(unit)) +
+    (!out && unit.overwatch ? ' <span class="seal watch">👁 vigila</span>' : '') +
+    (!out && unit.statuses.length > 0
+      ? ` <span style="color:var(--heat);font-size:10px">${unit.statuses.map((s) => STATUS_DEFINITIONS[s.id].name).join(', ')}</span>`
+      : '');
+  card.appendChild(name);
+
+  if (!out) {
+    const bars = document.createElement('div');
+    bars.className = 'bars';
+    const addBar = (lbl: string, cls: string, value: number, max: number): void => {
+      bars.insertAdjacentHTML('beforeend',
+        `<span class="lbl">${lbl}</span>` +
+        `<span class="bar ${cls}"><i style="width:${Math.max(0, Math.min(100, (value / max) * 100))}%"></i></span>` +
+        `<span class="num">${value}/${max}</span>`);
+    };
+    addBar('HP', 'hp', unit.hp, stats.maxHp);
+    const { energy, heat, arsenal, frame } = unit.components;
+    if (energy) addBar('⚡', 'en', energy.current, energy.capacity);
+    if (heat) addBar('🔥', 'ht', heat.current, heat.max);
+    card.appendChild(bars);
+
+    if (detailed) {
+      const pilot = pilotOfUnit(unit);
+      if (pilot) {
+        const bits: string[] = [escapeHtml(pilot.name)];
+        if (pilot.mainSpec) bits.push(`★ ${SPEC_LABEL[pilot.mainSpec]} N${trackLevel(pilot.tracks[pilot.mainSpec])}`);
+        if (pilot.sideSpec) bits.push(`☆ ${SPEC_LABEL[pilot.sideSpec]} N${trackLevel(pilot.tracks[pilot.sideSpec])}`);
+        const strain = stressLabel(pilot.stress);
+        if (strain) bits.push(`<span style="color:var(--heat)">💢 ${strain}</span>`);
+        card.insertAdjacentHTML('beforeend', `<div class="extra pilotline">🪖 ${bits.join(' · ')}</div>`);
+      }
       if (arsenal) {
         for (const weapon of arsenal.weapons) {
           const def = battle.weaponOf(weapon.weaponId);
@@ -1704,11 +1736,37 @@ function renderRoster(): void {
           }
         }
       }
+      // Habilidades con cupo (escuela del piloto): lista o gastada.
+      for (const abilityId of unit.extraAbilityIds ?? []) {
+        const left = battle.usesLeft(unit, abilityId);
+        if (left === undefined) continue;
+        const ability = battle.abilityOf(abilityId);
+        card.insertAdjacentHTML('beforeend', `<div class="extra">${left > 0
+          ? `✦ ${ability.name} — <span style="color:var(--hp)">lista</span>`
+          : `✦ <s>${ability.name}</s> — gastada`}</div>`);
+      }
       if (frame) {
         card.insertAdjacentHTML('beforeend', moduleDiagram(frame, unit.unitTypeId));
       }
     }
-    el.appendChild(card);
+
+    // Clic: el cursor salta a la unidad para encontrarla en el campo.
+    card.classList.add('locatable');
+    card.title = 'clic: localizar en el mapa';
+    card.addEventListener('click', () => setCursor({ ...unit.position }));
+  }
+  return card;
+}
+
+function renderRoster(): void {
+  const el = $('roster');
+  el.innerHTML = '';
+  const mine = battle.units.filter((u) => u.team === 'player');
+  const theirs = battle.units.filter((u) => u.team !== 'player');
+  for (const unit of mine) el.appendChild(rosterCard(unit, true));
+  if (theirs.length > 0) {
+    el.insertAdjacentHTML('beforeend', '<div class="udivider">— fuerzas hostiles —</div>');
+    for (const unit of theirs) el.appendChild(rosterCard(unit, false));
   }
 }
 
