@@ -863,3 +863,29 @@ arquitectura del motor van en DESIGN.md.)*
     valle (donde lo pilota) — conflicto entre escenarios. Herramientas
     listas para una pasada medida futura. Flags para la dirección:
     gun-sniper/dibison/geno (por arriba), rev-raptor (por abajo).
+- **2026-07-07** — BLINDAJE POR PARTES: LA CAPA QUE SE GASTA (dirección del
+  usuario: "el blindaje, que al momento que se acaba realmente empiezan a
+  sufrir, por partes del cuerpo"). Profundiza el daño localizado del frame
+  (core/frame.ts) con dos capas por módulo, estilo BattleTech:
+  · BLINDAJE (ModuleDefinition.plating, ModuleState.plating): capa de placas
+    que se GASTA absorbiendo daño. Mientras aguanta, la armadura mitiga y la
+    estructura interna está PROTEGIDA (el HP global no baja). Al agotarse se
+    emite `module-armor-broken`: la pieza queda EXPUESTA.
+  · EXPUESTA = sufre de verdad: la estructura recibe el daño ÍNTEGRO, sin
+    mitigación de armadura, hasta destruirse (con su onDestroyed: la pata
+    quita movimiento y puntería, la cabeza puntería, etc.). Ejemplo real
+    (torso Liger CAS, blindaje 16 / armadura 3): golpes de 12 → 9 al
+    blindaje (HP global intacto); roto el blindaje, cada 12 son 12 íntegros
+    a la estructura. Cada impacto deja marca, por zona.
+  · deriveUnitHp sigue la ESTRUCTURA (el blindaje es capa extra): el HP
+    global se protege mientras el blindaje aguanta y cae cuando se rompe —
+    la lectura que pedía el usuario. maxHp y la equivalencia framed↔monocasco
+    intactas; los módulos SIN plating se comportan como siempre (la armadura
+    mitiga cada golpe) → golden y tests clásicos idénticos.
+  · Blindaje en los 18 módulos (12 de frame + 6 aftermarket), ~35-40% de la
+    estructura (defensivos más). BALANCE: da a los 2 chasis framed (débiles,
+    42-46%) algo de aguante temprano, compensado porque expuestos mueren más
+    rápido (sin mitigación). Valores TUNEABLES; medir con el hangar.
+  · LECTOR DE CASCO (web): anilla exterior cian = blindaje; punteada roja =
+    EXPUESTO; el registro avisa "🛡✕ blindaje ROTO". Tests: plating.test.ts
+    (5). 273 tests en verde, tsc limpio, golden intacto.

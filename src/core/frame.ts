@@ -33,10 +33,12 @@ export function buildFrameState(config: FrameSlotConfig[], catalog: ModuleCatalo
   const modules: ModuleState[] = config.map((entry) => {
     if (seen.has(entry.slot)) throw new Error(`Slot duplicado en el frame: ${entry.slot}`);
     seen.add(entry.slot);
+    const def = moduleDef(catalog, entry.moduleId);
     return {
       slot: entry.slot,
       moduleId: entry.moduleId,
-      hp: moduleDef(catalog, entry.moduleId).hp,
+      hp: def.hp,
+      plating: def.plating ?? 0,
       destroyed: false,
     };
   });
@@ -128,12 +130,17 @@ export function rollHitLocation(
 const OVERFLOW_TRANSFER = 0.5;
 
 /**
- * Aplica daño localizado a un módulo: la armadura del módulo reduce el
- * impacto (mínimo 1) y, si la pieza se destruye, la mitad del exceso
- * (menos la armadura del núcleo) desborda al módulo crítico. Un impacto
- * directo al módulo crítico no desborda: su HP es el límite.
- * Devuelve los eventos de módulo generados; el llamador deriva el HP
- * global y emite damage-dealt / unit-destroyed.
+ * Aplica daño localizado a un módulo en DOS capas:
+ *  1. BLINDAJE: mientras quedan placas, la armadura mitiga (menos la
+ *     penetración) y el blindaje absorbe el golpe — la estructura no sufre.
+ *     Al agotarse el blindaje se emite `module-armor-broken`: la pieza queda
+ *     EXPUESTA.
+ *  2. ESTRUCTURA: una vez expuesta (o si la pieza nunca tuvo blindaje), el
+ *     daño va al HP interno. Expuesta = SIN mitigación: el daño íntegro
+ *     muerde. Si la pieza se destruye, la mitad del exceso (menos la
+ *     armadura del núcleo) desborda al módulo crítico.
+ * Un módulo sin `plating` se comporta como siempre (la armadura mitiga cada
+ * golpe). Devuelve los eventos de módulo; el llamador deriva el HP global.
  */
 export function applyDamageToModule(
   frame: FrameState,
@@ -146,20 +153,49 @@ export function applyDamageToModule(
 ): BattleEvent[] {
   const events: BattleEvent[] = [];
   const def = moduleDef(catalog, target.moduleId);
+  const hadPlating = (def.plating ?? 0) > 0;
 
-  const effectiveArmor = Math.max(0, def.armor - penetration);
-  const afterArmor = Math.max(1, rawDamage - effectiveArmor);
-  const absorbed = Math.min(afterArmor, target.hp);
-  const overflow = afterArmor - absorbed;
+  let toStructure: number;
+  if (target.plating > 0) {
+    // Capa de blindaje: la armadura mitiga y las placas absorben.
+    const effectiveArmor = Math.max(0, def.armor - penetration);
+    const afterArmor = Math.max(1, rawDamage - effectiveArmor);
+    const platingHit = Math.min(target.plating, afterArmor);
+    target.plating -= platingHit;
+    events.push({
+      type: 'module-armor-damaged',
+      targetUnitId,
+      slot: target.slot,
+      amount: platingHit,
+      plating: target.plating,
+    });
+    if (target.plating === 0) {
+      events.push({ type: 'module-armor-broken', targetUnitId, slot: target.slot });
+    }
+    // El exceso que las placas no frenaron pasa a la estructura.
+    toStructure = afterArmor - platingHit;
+  } else if (hadPlating) {
+    // EXPUESTA: el blindaje ya cayó. Daño íntegro, sin mitigación.
+    toStructure = Math.max(1, rawDamage);
+  } else {
+    // Sin blindaje de fábrica: comportamiento clásico (la armadura mitiga).
+    const effectiveArmor = Math.max(0, def.armor - penetration);
+    toStructure = Math.max(1, rawDamage - effectiveArmor);
+  }
 
-  target.hp -= absorbed;
-  events.push({
-    type: 'module-damaged',
-    targetUnitId,
-    slot: target.slot,
-    amount: absorbed,
-    moduleHp: target.hp,
-  });
+  const absorbed = Math.min(toStructure, target.hp);
+  const overflow = toStructure - absorbed;
+
+  if (absorbed > 0) {
+    target.hp -= absorbed;
+    events.push({
+      type: 'module-damaged',
+      targetUnitId,
+      slot: target.slot,
+      amount: absorbed,
+      moduleHp: target.hp,
+    });
+  }
   if (target.hp === 0 && !target.destroyed) {
     target.destroyed = true;
     events.push({ type: 'module-destroyed', targetUnitId, slot: target.slot });

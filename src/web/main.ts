@@ -1649,9 +1649,14 @@ function moduleDiagram(frame: FrameState, unitTypeId: string): string {
   const wires: string[] = [];
   const R = 10.5;
   const CIRC = 2 * Math.PI * R;
+  const RP = R + 3;           // anilla exterior = blindaje
+  const CIRCP = 2 * Math.PI * RP;
   for (const module of frame.modules) {
     const def = MODULES[module.moduleId];
     const maxHp = def?.hp ?? Math.max(1, module.hp);
+    const maxPlating = def?.plating ?? 0;
+    const platingRatio = maxPlating > 0 ? Math.max(0, Math.min(1, module.plating / maxPlating)) : 0;
+    const exposed = maxPlating > 0 && module.plating <= 0;
     const idx = DIAGRAM_ANCHORS.findIndex((a, i) => !used.has(i) && a.match.test(module.slot));
     let at: { x: number; y: number };
     if (idx >= 0) { used.add(idx); at = DIAGRAM_ANCHORS[idx]!; }
@@ -1659,7 +1664,19 @@ function moduleDiagram(frame: FrameState, unitTypeId: string): string {
     const ratio = Math.max(0, Math.min(1, module.hp / maxHp));
     const color = moduleColor(ratio);
     const critical = !module.destroyed && ratio < 0.35;
-    const title = `${def?.name ?? module.slot} — ${module.destroyed ? 'DESTRUIDO' : `${module.hp}/${maxHp}`}`;
+    // Anilla exterior de blindaje: cian mientras aguanta; roja tenue y
+    // punteada cuando la pieza queda EXPUESTA (blindaje agotado).
+    const armorLabel = maxPlating > 0
+      ? (module.plating > 0 ? `🛡 ${module.plating}/${maxPlating} · ` : '⚠ EXPUESTO · ')
+      : '';
+    const armorRing = module.destroyed ? '' : maxPlating > 0
+      ? (exposed
+        ? `<circle cx="${at.x}" cy="${at.y}" r="${RP}" fill="none" stroke="var(--danger)" stroke-width="1.3" stroke-dasharray="2 3" opacity="0.6"/>`
+        : `<circle cx="${at.x}" cy="${at.y}" r="${RP}" fill="none" stroke="var(--player)" stroke-width="1.6"` +
+          ` stroke-dasharray="${(CIRCP * platingRatio).toFixed(1)} ${CIRCP.toFixed(1)}"` +
+          ` transform="rotate(-90 ${at.x} ${at.y})" stroke-linecap="round" opacity="0.9"/>`)
+      : '';
+    const title = `${def?.name ?? module.slot} — ${module.destroyed ? 'DESTRUIDO' : `${armorLabel}${module.hp}/${maxHp}`}`;
     // Cable del nodo al corazón del casco (el torso), tenue.
     if (!/torso|body|core/.test(module.slot)) {
       wires.push(`<line x1="${at.x}" y1="${at.y}" x2="76" y2="42" class="wire${module.destroyed ? ' dead' : ''}"/>`);
@@ -1672,8 +1689,9 @@ function moduleDiagram(frame: FrameState, unitTypeId: string): string {
         `<text x="${at.x}" y="${at.y + 3.5}" class="broken-x">✕</text></g>`);
     } else {
       nodes.push(
-        `<g class="mnode${critical ? ' critical' : ''}"><title>${escapeHtml(title)}</title>` +
+        `<g class="mnode${critical ? ' critical' : ''}${exposed ? ' exposed' : ''}"><title>${escapeHtml(title)}</title>` +
         `<circle cx="${at.x}" cy="${at.y}" r="${R}" class="socket"/>` +
+        armorRing +
         `<circle cx="${at.x}" cy="${at.y}" r="${R}" fill="none" stroke="${color}" stroke-width="2.4"` +
         ` stroke-dasharray="${(CIRC * ratio).toFixed(1)} ${CIRC.toFixed(1)}"` +
         ` transform="rotate(-90 ${at.x} ${at.y})" stroke-linecap="round"/>` +
@@ -1716,6 +1734,8 @@ function describe(event: BattleEvent): { text: string; cls?: string } | undefine
     case 'ability-missed': return { text: `...${event.targetUnitId} lo esquiva!`, cls: 'good' };
     case 'damage-dealt': return { text: `${event.targetUnitId} recibe ${event.amount} de daño (${event.targetHp} HP)`, cls: 'hit' };
     case 'hit-location-rolled': return undefined;
+    case 'module-armor-damaged': return undefined; // el goteo del blindaje no satura el registro
+    case 'module-armor-broken': return { text: `🛡✕ blindaje de ${event.slot} de ${event.targetUnitId} ROTO: la pieza queda EXPUESTA`, cls: 'warn' };
     case 'module-damaged': return { text: `→ impacto en ${event.slot} (${event.moduleHp} HP del módulo)` };
     case 'module-destroyed': return { text: `💔 ${event.slot} de ${event.targetUnitId} DESTRUIDO`, cls: 'hit' };
     case 'unit-healed': return { text: `${event.targetUnitId} repara ${event.amount} (${event.targetHp} HP)`, cls: 'good' };

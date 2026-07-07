@@ -107,9 +107,18 @@ export type SlotId = string;
 export interface ModuleDefinition {
   id: string;
   name: string;
+  /** Estructura interna del módulo: cuando cae a 0, el módulo se destruye. */
   hp: number;
-  /** Reducción plana de daño antes de tocar el HP del módulo. */
+  /** Reducción plana de daño MIENTRAS el blindaje aguanta. */
   armor: number;
+  /**
+   * BLINDAJE: capa de placas que se GASTA absorbiendo daño antes de que la
+   * estructura sufra. Mientras quede blindaje, la armadura mitiga y el HP
+   * interno está protegido; cuando se agota, el módulo queda EXPUESTO y
+   * recibe el daño íntegro (sin mitigación) hasta destruirse. Ausente/0 =
+   * sin capa (comportamiento clásico: la armadura mitiga siempre).
+   */
+  plating?: number;
   /** Masa del módulo; la consumen estabilidad/energía en fases futuras. */
   weight: number;
   /** Peso relativo en la tabla de localización de impactos (mayor = más fácil de golpear). */
@@ -140,7 +149,10 @@ export interface FrameSlotConfig {
 export interface ModuleState {
   slot: SlotId;
   moduleId: string;
+  /** Estructura interna restante. */
   hp: number;
+  /** Blindaje restante: se gasta antes que la estructura (0 = expuesto). */
+  plating: number;
   destroyed: boolean;
 }
 
@@ -406,6 +418,8 @@ export type BattleEvent =
   | { type: 'ability-missed'; unitId: string; targetUnitId: string }
   | { type: 'damage-dealt'; unitId: string; targetUnitId: string; amount: number; targetHp: number }
   | { type: 'hit-location-rolled'; targetUnitId: string; slot: SlotId }
+  | { type: 'module-armor-damaged'; targetUnitId: string; slot: SlotId; amount: number; plating: number }
+  | { type: 'module-armor-broken'; targetUnitId: string; slot: SlotId }
   | { type: 'module-damaged'; targetUnitId: string; slot: SlotId; amount: number; moduleHp: number }
   | { type: 'module-destroyed'; targetUnitId: string; slot: SlotId }
   | { type: 'unit-healed'; unitId: string; targetUnitId: string; amount: number; targetHp: number }
