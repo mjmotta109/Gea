@@ -266,7 +266,14 @@ export class Battle {
           ...(weaponIds ? {
             arsenal: {
               weapons: weaponIds.map((weaponId) => {
-                const weapon = this.weaponOf(weaponId);
+                const weapon = this.weapons[weaponId];
+                if (!weapon) {
+                  throw new Error(
+                    `El chasis '${def.id}' monta el arma '${weaponId}', ausente del catálogo. ` +
+                    `Las armas 'lib-*' viven en la biblioteca anexa: arma el catálogo con ` +
+                    `withWeaponLibrary(ABILITIES, WEAPONS) (como hacen el cliente y la campaña).`,
+                  );
+                }
                 return { weaponId, ammo: weapon.magazine, reserves: weapon.reserves, cooldown: 0 };
               }),
             },
