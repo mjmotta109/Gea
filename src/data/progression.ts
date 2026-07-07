@@ -216,3 +216,15 @@ export const PERKS: PerkTable = {
     },
   },
 };
+
+/**
+ * Habilidad ACTIVA de cada escuela: se otorga al desplegar si el piloto
+ * la tiene elegida (principal o secundaria) a nivel 1 o más. Los ids
+ * viven en data/abilities.ts, con usesPerBattle: 1.
+ */
+export const SCHOOL_ABILITY: Record<'assault' | 'sniper' | 'support' | 'defense', string> = {
+  assault: 'escuela-asalto',
+  sniper: 'escuela-tirador',
+  support: 'escuela-soporte',
+  defense: 'escuela-defensa',
+};

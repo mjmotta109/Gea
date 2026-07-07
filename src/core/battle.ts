@@ -81,6 +81,12 @@ export interface UnitSpawn {
     slots?: Record<SlotId, string>;
     weapons?: string[];
   };
+  /**
+   * Habilidades EXTRA que esta unidad conoce solo en esta batalla (las
+   * escuelas del piloto, en la capa de campaña). El motor no sabe de
+   * dónde vienen: solo las sirve.
+   */
+  extraAbilityIds?: string[];
 }
 
 /** Oleada de refuerzos: entra al arrancar la ronda indicada. */
@@ -240,6 +246,8 @@ export class Battle {
         position: { ...spawn.position },
         size,
         reactionReady: true,
+        ...(spawn.extraAbilityIds && spawn.extraAbilityIds.length > 0
+          ? { extraAbilityIds: [...spawn.extraAbilityIds] } : {}),
         facing: spawn.facing ?? (spawn.team === 'player' ? 'east' : 'west'),
         hp: spawn.hp !== undefined ? Math.max(1, Math.min(maxHp, Math.round(spawn.hp))) : maxHp,
         maxHpOverride: spawn.loadout?.slots ? maxHp : undefined,
@@ -317,13 +325,20 @@ export class Battle {
     return undefined;
   }
 
-  /** Habilidades utilizables: innatas de la definición + armas del arsenal. */
+  /** Habilidades utilizables: innatas + otorgadas + armas del arsenal. */
   knownAbilityIds(unit: UnitState): string[] {
     const def = this.definitionOf(unit.unitTypeId);
     const fromWeapons = unit.components.arsenal?.weapons.map(
       (w) => this.weaponOf(w.weaponId).abilityId,
     ) ?? [];
-    return [...def.abilityIds, ...fromWeapons];
+    return [...def.abilityIds, ...(unit.extraAbilityIds ?? []), ...fromWeapons];
+  }
+
+  /** Usos restantes de una habilidad con límite (undefined = sin límite). */
+  usesLeft(unit: UnitState, abilityId: string): number | undefined {
+    const cap = this.abilityOf(abilityId).usesPerBattle;
+    if (cap === undefined) return undefined;
+    return Math.max(0, cap - (unit.abilityUses?.[abilityId] ?? 0));
   }
 
   /**
@@ -750,6 +765,14 @@ export class Battle {
     if (unit.hasActed) throw new Error(`${unitId} ya actuó este turno`);
     const ability = this.abilityOf(abilityId);
     this.assertKnowsAbility(unit, abilityId);
+    // Habilidades con cupo: una vez agotadas, agotadas están.
+    if (ability.usesPerBattle !== undefined) {
+      const used = unit.abilityUses?.[abilityId] ?? 0;
+      if (used >= ability.usesPerBattle) {
+        throw new Error(`${ability.name}: agotada (${ability.usesPerBattle} por batalla)`);
+      }
+      unit.abilityUses = { ...(unit.abilityUses ?? {}), [abilityId]: used + 1 };
+    }
     const legal = this.legalTargets(unitId, abilityId).some((p) => samePos(p, target));
     if (!legal) throw new Error(`Objetivo ilegal para ${abilityId}: ${target.x},${target.y}`);
 

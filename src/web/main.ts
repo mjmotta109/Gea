@@ -37,7 +37,7 @@ import {
   type DioramaScene, type DioramaTile, type DioramaUnit,
 } from './iso.js';
 import { GARAGE_MODULE_OPTIONS, MODULES } from '../data/modules.js';
-import { PERKS } from '../data/progression.js';
+import { PERKS, SCHOOL_ABILITY } from '../data/progression.js';
 import { withWeaponLibrary } from '../data/weaponLibrary.js';
 import { WEAPONS } from '../data/weapons.js';
 import { ZOIDS } from '../data/zoids.js';
@@ -363,6 +363,8 @@ function newBattle(seed: number, weather: WeatherId): void {
       team: 'player' as Team,
       position: field.playerPos[i]!,
       loadout: spawnLoadout(config),
+      ...(schoolAbilityIds(pilots[PILOT_IDS[i]!]!).length > 0
+        ? { extraAbilityIds: schoolAbilityIds(pilots[PILOT_IDS[i]!]!) } : {}),
       ...(i === 0 ? { commander: true } : {}),
     })),
     ...enemyTeam(seed).map((s, i) => ({ ...s, position: field.enemyPos[i]! })),
@@ -1066,6 +1068,15 @@ const CELL_PX = 48;
 
 const TEAM_COLORS = { player: '#53d1e0', enemy: '#ff8a5c' } as const;
 
+/** Habilidades de escuela que un piloto lleva a la batalla (N1+ elegida). */
+function schoolAbilityIds(pilot: PilotState): string[] {
+  const ids: string[] = [];
+  for (const spec of [pilot.mainSpec, pilot.sideSpec]) {
+    if (spec && trackLevel(pilot.tracks[spec]) >= 1) ids.push(SCHOOL_ABILITY[spec]);
+  }
+  return ids;
+}
+
 /** Modificadores del núcleo propio al desplegar una no-compañera. */
 function coreSpawnModifiers(zoid: OwnedZoid): { modifiers: StatModifier[] } | Record<string, never> {
   const mods = companionModifiers(zoidCore(zoid), CORE_TABLE);
@@ -1375,14 +1386,17 @@ function renderActionbar(): void {
     const veto = battle.checkVetoes({ type: 'ability', unitId: unit.id, abilityId, target: unit.position });
     const entry = battle.weaponEntry(unit, abilityId);
     const cost = entry?.def.costs;
+    const usesLeft = battle.usesLeft(unit, abilityId);
     const bits = [
       cost?.energy ? `⚡${cost.energy}` : '',
       cost?.heat ? `🔥${cost.heat}` : '',
       entry && entry.def.magazine > 0 ? `${entry.state.ammo}/${entry.def.magazine}` : '',
+      usesLeft !== undefined ? `✦${usesLeft}` : '',
     ].filter(Boolean).join(' ');
     mkBtn(bits ? `${ability.name} ${bits}` : ability.name, String(index + 1), () => enterAbility(abilityId), {
-      disabled: unit.hasActed || veto !== null,
-      title: veto?.reason ?? (unit.hasActed ? 'ya actuó' : ability.description),
+      disabled: unit.hasActed || veto !== null || usesLeft === 0,
+      title: usesLeft === 0 ? 'agotada: una por batalla'
+        : veto?.reason ?? (unit.hasActed ? 'ya actuó' : ability.description),
       on: mode.kind === 'ability' && mode.abilityId === abilityId,
     });
   });
@@ -3946,6 +3960,8 @@ function fightTavernBattle(job: Contract, nodeId: string): void {
       ...(slot === 0
         ? { modifiers: companionModifiers(campaign!.companion, COMPANION_TABLE) }
         : coreSpawnModifiers(zoid)),
+      ...(schoolAbilityIds(pilots[PILOT_IDS[slot]!]!).length > 0
+        ? { extraAbilityIds: schoolAbilityIds(pilots[PILOT_IDS[slot]!]!) } : {}),
       ...(k === 0 ? { commander: true } : {}),
     })),
     ...job.enemySquad.map((unitTypeId, i) => ({
@@ -4180,6 +4196,9 @@ function fightExpeditionBattle(): void {
       ...(slot === 0
         ? { modifiers: companionModifiers(campaign!.companion, COMPANION_TABLE) }
         : coreSpawnModifiers(zoid)),
+      // Las escuelas del piloto viajan con él (activas, 1/batalla).
+      ...(schoolAbilityIds(pilots[PILOT_IDS[slot]!]!).length > 0
+        ? { extraAbilityIds: schoolAbilityIds(pilots[PILOT_IDS[slot]!]!) } : {}),
       ...(k === 0 ? { commander: true } : {}),
     })),
     ...contract.enemySquad.map((unitTypeId, i) => ({

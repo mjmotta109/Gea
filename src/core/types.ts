@@ -287,6 +287,8 @@ export interface AbilityDefinition {
   accuracy: number;
   /** ¿Puede apuntar a aliados? (curaciones, buffs) */
   targetsAllies: boolean;
+  /** Usos máximos por batalla (omitir = ilimitados). */
+  usesPerBattle?: number;
   effects: AbilityEffect[];
 }
 
@@ -371,6 +373,10 @@ export interface UnitState {
   reactionReady: boolean;
   /** En vigilancia: disparará al primer enemigo que se mueva a tiro. */
   overwatch?: boolean;
+  /** Habilidades extra otorgadas al desplegar (escuelas del piloto...). */
+  extraAbilityIds?: string[];
+  /** Usos gastados de habilidades con límite por batalla. */
+  abilityUses?: Record<string, number>;
   /** Salió del campo por el borde: la máquina sobrevive, la batalla sigue sin ella. */
   retreated?: boolean;
   /** El piloto saltó: la máquina se pierde (hp 0) pero él vuelve casi entero. */
