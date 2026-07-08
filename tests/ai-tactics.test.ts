@@ -123,8 +123,8 @@ const CHARGER: UnitDefinition = {
   abilityIds: ['bite-crush'], aiProfile: { aggression: 0.85, selfPreservation: 0.3, riskTolerance: 0.7 },
 };
 
-function aiBattle(spawns: BattleConfig['spawns'], catalog: Record<string, UnitDefinition>, map = ARENA): Battle {
-  return new Battle({ map, unitCatalog: catalog, abilityCatalog: AI_ABILITIES, weaponCatalog: AI_WEAPONS, seed: 5, spawns });
+function aiBattle(spawns: BattleConfig['spawns'], catalog: Record<string, UnitDefinition>, map = ARENA, aiSkill = 1): Battle {
+  return new Battle({ map, unitCatalog: catalog, abilityCatalog: AI_ABILITIES, weaponCatalog: AI_WEAPONS, seed: 5, aiSkill, spawns });
 }
 
 describe('IA profunda (coordinación y emboscada)', () => {
@@ -153,6 +153,30 @@ describe('IA profunda (coordinación y emboscada)', () => {
     untilTurnOf(battle, 'H');
     const actions = planTurn(battle, battle.unit('H'));
     expect(actions[0]!.type).toBe('overwatch'); // se queda al acecho en vez de avanzar a ciegas
+  });
+
+  it('curva de dificultad: una IA TORPE (skill bajo) NO concentra el fuego', () => {
+    const spawns = [
+      { id: 'P1', name: 'P1', unitTypeId: 'ranger', team: 'player' as const, position: { x: 1, y: 1 } },
+      { id: 'P2', name: 'P2', unitTypeId: 'ranger', team: 'player' as const, position: { x: 1, y: 4 } },
+      { id: 'EA', name: 'EA', unitTypeId: 'dummy', team: 'enemy' as const, position: { x: 5, y: 0 } },
+      { id: 'EB', name: 'EB', unitTypeId: 'dummy', team: 'enemy' as const, position: { x: 3, y: 2 } },
+    ];
+    const dumb = aiBattle(spawns, { ranger: RANGER, dummy: DUMMY }, ARENA, 0.2);
+    untilTurnOf(dumb, 'P1');
+    const shot = planTurn(dumb, dumb.unit('P1')).find((a) => a.type === 'ability');
+    // Sin coordinación, apunta al PRIMERO de la lista (EA), no a la presa de escuadra.
+    expect(shot && shot.type === 'ability' ? shot.target : null).toEqual({ x: 5, y: 0 });
+  });
+
+  it('curva de dificultad: una IA TORPE (skill bajo) NO embosca: avanza', () => {
+    const battle = aiBattle([
+      { id: 'H', name: 'H', unitTypeId: 'holder', team: 'player', position: { x: 1, y: 2 } },
+      { id: 'C', name: 'C', unitTypeId: 'charger', team: 'enemy', position: { x: 10, y: 2 } },
+    ], { holder: HOLDER, charger: CHARGER }, WIDE, 0.2);
+    untilTurnOf(battle, 'H');
+    const actions = planTurn(battle, battle.unit('H'));
+    expect(actions.some((a) => a.type === 'overwatch')).toBe(false);
   });
 
   it('un agresivo NO embosca: cierra la distancia', () => {

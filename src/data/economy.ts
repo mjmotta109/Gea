@@ -83,23 +83,29 @@ export interface DifficultySpec {
   supplies: number;
   /** Severidad del desgaste de combate (BattleConfig.wear). */
   wear: number;
+  /**
+   * Desplazamiento de la CURVA de competencia de la IA (se suma al progreso).
+   * Negativo = la IA tarda más en espabilar (más fácil); positivo = arranca ya
+   * coordinada (más difícil). Ausente = 0.
+   */
+  aiCurve?: number;
 }
 
 export const DIFFICULTIES: DifficultySpec[] = [
   {
     id: 'cadete', name: 'Cadete',
-    description: 'Arcas llenas y despensa generosa. El daño apenas pasa factura: para aprender el oficio.',
-    credits: 3400, supplies: 12, wear: 0.5,
+    description: 'Arcas llenas y despensa generosa. El daño apenas pasa factura, y el enemigo tarda en aprender tus mañas: para aprender el oficio.',
+    credits: 3400, supplies: 12, wear: 0.5, aiCurve: -0.2,
   },
   {
     id: 'mercenario', name: 'Mercenario',
-    description: 'Lo justo para empezar. Cada golpe deja marca: la máquina dañada apunta y se mueve peor.',
-    credits: 2500, supplies: 8, wear: 1,
+    description: 'Lo justo para empezar. Cada golpe deja marca y el enemigo va afinando su táctica contrato a contrato.',
+    credits: 2500, supplies: 8, wear: 1, aiCurve: 0,
   },
   {
     id: 'leyenda', name: 'Leyenda',
-    description: 'Deudas, hambre y máquinas que se desmoronan bajo el fuego. Un tren roto es media máquina. Duele.',
-    credits: 1600, supplies: 5, wear: 1.6,
+    description: 'Deudas, hambre y máquinas que se desmoronan bajo el fuego. Y un enemigo que coordina y te contrarresta desde el primer día. Duele.',
+    credits: 1600, supplies: 5, wear: 1.6, aiCurve: 0.35,
   },
 ];
 

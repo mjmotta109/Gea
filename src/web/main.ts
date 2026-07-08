@@ -394,6 +394,20 @@ function campaignWear(): number {
   return DIFFICULTIES.find((d) => d.id === id)?.wear ?? 1;
 }
 
+/**
+ * Competencia de la IA para esta batalla: la CURVA de dificultad. Arranca torpe
+ * y madura con los contratos cumplidos (0→1 en ~15); la dificultad la desplaza.
+ * Es lo que hace que la coordinación, la emboscada y la adaptación del enemigo
+ * asomen GRADUALMENTE — el juego enseña antes de exigir, no es un Dark Souls.
+ * Sin campaña (escaramuza) rinde a tope (1).
+ */
+function campaignAiSkill(): number {
+  const c = campaign;
+  if (!c) return 1;
+  const spec = DIFFICULTIES.find((d) => d.id === (c.difficulty ?? 'mercenario'));
+  return Math.max(0, Math.min(1, c.contractsDone / 15 + (spec?.aiCurve ?? 0)));
+}
+
 function startBattle(
   spawns: UnitSpawn[], seed: number, weather: WeatherId, map: GameMap, brief: BattleBrief = {},
 ): void {
@@ -405,6 +419,7 @@ function startBattle(
     weaponCatalog: CATALOGS.weaponCatalog,
     weather,
     wear: campaignWear(),
+    aiSkill: campaignAiSkill(),
     seed,
     spawns,
     ...(brief.objective ? { objective: brief.objective } : {}),
@@ -2824,7 +2839,8 @@ function renderContracts(): void {
       `<div class="cnote" style="grid-column:1/-1">⚖ El Gremio te mira con recelo (${guildTier.label}): solo ${slots === 1 ? 'un contrato' : `${slots} contratos`} sobre la mesa. La reputación se repara trabajando… o ayudando en la ruta.</div>`);
   }
   // La facción te ha fichado: avisa de que la escuadra viene a contrarrestarte.
-  const hint = adaptationHint(readStyle(campaign!.dossier));
+  // Solo cuando la adaptación está de verdad activa (curva de dificultad).
+  const hint = campaignAiSkill() >= 0.45 ? adaptationHint(readStyle(campaign!.dossier)) : undefined;
   if (hint) {
     host.insertAdjacentHTML('beforeend',
       `<div class="cnote" style="grid-column:1/-1">🕵 ${hint}</div>`);
@@ -3211,6 +3227,7 @@ function startFreeRoam(): void {
  * es idéntica a la de antes.
  */
 function adaptiveWeight(): ((id: string) => number) | undefined {
+  if (campaignAiSkill() < 0.45) return undefined; // la facción aún no te estudia (curva)
   const roles = counterRoles(readStyle(campaign?.dossier));
   if (roles.length === 0) return undefined;
   return (id: string) => (roles.includes(ZOIDS[id]?.role ?? '') ? 2.2 : 1);
@@ -3224,6 +3241,7 @@ function adaptiveWeight(): ((id: string) => number) | undefined {
  * chasis y el catálogo de batalla (withWeaponLibrary) ya las incluye.
  */
 function enemyCounterLoadout(unitTypeId: string, index: number): { weapons: string[] } | undefined {
+  if (campaignAiSkill() < 0.7) return undefined; // las contras por arma son amenaza de final de curva
   const cw = counterWeapons(readStyle(campaign?.dossier));
   if (cw.length === 0 || index % 2 !== 0) return undefined;
   const counter = cw[(index / 2) % cw.length]!;

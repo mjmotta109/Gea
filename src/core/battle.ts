@@ -138,6 +138,14 @@ export interface BattleConfig {
    * el motor solo lo aplica. Con 0, comportamiento y golden master idénticos.
    */
   wear?: number;
+  /**
+   * COMPETENCIA de la IA (0..1, por defecto 1 = plena). Es la curva de
+   * dificultad de la IA: por debajo de ciertos umbrales, la IA NO coordina el
+   * fuego (0.35) ni embosca (0.65) — juega como grunts torpes. La campaña la
+   * sube con el progreso y la dificultad. Con 1 (por defecto y escaramuza), la
+   * IA rinde a tope y el golden master queda idéntico.
+   */
+  aiSkill?: number;
   /** Pilotos por unidad (progresión, opt-in) y su tabla de perks. */
   pilots?: Record<string, PilotState>;
   perkTable?: PerkTable;
@@ -172,6 +180,8 @@ export class Battle {
   readonly weather: WeatherId;
   /** Severidad del desgaste de combate (0 = apagado). Lo fija la campaña. */
   readonly wear: number;
+  /** Competencia de la IA (0..1; 1 = plena). Curva de dificultad de la IA. */
+  readonly aiSkill: number;
   private definitions: Record<string, UnitDefinition>;
   private abilities: Record<string, AbilityDefinition>;
   private modules: ModuleCatalog;
@@ -204,6 +214,7 @@ export class Battle {
     this.rng = new Rng(config.seed);
     this.weather = config.weather ?? 'clear';
     this.wear = config.wear ?? 0;
+    this.aiSkill = config.aiSkill ?? 1;
     this.weapons = config.weaponCatalog ?? {};
     this.pilots = config.pilots ?? {};
     this.perkTable = config.perkTable;

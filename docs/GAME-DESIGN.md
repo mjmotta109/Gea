@@ -1220,3 +1220,23 @@ arquitectura del motor van en DESIGN.md.)*
   en el juego real: con dosier 'reactor', un enemigo entra a la batalla con el
   Lanzallamas de plasma montado. Futuro real restante: memoria de dosier POR
   FACCIÓN (exige contratos etiquetados por facción).
+- **2026-07-08** — CURVA DE DIFICULTAD AMPLIA (dirección del usuario: "no soy
+  una máquina… no es un Dark Souls; que sea satisfactorio pero que cueste"). La
+  IA genio desde el minuto uno es injusta: su profundidad ahora es el TECHO de
+  una curva, no el suelo. Nuevo `BattleConfig.aiSkill` (0..1, por defecto 1 =
+  plena → golden idéntico) que ESCALONA la competencia de la IA:
+  · < 0.35: grunts torpes, cada uno a lo suyo (sin fuego concentrado).
+  · ≥ 0.35: coordina el fuego (foco de escuadra).
+  · ≥ 0.65: además EMBOSCA (vigilancia).
+  Y la adaptación de facción sigue la misma curva (capa de campaña): contras por
+  CHASIS desde skill 0.45, contras por ARMA (lanzallamas) desde 0.7. La campaña
+  calcula el skill con `campaignAiSkill()` = contratos cumplidos/15 + desfase de
+  dificultad (cadete −0.2 espabila tarde; mercenario 0; leyenda +0.35 arranca ya
+  coordinada). Así el jugador APRENDE contra grunts, siente la coordinación
+  hacia el contrato ~5, la emboscada ~10 y la máquina completa (coordina +
+  embosca + te ficha + te trae lanzallamas) solo al final, con un buen roster.
+  El desgaste (wear) ya escalaba con la dificultad; ahora también la INTELIGENCIA.
+  Golden-safe (defecto 1), 2 tests nuevos (skill bajo NO concentra ni embosca),
+  336 en verde, tsc limpio. Verificado en el juego real: mismo dosier 'reactor',
+  a contractsDone 0 el enemigo NO trae lanzallamas ni sale el aviso; a 12 (skill
+  0.8) sí. Satisfactorio: cuesta, pero se aprende antes de que apriete.

@@ -12,6 +12,10 @@ function profileOf(battle: Battle, unit: UnitState): AIProfile {
 
 /** Cuánta prioridad da el escuadrón a concentrar el fuego en su presa. */
 const FOCUS_BONUS = 25;
+/** Competencia mínima (curva de dificultad) para coordinar el fuego de escuadra. */
+const AI_SKILL_FOCUS = 0.35;
+/** Competencia mínima para emboscar (vigilancia defensiva). */
+const AI_SKILL_AMBUSH = 0.65;
 
 /**
  * FOCO del escuadrón: la presa sobre la que conviene concentrar el fuego esta
@@ -93,8 +97,9 @@ export function planTurn(battle: Battle, unit: UnitState): BattleAction[] {
     | undefined;
 
   const profile = profileOf(battle, unit);
-  // Coordinación de escuadra: la presa que el equipo debe concentrar esta ronda.
-  const focus = teamFocusTarget(battle, unit, enemies);
+  // Coordinación de escuadra: solo una IA competente concentra el fuego (curva
+  // de dificultad). Grunts torpes (skill bajo) pelean cada uno por su lado.
+  const focus = battle.aiSkill >= AI_SKILL_FOCUS ? teamFocusTarget(battle, unit, enemies) : undefined;
 
   for (const option of moveOptions) {
     // Riesgo posicional: enemigos pegados a la casilla final del turno.
@@ -212,7 +217,8 @@ export function planTurn(battle: Battle, unit: UnitState): BattleAction[] {
     if (eProfile.aggression <= profile.aggression) return false;
     return d <= maxRange + battle.effectiveStats(e).move + 1; // entrará a tiro tras avanzar
   });
-  if (!retreat && !unit.hasActed && profile.aggression < 0.7 && enemyAboutToEnter) {
+  if (battle.aiSkill >= AI_SKILL_AMBUSH && !retreat && !unit.hasActed
+    && profile.aggression < 0.7 && enemyAboutToEnter) {
     return [{ type: 'overwatch', unitId: unit.id }];
   }
 
