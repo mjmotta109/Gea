@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { Battle } from '../src/core/battle.js';
 import {
-  buyWeapon, buyZoid, contractOffers, FULL_HP, mountedCount, newCampaign,
-  rebuildZoid, refitZoid, repairCost, repairZoid, resolveContract, sellWeapon, setMountedWeapons,
+  buyWeapon, buyZoid, contractOffers, counterRoles, FULL_HP, mountedCount, newCampaign,
+  readStyle, rebuildZoid, refitZoid, repairCost, repairZoid, resolveContract, sellWeapon,
+  setMountedWeapons, updateDossier,
 } from '../src/game/mercenary.js';
 import { ABILITIES } from '../src/data/abilities.js';
 import { CONTRACT_ENEMY_POOL, ECONOMY } from '../src/data/economy.js';
@@ -101,6 +102,42 @@ describe('modo mercenario: campaña', () => {
       winner: 'player', finalHp: [88, 100, 100, 100], enemiesDestroyed: 0,
     }).state;
     expect(cool.roster[0]!.residualHeat).toBeUndefined();
+  });
+
+  it('el dosier acumula y readStyle detecta el estilo dominante (con muestra)', () => {
+    expect(readStyle(undefined)).toBe('balanced');
+    // Una sola batalla no basta: sin muestra, no se adapta.
+    let d = updateDossier(undefined, { melee: 5, ranged: 1, overclocks: 0 });
+    expect(readStyle(d)).toBe('balanced');
+    d = updateDossier(d, { melee: 5, ranged: 1, overclocks: 0 });
+    expect(readStyle(d)).toBe('melee'); // 10/12 golpes de cerca
+    let r = updateDossier(undefined, { melee: 1, ranged: 6, overclocks: 0 });
+    r = updateDossier(r, { melee: 1, ranged: 6, overclocks: 0 });
+    expect(readStyle(r)).toBe('ranged');
+    let o = updateDossier(undefined, { melee: 2, ranged: 2, overclocks: 3 });
+    o = updateDossier(o, { melee: 2, ranged: 2, overclocks: 2 });
+    expect(readStyle(o)).toBe('reactor'); // 5 sobrecargas / 2 batallas
+  });
+
+  it('counterRoles mapea el estilo a roles que lo contrarrestan', () => {
+    expect(counterRoles('melee')).toContain('sniper'); // kiters castigan el rush
+    expect(counterRoles('ranged')).toContain('assault'); // cerradores
+    expect(counterRoles('balanced')).toEqual([]);
+  });
+
+  it('contractOffers sesga la escuadra hacia el rol pesado, y es determinista', () => {
+    const roleOf = (id: string) => ZOIDS[id]!.role;
+    const heavyOnSnipers = (id: string) => (roleOf(id) === 'sniper' ? 10 : 1);
+    const countSnipers = (cs: ReturnType<typeof contractOffers>) =>
+      cs.reduce((n, c) => n + c.enemySquad.filter((id) => roleOf(id) === 'sniper').length, 0);
+    const uniform = contractOffers(0, ECONOMY, CONTRACT_ENEMY_POOL);
+    const biased = contractOffers(0, ECONOMY, CONTRACT_ENEMY_POOL, heavyOnSnipers);
+    expect(countSnipers(biased)).toBeGreaterThanOrEqual(countSnipers(uniform));
+    expect(countSnipers(biased)).toBeGreaterThan(0);
+    // Determinista: misma llamada → mismo resultado.
+    expect(contractOffers(0, ECONOMY, CONTRACT_ENEMY_POOL, heavyOnSnipers)).toEqual(biased);
+    // Sin sesgo, idéntico a la generación de siempre (retro-compatible).
+    expect(contractOffers(0, ECONOMY, CONTRACT_ENEMY_POOL)).toEqual(uniform);
   });
 
   it('refitZoid enfría/reabastece: limpia el residual y no toca HP ni blindaje', () => {

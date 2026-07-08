@@ -173,6 +173,25 @@ export interface CampaignState {
    * viejas y migración).
    */
   difficulty?: string;
+  /**
+   * DOSIER de la facción enemiga: lo que ha visto de tu estilo a lo largo de
+   * los contratos. No es aprendizaje automático (rompería el determinismo): son
+   * conteos que sesgan la composición de las próximas escuadras hacia contras.
+   * Ausente = aún no te han fichado (partidas viejas y primeras batallas).
+   */
+  dossier?: Dossier;
+}
+
+/** Lo que la facción enemiga ha observado del estilo del jugador. */
+export interface Dossier {
+  /** Golpes del jugador a corta distancia (alcance ≤1). */
+  meleeHits: number;
+  /** Golpes del jugador a distancia (alcance ≥3). */
+  rangedHits: number;
+  /** Veces que el jugador ENGANCHÓ la sobrecarga del reactor. */
+  overclocks: number;
+  /** Batallas observadas (para exigir muestra antes de adaptarse). */
+  battles: number;
 }
 
 /**
@@ -282,10 +301,77 @@ const TIERS: Array<{ tier: Contract['tier']; budget: number; reward: number; sal
  * Deterministas: mismas ofertas para el mismo contractsDone. El cliente
  * decide cuántas enseñar (reputación) y en qué orden (rotación).
  */
+/** Suma al dosier lo observado en una batalla (función pura, no muta). */
+export function updateDossier(
+  prev: Dossier | undefined,
+  seen: { melee: number; ranged: number; overclocks: number },
+): Dossier {
+  const d = prev ?? { meleeHits: 0, rangedHits: 0, overclocks: 0, battles: 0 };
+  return {
+    meleeHits: d.meleeHits + seen.melee,
+    rangedHits: d.rangedHits + seen.ranged,
+    overclocks: d.overclocks + seen.overclocks,
+    battles: d.battles + 1,
+  };
+}
+
+/** Estilo dominante del jugador según el dosier. */
+export type PlayerStyle = 'melee' | 'ranged' | 'reactor' | 'balanced';
+
+/**
+ * Lee el estilo dominante. Exige muestra (≥2 batallas y ≥4 golpes clasificados,
+ * o sobrecarga recurrente) antes de decidir: sin datos, no se adapta.
+ */
+export function readStyle(d: Dossier | undefined): PlayerStyle {
+  if (!d || d.battles < 2) return 'balanced';
+  if (d.overclocks >= d.battles) return 'reactor'; // sobrecarga ~1+ por batalla
+  const total = d.meleeHits + d.rangedHits;
+  if (total >= 4) {
+    if (d.meleeHits / total >= 0.62) return 'melee';
+    if (d.rangedHits / total >= 0.62) return 'ranged';
+  }
+  return 'balanced';
+}
+
+/** Roles enemigos que CONTRARRESTAN el estilo del jugador. */
+export function counterRoles(style: PlayerStyle): string[] {
+  switch (style) {
+    case 'melee': return ['sniper', 'flyer'];         // kiters que castigan el rush
+    case 'ranged': return ['assault', 'skirmisher'];  // cerradores rápidos
+    case 'reactor': return ['assault', 'skirmisher']; // presión antes de que el reactor pague
+    case 'balanced': return [];
+  }
+}
+
+/** Frase de inteligencia para el parte de contrato (o nada si no adapta). */
+export function adaptationHint(style: PlayerStyle): string | undefined {
+  switch (style) {
+    case 'melee': return 'Inteligencia: te han fichado peleando de cerca — esta escuadra trae más fuego a distancia.';
+    case 'ranged': return 'Inteligencia: saben que hostigas desde lejos — mandan cerradores rápidos para echársete encima.';
+    case 'reactor': return 'Inteligencia: conocen tus reactores forzados — aprietan con presión temprana.';
+    case 'balanced': return undefined;
+  }
+}
+
+/** Elige un id proporcional a su peso (determinista dado `r` en [0,1)). */
+function weightedPick(ids: string[], r: number, weightOf?: (id: string) => number): string {
+  if (!weightOf) return ids[Math.floor(r * ids.length)]!;
+  const weights = ids.map((id) => Math.max(0.0001, weightOf(id)));
+  const total = weights.reduce((a, b) => a + b, 0);
+  let x = r * total;
+  for (let i = 0; i < ids.length; i++) {
+    x -= weights[i]!;
+    if (x < 0) return ids[i]!;
+  }
+  return ids[ids.length - 1]!;
+}
+
 export function contractOffers(
   contractsDone: number,
   economy: EconomyTable,
   enemyPool: string[],
+  /** Sesgo de composición (adaptación de facción). Ausente = uniforme, igual que antes. */
+  weightOf?: (id: string) => number,
 ): Contract[] {
   return TIERS.map((spec, tierIndex) => {
     const rand = mulberry32((contractsDone * 3 + tierIndex + 1) * 0x9e3779b1);
@@ -297,7 +383,7 @@ export function contractOffers(
       const slotBudget = remaining / (4 - i);
       const affordable = enemyPool.filter((id) => (economy.zoidPrices[id] ?? 0) <= slotBudget * 1.35);
       const pick = affordable.length > 0
-        ? affordable[Math.floor(rand() * affordable.length)]!
+        ? weightedPick(affordable, rand(), weightOf)
         : enemyPool.reduce((a, b) => (economy.zoidPrices[a] ?? 0) <= (economy.zoidPrices[b] ?? 0) ? a : b);
       squad.push(pick);
       remaining -= economy.zoidPrices[pick] ?? 0;

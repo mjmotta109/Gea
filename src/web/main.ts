@@ -46,6 +46,7 @@ import { ZOIDS } from '../data/zoids.js';
 import {
   armorRepairCost, buyBlueprint, buySupplies, buyWeapon, buyZoid, cityRepair, consumeSupplies,
   contractOffers, mountedCount, newCampaign, rebuildCost, rebuildZoid, reinforceArmor,
+  adaptationHint, counterRoles, readStyle, updateDossier,
   refitZoid, reinforcementModifiers, repairArmor, repairCost, repairZoid, resolveContract, scarLevel,
   sellCargo, sellWeapon, serviceTier, setMountedWeapons, stashCargo, stripReinforcement,
   tavernJob, updateZoidRecord, zoidRecord,
@@ -2815,12 +2816,18 @@ function renderContracts(): void {
   // El cupo de la mesa depende de cómo te mira el Gremio.
   const guildTier = reputationTier(campaign!.reputation['gremio'] ?? 0);
   const slots = contractSlots(guildTier.id);
-  const all = contractOffers(campaign!.contractsDone, ECONOMY, CONTRACT_ENEMY_POOL);
+  const all = contractOffers(campaign!.contractsDone, ECONOMY, CONTRACT_ENEMY_POOL, adaptiveWeight());
   const rot = campaign!.contractsDone % all.length;
   const offers = [...all.slice(rot), ...all.slice(0, rot)].slice(0, slots);
   if (slots < 3) {
     host.insertAdjacentHTML('beforeend',
       `<div class="cnote" style="grid-column:1/-1">⚖ El Gremio te mira con recelo (${guildTier.label}): solo ${slots === 1 ? 'un contrato' : `${slots} contratos`} sobre la mesa. La reputación se repara trabajando… o ayudando en la ruta.</div>`);
+  }
+  // La facción te ha fichado: avisa de que la escuadra viene a contrarrestarte.
+  const hint = adaptationHint(readStyle(campaign!.dossier));
+  if (hint) {
+    host.insertAdjacentHTML('beforeend',
+      `<div class="cnote" style="grid-column:1/-1">🕵 ${hint}</div>`);
   }
   if (!offers.some((c) => c.id === selectedContractId)) selectedContractId = null;
   for (const contract of offers) {
@@ -3167,7 +3174,7 @@ function partyCandidates(): Array<{ slot: number; label: string; detail: string 
 /** Acepta el contrato seleccionado y abre la expedición hacia su lugar. */
 function startContractExpedition(): void {
   if (!campaign || !selectedContractId) return;
-  const offers = contractOffers(campaign.contractsDone, ECONOMY, CONTRACT_ENEMY_POOL);
+  const offers = contractOffers(campaign.contractsDone, ECONOMY, CONTRACT_ENEMY_POOL, adaptiveWeight());
   const contract = offers.find((c) => c.id === selectedContractId);
   if (!contract) return;
   if (!campaign.roster.some((z) => !z.destroyed)) return;
@@ -3195,6 +3202,18 @@ function startFreeRoam(): void {
     closeMerc();
     openWorld();
   });
+}
+
+/**
+ * Sesgo de composición de la escuadra enemiga según lo que la facción ha visto
+ * de tu estilo (dosier): favorece los roles que te CONTRARRESTAN. Devuelve
+ * undefined si aún no hay para adaptarse — así en partidas nuevas la generación
+ * es idéntica a la de antes.
+ */
+function adaptiveWeight(): ((id: string) => number) | undefined {
+  const roles = counterRoles(readStyle(campaign?.dossier));
+  if (roles.length === 0) return undefined;
+  return (id: string) => (roles.includes(ZOIDS[id]?.role ?? '') ? 2.2 : 1);
 }
 
 /**
@@ -3292,15 +3311,25 @@ function settleContract(): string {
   if (campaign) {
     const kills = new Map<string, number>();
     let lastAttacker: string | undefined;
+    // La facción enemiga te FICHA: cuenta cómo peleas (cerca/lejos, si fuerzas
+    // el reactor) para adaptar sus próximas escuadras. No es aprendizaje
+    // automático; son conteos deterministas que sesgan la composición.
+    let melee = 0, ranged = 0, overclocks = 0;
     for (const event of allEvents) {
       if (event.type === 'damage-dealt') lastAttacker = event.unitId;
       else if (event.type === 'unit-destroyed' && lastAttacker && lastAttacker !== event.unitId) {
         kills.set(lastAttacker, (kills.get(lastAttacker) ?? 0) + 1);
+      } else if (event.type === 'ability-used' && event.unitId.startsWith('P')) {
+        const r = battle.abilityOf(event.abilityId).range;
+        if (r <= 1) melee++; else if (r >= 3) ranged++;
+      } else if (event.type === 'overclock-changed' && event.on && event.unitId.startsWith('P')) {
+        overclocks++;
       }
     }
     const serviceLines: string[] = [];
     campaign = {
       ...campaign,
+      dossier: updateDossier(campaign.dossier, { melee, ranged, overclocks }),
       roster: campaign.roster.map((zoid, slot) => {
         if (!deployedSlots.includes(slot)) return zoid;
         const unit = battle.units.find((u) => u.id === `P${slot + 1}`);
@@ -3479,7 +3508,7 @@ function saveExpedition(): void {
 
 function expeditionContract(): Contract | undefined {
   if (!campaign || !expedition) return undefined;
-  return contractOffers(campaign.contractsDone, ECONOMY, CONTRACT_ENEMY_POOL)
+  return contractOffers(campaign.contractsDone, ECONOMY, CONTRACT_ENEMY_POOL, adaptiveWeight())
     .find((c) => c.id === expedition!.contractId);
 }
 

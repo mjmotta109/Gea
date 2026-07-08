@@ -1180,3 +1180,29 @@ arquitectura del motor van en DESIGN.md.)*
   El resto de fuertes (gun-sniper, geno, liger-zero) están en el golden y
   reflejan la dinámica legítima "los pegadores rinden con coordinación"; no se
   tocan. 330 tests en verde, tsc limpio, verificado en el juego real.
+- **2026-07-08** — LA FACCIÓN TE FICHA: ADAPTACIÓN DE CAMPAÑA ("vamos a ello").
+  La forma de "aprendizaje" que SÍ encaja en un motor determinista: no ML, sino
+  un DOSIER (conteos) que la facción enemiga acumula de tu estilo a lo largo de
+  los contratos y usa para componer escuadras que te CONTRARRESTAN. Todo en la
+  capa de campaña (src/game/mercenary.ts + src/web) → el motor de batalla no se
+  toca, GOLDEN-SAFE por construcción; y es determinista (conteos + selección
+  ponderada con la misma semilla).
+  · DOSIER (CampaignState.dossier, opt-in): al liquidar cada batalla cuenta los
+    golpes del jugador de cerca (alcance ≤1) vs de lejos (≥3) y las veces que
+    enganchó la sobrecarga. readStyle() exige muestra (≥2 batallas / ≥4 golpes)
+    antes de decidir 'melee' / 'ranged' / 'reactor' / 'balanced'.
+  · CONTRAS (counterRoles): melee→sniper/flyer (kiters que castigan el rush);
+    ranged→assault/skirmisher (cerradores); reactor→assault/skirmisher (presión
+    temprana). contractOffers acepta un weightOf opcional que sesga la selección
+    ponderada hacia esos roles (sin él, generación IDÉNTICA a antes → tests y
+    partidas viejas intactos).
+  · HISTORIA: el tablero de contratos muestra la inteligencia ("te han fichado
+    peleando de cerca: esta escuadra trae más fuego a distancia"). El enemigo
+    deja de ser aleatorio y RESPONDE a cómo juegas.
+  Retro-compatible (dossier ausente = no adapta), golden-safe. 3 tests nuevos
+  (dosier/readStyle, counterRoles, sesgo determinista de contractOffers), 333 en
+  verde, tsc limpio. Verificado en el juego real: con dosier 'melee', las
+  escuadras ofertadas se llenan de voladores y francotiradores y sale el aviso.
+  Aplazado/futuro: adaptar también los trabajos de taberna y contras por ARMA
+  (dar lanzallamas a los enemigos contra reactores), que exige loadouts
+  enemigos personalizados.
