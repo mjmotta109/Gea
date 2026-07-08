@@ -880,7 +880,8 @@ export class Battle {
   ): BattleEvent[] {
     if (this.inReaction || !reactor.reactionReady) return [];
     if (reactor.hp <= 0 || reactor.retreated || victim.hp <= 0 || victim.retreated) return [];
-    if (hasStatus(reactor, 'stunned')) return [];
+    // Aturdido o SUPRIMIDO: la máquina no puede responder (fijada por fuego).
+    if (hasStatus(reactor, 'stunned') || hasStatus(reactor, 'suprimido')) return [];
     const abilityId = this.knownAbilityIds(reactor).find((id) => {
       const ability = this.abilityOf(id);
       if (!ability.effects.some((e) => e.kind === 'damage')) return false;
@@ -1167,7 +1168,8 @@ export class Battle {
   private overwatchShots(mover: UnitState): BattleEvent[] {
     const events: BattleEvent[] = [];
     const watchers = this.units.filter((u) =>
-      u.team !== mover.team && u.hp > 0 && !u.retreated && u.overwatch && !hasStatus(u, 'stunned'));
+      u.team !== mover.team && u.hp > 0 && !u.retreated && u.overwatch &&
+      !hasStatus(u, 'stunned') && !hasStatus(u, 'suprimido'));
     for (const watcher of watchers) {
       if (this.isOver || mover.hp <= 0 || mover.retreated) break;
       const abilityId = this.knownAbilityIds(watcher).find((id) => {

@@ -310,7 +310,8 @@ export type StatusId =
   | 'overheat'      // daño por turno (los sistemas internos se sobrecalientan)
   | 'armor-up'      // +DEF temporal
   | 'evasion-up'    // +evasión temporal
-  | 'stunned';      // pierde su próximo turno
+  | 'stunned'       // pierde su próximo turno
+  | 'suprimido';    // fijado: apunta peor y no puede reaccionar (contra/vigilancia)
 
 export interface StatusInstance {
   id: StatusId;

@@ -207,6 +207,22 @@ export const WEAPON_LIBRARY_ABILITIES: Record<string, AbilityDefinition> = {
       { kind: 'status', status: 'stunned', duration: 1, chance: 20 },
     ],
   },
+  'lib-suppressor': {
+    id: 'lib-suppressor',
+    name: 'Ráfaga de supresión',
+    description: 'Fuego sostenido que apenas hiere pero FIJA al objetivo: apunta peor y no puede contraatacar ni vigilar. Prepara el remate de un aliado.',
+    range: 4,
+    minRange: 1,
+    shape: 'single',
+    aoeRadius: 0,
+    accuracy: 85,
+    targetsAllies: false,
+    // Poco daño; su valor es el estado 'suprimido' (fija la reacción del rival).
+    effects: [
+      { kind: 'damage', power: 20, damageType: 'physical' },
+      { kind: 'status', status: 'suprimido', duration: 1, chance: 80 },
+    ],
+  },
   'lib-ion-lance': {
     id: 'lib-ion-lance',
     name: 'Lanza ionica',
@@ -434,6 +450,15 @@ export const WEAPON_LIBRARY_WEAPONS: Record<string, WeaponDefinition> = {
     reserves: 0,
     projectile: { velocity: 16, dispersion: 1, penetration: 1, caliber: 0, mass: 0, ricochet: false },
   },
+  'lib-w-suppressor': {
+    id: 'lib-w-suppressor',
+    name: 'Ráfaga de supresión',
+    abilityId: 'lib-suppressor',
+    costs: { heat: 8 },
+    magazine: 5,
+    reserves: 3,
+    projectile: { velocity: 13, dispersion: 1, penetration: 0, caliber: 30, mass: 1, ricochet: true },
+  },
   'lib-w-ion-lance': {
     id: 'lib-w-ion-lance',
     name: 'Lanza ionica',
@@ -634,6 +659,15 @@ export const WEAPON_LIBRARY_ENTRIES: Record<string, WeaponLibraryEntry> = {
     tags: ['line', 'stun', 'cooldown'],
     notes: 'Control de carriles; menos dano que una railgun, mas utilidad.',
   },
+  'lib-w-suppressor': {
+    weaponId: 'lib-w-suppressor',
+    abilityId: 'lib-suppressor',
+    family: 'control',
+    weight: 'medium',
+    role: 'controller',
+    tags: ['ammo', 'suppress', 'squad-setup'],
+    notes: 'Sinergia de escuadra: fija al rival (sin contraataque ni vigilancia) para que un aliado remate seguro.',
+  },
   'lib-w-heat-needle': {
     weaponId: 'lib-w-heat-needle',
     abilityId: 'lib-heat-needle',
@@ -690,7 +724,7 @@ export const WEAPON_LIBRARY_LOADOUTS: Record<string, string[]> = {
   artillery: ['lib-w-cluster-mortar', 'lib-w-thermobaric-rocket', 'lib-w-flak-burst'],
   support: ['lib-w-field-repair-beam', 'lib-w-smoke-mortar', 'lib-w-barrier-projector'],
   controller: ['lib-w-ion-lance', 'lib-w-heat-needle', 'lib-w-smoke-mortar', 'lib-w-arc-emitter', 'lib-w-plasma-flamer'],
-  zoneControl: ['lib-w-seismic-driver', 'lib-w-arc-emitter', 'lib-w-flak-burst'],
+  zoneControl: ['lib-w-seismic-driver', 'lib-w-arc-emitter', 'lib-w-flak-burst', 'lib-w-suppressor'],
 };
 
 export function withWeaponLibrary(

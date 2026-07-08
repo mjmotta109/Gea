@@ -1006,3 +1006,23 @@ arquitectura del motor van en DESIGN.md.)*
   daño), 290 en verde, golden intacto, tsc limpio. Cliente: línea de registro
   "es COCIDO" y verificado que el arma se equipa, aparece y se dispara en el
   juego real sin errores.
+- **2026-07-08** — SUPRESIÓN: LA PRIMERA SINERGIA DE ESCUADRA (propuesta 6,
+  "supresión para que otro aliado remate"; versión enfocada). Nuevo estado
+  `suprimido` — la máquina, fijada por fuego, mantiene la cabeza gacha:
+  · apunta peor (−15 de puntería, vía statusModifiers, como cualquier estado);
+  · y NO PUEDE REACCIONAR — ni contraatacar ni disparar en vigilancia. Esto
+    último lo resuelve Battle leyendo el estado compartido en reactionStrike y
+    en overwatchShots (misma vía que el 'stunned'); ninguna capa nueva, ningún
+    sistema conoce a otro.
+  Es la primera mecánica pensada para el ESCUADRÓN y no para la unidad suelta:
+  una máquina fija al rival (que deja de morder al que se acerca) y otra entra
+  a rematar SEGURA. Genera la historia "lo clavé para que mi pesado entrara sin
+  comerse el contraataque". Primera arma: 🔫 Ráfaga de supresión
+  (`lib-suppressor`): daño mínimo (20) + 'suprimido' al 80%, cargador de fuego
+  sostenido. Híbrida (lleva daño) para que la IA la use. 6 tests nuevos
+  (incluye los controles: sin supresión SÍ hay contraataque y vigilancia), 297
+  en verde, golden intacto, tsc limpio. El estado se lee solo en ficha y
+  registro (vía STATUS_DEFINITIONS). Pendiente/aplazado: que la IA COORDINE la
+  supresión (hoy la usa como daño flojo con el estado de regalo) y las demás
+  sinergias (romper blindaje antes del golpe pesado ya emerge del sistema de
+  placas; designación de objetivos, fuego concentrado).
