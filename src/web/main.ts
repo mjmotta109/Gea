@@ -8,7 +8,7 @@
  */
 import { planTurn } from '../ai/simpleAi.js';
 import { Battle, type ReinforcementWave, type UnitSpawn } from '../core/battle.js';
-import { OVERCLOCK_ENGAGE_HEAT } from '../core/systems.js';
+import { OVERCLOCK_ENGAGE_HEAT, HEAT_HIGH_THRESHOLD, HEAT_CRITICAL_THRESHOLD } from '../core/systems.js';
 import { wearTier } from '../core/wear.js';
 import { attackArc, type AttackArc } from '../core/combat.js';
 import { GameMap, posKey, terrainLabel, TERRAIN_COVER } from '../core/grid.js';
@@ -1523,6 +1523,8 @@ function renderPreview(): void {
     const stats = battle.effectiveStats(occupant);
     lines.push(`<div class="pv-title">${occupant.id} ${occupant.name} ${FACING_ARROW[occupant.facing]}</div>`);
     lines.push(`<div>HP ${occupant.hp}/${stats.maxHp} · evasión ${stats.evade} · mov ${stats.move}</div>`);
+    const reading = symptomBadges(occupant);
+    if (reading) lines.push(`<div class="pv-muted">lectura: ${reading}</div>`);
     if (unit && occupant.team !== unit.team) {
       const arc = attackArc(unit.position, occupant.position, occupant.facing);
       lines.push(`<div class="pv-muted">desde tu posición lo atacarías por: <b>${ARC_LABEL[arc]}</b></div>`);
@@ -1635,20 +1637,49 @@ function destroyedTags(unit: UnitState): Set<string> {
   return tags;
 }
 
-/** Insignias de síntoma legible: la avería se VE, no se deduce. */
+/**
+ * Insignias de síntoma legible: la avería y la TENSIÓN se VEN, no se
+ * deducen (leer la máquina, no la ficha). Cubre lo permanente (módulos
+ * caídos, desgaste) y lo transitorio (calor, sobrecarga, energía) —
+ * también en el enemigo: un rival humeante o al rojo se delata.
+ */
 function symptomBadges(unit: UnitState): string {
+  if (unit.hp <= 0) return '';
   const tags = destroyedTags(unit);
-  const badges: string[] = [];
-  // Desgaste: el daño acumulado se VE. Solo cuando la dificultad lo activa.
-  if (battle && battle.wear > 0 && unit.hp > 0) {
-    const tier = wearTier(unit.hp, battle.effectiveStats(unit).maxHp);
-    if (tier === 'castigada') badges.push('⚠ castigada');
-    else if (tier === 'malherida') badges.push('🩸 malherida');
+  const hot: string[] = [];   // señales térmicas/de reactor (color calor)
+  const cold: string[] = [];  // averías y desgaste (borde neutro)
+
+  // Tensión del reactor: el pacto con el diablo se DELATA a la vista.
+  if (unit.overclocked) hot.push('🔥 reactor forzado');
+  const heat = unit.components.heat;
+  if (heat && heat.max > 0) {
+    const ratio = heat.current / heat.max;
+    if (ratio >= HEAT_CRITICAL_THRESHOLD) hot.push('🌋 al rojo vivo');
+    else if (ratio >= HEAT_HIGH_THRESHOLD) hot.push('♨ humea');
   }
-  if (tags.has('locomotion')) badges.push('🦵 cojea');
-  if (tags.has('sensor')) badges.push('📡 sensores rotos');
-  if (tags.has('weapon')) badges.push('🔫 arma inutilizada');
-  return badges.map((b) => `<span class="symptom">${b}</span>`).join('');
+  const energy = unit.components.energy;
+  if (energy && energy.current <= 0) cold.push('🔋 sin fuerza');
+
+  // Desgaste: el daño acumulado se VE. Solo cuando la dificultad lo activa.
+  if (battle && battle.wear > 0) {
+    const tier = wearTier(unit.hp, battle.effectiveStats(unit).maxHp);
+    if (tier === 'castigada') cold.push('⚠ castigada');
+    else if (tier === 'malherida') cold.push('🩸 malherida');
+  }
+  // Piezas EXPUESTAS: el blindaje de una parte se agotó (aún no destruida):
+  // es la costura por donde entra el próximo golpe.
+  const exposed = (unit.components.frame?.modules ?? []).some((m) =>
+    !m.destroyed && (MODULES[m.moduleId]?.plating ?? 0) > 0 && m.plating <= 0);
+  if (exposed) cold.push('🛡 expuesto');
+
+  if (tags.has('locomotion')) cold.push('🦵 cojea');
+  if (tags.has('sensor')) cold.push('📡 sensores rotos');
+  if (tags.has('weapon')) cold.push('🔫 arma inutilizada');
+
+  return [
+    ...hot.map((b) => `<span class="symptom" style="border-color:var(--heat);color:var(--heat)">${b}</span>`),
+    ...cold.map((b) => `<span class="symptom">${b}</span>`),
+  ].join('');
 }
 
 /**

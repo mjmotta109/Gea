@@ -962,3 +962,23 @@ arquitectura del motor van en DESIGN.md.)*
   (Playwright headless: enganche, bono, apagado que la corta, toggle).
   Aplazadas para siguientes bloques: CT como recurso (propuesta 4), sinergias
   de escuadra (6) y control del campo (7).
+- **2026-07-08** — LEER LA MÁQUINA: SÍNTOMAS DEL CALOR Y EL REACTOR (propuesta
+  8, "información por síntomas" — NO niebla, que sigue aplazada). El sistema de
+  síntomas ya existía (cojea / sensores rotos / arma inutilizada / desgaste),
+  pero era CIEGO a lo que introdujo el bloque anterior. Ampliado, y es puro
+  cliente (cero motor, golden intacto): la tensión térmica ahora se DELATA a la
+  vista, también en el enemigo —
+  · 🔥 reactor forzado (sobrecarga puesta), 🌋 al rojo vivo (calor crítico
+    ≥85%), ♨ humea (calor alto ≥70%): en color de calor, usando los MISMOS
+    umbrales del motor (HEAT_HIGH/CRITICAL_THRESHOLD), no números mágicos del
+    cliente.
+  · 🔋 sin fuerza (energía a cero: sus penalizaciones defensivas están vivas),
+    🛡 expuesto (una pieza agotó su blindaje pero aún no cae: la costura por
+    donde entra el próximo golpe).
+  Las insignias salen en la ficha del roster Y en el panel de análisis al
+  posar el cursor sobre cualquier unidad ("lectura: …"). No se ocultan las
+  barras numéricas (la niebla sigue aplazada): es una CAPA de lectura, no un
+  recorte de información. Cierra el lazo con el bloque del reactor — un rival
+  humeante o sobrecargado se lee de un vistazo y se castiga. Verificado en el
+  juego real (Playwright headless: la insignia aparece al enganchar la
+  sobrecarga, con el color de calor).
