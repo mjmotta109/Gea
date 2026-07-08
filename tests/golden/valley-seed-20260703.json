@@ -900,7 +900,7 @@
       "unitId": "P2",
       "targetUnitId": "E4",
       "amount": 65,
-      "targetHp": 20
+      "targetHp": 35
     },
     {
       "type": "tempo-spent",

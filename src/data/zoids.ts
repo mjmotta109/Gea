@@ -61,8 +61,10 @@ export const ZOIDS: Record<string, UnitDefinition> = {
     role: 'flyer',
     moveType: 'flying',
     stats: {
-      maxHp: 85, atk: 30, energyAtk: 35, def: 15, energyDef: 20,
-      speed: 15, move: 7, jump: 99, evade: 25, accuracy: 0,
+      // Buff (2026-07-08): explorador aéreo frágil de pega floja; +HP y +evasión
+      // para que aguante (no dejar un hueco nuevo al reforzar los otros voladores).
+      maxHp: 100, atk: 30, energyAtk: 35, def: 15, energyDef: 20,
+      speed: 15, move: 7, jump: 99, evade: 28, accuracy: 0,
     },
     abilityIds: ['shock-cannon', 'stun-blade'],
   },
@@ -174,7 +176,9 @@ export const ZOIDS: Record<string, UnitDefinition> = {
   },
   'storm-sworder': {
     id: 'storm-sworder', name: 'Storm Sworder', role: 'flyer', moveType: 'flying',
-    stats: { maxHp: 125, atk: 46, energyAtk: 40, def: 25, energyDef: 26, speed: 17, move: 8, jump: 99, evade: 33, accuracy: 0 },
+    // Buff (2026-07-08): cazador aéreo frágil que muere cerrando distancia
+    // (94% de bajas). +HP y +evasión para sobrevivir la aproximación al melee.
+    stats: { maxHp: 140, atk: 46, energyAtk: 40, def: 25, energyDef: 26, speed: 17, move: 8, jump: 99, evade: 38, accuracy: 0 },
     abilityIds: ['stun-blade'],
     weapons: ['lib-w-plasma-axe'],
     aiProfile: { aggression: 0.85, selfPreservation: 0.5, riskTolerance: 0.7 },
@@ -188,14 +192,18 @@ export const ZOIDS: Record<string, UnitDefinition> = {
   },
   'rev-raptor': {
     id: 'rev-raptor', name: 'Rev Raptor', role: 'skirmisher', moveType: 'ground',
-    stats: { maxHp: 85, atk: 38, energyAtk: 24, def: 20, energyDef: 16, speed: 15, move: 6, jump: 2, evade: 18, accuracy: 0 },
+    // Buff (2026-07-08): asaltante melee de cristal (95% de bajas, 39.6% victoria).
+    // +HP y +evasión para que llegue al cuerpo a cuerpo con algo de casco.
+    stats: { maxHp: 105, atk: 38, energyAtk: 24, def: 20, energyDef: 16, speed: 15, move: 6, jump: 2, evade: 22, accuracy: 0 },
     abilityIds: ['bite-crush'],
     weapons: ['lib-w-monomolecular-claw'],
     aiProfile: { aggression: 0.8, selfPreservation: 0.3, riskTolerance: 0.6 },
   },
   'guysak': {
     id: 'guysak', name: 'Guysak', role: 'skirmisher', moveType: 'ground',
-    stats: { maxHp: 105, atk: 46, energyAtk: 20, def: 26, energyDef: 18, speed: 12, move: 5, jump: 1, evade: 16, accuracy: 0 },
+    // Buff (2026-07-08): rompedor melee que debe cerrar bajo fuego y paga tempo
+    // pesado con el pilote; +HP y +evasión para que llegue a pegar.
+    stats: { maxHp: 115, atk: 46, energyAtk: 20, def: 26, energyDef: 18, speed: 12, move: 5, jump: 1, evade: 20, accuracy: 0 },
     abilityIds: ['bite-crush', 'stun-blade'],
     weapons: ['lib-w-pile-bunker'],
     aiProfile: { aggression: 0.6, selfPreservation: 0.4, riskTolerance: 0.5 },
