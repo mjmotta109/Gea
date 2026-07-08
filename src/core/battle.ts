@@ -63,6 +63,16 @@ import {
   StanceId,
 } from './types.js';
 
+/**
+ * Acota un valor de INICIALIZACIÓN opcional (continuidad de campaña) a
+ * [0, max]. Si es undefined o no finito (guardado corrupto/NaN), usa el
+ * valor de fábrica: nunca propaga basura a los componentes.
+ */
+function initClamp(value: number | undefined, max: number, fallback: number): number {
+  if (value === undefined || !Number.isFinite(value)) return fallback;
+  return Math.max(0, Math.min(max, Math.round(value)));
+}
+
 export interface UnitSpawn {
   id: string;
   /** Nombre del piloto/unidad concreta; el chasis pone el resto. */
@@ -80,6 +90,16 @@ export interface UnitSpawn {
   hp?: number;
   /** Blindaje de refuerzo (búnker que absorbe antes que el casco). 0 = sin refuerzo. */
   armor?: number;
+  /**
+   * CONTINUIDAD expedición↔combate (opt-in): estado residual con el que la
+   * máquina ENTRA a la batalla, para que la campaña conecte una pelea con la
+   * siguiente sin que el motor conozca la campaña. Ausentes = de fábrica
+   * (calor 0, energía llena, cargadores llenos) → golden idéntico.
+   */
+  initialHeat?: number;
+  initialEnergy?: number;
+  /** Munición en el cargador por arma (weaponId → balas). Ausente = lleno. */
+  ammo?: Record<string, number>;
   /** Modificadores adjuntos a la unidad durante toda la batalla. */
   modifiers?: StatModifier[];
   /**
@@ -275,14 +295,21 @@ export class Battle {
           ...(frameConfig ? { frame: buildFrameState(frameConfig, this.modules) } : {}),
           ...(def.energy ? {
             energy: {
-              current: def.energy.capacity,
+              // Continuidad: energía inicial residual (acotada; ausente = llena).
+              current: initClamp(spawn.initialEnergy, def.energy.capacity, def.energy.capacity),
               capacity: def.energy.capacity,
               outputPerTurn: def.energy.outputPerTurn,
               boostedThisTurn: false,
             },
           } : {}),
           ...(def.heat ? {
-            heat: { current: 0, max: def.heat.max, dissipationPerTurn: def.heat.dissipationPerTurn },
+            heat: {
+              // Continuidad: calor residual (acotado a [0,max]; ausente = 0).
+              // Acotar a max (no >) evita el apagado en el turno 1 al entrar a tope.
+              current: initClamp(spawn.initialHeat, def.heat.max, 0),
+              max: def.heat.max,
+              dissipationPerTurn: def.heat.dissipationPerTurn,
+            },
           } : {}),
           ...(weaponIds ? {
             arsenal: {
@@ -295,7 +322,9 @@ export class Battle {
                     `withWeaponLibrary(ABILITIES, WEAPONS) (como hacen el cliente y la campaña).`,
                   );
                 }
-                return { weaponId, ammo: weapon.magazine, reserves: weapon.reserves, cooldown: 0 };
+                // Continuidad: munición residual en el cargador (ausente = lleno).
+                const ammo = initClamp(spawn.ammo?.[weaponId], weapon.magazine, weapon.magazine);
+                return { weaponId, ammo, reserves: weapon.reserves, cooldown: 0 };
               }),
             },
           } : {}),

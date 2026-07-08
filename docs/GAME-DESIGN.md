@@ -1083,3 +1083,28 @@ arquitectura del motor van en DESIGN.md.)*
   REORDENA en vivo con lo comprometido + etiqueta "tempo N", y la sobremarcha
   se arma con X (anunciada en el registro). 9 tests nuevos, 313 en verde, tsc
   limpio. Verificado en el juego real (etiqueta de tempo y armado de X).
+- **2026-07-08** — CONTINUIDAD EXPEDICIÓN↔COMBATE: el motor lo PERMITE
+  (propuesta 10). La propuesta pide que el motor —sin conocer la campaña—
+  permita transportar estado residual a la batalla. Implementado como campos
+  OPT-IN en UnitSpawn: initialHeat, initialEnergy y ammo (munición por arma).
+  Ausentes = de fábrica (calor 0, energía llena, cargadores llenos) → golden
+  byte-idéntico (verificado). Acotados a [0,max] con saneo de NaN (helper
+  initClamp: un guardado corrupto cae a fábrica, no propaga basura — endureci-
+  miento que pidió la crítica). El calor residual entra a tope SIN apagar el
+  turno 1 (se acota a max, no por encima). Interactúa con lo ya construido sin
+  tocar sistemas: calor residual = riesgo de atasco/apagado (heat+strain),
+  energía baja = penalización y vetos (energy), cargador a medias = veto de
+  arsenal. 6 tests nuevos, 319 en verde, tsc limpio. PENDIENTE (capa de
+  campaña, no motor): que la liquidación de batalla grabe el estado residual de
+  los supervivientes y el despliegue lo relea — con enfriado/reabastecimiento
+  en el taller para evitar la "espiral de la muerte" que señaló la crítica. Es
+  diseño de campaña con implicaciones de balance; se hará en su propia pasada.
+- **2026-07-08** — INERCIA / PERSONALIDAD MECÁNICA (propuesta 11): APLAZADA.
+  El propio director avisa del riesgo de "síndrome del simulador", y el flujo
+  de diseño+crítica lo confirmó: la inercia-de-movimiento (giro, derrape,
+  aceleración) es complejidad por complejidad; la única versión mínima
+  planteada (masa que resiste el empuje) refina un efecto ya nicho —el
+  knockback ni siquiera dispara en el golden— y su "decisión nueva" es la más
+  débil de las 11. No entra: la identidad de las máquinas ya la dan sus stats,
+  su reactor (o su ausencia), su peso de tempo (ctCost) y sus armas. Se revisará
+  solo si aparece una regla mínima que genere una decisión de verdad.
