@@ -20,6 +20,12 @@ export interface Tile {
   terrain: TerrainType;
   /** Altura del tile en "medios niveles", como FFTA (0 = suelo raso). */
   height: number;
+  /**
+   * Turnos de FUEGO que le quedan a la casilla (control del campo). Ausente
+   * o 0 = sin fuego. Una casilla ardiendo calienta el reactor de quien la
+   * pisa y le hace daño al cerrar turno; el agua y los muros no prenden.
+   */
+  fire?: number;
 }
 
 /** Clase de movimiento de una unidad, determina cómo atraviesa el terreno. */
@@ -304,6 +310,12 @@ export interface AbilityDefinition {
   /** ¿Puede apuntar a aliados? (curaciones, buffs) */
   targetsAllies: boolean;
   effects: AbilityEffect[];
+  /**
+   * Arma incendiaria: PRENDE sus casillas de impacto (centro + área) durante
+   * tantos turnos. Ausente = no incendia. El fuego lo resuelve el campo, no
+   * los efectos por víctima (las casillas arden aunque no haya nadie encima).
+   */
+  ignites?: number;
 }
 
 export type StatusId =
@@ -459,6 +471,12 @@ export type BattleEvent =
   | { type: 'terrain-destroyed'; pos: Position }
   /** Un bosque arrasado por una explosión pierde su cobertura. */
   | { type: 'terrain-razed'; pos: Position }
+  /** Una casilla se PRENDE (arma incendiaria): arde `turns` turnos. */
+  | { type: 'tile-ignited'; pos: Position; turns: number }
+  /** El fuego de una casilla se apaga (se consumió su tiempo). */
+  | { type: 'tile-extinguished'; pos: Position }
+  /** Una unidad sufre el fuego de la casilla que pisa al cerrar turno. */
+  | { type: 'unit-burned'; unitId: string; damage: number; targetHp: number }
   /** Arranca una ronda nueva (cada unidad actúa ~una vez por ronda). */
   | { type: 'round-started'; round: number }
   /** Tiro fuera de turno: oportunidad (fuga), contraataque o vigilancia. */

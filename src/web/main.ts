@@ -1017,6 +1017,15 @@ function renderBoard(): void {
         cell.appendChild(h);
       }
 
+      // Control del campo: la casilla ardiendo se VE (brasa + llama).
+      if (battle.map.fireAt(pos) > 0) {
+        cell.classList.add('on-fire');
+        const flame = document.createElement('span');
+        flame.className = 'fire-flame';
+        flame.textContent = '🔥';
+        cell.appendChild(flame);
+      }
+
       // Resaltados del modo actual.
       if ((mode.kind === 'move' || mode.kind === 'boost') && mode.tiles.has(key)) {
         cell.classList.add(mode.kind === 'move' ? 'hl-move' : 'hl-boost', 'actionable');
@@ -1819,6 +1828,9 @@ function describe(event: BattleEvent): { text: string; cls?: string } | undefine
       if (event.reason === 'weapon') {
         return { text: `🔥 ${unitLabel(event.unitId)} es COCIDO: +${event.delta} de calor en su reactor (${event.current})`, cls: 'hit' };
       }
+      if (event.reason === 'fire') {
+        return { text: `🔥 ${unitLabel(event.unitId)} arde: +${event.delta} de calor por el fuego (${event.current})`, cls: 'warn' };
+      }
       return { text: `🔥 calor de ${event.unitId}: ${event.current} (+${event.delta})`, cls: 'warn' };
     case 'overclock-changed':
       return event.on
@@ -1831,6 +1843,9 @@ function describe(event: BattleEvent): { text: string; cls?: string } | undefine
     case 'unit-pushed': return { text: `${event.unitId} sale despedido a (${event.to.x},${event.to.y})`, cls: 'warn' };
     case 'terrain-destroyed': return { text: `💥 muro derribado en (${event.pos.x},${event.pos.y})`, cls: 'warn' };
     case 'terrain-razed': return { text: `🔥 el bosque de (${event.pos.x},${event.pos.y}) queda arrasado: sin cobertura`, cls: 'warn' };
+    case 'tile-ignited': return { text: `🔥 la zona (${event.pos.x},${event.pos.y}) PRENDE: arderá ${event.turns} turnos`, cls: 'warn' };
+    case 'tile-extinguished': return undefined; // el fin del fuego no satura el registro
+    case 'unit-burned': return { text: `🔥 ${unitLabel(event.unitId)} se quema en el fuego: ${event.damage} de daño`, cls: 'hit' };
     case 'round-started': return { text: `━━ RONDA ${event.round} ━━`, cls: 'turn' };
     case 'reaction': return {
       text: `⚡ ¡${event.reaction === 'oportunidad' ? 'Tiro de oportunidad' : event.reaction === 'vigilancia' ? 'Disparo de VIGILANCIA' : 'Contraataque'} de ${unitLabel(event.unitId)} contra ${event.targetUnitId}!`,

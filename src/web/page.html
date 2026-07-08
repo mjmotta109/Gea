@@ -105,6 +105,16 @@
   .gservice .gsil { width: 46px; flex: none; color: var(--player); }
   .gservice .gsil svg { width: 100%; height: auto; display: block; }
   .cell.hl-zone .hl-label { color: var(--player); }
+  /* Control del campo: casilla ardiendo (brasa pulsante bajo la unidad). */
+  .cell.on-fire { animation: emberpulse 1.1s ease-in-out infinite; }
+  @keyframes emberpulse {
+    0%,100% { box-shadow: inset 0 0 12px 2px rgba(255,90,30,0.55); }
+    50% { box-shadow: inset 0 0 19px 6px rgba(255,150,50,0.9); }
+  }
+  .cell .fire-flame {
+    position: absolute; top: 0; left: 2px; font-size: 12px; pointer-events: none;
+    text-shadow: 0 0 5px rgba(255,130,40,0.95);
+  }
   .cell.path::before {
     content: ''; position: absolute; width: 8px; height: 8px; border-radius: 50%;
     background: var(--player); opacity: 0.75; top: 50%; left: 50%; margin: -4px 0 0 -4px;

@@ -77,6 +77,44 @@ export class GameMap {
     tile.terrain = 'plain';
   }
 
+  /**
+   * Prende una casilla durante `turns` turnos (arma incendiaria). El agua
+   * y los muros no arden — huir al agua apaga el fuego bajo los pies. Si ya
+   * ardía, se toma la duración mayor. Devuelve si prendió de verdad.
+   */
+  ignite(pos: Position, turns: number): boolean {
+    const tile = this.tileAt(pos);
+    if (tile.terrain === 'water' || tile.terrain === 'wall') return false;
+    tile.fire = Math.max(tile.fire ?? 0, turns);
+    return true;
+  }
+
+  /** Turnos de fuego que le quedan a la casilla (0 = sin fuego). */
+  fireAt(pos: Position): number {
+    return this.tileAt(pos).fire ?? 0;
+  }
+
+  /**
+   * Consume un turno de fuego en TODAS las casillas ardiendo (una vez por
+   * ronda). Devuelve las casillas que acaban de apagarse. Determinista:
+   * recorre la rejilla en orden.
+   */
+  decayFires(): Position[] {
+    const extinguished: Position[] = [];
+    for (let y = 0; y < this.height; y++) {
+      for (let x = 0; x < this.width; x++) {
+        const tile = this.tiles[y * this.width + x]!;
+        if (!tile.fire) continue;
+        tile.fire -= 1;
+        if (tile.fire <= 0) {
+          tile.fire = 0;
+          extinguished.push({ x, y });
+        }
+      }
+    }
+    return extinguished;
+  }
+
   inBounds(pos: Position): boolean {
     return pos.x >= 0 && pos.x < this.width && pos.y >= 0 && pos.y < this.height;
   }

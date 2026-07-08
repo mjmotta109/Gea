@@ -504,6 +504,10 @@ export class Battle {
         this.roundNumber += 1;
         this.activationsThisRound = 0;
         events.push({ type: 'round-started', round: this.roundNumber });
+        // El fuego del campo consume un turno por ronda (determinista).
+        for (const pos of this.map.decayFires()) {
+          events.push({ type: 'tile-extinguished', pos });
+        }
         events.push(...this.arriveReinforcements());
         this.roundQuota = Math.max(1, this.units.filter((u) => u.hp > 0 && !u.retreated).length);
         if (this.checkBattleEnd(events)) return events;
@@ -858,6 +862,16 @@ export class Battle {
         } else if (terrain === 'forest') {
           this.map.raze(pos);
           events.push({ type: 'terrain-razed', pos: { ...pos } });
+        }
+      }
+    }
+
+    // Arma incendiaria: PRENDE sus casillas de impacto (control del campo).
+    // Las casillas arden aunque no golpeen a nadie; el agua y los muros no.
+    if (ability.ignites && ability.ignites > 0) {
+      for (const pos of aoeTiles(this.map, target, ability.aoeRadius, true)) {
+        if (this.map.ignite(pos, ability.ignites)) {
+          events.push({ type: 'tile-ignited', pos: { ...pos }, turns: ability.ignites });
         }
       }
     }

@@ -1,5 +1,5 @@
 import { moduleDef, type ModuleCatalog } from './frame.js';
-import type { GameMap } from './grid.js';
+import { footprintTiles, type GameMap } from './grid.js';
 import { applyStatus, hasStatus, overheatDamage } from './status.js';
 import type {
   BattleAction,
@@ -408,9 +408,49 @@ export const overheatSystem: BattleSystem = {
   },
 };
 
+// ── FieldSystem (control del campo: casillas de fuego) ───────────────────
+
+/** Calor que el fuego de una casilla vierte en el reactor de quien la pisa. */
+export const FIRE_HEAT = 12;
+/** Fracción de HP máx. que chamusca el fuego al cerrar turno sobre él. */
+export const FIRE_DAMAGE_FRACTION = 0.05;
+
+/**
+ * Control del campo: quien CIERRA su turno sobre una casilla ardiendo se
+ * quema. El fuego COCE el reactor (interacción con el sistema de calor) y
+ * chamusca a cualquiera (monocasco incluido). No conoce a nadie: solo lee el
+ * estado de fuego del mapa (que crean las armas incendiarias). El daño es
+ * fijo —no tira azar—, así que el golden queda intacto: sus mapas nunca arden.
+ */
+export const fieldSystem: BattleSystem = {
+  id: 'field',
+  onTurnEnd(unit, ctx) {
+    // Un DoT anterior (sobrecalentamiento) pudo tumbarla este mismo cierre:
+    // no se quema un cadáver (evitaría un unit-destroyed doble).
+    if (unit.hp <= 0 || unit.retreated) return [];
+    let burning = false;
+    for (const t of footprintTiles(unit.position, unit.size)) {
+      if (ctx.map.inBounds(t) && ctx.map.fireAt(t) > 0) { burning = true; break; }
+    }
+    if (!burning) return [];
+    const events: BattleEvent[] = [];
+    const heat = unit.components.heat;
+    if (heat) {
+      heat.current += FIRE_HEAT;
+      events.push({ type: 'heat-changed', unitId: unit.id, current: heat.current, delta: FIRE_HEAT, reason: 'fire' });
+    }
+    const damage = Math.max(1, Math.round(ctx.effectiveStats(unit).maxHp * FIRE_DAMAGE_FRACTION));
+    const hp = applyInternalDamage(unit, damage, ctx);
+    events.push({ type: 'unit-burned', unitId: unit.id, damage, targetHp: hp });
+    if (hp === 0) events.push({ type: 'unit-destroyed', unitId: unit.id });
+    return events;
+  },
+};
+
 /** Sistemas activos por defecto en toda batalla, en orden de invocación.
  *  strain va ANTES que heat: el calor que añade (sobrecarga, rodeado) lo
- *  evalúa el sistema de calor en el mismo turno. */
+ *  evalúa el sistema de calor en el mismo turno. field va al final: el calor
+ *  del fuego se suma tras la disipación (lo arrastra al turno siguiente). */
 export function defaultSystems(): BattleSystem[] {
-  return [energySystem, strainSystem, heatSystem, arsenalSystem, overheatSystem];
+  return [energySystem, strainSystem, heatSystem, arsenalSystem, overheatSystem, fieldSystem];
 }

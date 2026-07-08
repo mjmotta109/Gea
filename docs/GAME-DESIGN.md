@@ -1026,3 +1026,31 @@ arquitectura del motor van en DESIGN.md.)*
   supresión (hoy la usa como daño flojo con el estado de regalo) y las demás
   sinergias (romper blindaje antes del golpe pesado ya emerge del sistema de
   placas; designación de objetivos, fuego concentrado).
+- **2026-07-08** — CONTROL DEL CAMPO: CASILLAS DE FUEGO (propuesta 7). Un arma
+  incendiaria PRENDE su zona de impacto; quien CIERRA su turno sobre fuego se
+  quema. Diseño vetado por un flujo de diseño+crítica adversarial (workflow de
+  subagentes) antes de tocar código. Reglas:
+  · El fuego es estado dinámico de casilla (`Tile.fire`), reutilizando el
+    precedente de demolish/raze; el agua y los muros NO prenden (huir al agua
+    apaga el fuego bajo los pies). Decae un turno por RONDA (determinista).
+  · Interactúa con el eje de calor ya construido: el fuego VIERTE calor (+12)
+    en el reactor de quien lo pisa —empujándolo hacia el atasco de armas y el
+    apagado— además de un daño de brasas (5% de HP máx.) que muerde también a
+    los monocasco. `fieldSystem` va al FINAL del bus: el calor del fuego se
+    suma TRAS la disipación (lo arrastra al turno siguiente), para que el
+    fuego amenace de verdad y no lo apague la ventilación el mismo turno.
+  · Se crea con `AbilityDefinition.ignites` (propiedad declarativa, resuelta a
+    nivel de casilla en executeAbility junto a demolish/raze — NO un efecto por
+    víctima). Eventos nuevos (solo añadir): tile-ignited/tile-extinguished/
+    unit-burned; el calor reutiliza heat-changed razón 'fire'.
+  Golden-safe FUERTE (verificado byte-exacto por la crítica): sin arma que
+  incendie, fieldSystem es no-op puro y no consume azar → los mapas del golden
+  nunca arden. Corregido un bug que halló la crítica: el fuego NO quema
+  cadáveres (guarda hp<=0) para no emitir un unit-destroyed doble si un DoT
+  anterior tumbó a la unidad ese mismo cierre. Primera arma: 🔥 Mortero
+  incendiario (napalm de área, alcance 6). 7 tests nuevos, 304 en verde, golden
+  intacto, tsc limpio. Cliente: la casilla ardiendo se VE (brasa pulsante +
+  llama) y el registro la nombra. (Verificación en motor: 34 objetivos legales
+  y enterAbility correcto; el disparo incendiario en vivo no pudo escenificarse
+  en el arnés headless —el pilotaje pasivo pierde la batalla antes— pero la
+  mecánica y el objetivo están probados de forma determinista.)
