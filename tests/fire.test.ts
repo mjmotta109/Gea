@@ -140,6 +140,24 @@ describe('El fuego no quema cadáveres', () => {
   });
 });
 
+describe('El fuego degrada la red de mando', () => {
+  it('un comandante que muere en el fuego emite command-link-lost', () => {
+    const battle = fireBattle('mono', {
+      spawns: [
+        { id: 'S', name: 'S', unitTypeId: 'shooter', team: 'player', position: { x: 1, y: 1 } },
+        { id: 'T', name: 'T', unitTypeId: 'mono', team: 'enemy', position: { x: 2, y: 2 }, commander: true, hp: 1 },
+        { id: 'T2', name: 'T2', unitTypeId: 'mono', team: 'enemy', position: { x: 6, y: 5 } },
+      ],
+    });
+    battle.map.ignite({ x: 2, y: 2 }, 3);
+    untilTurnOf(battle, 'T');
+    const events = battle.execute({ type: 'wait', unitId: 'T' });
+    expect(events.some((e) => e.type === 'unit-destroyed' && e.unitId === 'T')).toBe(true);
+    // Antes de la corrección, la muerte por sistema (fuego) NO degradaba al equipo.
+    expect(events.some((e) => e.type === 'command-link-lost' && e.team === 'enemy')).toBe(true);
+  });
+});
+
 describe('Mortero incendiario (biblioteca)', () => {
   it('existe y prende la zona', () => {
     expect(WEAPON_LIBRARY_ABILITIES['lib-incendiary-mortar']!.ignites).toBeGreaterThan(0);

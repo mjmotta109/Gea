@@ -1108,3 +1108,22 @@ arquitectura del motor van en DESIGN.md.)*
   débil de las 11. No entra: la identidad de las máquinas ya la dan sus stats,
   su reactor (o su ausencia), su peso de tempo (ctCost) y sus armas. Se revisará
   solo si aparece una regla mínima que genere una decisión de verdad.
+- **2026-07-08** — REVISIÓN ADVERSARIAL del lote entero (flujo de subagentes:
+  4 lentes —determinismo/golden, interacciones, desacoplo/eventos, cliente— con
+  verificación adversarial de cada hallazgo). Confirmó 3 bugs reales, ya
+  corregidos con test de regresión:
+  · SOBRECARGA repetible reinyectaba calor: al ser acción libre, re-emitir
+    `overclock on:true` ya sobrecargado volvía a cobrar el tirón de +15 (doble
+    clic = calor gratis hacia un apagado no querido). Arreglo: strainSystem veta
+    el enganche redundante (no-op ⇒ ilegal), así el tirón solo se cobra en la
+    transición real.
+  · Muertes por SISTEMAS (fuego, apagado del reactor, DoT) no degradaban la red
+    de mando: solo la muerte por arma llamaba a afterDestruction. Un comandante
+    quemado/apagado no dejaba a su equipo sin coordinación. Arreglo: Battle
+    centraliza la consecuencia (linkCommandDeaths tras runSystems); golden-safe
+    (ningún comandante del golden muere por estas vías).
+  · La SOBREMARCHA armada (cliente) se filtraba: vigilar cerraba el turno sin
+    resetear el flag. Arreglo: reset en doOverwatch y, como red de seguridad, en
+    advance() (nunca cruza de turno/unidad). Verificado en el juego real.
+  Un 4º hallazgo (el veto de calor bloquearía un contraataque) resultó FALSO
+  POSITIVO (el reflejo no paga calor). 321 tests en verde, golden intacto.

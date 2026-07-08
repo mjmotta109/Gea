@@ -123,6 +123,18 @@ describe('Sobrecarga del reactor (overclock)', () => {
     expect(unit.overclocked).toBe(false);
   });
 
+  it('re-enganchar una sobrecarga ya puesta se veta y NO vuelve a cobrar calor', () => {
+    const battle = rigBattle();
+    untilTurnOf(battle, 'R');
+    battle.execute({ type: 'overclock', unitId: 'R', on: true });
+    const heat = battle.unit('R').components.heat!.current; // = OVERCLOCK_ENGAGE_HEAT
+    // La sobrecarga es acción libre y repetible: un segundo enganche debe vetarse
+    // (si no, cada repetición reinyectaría el tirón de calor — bug hallado por la revisión).
+    expect(battle.checkVetoes({ type: 'overclock', unitId: 'R', on: true })?.systemId).toBe('strain');
+    expect(() => battle.execute({ type: 'overclock', unitId: 'R', on: true })).toThrow(/ya está sobrecargado/);
+    expect(battle.unit('R').components.heat!.current).toBe(heat);
+  });
+
   it('una máquina sin reactor no puede sobrecargarse (no-op)', () => {
     const battle = rigBattle();
     untilTurnOf(battle, 'D');

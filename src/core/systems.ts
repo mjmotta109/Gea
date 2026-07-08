@@ -138,6 +138,18 @@ export function overclockModifiers(unit: UnitState): StatModifier[] {
 export const strainSystem: BattleSystem = {
   id: 'strain',
 
+  // Re-enganchar una sobrecarga que ya está puesta (o soltar una ya suelta) es
+  // un no-op: se rechaza para que NO vuelva a cobrar el tirón de calor cada vez
+  // (la acción es libre y repetible; sin este veto, doble clic = calor gratis).
+  onValidateAction(action, unit) {
+    if (action.type !== 'overclock') return null;
+    if (!hasReactor(unit)) return null; // sin reactor lo gestiona executeOverclock (no-op)
+    if ((unit.overclocked ?? false) === action.on) {
+      return { systemId: 'strain', reason: `el reactor ya está ${action.on ? 'sobrecargado' : 'estable'}` };
+    }
+    return null;
+  },
+
   // Enganchar la sobrecarga: el reactor pega un tirón de calor inmediato.
   onActionResolved(action, unit) {
     if (action.type !== 'overclock' || !action.on || !unit.overclocked) return [];

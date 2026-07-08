@@ -441,6 +441,7 @@ function advance(): void {
 
   const active = battle.getActiveUnit();
   if (!active) { renderAll(); return; }
+  overdriveArmed = false; // defensa: la sobremarcha nunca cruza de turno/unidad
 
   if (active.team === 'enemy') {
     mode = { kind: 'idle' };
@@ -615,6 +616,7 @@ function doOverwatch(): void {
   logEvents(battle.execute({ type: 'overwatch', unitId: unit.id }));
   mode = { kind: 'idle' };
   pending = null;
+  overdriveArmed = false; // no sobrevive al turno (vigilar lo cierra)
   advance();
 }
 

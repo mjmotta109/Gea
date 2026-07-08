@@ -573,6 +573,7 @@ export class Battle {
       this.activeUnitId = next.id;
       events.push({ type: 'turn-started', unitId: next.id });
       events.push(...this.runSystems((s) => s.onTurnStart?.(next, this.systemContext)));
+      this.linkCommandDeaths(events); // apagado del reactor pudo tumbar a un comandante
       if (this.checkBattleEnd(events)) return events;
 
       // Un sistema pudo destruir a la unidad al abrir su turno (daño
@@ -1304,6 +1305,7 @@ export class Battle {
     // disipación de calor, regeneración de energía... en fases futuras),
     // seguidos de la expiración de estados.
     events.push(...this.runSystems((s) => s.onTurnEnd?.(unit, this.systemContext)));
+    this.linkCommandDeaths(events); // fuego o DoT pudieron tumbar a un comandante
     for (const expired of tickStatuses(unit)) {
       events.push({ type: 'status-expired', targetUnitId: unit.id, status: expired.id });
     }
@@ -1331,6 +1333,20 @@ export class Battle {
     if (!unit.isCommander || this.linkLostTeams.has(unit.team)) return [];
     this.linkLostTeams.add(unit.team);
     return [{ type: 'command-link-lost', team: unit.team }];
+  }
+
+  /**
+   * Cierra la consecuencia de mando para muertes conducidas por SISTEMAS
+   * (fuego, apagado del reactor, DoT de sobrecalentamiento): esos sistemas
+   * emiten unit-destroyed por su cuenta, saltándose afterDestruction. Aquí se
+   * repara la asimetría con la ruta de daño de arma. afterDestruction es
+   * idempotente (guarda linkLostTeams), así que reprocesar es inofensivo.
+   */
+  private linkCommandDeaths(events: BattleEvent[]): void {
+    for (const e of events.filter((ev) => ev.type === 'unit-destroyed')) {
+      if (e.type !== 'unit-destroyed') continue;
+      events.push(...this.afterDestruction(this.unit(e.unitId)));
+    }
   }
 
   private requireActive(unitId: string): UnitState {
