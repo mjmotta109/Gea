@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { Battle } from '../src/core/battle.js';
 import {
-  buyWeapon, buyZoid, contractOffers, counterRoles, FULL_HP, mountedCount, newCampaign,
-  readStyle, rebuildZoid, refitZoid, repairCost, repairZoid, resolveContract, sellWeapon,
-  setMountedWeapons, updateDossier,
+  buyWeapon, buyZoid, contractOffers, counterRoles, counterWeapons, FULL_HP, mountedCount,
+  newCampaign, readStyle, rebuildZoid, refitZoid, repairCost, repairZoid, resolveContract,
+  sellWeapon, setMountedWeapons, updateDossier,
 } from '../src/game/mercenary.js';
 import { ABILITIES } from '../src/data/abilities.js';
 import { CONTRACT_ENEMY_POOL, ECONOMY } from '../src/data/economy.js';
@@ -123,6 +123,14 @@ describe('modo mercenario: campaña', () => {
     expect(counterRoles('melee')).toContain('sniper'); // kiters castigan el rush
     expect(counterRoles('ranged')).toContain('assault'); // cerradores
     expect(counterRoles('balanced')).toEqual([]);
+  });
+
+  it('counterWeapons arma a la facción contra tu estilo (contra por arma)', () => {
+    // Reactor abusón → lanzallamas que cuecen el reactor.
+    expect(counterWeapons('reactor')).toContain('lib-w-plasma-flamer');
+    // Melee → supresor que te fija al cargar.
+    expect(counterWeapons('melee')).toContain('lib-w-suppressor');
+    expect(counterWeapons('balanced')).toEqual([]);
   });
 
   it('contractOffers sesga la escuadra hacia el rol pesado, y es determinista', () => {

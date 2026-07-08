@@ -343,12 +343,26 @@ export function counterRoles(style: PlayerStyle): string[] {
   }
 }
 
+/**
+ * Armas que la facción monta para contrarrestarte a nivel de ARMA (loadouts
+ * enemigos), no solo de chasis. Son de la biblioteca (sin mountSlot: caben en
+ * cualquier chasis). Vacío = sin contra por arma.
+ */
+export function counterWeapons(style: PlayerStyle): string[] {
+  switch (style) {
+    case 'reactor': return ['lib-w-plasma-flamer', 'lib-w-incendiary-mortar']; // cuecen tu reactor
+    case 'melee': return ['lib-w-suppressor'];    // te FIJAN al cargar (sin contra ni vigilancia)
+    case 'ranged': return ['lib-w-smoke-mortar'];  // humo para sobrevivir tu hostigamiento
+    case 'balanced': return [];
+  }
+}
+
 /** Frase de inteligencia para el parte de contrato (o nada si no adapta). */
 export function adaptationHint(style: PlayerStyle): string | undefined {
   switch (style) {
-    case 'melee': return 'Inteligencia: te han fichado peleando de cerca — esta escuadra trae más fuego a distancia.';
-    case 'ranged': return 'Inteligencia: saben que hostigas desde lejos — mandan cerradores rápidos para echársete encima.';
-    case 'reactor': return 'Inteligencia: conocen tus reactores forzados — aprietan con presión temprana.';
+    case 'melee': return 'Inteligencia: te han fichado peleando de cerca — traen fuego a distancia y supresores para fijarte.';
+    case 'ranged': return 'Inteligencia: saben que hostigas desde lejos — mandan cerradores rápidos con cortinas de humo.';
+    case 'reactor': return 'Inteligencia: se han hartado de tus reactores forzados — vienen con LANZALLAMAS para cocerte.';
     case 'balanced': return undefined;
   }
 }
@@ -719,6 +733,8 @@ export function tavernJob(
   cycle: number,
   economy: EconomyTable,
   enemyPool: string[],
+  /** Sesgo de composición (adaptación de facción). Ausente = uniforme. */
+  weightOf?: (id: string) => number,
 ): Contract {
   const rand = mulberry32(hashStr(`${nodeId}|tab|${cycle}`));
   const budget = 2200 + cityLevel * 900;
@@ -728,7 +744,7 @@ export function tavernJob(
     const slotBudget = remaining / (3 - i);
     const affordable = enemyPool.filter((id) => (economy.zoidPrices[id] ?? 0) <= slotBudget * 1.3);
     const pick = affordable.length > 0
-      ? affordable[Math.floor(rand() * affordable.length)]!
+      ? weightedPick(affordable, rand(), weightOf)
       : enemyPool.reduce((a, b) => ((economy.zoidPrices[a] ?? 0) <= (economy.zoidPrices[b] ?? 0) ? a : b));
     squad.push(pick);
     remaining -= economy.zoidPrices[pick] ?? 0;

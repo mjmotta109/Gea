@@ -46,7 +46,7 @@ import { ZOIDS } from '../data/zoids.js';
 import {
   armorRepairCost, buyBlueprint, buySupplies, buyWeapon, buyZoid, cityRepair, consumeSupplies,
   contractOffers, mountedCount, newCampaign, rebuildCost, rebuildZoid, reinforceArmor,
-  adaptationHint, counterRoles, readStyle, updateDossier,
+  adaptationHint, counterRoles, counterWeapons, readStyle, updateDossier,
   refitZoid, reinforcementModifiers, repairArmor, repairCost, repairZoid, resolveContract, scarLevel,
   sellCargo, sellWeapon, serviceTier, setMountedWeapons, stashCargo, stripReinforcement,
   tavernJob, updateZoidRecord, zoidRecord,
@@ -3217,6 +3217,21 @@ function adaptiveWeight(): ((id: string) => number) | undefined {
 }
 
 /**
+ * Contra por ARMA: le monta a un enemigo un arma que castiga tu estilo
+ * (lanzallamas contra reactores, supresor contra el melee...). Solo a los
+ * "especialistas" (índices pares) y solo si el dosier pide contra. undefined =
+ * de fábrica. Las armas de biblioteca no tienen mountSlot: caben en cualquier
+ * chasis y el catálogo de batalla (withWeaponLibrary) ya las incluye.
+ */
+function enemyCounterLoadout(unitTypeId: string, index: number): { weapons: string[] } | undefined {
+  const cw = counterWeapons(readStyle(campaign?.dossier));
+  if (cw.length === 0 || index % 2 !== 0) return undefined;
+  const counter = cw[(index / 2) % cw.length]!;
+  const factory = ZOIDS[unitTypeId]?.weapons ?? [];
+  return { weapons: [counter, ...factory].filter((w, j, a) => a.indexOf(w) === j).slice(0, 3) };
+}
+
+/**
  * Estado residual (calor/energía/munición) de cada hueco desplegado que
  * SOBREVIVIÓ, para la continuidad expedición↔combate. undefined en huecos no
  * desplegados, caídos o sin el componente (monocasco). El motor lo relee vía
@@ -4179,7 +4194,7 @@ function renderCity(): void {
   tavern.insertAdjacentHTML('beforeend',
     '<div class="cnote">Los contratos OFICIALES del gremio se firman en el cuartel (Base Arcadia). Aquí, entre jarras, se consiguen otros encargos…</div>');
   const jobDone = (expedition.tavernJobsDone ?? []).includes(node.id);
-  let job = tavernJob(node.id, city.level, campaign.contractsDone, ECONOMY, CONTRACT_ENEMY_POOL);
+  let job = tavernJob(node.id, city.level, campaign.contractsDone, ECONOMY, CONTRACT_ENEMY_POOL, adaptiveWeight());
   // En ciudad de clanes, el trabajo sucio paga como lo que es.
   if (faction?.id === 'chatarreros') {
     job = { ...job, reward: Math.round(job.reward * 1.25) };
@@ -4247,14 +4262,18 @@ function fightTavernBattle(job: Contract, nodeId: string): void {
         ...(k === 0 ? { commander: true } : {}),
       };
     }),
-    ...job.enemySquad.map((unitTypeId, i) => ({
-      id: `E${i + 1}`,
-      name: ZOIDS[unitTypeId]!.name,
-      unitTypeId,
-      team: 'enemy' as Team,
-      position: field.enemyPos[i]!,
-      ...(i === 0 ? { commander: true } : {}),
-    })),
+    ...job.enemySquad.map((unitTypeId, i) => {
+      const loadout = enemyCounterLoadout(unitTypeId, i);
+      return {
+        id: `E${i + 1}`,
+        name: ZOIDS[unitTypeId]!.name,
+        unitTypeId,
+        team: 'enemy' as Team,
+        position: field.enemyPos[i]!,
+        ...(loadout ? { loadout } : {}),
+        ...(i === 0 ? { commander: true } : {}),
+      };
+    }),
   ];
   deployedSlots = alive.map(({ slot }) => slot);
   activeContract = job;
@@ -4496,14 +4515,18 @@ function fightExpeditionBattle(): void {
         ...(k === 0 ? { commander: true } : {}),
       };
     }),
-    ...contract.enemySquad.map((unitTypeId, i) => ({
-      id: `E${i + 1}`,
-      name: ZOIDS[unitTypeId]!.name,
-      unitTypeId,
-      team: 'enemy' as Team,
-      position: field.enemyPos[i]!,
-      ...(i === 0 ? { commander: true } : {}),
-    })),
+    ...contract.enemySquad.map((unitTypeId, i) => {
+      const loadout = enemyCounterLoadout(unitTypeId, i);
+      return {
+        id: `E${i + 1}`,
+        name: ZOIDS[unitTypeId]!.name,
+        unitTypeId,
+        team: 'enemy' as Team,
+        position: field.enemyPos[i]!,
+        ...(loadout ? { loadout } : {}),
+        ...(i === 0 ? { commander: true } : {}),
+      };
+    }),
   ];
 
   // Cada tipo de contrato juega distinto (no solo mapa y enemigos):

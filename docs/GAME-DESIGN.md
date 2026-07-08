@@ -1203,6 +1203,20 @@ arquitectura del motor van en DESIGN.md.)*
   (dosier/readStyle, counterRoles, sesgo determinista de contractOffers), 333 en
   verde, tsc limpio. Verificado en el juego real: con dosier 'melee', las
   escuadras ofertadas se llenan de voladores y francotiradores y sale el aviso.
-  Aplazado/futuro: adaptar también los trabajos de taberna y contras por ARMA
-  (dar lanzallamas a los enemigos contra reactores), que exige loadouts
-  enemigos personalizados.
+- **2026-07-08** — ADAPTACIÓN: CONTRAS POR ARMA + TABERNA ("de una"). Segundo
+  escalón de la adaptación de facción:
+  · CONTRA POR ARMA (no solo por chasis): a los "especialistas" de la escuadra
+    enemiga (índices pares) se les monta un arma de biblioteca que castiga tu
+    estilo — counterWeapons(): reactor→🔥 lanzallamas/incendiario (te cuecen el
+    reactor), melee→supresor (te FIJAN al cargar: sin contra ni vigilancia),
+    ranged→mortero de humo (sobreviven tu hostigamiento). Las armas 'lib-w-*'
+    no tienen mountSlot: caben en cualquier chasis, y la IA (que ya valora
+    calor/supresión) las USA. La frase de inteligencia lo canta: "se han
+    hartado de tus reactores forzados — vienen con LANZALLAMAS para cocerte".
+  · TABERNA: tavernJob acepta el mismo weightOf; los trabajos sucios también
+    se adaptan (antes solo los contratos oficiales).
+  Golden-safe (capa de campaña), retro-compatible (sin dosier, loadouts de
+  fábrica). 1 test nuevo (counterWeapons), 334 en verde, tsc limpio. Verificado
+  en el juego real: con dosier 'reactor', un enemigo entra a la batalla con el
+  Lanzallamas de plasma montado. Futuro real restante: memoria de dosier POR
+  FACCIÓN (exige contratos etiquetados por facción).
