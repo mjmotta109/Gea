@@ -1127,3 +1127,29 @@ arquitectura del motor van en DESIGN.md.)*
     advance() (nunca cruza de turno/unidad). Verificado en el juego real.
   Un 4º hallazgo (el veto de calor bloquearía un contraataque) resultó FALSO
   POSITIVO (el reflejo no paga calor). 321 tests en verde, golden intacto.
+- **2026-07-08** — "APLICA LO PENDIENTE" (dirección del usuario): cerrados los
+  tres cabos que dejé apuntados. Tres bloques:
+  · BALANCE — pasada con datos (npm run balance:hangar). Cuatro chasis melee/
+    voladores frágiles morían el 86-95% y ganaban <42% (cerrar bajo fuego + el
+    tempo pesado los frena): +HP y +evasión medidos a storm-sworder, rev-raptor,
+    pteras y guysak. Suelo sano en 42.9%, sin débiles; único borde fuerte
+    liger-zero 58.7% (marginal, no se toca). pteras está en el golden → su buff
+    REGENERA el golden (dato, determinismo verificado byte-idéntico).
+  · IA — valoraba solo el daño directo: infravaloraba el arma térmica, la
+    incendiaria y el supresor, y caminaba sobre el fuego. Ahora valora el arma
+    completa (cocer un reactor —desbordarlo = apagado = oro—, incendiar,
+    suprimir), remata al SUPRIMIDO (no contraataca) y al COCIDO, y evita cerrar
+    turno sobre fuego. Golden-safe: fuera del golden no hay fuego/calor/supresión
+    /reactores enemigos, así que su IA no cambia (verificado byte-idéntico).
+  · CONTINUIDAD, CAPA DE CAMPAÑA — el motor ya lo aceptaba; ahora la campaña lo
+    USA. Al liquidar una batalla, cada SUPERVIVIENTE graba su estado residual
+    (calor, energía, munición en cargador) en el roster (OwnedZoid.residualHeat/
+    residualEnergy/ammo). Al desplegar la SIGUIENTE batalla se relee por
+    initialHeat/initialEnergy/ammo: entras como saliste (caliente, con el
+    cargador a medias). Una JORNADA DE DESCANSO hace refit (refitZoid: el
+    reactor se enfría, se reabastece) — es lo que impide la espiral de la
+    muerte. Retro-compatible (campos opt-in; guardados viejos, iguales) y
+    golden-safe (el golden no toca la campaña). Verificado en el juego real: un
+    Liger con calor residual 80 despliega a 80/100 y humea de salida.
+  327 tests en verde (+6 desde la revisión), tsc limpio, golden regenerado
+  (balance) y por lo demás intacto.

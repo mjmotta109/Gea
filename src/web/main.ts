@@ -46,7 +46,7 @@ import { ZOIDS } from '../data/zoids.js';
 import {
   armorRepairCost, buyBlueprint, buySupplies, buyWeapon, buyZoid, cityRepair, consumeSupplies,
   contractOffers, mountedCount, newCampaign, rebuildCost, rebuildZoid, reinforceArmor,
-  reinforcementModifiers, repairArmor, repairCost, repairZoid, resolveContract, scarLevel,
+  refitZoid, reinforcementModifiers, repairArmor, repairCost, repairZoid, resolveContract, scarLevel,
   sellCargo, sellWeapon, serviceTier, setMountedWeapons, stashCargo, stripReinforcement,
   tavernJob, updateZoidRecord, zoidRecord,
   type CampaignState, type Contract,
@@ -3197,6 +3197,34 @@ function startFreeRoam(): void {
   });
 }
 
+/**
+ * Estado residual (calor/energía/munición) de cada hueco desplegado que
+ * SOBREVIVIÓ, para la continuidad expedición↔combate. undefined en huecos no
+ * desplegados, caídos o sin el componente (monocasco). El motor lo relee vía
+ * initialHeat/initialEnergy/ammo al desplegar la próxima batalla.
+ */
+function survivorResidual(): {
+  heat: Array<number | undefined>;
+  energy: Array<number | undefined>;
+  ammo: Array<Record<string, number> | undefined>;
+} {
+  const heat: Array<number | undefined> = [];
+  const energy: Array<number | undefined> = [];
+  const ammo: Array<Record<string, number> | undefined> = [];
+  campaign!.roster.forEach((_, slot) => {
+    const u = deployedSlots.includes(slot) ? battle.unit(`P${slot + 1}`) : undefined;
+    if (!u || u.hp <= 0) { heat.push(undefined); energy.push(undefined); ammo.push(undefined); return; }
+    heat.push(u.components.heat?.current);
+    energy.push(u.components.energy?.current);
+    const arsenal = u.components.arsenal;
+    if (!arsenal) { ammo.push(undefined); return; }
+    const clip: Record<string, number> = {};
+    for (const w of arsenal.weapons) clip[w.weaponId] = w.ammo;
+    ammo.push(clip);
+  });
+  return { heat, energy, ammo };
+}
+
 /** Liquida el contrato al terminar la batalla; devuelve el HTML del parte. */
 function settleContract(): string {
   const contract = activeContract!;
@@ -3307,8 +3335,10 @@ function settleContract(): string {
     const finalArmorT = campaign.roster.map((z, slot) =>
       z.reinforced && deployedSlots.includes(slot) ? battle.unit(`P${slot + 1}`).armor ?? 0 : undefined);
     const enemiesDownT = battle.units.filter((u) => u.team === 'enemy' && u.hp <= 0).length;
+    const resT = survivorResidual();
     const settled = resolveContract(campaign, contract, {
       winner: battle.winner, finalHp: finalHpT, finalArmor: finalArmorT, enemiesDestroyed: enemiesDownT,
+      finalHeat: resT.heat, finalEnergy: resT.energy, finalAmmo: resT.ammo,
     });
     // resolveContract avanza el ciclo oficial: lo devolvemos a su sitio.
     campaign = { ...settled.state, contractsDone: campaign.contractsDone };
@@ -3361,10 +3391,14 @@ function settleContract(): string {
   const finalArmor = campaign!.roster.map((z, slot) =>
     z.reinforced && deployedSlots.includes(slot) ? battle.unit(`P${slot + 1}`).armor ?? 0 : undefined);
   const enemiesDestroyed = battle.units.filter((u) => u.team === 'enemy' && u.hp <= 0).length;
+  const res = survivorResidual();
   const { state, report } = resolveContract(campaign!, contract, {
     winner: battle.winner,
     finalHp,
     finalArmor,
+    finalHeat: res.heat,
+    finalEnergy: res.energy,
+    finalAmmo: res.ammo,
     enemiesDestroyed,
   });
   campaign = state;
@@ -3793,6 +3827,15 @@ function healingDays(days: number): void {
     };
     saveCampaign();
   }
+  // Continuidad: una jornada de descanso REFIT el reactor (se enfría) y
+  // reabastece el arsenal — es lo que impide la espiral de la muerte. Solo la
+  // continuidad de máquina (calor/energía/munición); HP e integridad tienen su
+  // propia reparación en el taller.
+  if (campaign && campaign.roster.some((z) =>
+    z.residualHeat !== undefined || z.residualEnergy !== undefined || z.ammo !== undefined)) {
+    campaign = { ...campaign, roster: campaign.roster.map(refitZoid) };
+    saveCampaign();
+  }
 }
 
 function cityDay(days: number, line: string): void {
@@ -4167,6 +4210,10 @@ function fightTavernBattle(job: Contract, nodeId: string): void {
           ...(Object.keys(zoid.slots).length > 0 ? { slots: { ...zoid.slots } } : {}),
         },
         ...(zoid.reinforced ? { armor: zoid.armor ?? ECONOMY.reinforcement.armor } : {}),
+        // Continuidad: el reactor entra como salió si no hubo refit.
+        ...(zoid.residualHeat !== undefined ? { initialHeat: zoid.residualHeat } : {}),
+        ...(zoid.residualEnergy !== undefined ? { initialEnergy: zoid.residualEnergy } : {}),
+        ...(zoid.ammo ? { ammo: { ...zoid.ammo } } : {}),
         ...(mods.length > 0 ? { modifiers: mods } : {}),
         ...(k === 0 ? { commander: true } : {}),
       };
@@ -4411,6 +4458,11 @@ function fightExpeditionBattle(): void {
           ...(Object.keys(zoid.slots).length > 0 ? { slots: { ...zoid.slots } } : {}),
         },
         ...(zoid.reinforced ? { armor: zoid.armor ?? ECONOMY.reinforcement.armor } : {}),
+        // Continuidad: entra como salió de la última pelea (caliente, cargador
+        // a medias) si no hubo refit. Una jornada de descanso lo limpia.
+        ...(zoid.residualHeat !== undefined ? { initialHeat: zoid.residualHeat } : {}),
+        ...(zoid.residualEnergy !== undefined ? { initialEnergy: zoid.residualEnergy } : {}),
+        ...(zoid.ammo ? { ammo: { ...zoid.ammo } } : {}),
         ...(mods.length > 0 ? { modifiers: mods } : {}),
         ...(k === 0 ? { commander: true } : {}),
       };

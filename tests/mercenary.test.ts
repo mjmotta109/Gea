@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Battle } from '../src/core/battle.js';
 import {
   buyWeapon, buyZoid, contractOffers, FULL_HP, mountedCount, newCampaign,
-  rebuildZoid, repairCost, repairZoid, resolveContract, sellWeapon, setMountedWeapons,
+  rebuildZoid, refitZoid, repairCost, repairZoid, resolveContract, sellWeapon, setMountedWeapons,
 } from '../src/game/mercenary.js';
 import { ABILITIES } from '../src/data/abilities.js';
 import { CONTRACT_ENEMY_POOL, ECONOMY } from '../src/data/economy.js';
@@ -65,6 +65,55 @@ describe('modo mercenario: campaña', () => {
       winner: 'enemy', finalHp: [10, 0, 0, 0], enemiesDestroyed: 1,
     });
     expect(loss.report.creditsEarned).toBe(contract.salvagePerKill);
+  });
+
+  it('continuidad: el superviviente arrastra calor/energía/munición residuales', () => {
+    const state = fresh();
+    const contract = contractOffers(0, ECONOMY, CONTRACT_ENEMY_POOL)[0]!;
+    const { state: after } = resolveContract(state, contract, {
+      winner: 'player',
+      finalHp: [80, 0, 55, undefined],
+      finalHeat: [42, undefined, undefined, undefined],
+      finalEnergy: [12, undefined, undefined, undefined],
+      finalAmmo: [{ 'w-x': 1 }, undefined, undefined, undefined],
+      enemiesDestroyed: 2,
+    });
+    // Superviviente: guarda su estado residual.
+    expect(after.roster[0]!.residualHeat).toBe(42);
+    expect(after.roster[0]!.residualEnergy).toBe(12);
+    expect(after.roster[0]!.ammo).toEqual({ 'w-x': 1 });
+    // Sin residual reportado: queda a estrenar (undefined), no fantasma.
+    expect(after.roster[2]!.residualHeat).toBeUndefined();
+    // No desplegado: intacto.
+    expect(after.roster[3]).toEqual(state.roster[3]);
+  });
+
+  it('continuidad: un contrato posterior SIN residual borra el viejo (no arrastra fantasma)', () => {
+    const state = fresh();
+    const contract = contractOffers(0, ECONOMY, CONTRACT_ENEMY_POOL)[0]!;
+    const hot = resolveContract(state, contract, {
+      winner: 'player', finalHp: [90, 100, 100, 100],
+      finalHeat: [30, undefined, undefined, undefined], enemiesDestroyed: 0,
+    }).state;
+    expect(hot.roster[0]!.residualHeat).toBe(30);
+    // Otra batalla con este chasis ya sin componente de calor reportado.
+    const cool = resolveContract(hot, contract, {
+      winner: 'player', finalHp: [88, 100, 100, 100], enemiesDestroyed: 0,
+    }).state;
+    expect(cool.roster[0]!.residualHeat).toBeUndefined();
+  });
+
+  it('refitZoid enfría/reabastece: limpia el residual y no toca HP ni blindaje', () => {
+    const hot = { unitTypeId: 'liger-zero', hp: 70, destroyed: false, weapons: [], slots: {},
+      reinforced: true, armor: 5, residualHeat: 40, residualEnergy: 3, ammo: { 'w-x': 0 } };
+    const cool = refitZoid(hot);
+    expect(cool.residualHeat).toBeUndefined();
+    expect(cool.residualEnergy).toBeUndefined();
+    expect(cool.ammo).toBeUndefined();
+    expect(cool.hp).toBe(70);        // HP no lo toca el refit
+    expect(cool.armor).toBe(5);      // el blindaje tampoco
+    // Sin residual, devuelve el mismo objeto (sin trabajo).
+    expect(refitZoid(cool)).toBe(cool);
   });
 
   it('taller: reparar cuesta por HP perdido y reconstruir revive al destruido', () => {

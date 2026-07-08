@@ -74,6 +74,16 @@ export interface OwnedZoid {
   reinforced?: boolean;
   /** Blindaje de refuerzo ACTUAL: se gasta en batalla, se repara en el taller. */
   armor?: number;
+  /**
+   * CONTINUIDAD expedición↔combate: cómo salió el reactor/arsenal de la última
+   * batalla — calor y energía residuales, munición en cargador. Se ARRASTRA a
+   * la siguiente batalla (entras caliente, con el cargador a medias) hasta que
+   * una jornada de descanso hace refit (el reactor se enfría, se reabastece).
+   * Ausentes = a estrenar. Golden/campañas viejas: sin estos campos, todo igual.
+   */
+  residualHeat?: number;
+  residualEnergy?: number;
+  ammo?: Record<string, number>;
 }
 
 /** Hoja de servicio con huecos a cero (guardados viejos incluidos). */
@@ -314,6 +324,10 @@ export interface ContractOutcome {
   finalHp: Array<number | undefined>;
   /** Blindaje de refuerzo restante de cada hueco (se gasta en batalla). */
   finalArmor?: Array<number | undefined>;
+  /** Continuidad: estado residual del reactor/arsenal de cada superviviente. */
+  finalHeat?: Array<number | undefined>;
+  finalEnergy?: Array<number | undefined>;
+  finalAmmo?: Array<Record<string, number> | undefined>;
   enemiesDestroyed: number;
 }
 
@@ -340,7 +354,15 @@ export function resolveContract(
     }
     // El blindaje de refuerzo gastado persiste: se repara en el taller.
     const armor = zoid.reinforced ? outcome.finalArmor?.[i] : undefined;
-    return armor !== undefined ? { ...zoid, hp, armor } : { ...zoid, hp };
+    const next: OwnedZoid = { ...zoid, hp };
+    if (armor !== undefined) next.armor = armor;
+    // Continuidad: el reactor sale como quedó (calor/energía residual, cargador
+    // a medias). Se sobrescribe el residual viejo con el de ESTA batalla (o se
+    // borra si esta máquina no lo tiene) para no arrastrar estado fantasma.
+    next.residualHeat = outcome.finalHeat?.[i];
+    next.residualEnergy = outcome.finalEnergy?.[i];
+    next.ammo = outcome.finalAmmo?.[i];
+    return next;
   });
   const rewardPaid = outcome.winner === 'player';
   const salvage = outcome.enemiesDestroyed * contract.salvagePerKill;
@@ -354,6 +376,21 @@ export function resolveContract(
     },
     report: { creditsEarned, rewardPaid, salvage, lost },
   };
+}
+
+/**
+ * Refit de una jornada de descanso/taller: el reactor se enfría y el arsenal
+ * se reabastece. Limpia el estado residual de continuidad (calor, energía,
+ * munición) para que la máquina despliegue a estrenar la próxima vez. No toca
+ * HP ni blindaje (tienen su propia reparación). Es lo que evita la "espiral de
+ * la muerte": cualquier jornada de descanso deja el reactor fresco.
+ */
+export function refitZoid(zoid: OwnedZoid): OwnedZoid {
+  if (zoid.residualHeat === undefined && zoid.residualEnergy === undefined && zoid.ammo === undefined) {
+    return zoid; // ya está a estrenar: sin cambios
+  }
+  const { residualHeat: _h, residualEnergy: _e, ammo: _a, ...refit } = zoid;
+  return refit;
 }
 
 // ── Taller y tienda (todo sin mutar; si no se puede pagar, sin cambios) ──
