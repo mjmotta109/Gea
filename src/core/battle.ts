@@ -41,6 +41,11 @@ import {
 import { advanceToNextTurn, forecastTurnOrder } from './turn.js';
 import {
   CT_THRESHOLD,
+  CT_TURN_BASE,
+  CT_MOVE,
+  CT_ACT_LIGHT,
+  CT_ACT_HEAVY,
+  CT_OVERDRIVE,
   type AbilityDefinition,
   type BattleAction,
   type BattleEvent,
@@ -477,9 +482,26 @@ export class Battle {
     return this.activeUnitId ? this.unit(this.activeUnitId) : undefined;
   }
 
-  /** Timeline de próximos turnos para la UI. */
+  /**
+   * Timeline de próximos turnos para la UI. La unidad activa se proyecta con
+   * su CT tras cerrar AHORA (base + tempo ya comprometido), así el orden se
+   * reordena en vivo según lo que lleva hecho — el jugador VE el precio en
+   * iniciativa antes de confirmar.
+   */
   forecast(count = 8): string[] {
-    return forecastTurnOrder(this.units, (u) => this.effectiveStats(u).speed, count);
+    let ctOverride: Record<string, number> | undefined;
+    if (this.activeUnitId) {
+      const active = this.unit(this.activeUnitId);
+      ctOverride = { [active.id]: active.ct - (CT_TURN_BASE + (active.tempoSpent ?? 0)) };
+    }
+    return forecastTurnOrder(this.units, (u) => this.effectiveStats(u).speed, count, ctOverride);
+  }
+
+  /** Tempo que la unidad activa ha comprometido y el CT con que volvería. */
+  projectedTempo(unitId: string): { spent: number; resultingCt: number } {
+    const unit = this.unit(unitId);
+    const spent = CT_TURN_BASE + (unit.tempoSpent ?? 0);
+    return { spent, resultingCt: unit.ct - spent };
   }
 
   // ── Avance de turnos ───────────────────────────────────────────────────
@@ -518,6 +540,7 @@ export class Battle {
       next.hasActed = false;
       next.reactionReady = true;
       next.overwatch = false; // la vigilancia dura hasta tu próximo turno
+      next.tempoSpent = 0;    // el recargo de tempo se cuenta desde cero
       this.activeUnitId = next.id;
       events.push({ type: 'turn-started', unitId: next.id });
       events.push(...this.runSystems((s) => s.onTurnStart?.(next, this.systemContext)));
@@ -532,7 +555,9 @@ export class Battle {
       }
 
       if (hasStatus(next, 'stunned')) {
-        // El turno se consume sin poder hacer nada.
+        // El turno se consume sin poder hacer nada. Aturdirse NO regala tempo:
+        // cuesta el umbral completo (base + este relleno), no solo la base.
+        next.tempoSpent = CT_THRESHOLD - CT_TURN_BASE;
         events.push(...this.execute({ type: 'wait', unitId: next.id }));
         if (this.isOver) return events;
         continue;
@@ -665,7 +690,7 @@ export class Battle {
     const events = (() => {
       switch (action.type) {
         case 'move': return this.executeMove(action.unitId, action.to);
-        case 'ability': return this.executeAbility(action.unitId, action.abilityId, action.target);
+        case 'ability': return this.executeAbility(action.unitId, action.abilityId, action.target, action.overdrive ?? false);
         case 'boost': return this.executeBoost(action.unitId, action.to);
         case 'reload': return this.executeReload(action.unitId, action.weaponId);
         case 'wait': return this.executeWait(action.unitId, action.facing);
@@ -705,6 +730,7 @@ export class Battle {
       ? facingTowards(option.path[option.path.length - 2]!, to)
       : unit.facing;
     unit.hasMoved = true;
+    unit.tempoSpent = (unit.tempoSpent ?? 0) + CT_MOVE; // reposicionarse cuesta tempo
     const events: BattleEvent[] = [{ type: 'unit-moved', unitId, path: option.path }];
     events.push(...this.overwatchShots(unit));
     events.push(...this.resolveOpportunity(watchers, unit));
@@ -761,6 +787,7 @@ export class Battle {
       ? facingTowards(option.path[option.path.length - 2]!, to)
       : unit.facing;
     energy.boostedThisTurn = true;
+    unit.tempoSpent = (unit.tempoSpent ?? 0) + CT_ACT_HEAVY; // el impulso pesa en tempo
     const events: BattleEvent[] = [{ type: 'unit-boosted', unitId, path: option.path }];
     events.push(...this.overwatchShots(unit));
     events.push(...this.resolveOpportunity(watchers, unit));
@@ -780,12 +807,13 @@ export class Battle {
     if (state.ammo === def.magazine) throw new Error(`${def.name} ya está cargada`);
 
     unit.hasActed = true;
+    unit.tempoSpent = (unit.tempoSpent ?? 0) + CT_ACT_LIGHT; // recargar cuesta la acción
     state.ammo = def.magazine;
     state.reserves -= 1;
     return [{ type: 'weapon-reloaded', unitId, weaponId, ammo: state.ammo }];
   }
 
-  private executeAbility(unitId: string, abilityId: string, target: Position): BattleEvent[] {
+  private executeAbility(unitId: string, abilityId: string, target: Position, overdrive = false): BattleEvent[] {
     const unit = this.requireActive(unitId);
     if (unit.hasActed) throw new Error(`${unitId} ya actuó este turno`);
     const ability = this.abilityOf(abilityId);
@@ -793,10 +821,18 @@ export class Battle {
     const legal = this.legalTargets(unitId, abilityId).some((p) => samePos(p, target));
     if (!legal) throw new Error(`Objetivo ilegal para ${abilityId}: ${target.x},${target.y}`);
 
+    // Sobremarcha: solo tiene sentido en un golpe (necesita daño que amplificar).
+    const offensive = ability.effects.some((e) => e.kind === 'damage');
+    if (overdrive && !offensive) throw new Error(`${abilityId} no es un golpe: no admite sobremarcha`);
+
     unit.hasActed = true;
     unit.facing = samePos(unit.position, target) ? unit.facing : facingTowards(unit.position, target);
+    // Tempo del disparo (peso del arma) + el recargo brutal de la sobremarcha.
+    unit.tempoSpent = (unit.tempoSpent ?? 0) + (ability.ctCost ?? CT_ACT_LIGHT) + (overdrive ? CT_OVERDRIVE : 0);
 
     const events: BattleEvent[] = [{ type: 'ability-used', unitId, abilityId, target }];
+    if (overdrive) events.push({ type: 'overdrive-used', unitId, abilityId });
+    const powerMult = overdrive ? 1.5 : 1;
 
     // Balística (fase 4): el evento de trayectoria permite al renderer
     // animar el proyectil; la resolución sigue siendo instantánea.
@@ -826,14 +862,14 @@ export class Battle {
     }
     const affected = [...byVictim.values()];
 
-    const offensive = ability.effects.some((e) => e.kind === 'damage');
     const struck: UnitState[] = [];
     for (const { victim, aoeDist } of affected) {
       const isAlly = victim.team === unit.team;
       if (offensive && isAlly && !ability.targetsAllies) continue;
       if (offensive && !isAlly) struck.push(victim);
 
-      events.push(...this.applyEffects(unit, victim, ability, aoeDist));
+      // La sobremarcha amplifica el golpe principal (no las reacciones).
+      events.push(...this.applyEffects(unit, victim, ability, aoeDist, powerMult));
       if (this.checkBattleEnd(events)) return events;
     }
 
@@ -1167,6 +1203,9 @@ export class Battle {
     if (unit.hasActed) throw new Error(`${unitId} ya actuó este turno`);
     unit.hasActed = true;
     unit.overwatch = true;
+    // Vigilar es un disparo PLANEADO: cuesta tempo como una acción (si no,
+    // saldría más barato que disparar y regalaría un tiro reactivo).
+    unit.tempoSpent = (unit.tempoSpent ?? 0) + CT_ACT_LIGHT;
     const events: BattleEvent[] = [{ type: 'overwatch-set', unitId }];
     events.push(...this.executeWait(unitId));
     return events;
@@ -1242,12 +1281,13 @@ export class Battle {
 
     if (facing) unit.facing = facing;
 
-    // Terminar el turno sin gastar todo devuelve algo de CT (estilo FFT):
-    // la unidad vuelve antes si se limitó a esperar.
-    let refund = 0;
-    if (!unit.hasMoved && !unit.hasActed) refund = 20;
-    else if (!unit.hasMoved || !unit.hasActed) refund = 10;
-    unit.ct = unit.ct - CT_THRESHOLD + refund;
+    // TEMPO como recurso: el turno cuesta la base más lo comprometido este
+    // turno (mover, disparar, sobremarcha...). Esperar cuesta solo la base y
+    // te adelanta; comprometer mucho te retrasa. Estilo FFT, ahora legible.
+    const spent = CT_TURN_BASE + (unit.tempoSpent ?? 0);
+    unit.ct -= spent;
+    unit.tempoSpent = 0;
+    events.push({ type: 'tempo-spent', unitId: unit.id, ct: unit.ct, delta: spent });
 
     events.push({ type: 'turn-ended', unitId: unit.id });
     this.activeUnitId = undefined;

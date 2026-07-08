@@ -1054,3 +1054,32 @@ arquitectura del motor van en DESIGN.md.)*
   y enterAbility correcto; el disparo incendiario en vivo no pudo escenificarse
   en el arnés headless —el pilotaje pasivo pierde la batalla antes— pero la
   mecánica y el objetivo están probados de forma determinista.)
+- **2026-07-08** — CT COMO RECURSO / TEMPO + SOBREMARCHA (propuesta 4).
+  REGENERADO EL GOLDEN MASTER (autorizado por el director): el coste del turno
+  cambia de un umbral fijo con "refund" ad-hoc a TEMPO por acción. Diseño
+  vetado por el flujo diseño+crítica adversarial. Reglas (todo determinista,
+  cero azar nuevo — verificado: regenerar dos veces da byte-idéntico):
+  · El turno cuesta CT_TURN_BASE (60) + el recargo de lo que cometes: mover
+    +30, disparo/recarga/vigilancia estándar +40, arma pesada/boost +70. Así
+    ESPERAR te adelanta (cuesta 60, bancas 40), un disparo normal es neutro
+    (60+40=100=umbral) y mover+pesado te retrasa (160). Decisión nueva de
+    ritmo, misma que el "compromiso" del reactor y la sobrecarga.
+  · SOBREMARCHA (tecla X): un golpe ×1.5 AHORA a cambio de +100 de tempo (cedes
+    tu próximo turno). No es un buff: es otro pacto. Reutiliza el powerMult que
+    applyEffects ya tenía → NO consume azar extra. Solo en golpes (lanza si no).
+  · Identidad del PESO: las armas pesadas declaran `ctCost` (cañón de
+    partículas, martillo Gauss, pilote, hacha de plasma, railgun, morteros...):
+    pegan fuerte, calientan Y te retrasan. Las ligeras/medias heredan el ligero.
+  · El único punto de cobro sigue siendo executeWait (no hay BattleSystem
+    nuevo); tempoSpent es un flag del turno como hasMoved. Corregido lo que
+    halló la crítica: VIGILANCIA ahora cuesta tempo de acción (si no, salía más
+    barata que disparar y regalaba un tiro reactivo); postura y sobrecarga
+    siguen a tempo 0 a propósito (son acciones libres que no cierran el turno).
+  Eventos nuevos (solo añadir): tempo-spent (por turno) y overdrive-used. La
+  regeneración del golden es LEGÍTIMA: al cambiar el orden de turnos la batalla
+  entera diverge (otras unidades actúan en otro momento → otros blancos, otros
+  daños); no es una regresión, y se verificó que el motor sigue siendo
+  determinista y que las batallas terminan. Cliente: la línea de turnos se
+  REORDENA en vivo con lo comprometido + etiqueta "tempo N", y la sobremarcha
+  se arma con X (anunciada en el registro). 9 tests nuevos, 313 en verde, tsc
+  limpio. Verificado en el juego real (etiqueta de tempo y armado de X).

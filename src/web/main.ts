@@ -84,6 +84,8 @@ let mode: Mode = { kind: 'idle' };
 let cursor: Position = { x: 0, y: 0 };
 /** Objetivo seleccionado pendiente de confirmación (flujo en dos pasos). */
 let pending: Position | null = null;
+/** SOBREMARCHA armada: el próximo golpe pega ×1.5 a costa del próximo turno. */
+let overdriveArmed = false;
 /** true mientras la IA enemiga anima su turno: bloquea la entrada. */
 let busy = false;
 /** Animación pendiente de movimiento: la ficha recorre su camino. */
@@ -577,6 +579,7 @@ function enterFacing(): void {
 
 function cancel(): void {
   if (!playerUnit()) return;
+  if (overdriveArmed) { overdriveArmed = false; log('sobremarcha desarmada'); renderAll(); return; }
   if (pending) { pending = null; renderAll(); return; }
   if (mode.kind !== 'idle') { mode = { kind: 'idle' }; renderAll(); }
 }
@@ -601,6 +604,7 @@ function doWait(facing?: Facing): void {
   logEvents(battle.execute({ type: 'wait', unitId: unit.id, facing }));
   mode = { kind: 'idle' };
   pending = null;
+  overdriveArmed = false; // no sobrevive al turno
   advance();
 }
 
@@ -612,6 +616,21 @@ function doOverwatch(): void {
   mode = { kind: 'idle' };
   pending = null;
   advance();
+}
+
+/**
+ * Arma/desarma la SOBREMARCHA (tecla X): el próximo golpe pega ×1.5 a costa
+ * de ceder el próximo turno (recargo brutal de tempo). Solo tiene sentido
+ * con un arma seleccionada; se anuncia en el registro para que sea legible.
+ */
+function toggleOverdrive(): void {
+  const unit = playerUnit();
+  if (!unit) return;
+  overdriveArmed = !overdriveArmed;
+  log(overdriveArmed
+    ? '⚡ SOBREMARCHA armada: el próximo golpe pega ×1.5 y cederás el próximo turno'
+    : 'sobremarcha desarmada', overdriveArmed ? 'warn' : undefined);
+  renderAll();
 }
 
 /** Sobrecarga del reactor: acción libre (tecla O). Solo con reactor. */
@@ -665,8 +684,12 @@ function confirm(): void {
       afterAction();
     } else if (mode.kind === 'ability' && mode.targets.has(key)) {
       if (pending && samePosition(pending, cursor)) {
-        logEvents(battle.execute({ type: 'ability', unitId: unit.id, abilityId: mode.abilityId, target: cursor }));
+        const ability = battle.abilityOf(mode.abilityId);
+        const offensive = ability.effects.some((e) => e.kind === 'damage');
+        const overdrive = overdriveArmed && offensive;
+        logEvents(battle.execute({ type: 'ability', unitId: unit.id, abilityId: mode.abilityId, target: cursor, overdrive }));
         pending = null;
+        overdriveArmed = false;
         afterAction();
       } else {
         pending = { ...cursor }; // primer paso: seleccionar y analizar
@@ -926,6 +949,7 @@ document.addEventListener('keydown', (event) => {
     case 'f': case 'F': enterFacing(); return;
     case 'v': case 'V': doOverwatch(); return;
     case 'o': case 'O': doOverclock(); return;
+    case 'x': case 'X': toggleOverdrive(); return;
     case 'q': case 'Q': if (currentView() === 'diorama') rotateDiorama(); return;
     case ' ': event.preventDefault(); enterFacing(); return;
     default: {
@@ -1344,7 +1368,7 @@ function renderBanner(): void {
     facing: 'elige orientación final (WASD) o confirma [E]',
   }[mode.kind];
   banner.innerHTML = isPlayer
-    ? `▶ ${active.id} ${active.name} — ${modeText}<span class="kbd-hint">M mover · B boost · 1-9 armas · R recargar · F/espacio fin de turno</span>`
+    ? `▶ ${active.id} ${active.name} — ${modeText}<span class="kbd-hint">M mover · B boost · 1-9 armas · X sobremarcha · R recargar · F/espacio fin de turno</span>`
     : `■ Turno enemigo: ${active.id} ${active.name}`;
 }
 
@@ -1555,6 +1579,18 @@ function renderPreview(): void {
 function renderForecast(): void {
   const el = $('forecast');
   el.innerHTML = '';
+  // Tempo comprometido por la unidad activa del jugador: el timeline de abajo
+  // ya se reordena en vivo con ello; esta etiqueta le pone número.
+  const active = playerUnit();
+  if (active) {
+    const { spent } = battle.projectedTempo(active.id);
+    const tag = document.createElement('span');
+    tag.className = 'fc tempo';
+    tag.textContent = `tempo ${spent}`;
+    tag.title = 'CT que cederás al cerrar el turno: cuanto más comprometes (mover, arma pesada, sobremarcha), más tardas en volver';
+    if (overdriveArmed) { tag.textContent += ' ⚡'; tag.title += ' — SOBREMARCHA armada (×1.5, cedes el próximo turno)'; }
+    el.appendChild(tag);
+  }
   for (const id of battle.forecast(8)) {
     const unit = battle.unit(id);
     const chip = document.createElement('span');
@@ -1836,6 +1872,9 @@ function describe(event: BattleEvent): { text: string; cls?: string } | undefine
       return event.on
         ? { text: `🔥 ${unitLabel(event.unitId)} SOBRECARGA el reactor: +potencia/+iniciativa/+daño — el calor se disparará`, cls: 'warn' }
         : { text: `❄ ${unitLabel(event.unitId)} corta la sobrecarga del reactor`, cls: 'good' };
+    case 'tempo-spent': return undefined; // el coste de tempo se ve en la línea de turnos, no satura el registro
+    case 'overdrive-used':
+      return { text: `⚡ ${unitLabel(event.unitId)} entra en SOBREMARCHA: golpe ×1.5 — cede su próximo turno`, cls: 'hit' };
     case 'weapon-reloaded': return { text: `${event.unitId} recarga (${event.ammo} disparos)`, cls: 'good' };
     case 'unit-shutdown': return { text: `⚠ ${unitLabel(event.unitId)}: APAGADO DE EMERGENCIA (${event.damage} daño interno)`, cls: 'warn' };
     case 'stance-changed': return { text: `${event.unitId} cambia a postura ${event.stance.toUpperCase()}` };

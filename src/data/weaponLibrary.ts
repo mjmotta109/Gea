@@ -1,4 +1,4 @@
-import type { AbilityDefinition, WeaponDefinition } from '../core/types.js';
+import { CT_ACT_HEAVY, type AbilityDefinition, type WeaponDefinition } from '../core/types.js';
 
 export type WeaponFamily = 'melee' | 'ballistic' | 'missile' | 'energy' | 'support' | 'control';
 export type WeaponWeight = 'light' | 'medium' | 'heavy' | 'superheavy';
@@ -68,6 +68,7 @@ export const WEAPON_LIBRARY_ABILITIES: Record<string, AbilityDefinition> = {
     accuracy: 78,
     targetsAllies: false,
     effects: [{ kind: 'damage', power: 66, damageType: 'energy' }],
+    ctCost: CT_ACT_HEAVY,
   },
   'lib-pile-bunker': {
     id: 'lib-pile-bunker',
@@ -80,6 +81,7 @@ export const WEAPON_LIBRARY_ABILITIES: Record<string, AbilityDefinition> = {
     accuracy: 74,
     targetsAllies: false,
     effects: [{ kind: 'damage', power: 72, damageType: 'physical' }],
+    ctCost: CT_ACT_HEAVY,
   },
   'lib-twin-autocannon': {
     id: 'lib-twin-autocannon',
@@ -116,6 +118,7 @@ export const WEAPON_LIBRARY_ABILITIES: Record<string, AbilityDefinition> = {
     accuracy: 82,
     targetsAllies: false,
     effects: [{ kind: 'damage', power: 54, damageType: 'physical' }],
+    ctCost: CT_ACT_HEAVY,
   },
   'lib-gauss-hammer': {
     id: 'lib-gauss-hammer',
@@ -128,6 +131,7 @@ export const WEAPON_LIBRARY_ABILITIES: Record<string, AbilityDefinition> = {
     accuracy: 74,
     targetsAllies: false,
     effects: [{ kind: 'damage', power: 58, damageType: 'physical' }],
+    ctCost: CT_ACT_HEAVY,
   },
   'lib-micro-missile-swarm': {
     id: 'lib-micro-missile-swarm',
@@ -154,6 +158,7 @@ export const WEAPON_LIBRARY_ABILITIES: Record<string, AbilityDefinition> = {
     effects: [{ kind: 'damage', power: 18, damageType: 'energy' }],
     // Control del campo: las casillas de impacto arden 3 turnos.
     ignites: 3,
+    ctCost: CT_ACT_HEAVY,
   },
   'lib-cluster-mortar': {
     id: 'lib-cluster-mortar',
@@ -166,6 +171,7 @@ export const WEAPON_LIBRARY_ABILITIES: Record<string, AbilityDefinition> = {
     accuracy: 64,
     targetsAllies: false,
     effects: [{ kind: 'damage', power: 22, damageType: 'physical' }],
+    ctCost: CT_ACT_HEAVY,
   },
   'lib-thermobaric-rocket': {
     id: 'lib-thermobaric-rocket',
@@ -181,6 +187,7 @@ export const WEAPON_LIBRARY_ABILITIES: Record<string, AbilityDefinition> = {
       { kind: 'damage', power: 34, damageType: 'energy' },
       { kind: 'status', status: 'overheat', duration: 1, chance: 35 },
     ],
+    ctCost: CT_ACT_HEAVY,
   },
   'lib-seismic-driver': {
     id: 'lib-seismic-driver',
@@ -193,6 +200,7 @@ export const WEAPON_LIBRARY_ABILITIES: Record<string, AbilityDefinition> = {
     accuracy: 76,
     targetsAllies: false,
     effects: [{ kind: 'damage', power: 36, damageType: 'physical' }],
+    ctCost: CT_ACT_HEAVY,
   },
   'lib-plasma-carbine': {
     id: 'lib-plasma-carbine',
@@ -251,6 +259,7 @@ export const WEAPON_LIBRARY_ABILITIES: Record<string, AbilityDefinition> = {
       { kind: 'damage', power: 34, damageType: 'energy' },
       { kind: 'status', status: 'stunned', duration: 1, chance: 25 },
     ],
+    ctCost: CT_ACT_HEAVY,
   },
   'lib-heat-needle': {
     id: 'lib-heat-needle',

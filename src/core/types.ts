@@ -316,6 +316,12 @@ export interface AbilityDefinition {
    * los efectos por víctima (las casillas arden aunque no haya nadie encima).
    */
   ignites?: number;
+  /**
+   * Recargo de TEMPO (CT) de usar esta habilidad. Ausente = CT_ACT_LIGHT. Las
+   * armas pesadas lo suben: pegan fuerte, calientan Y te retrasan (identidad
+   * del peso). Numérico y agnóstico: el núcleo no gana vocabulario del universo.
+   */
+  ctCost?: number;
 }
 
 export type StatusId =
@@ -398,6 +404,13 @@ export interface UnitState {
   size: number;
   /** Charge Time: al llegar a CT_THRESHOLD la unidad actúa. */
   ct: number;
+  /**
+   * TEMPO del turno activo: recargo de CT acumulado por lo que la unidad ha
+   * hecho este turno (mover, disparar, sobremarcha...). Se resetea al abrir
+   * turno; al cerrar, el turno cuesta CT_TURN_BASE + tempoSpent. Cuanto más
+   * comprometes, más tardas en volver. Flag del turno, como hasMoved/hasActed.
+   */
+  tempoSpent?: number;
   statuses: StatusInstance[];
   /** Postura de energía activa (sin definir = reparto neutro). */
   stance?: StanceId;
@@ -419,7 +432,11 @@ export interface UnitState {
 /** Acciones que un controlador (jugador o IA) puede pedir al motor. */
 export type BattleAction =
   | { type: 'move'; unitId: string; to: Position }
-  | { type: 'ability'; unitId: string; abilityId: string; target: Position }
+  /**
+   * `overdrive` (sobremarcha): pega ×1.5 AHORA a cambio de un recargo brutal
+   * de tempo (cedes tu próximo turno). Solo en habilidades ofensivas.
+   */
+  | { type: 'ability'; unitId: string; abilityId: string; target: Position; overdrive?: boolean }
   /** Impulso extra de movimiento (una vez por turno, coste energético alto). */
   | { type: 'boost'; unitId: string; to: Position }
   /** Recargar un arma consume la acción del turno. */
@@ -496,7 +513,27 @@ export type BattleEvent =
   | { type: 'unit-shutdown'; unitId: string; damage: number; targetHp: number }
   | { type: 'stance-changed'; unitId: string; stance: StanceId }
   | { type: 'overclock-changed'; unitId: string; on: boolean }
+  /** Tempo cedido al cerrar turno: `delta` de CT gastado, `ct` resultante. */
+  | { type: 'tempo-spent'; unitId: string; ct: number; delta: number }
+  /** Sobremarcha: golpe ×1.5 ahora, a costa del próximo turno. */
+  | { type: 'overdrive-used'; unitId: string; abilityId: string }
   | { type: 'turn-ended'; unitId: string }
   | { type: 'battle-ended'; winner: Team };
 
 export const CT_THRESHOLD = 100;
+
+/**
+ * TEMPO como recurso (§pilar iniciativa). El turno cuesta CT_TURN_BASE más el
+ * recargo de cada acción cometida. Así esperar te ADELANTA (cuesta poco),
+ * un disparo normal es neutro (base+ligero = umbral) y comprometer mucho
+ * (mover + arma pesada, o sobremarcha) te RETRASA. Todo determinista.
+ */
+export const CT_TURN_BASE = 60;
+/** Recargo por reposicionarse. */
+export const CT_MOVE = 30;
+/** Recargo de una acción estándar (disparo/golpe/recarga). Ausente ⇒ este. */
+export const CT_ACT_LIGHT = 40;
+/** Recargo de un arma pesada/superpesada o el boost: pega fuerte y te frena. */
+export const CT_ACT_HEAVY = 70;
+/** Recargo de la SOBREMARCHA: el golpe ×1.5 que te cuesta el próximo turno. */
+export const CT_OVERDRIVE = 100;
