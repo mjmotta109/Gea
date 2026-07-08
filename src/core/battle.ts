@@ -1054,6 +1054,24 @@ export class Battle {
           });
           break;
         }
+        case 'heat': {
+          // Arma térmica: no rompe blindaje ni tira HP — COCE la máquina.
+          // Vierte calor en el reactor del objetivo, empujándolo hacia el
+          // atasco de armas y el apagado que ya existen (el otro lado del
+          // calor↔arsenal). Sin reactor (monocasco), no hay nada que cocer:
+          // no consume azar, así que el golden master queda intacto.
+          const heat = target.components.heat;
+          if (!heat) break;
+          heat.current += effect.amount;
+          events.push({
+            type: 'heat-changed',
+            unitId: target.id,
+            current: heat.current,
+            delta: effect.amount,
+            reason: 'weapon',
+          });
+          break;
+        }
       }
     }
     return events;

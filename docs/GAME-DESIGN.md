@@ -982,3 +982,27 @@ arquitectura del motor van en DESIGN.md.)*
   humeante o sobrecargado se lee de un vistazo y se castiga. Verificado en el
   juego real (Playwright headless: la insignia aparece al enganchar la
   sobrecarga, con el color de calor).
+- **2026-07-08** — ARMA TÉRMICA: EL OTRO LADO DEL CALOR (propuesta 9 —
+  identidad extrema de armas — y el ejemplo estrella de la propuesta 1,
+  "provocar sobrecalentamiento para inutilizar armas pesadas"). Nuevo tipo de
+  efecto de habilidad `{ kind: 'heat', amount }`: en vez de tirar HP, VIERTE
+  calor en el reactor del OBJETIVO, empujándolo hacia el atasco de armas y el
+  apagado que ya existen. Cierra el bucle del calor en los dos sentidos (tu
+  calor te atasca a ti; ahora puedes forzar el del rival). Decisiones de diseño:
+  · El calor vertido es un rider GARANTIZADO (no tira azar propio): así el
+    golden master queda intacto —los monocasco no tienen reactor que cocer, el
+    efecto sale sin tocar el RNG— y el arma es una presión FIABLE, su identidad.
+  · Primera arma: 🔥 Lanzallamas de plasma (biblioteca, `lib-plasma-flamer`):
+    daño mínimo (16) + mucho calor (26), alcance 2. Reconocible sin ficha: es
+    el arma tras la que el enemigo empieza a humear y se le atascan las armas.
+    Híbrida a propósito (lleva daño) para que la IA la use como ofensiva (el
+    planificador clasifica por el efecto de daño); contra monocasco es solo su
+    daño mínimo — es un anti-reactor de nicho, no un arma general.
+    Corre caliente también para el TIRADOR (coste de calor): usarla alimenta tu
+    propio riesgo de sobrecarga.
+  Fiel al núcleo: efecto declarativo nuevo (no un sistema), evento reutilizado
+  (`heat-changed` con razón 'weapon'), sin que ninguna capa conozca a otra. 5
+  tests nuevos (incluido el arma REAL cociendo un reactor +26 pase o no el
+  daño), 290 en verde, golden intacto, tsc limpio. Cliente: línea de registro
+  "es COCIDO" y verificado que el arma se equipa, aparece y se dispara en el
+  juego real sin errores.

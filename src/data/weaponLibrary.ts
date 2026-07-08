@@ -237,6 +237,25 @@ export const WEAPON_LIBRARY_ABILITIES: Record<string, AbilityDefinition> = {
       { kind: 'status', status: 'overheat', duration: 2, chance: 30 },
     ],
   },
+  'lib-plasma-flamer': {
+    id: 'lib-plasma-flamer',
+    name: 'Lanzallamas de plasma',
+    description: 'Chorro corto que apenas rasca el blindaje pero INUNDA de calor el reactor: cuece armas pesadas y fuerza el apagado.',
+    range: 2,
+    minRange: 1,
+    shape: 'single',
+    aoeRadius: 0,
+    accuracy: 82,
+    targetsAllies: false,
+    // Poco daño directo; su identidad es el calor vertido en el objetivo
+    // (rider garantizado si el rival tiene reactor). Reconocible sin ficha:
+    // es el arma tras la que el enemigo empieza a humear y se le atascan
+    // las armas.
+    effects: [
+      { kind: 'damage', power: 16, damageType: 'energy' },
+      { kind: 'heat', amount: 26 },
+    ],
+  },
   'lib-smoke-mortar': {
     id: 'lib-smoke-mortar',
     name: 'Mortero de humo',
@@ -433,6 +452,16 @@ export const WEAPON_LIBRARY_WEAPONS: Record<string, WeaponDefinition> = {
     reserves: 3,
     projectile: { velocity: 20, dispersion: 0, penetration: 2, caliber: 25, mass: 1, ricochet: false },
   },
+  'lib-w-plasma-flamer': {
+    id: 'lib-w-plasma-flamer',
+    name: 'Lanzallamas de plasma',
+    abilityId: 'lib-plasma-flamer',
+    // Corre caliente también para el TIRADOR: usarlo alimenta tu propio
+    // riesgo de sobrecarga. Depósito de combustible corto (cargador).
+    costs: { energy: 12, heat: 14 },
+    magazine: 4,
+    reserves: 1,
+  },
   'lib-w-smoke-mortar': {
     id: 'lib-w-smoke-mortar',
     name: 'Mortero de humo',
@@ -614,6 +643,15 @@ export const WEAPON_LIBRARY_ENTRIES: Record<string, WeaponLibraryEntry> = {
     tags: ['overheat', 'precision', 'ammo'],
     notes: 'Herramienta anti-generador para presionar unidades calientes.',
   },
+  'lib-w-plasma-flamer': {
+    weaponId: 'lib-w-plasma-flamer',
+    abilityId: 'lib-plasma-flamer',
+    family: 'energy',
+    weight: 'medium',
+    role: 'controller',
+    tags: ['short-range', 'heat', 'anti-reactor'],
+    notes: 'Anti-reactor de corto alcance: vierte calor para atascar armas y forzar apagados. Inofensivo contra monocasco (solo su daño mínimo).',
+  },
   'lib-w-smoke-mortar': {
     weaponId: 'lib-w-smoke-mortar',
     abilityId: 'lib-smoke-mortar',
@@ -651,7 +689,7 @@ export const WEAPON_LIBRARY_LOADOUTS: Record<string, string[]> = {
   breaker: ['lib-w-gauss-hammer', 'lib-w-micro-missile-swarm'],
   artillery: ['lib-w-cluster-mortar', 'lib-w-thermobaric-rocket', 'lib-w-flak-burst'],
   support: ['lib-w-field-repair-beam', 'lib-w-smoke-mortar', 'lib-w-barrier-projector'],
-  controller: ['lib-w-ion-lance', 'lib-w-heat-needle', 'lib-w-smoke-mortar', 'lib-w-arc-emitter'],
+  controller: ['lib-w-ion-lance', 'lib-w-heat-needle', 'lib-w-smoke-mortar', 'lib-w-arc-emitter', 'lib-w-plasma-flamer'],
   zoneControl: ['lib-w-seismic-driver', 'lib-w-arc-emitter', 'lib-w-flak-burst'],
 };
 

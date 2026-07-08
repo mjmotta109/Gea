@@ -282,7 +282,11 @@ export type TargetShape = 'single' | 'cross' | 'line';
 export type AbilityEffect =
   | { kind: 'damage'; power: number; damageType: DamageType }
   | { kind: 'heal'; power: number }
-  | { kind: 'status'; status: StatusId; duration: number; chance: number };
+  | { kind: 'status'; status: StatusId; duration: number; chance: number }
+  // Arma térmica: vierte calor en el reactor del objetivo (no en el suyo).
+  // Empuja hacia el atasco de armas y el apagado (el otro lado del
+  // calor↔arsenal). Sin reactor que cocer, no hace nada.
+  | { kind: 'heat'; amount: number };
 
 export interface AbilityDefinition {
   id: string;

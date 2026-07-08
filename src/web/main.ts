@@ -1816,6 +1816,9 @@ function describe(event: BattleEvent): { text: string; cls?: string } | undefine
       if (event.reason === 'strain') {
         return { text: `🔥 ${event.unitId} opera RODEADO: +${event.delta} de calor por trabajar al límite (${event.current})`, cls: 'warn' };
       }
+      if (event.reason === 'weapon') {
+        return { text: `🔥 ${unitLabel(event.unitId)} es COCIDO: +${event.delta} de calor en su reactor (${event.current})`, cls: 'hit' };
+      }
       return { text: `🔥 calor de ${event.unitId}: ${event.current} (+${event.delta})`, cls: 'warn' };
     case 'overclock-changed':
       return event.on
