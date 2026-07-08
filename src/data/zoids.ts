@@ -37,7 +37,9 @@ export const ZOIDS: Record<string, UnitDefinition> = {
     role: 'tank',
     moveType: 'ground',
     stats: {
-      maxHp: 200, atk: 60, energyAtk: 40, def: 50, energyDef: 40,
+      // Nerf (2026-07-08): con la IA de fuego concentrado su ataque enorme (60)
+      // lo volvía dominante (61.6%). Baja a 52; sigue siendo el tanque más duro.
+      maxHp: 200, atk: 52, energyAtk: 40, def: 50, energyDef: 40,
       speed: 8, move: 4, jump: 1, evade: 0, accuracy: 3,
     },
     abilityIds: ['bite-crush', 'missile-pod', 'e-shield'],
@@ -176,9 +178,10 @@ export const ZOIDS: Record<string, UnitDefinition> = {
   },
   'storm-sworder': {
     id: 'storm-sworder', name: 'Storm Sworder', role: 'flyer', moveType: 'flying',
-    // Buff (2026-07-08): cazador aéreo frágil que muere cerrando distancia
-    // (94% de bajas). +HP y +evasión para sobrevivir la aproximación al melee.
-    stats: { maxHp: 140, atk: 46, energyAtk: 40, def: 25, energyDef: 26, speed: 17, move: 8, jump: 99, evade: 38, accuracy: 0 },
+    // Buff (2026-07-08): cazador aéreo frágil que muere cerrando distancia. +HP
+    // y +evasión; la evasión alta además lo hace difícil de FIJAR con fuego
+    // concentrado (la IA de foco castiga a los que se dejan clavar).
+    stats: { maxHp: 140, atk: 46, energyAtk: 40, def: 25, energyDef: 26, speed: 17, move: 8, jump: 99, evade: 44, accuracy: 0 },
     abilityIds: ['stun-blade'],
     weapons: ['lib-w-plasma-axe'],
     aiProfile: { aggression: 0.85, selfPreservation: 0.5, riskTolerance: 0.7 },

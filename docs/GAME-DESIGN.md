@@ -1153,3 +1153,30 @@ arquitectura del motor van en DESIGN.md.)*
     Liger con calor residual 80 despliega a 80/100 y humea de salida.
   327 tests en verde (+6 desde la revisión), tsc limpio, golden regenerado
   (balance) y por lo demás intacto.
+- **2026-07-08** — IA MÁS PROFUNDA: ESCUADRA + EMBOSCADA (dirección del usuario:
+  "¿puedes hacer que la IA aprenda / sea más profunda?"). Aclaración honesta: el
+  "aprendizaje" tipo ML rompería el determinismo/replays/golden del motor; lo
+  que SÍ encaja —y aporta mucho más aquí— es una IA COORDINADA (y, en el futuro,
+  adaptación de campaña: enemigos que traen contras a tu estilo, heurística
+  determinista). Implementado el salto de profundidad:
+  · FUEGO CONCENTRADO: cada unidad calcula el mismo FOCO de escuadra (función
+    pura del estado — presa rematable / ya debilitada / que más aliados
+    alcanzan) y sesga su ataque hacia él. Coordinación EMERGENTE sin memoria
+    compartida: convergen solos, deterministas. Antes cada unidad peleaba
+    aislada; ahora concentran para cerrar presas.
+  · EMBOSCADA: un centinela sin tiro este turno, al ver venir a un enemigo MÁS
+    agresivo (asimetría que garantiza que el más agresivo de cada pareja SIEMPRE
+    avanza → nunca hay doble-vigilancia mutua ni empate por estancamiento), se
+    queda en VIGILANCIA en vez de caminar a ciegas. Estrena la vigilancia en la
+    IA (antes solo la usaba el jugador): 11 emboscadas en las batallas del
+    golden nuevo.
+  Determinista (verificado byte-idéntico) y las batallas siguen terminando
+  (sin empates por estancamiento). REGENERA EL GOLDEN (mejora intencional de IA;
+  ambos equipos la usan, es simétrica). 6 tests de IA (foco, emboscada,
+  agresivo-no-embosca + los previos). BALANCE: el fuego concentrado premia a los
+  pegadores (esperado y simétrico), lo que ensanchó el abanico; compresión de
+  extremos alcanzable sin tocar el golden — gojulas atk 60→52 (dominaba con
+  foco), storm-sworder evasión 38→44 (la evasión alta lo hace difícil de FIJAR).
+  El resto de fuertes (gun-sniper, geno, liger-zero) están en el golden y
+  reflejan la dinámica legítima "los pegadores rinden con coordinación"; no se
+  tocan. 330 tests en verde, tsc limpio, verificado en el juego real.
