@@ -147,7 +147,17 @@ for (let seed = 1; seed <= battles; seed++) {
       // Un contraataque letal puede cerrar el turno del actor a mitad de su
       // plan: el resto de acciones muere con él (mismo guard que scriptedBattle).
       if (battle.isOver || battle.getActiveUnit()?.id !== active.id) break;
-      handle(battle.execute(action));
+      // El plan puede quedar OBSOLETO a mitad de turno: un tiro de oportunidad
+      // al reposicionarse destruye el montaje del arma que iba a disparar, etc.
+      // Sáltate la acción vetada/ilegal en vez de reventar el arnés.
+      if (action.type !== 'wait' && battle.checkVetoes(action)) continue;
+      try { handle(battle.execute(action)); }
+      catch { /* acción inconsistente con el estado actual: se ignora */ }
+    }
+    // Garantiza el cierre del turno aunque el plan abortara sin 'wait'
+    // (si no, el bucle exterior re-planificaría el mismo error en bucle).
+    if (!battle.isOver && battle.getActiveUnit()?.id === active.id) {
+      handle(battle.execute({ type: 'wait', unitId: active.id }));
     }
   }
 
