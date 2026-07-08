@@ -30,7 +30,9 @@ import { applyStatus, hasStatus, statusModifiers, tickStatuses } from './status.
 import {
   defaultSystems,
   energyModifiers,
+  hasReactor,
   heatModifiers,
+  overclockModifiers,
   type ActionVeto,
   type BattleSystem,
   type SystemContext,
@@ -414,6 +416,9 @@ export class Battle {
       ...statusModifiers(unit),
       ...energyModifiers(unit),
       ...heatModifiers(unit),
+      // Sobrecarga del reactor: potencia, iniciativa y daño mientras esté
+      // puesta (el precio, el calor, lo cobra strainSystem).
+      ...overclockModifiers(unit),
       // Desgaste de combate: el daño acumulado degrada la máquina (nunca
       // infla HP). Severidad 0 = sin efecto (motor y golden intactos).
       ...wearModifiers(unit.hp, base.maxHp, this.wear),
@@ -661,6 +666,7 @@ export class Battle {
         case 'reload': return this.executeReload(action.unitId, action.weaponId);
         case 'wait': return this.executeWait(action.unitId, action.facing);
         case 'stance': return this.executeStance(action.unitId, action.stance);
+        case 'overclock': return this.executeOverclock(action.unitId, action.on);
         case 'overwatch': return this.executeOverwatch(action.unitId);
         case 'retreat': return this.executeRetreat(action.unitId);
         case 'eject': return this.executeEject(action.unitId);
@@ -1101,6 +1107,19 @@ export class Battle {
     if (unit.stance === stance) return [];
     unit.stance = stance;
     return [{ type: 'stance-changed', unitId, stance }];
+  }
+
+  /**
+   * Sobrecarga del reactor: acción LIBRE (el turno sigue siendo tuyo). Solo
+   * las máquinas con reactor (energía + calor) pueden hacerlo; sin él, es un
+   * no-op. El calor del enganche lo cobra strainSystem en onActionResolved.
+   */
+  private executeOverclock(unitId: string, on: boolean): BattleEvent[] {
+    const unit = this.requireActive(unitId);
+    if (!hasReactor(unit)) return [];
+    if ((unit.overclocked ?? false) === on) return [];
+    unit.overclocked = on;
+    return [{ type: 'overclock-changed', unitId, on }];
   }
 
   /** Multiplicador de daño del disparo de vigilancia (apresurado). */

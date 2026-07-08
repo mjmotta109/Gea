@@ -101,6 +101,76 @@ export function heatModifiers(unit: UnitState): StatModifier[] {
   return mods;
 }
 
+// ── Sobrecarga del reactor y tensión térmica (riesgo voluntario) ─────────
+
+/** Bono de la sobrecarga mientras está activa: potencia, iniciativa, daño. */
+const OVERCLOCK_MODS: StatModifier[] = [
+  { source: 'overclock', stat: 'move', add: 2 },
+  { source: 'overclock', stat: 'speed', add: 4 },
+  { source: 'overclock', stat: 'atk', add: 8 },
+  { source: 'overclock', stat: 'energyAtk', add: 8 },
+];
+/** Calor inmediato al ENGANCHAR la sobrecarga (el reactor pega un tirón). */
+export const OVERCLOCK_ENGAGE_HEAT = 15;
+/** Calor que la sobrecarga añade CADA turno que sigue puesta. */
+export const OVERCLOCK_HEAT_PER_TURN = 18;
+/** Enemigos adyacentes a partir de los cuales se «opera al límite». */
+export const SURROUNDED_ENEMIES = 2;
+/** Calor extra al cerrar turno estando rodeado (posición ↔ calor). */
+export const SURROUNDED_HEAT = 10;
+
+/** ¿Tiene la unidad un reactor completo (energía + calor) que sobrecargar? */
+export function hasReactor(unit: UnitState): boolean {
+  return !!unit.components.energy && !!unit.components.heat;
+}
+
+/** Bono de sobrecarga al pipeline de stats — solo si de verdad hay reactor. */
+export function overclockModifiers(unit: UnitState): StatModifier[] {
+  return unit.overclocked && hasReactor(unit) ? OVERCLOCK_MODS : [];
+}
+
+/**
+ * Sistema de TENSIÓN: la máquina operando forzada se calienta. Reúne dos
+ * interacciones nuevas con el sistema de calor —la sobrecarga voluntaria y el
+ * estar rodeado— sin conocer al sistema de calor: solo escribe en el
+ * componente compartido. Ausente el componente heat, no hace nada.
+ */
+export const strainSystem: BattleSystem = {
+  id: 'strain',
+
+  // Enganchar la sobrecarga: el reactor pega un tirón de calor inmediato.
+  onActionResolved(action, unit) {
+    if (action.type !== 'overclock' || !action.on || !unit.overclocked) return [];
+    const heat = unit.components.heat;
+    if (!heat) return [];
+    heat.current += OVERCLOCK_ENGAGE_HEAT;
+    return [{ type: 'heat-changed', unitId: unit.id, current: heat.current, delta: OVERCLOCK_ENGAGE_HEAT, reason: 'overclock' }];
+  },
+
+  // Cada turno con la sobrecarga puesta, el reactor sigue subiendo de calor.
+  onTurnStart(unit) {
+    if (!unit.overclocked) return [];
+    const heat = unit.components.heat;
+    if (!heat) return [];
+    heat.current += OVERCLOCK_HEAT_PER_TURN;
+    return [{ type: 'heat-changed', unitId: unit.id, current: heat.current, delta: OVERCLOCK_HEAT_PER_TURN, reason: 'overclock' }];
+  },
+
+  // Operar al límite: rodeado, la máquina trabaja forzada y se calienta.
+  onTurnEnd(unit, ctx) {
+    const heat = unit.components.heat;
+    if (!heat) return [];
+    let foes = 0;
+    for (const other of ctx.units) {
+      if (other.team === unit.team || other.hp <= 0 || other.retreated) continue;
+      if (Math.abs(other.position.x - unit.position.x) + Math.abs(other.position.y - unit.position.y) <= 1) foes++;
+    }
+    if (foes < SURROUNDED_ENEMIES) return [];
+    heat.current += SURROUNDED_HEAT;
+    return [{ type: 'heat-changed', unitId: unit.id, current: heat.current, delta: SURROUNDED_HEAT, reason: 'strain' }];
+  },
+};
+
 // ── EnergySystem ─────────────────────────────────────────────────────────
 
 /** ¿El generador está en línea? (frame con módulo 'generator' destruido ⇒ no) */
@@ -211,7 +281,32 @@ export const heatSystem: BattleSystem = {
       return events;
     }
     applyStatus(unit, 'stunned', 1);
+    // El apagado de emergencia CORTA la sobrecarga: el reactor se protege
+    // solo (evita el bucle de recalentarse turno tras turno).
+    if (unit.overclocked) {
+      unit.overclocked = false;
+      events.push({ type: 'overclock-changed', unitId: unit.id, on: false });
+    }
     return events;
+  },
+
+  // Un arma cuyo calor desbordaría el reactor no puede dispararse: la máquina
+  // se protege. Provocar el sobrecalentamiento del enemigo le atasca las
+  // armas pesadas (calor ↔ arsenal).
+  onValidateAction(action, unit, ctx) {
+    if (action.type !== 'ability') return null;
+    const heat = unit.components.heat;
+    if (!heat || heat.max <= 0) return null;
+    const entry = ctx.weaponEntry(unit, action.abilityId);
+    if (!entry) return null;
+    // El arsenal reporta enfriamiento/munición primero (razón más específica);
+    // el calor solo veta un arma que por lo demás SÍ podría disparar.
+    if (entry.state.cooldown > 0 || (entry.def.magazine > 0 && entry.state.ammo <= 0)) return null;
+    const cost = entry.def.costs.heat ?? 0;
+    if (cost > 0 && heat.current + cost > heat.max) {
+      return { systemId: 'heat', reason: 'el arma se recalentaría: refrigera antes de disparar' };
+    }
+    return null;
   },
 
   onActionResolved(action, unit, ctx) {
@@ -313,7 +408,9 @@ export const overheatSystem: BattleSystem = {
   },
 };
 
-/** Sistemas activos por defecto en toda batalla, en orden de invocación. */
+/** Sistemas activos por defecto en toda batalla, en orden de invocación.
+ *  strain va ANTES que heat: el calor que añade (sobrecarga, rodeado) lo
+ *  evalúa el sistema de calor en el mismo turno. */
 export function defaultSystems(): BattleSystem[] {
-  return [energySystem, heatSystem, arsenalSystem, overheatSystem];
+  return [energySystem, strainSystem, heatSystem, arsenalSystem, overheatSystem];
 }

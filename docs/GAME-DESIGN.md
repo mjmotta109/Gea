@@ -929,3 +929,36 @@ arquitectura del motor van en DESIGN.md.)*
     limita por el bolsillo: pasa una jornada (cura heridas, avanza
     destacamentos), alivia el estrés que haya y la vela es un momento con la
     compañera. La vela, además, es GRATIS de verdad (0, no el mínimo de px).
+- **2026-07-08** — EL REACTOR Y EL CALOR COMO ENCRUCIJADA (respuesta a las
+  propuestas del director para "evolucionar el motor": profundidad por
+  INTERACCIÓN entre sistemas ya existentes, no sistemas nuevos). Todo se
+  apoya en el componente de calor (solo lo tienen los chasis con reactor,
+  liger-zero-cas y geno-saurer-cp): los monocascos —y el golden master— no
+  se enteran. Tres piezas, un solo recurso compartido (el calor):
+  · SOBRECARGA DEL REACTOR (el "pacto con el diablo", propuesta 2): acción
+    LIBRE que no gasta turno (como la postura). Mientras esté puesta da
+    +2 mov / +4 iniciativa / +8 daño físico y de energía vía el pipeline de
+    stats (overclockModifiers), pero el reactor pega un tirón de +15 de calor
+    al engancharla y suma +18 cada turno que sigue puesta. El castigo NO es
+    una barra nueva: es el apagado de emergencia que ya existía. Sostenerla
+    sin refrigerar termina en shutdown, y el propio apagado la corta solo
+    (el reactor se protege) — evita el bucle de recalentarse en cadena.
+  · CALOR ↔ ARSENAL (interacción, propuesta 1): un arma cuyo calor
+    desbordaría el reactor no se puede disparar (la máquina se protege). Es
+    simétrico: cocer al enemigo con calor le ATASCA las armas pesadas. El
+    veto cede la razón al arsenal si además hay munición/enfriamiento (razón
+    más específica primero); solo veta un arma que por lo demás sí dispararía.
+  · POSICIÓN ↔ CALOR (interacción, propuesta 5, versión mecánica NO moral):
+    operar rodeado (≥2 enemigos adyacentes) recalienta +10 al cerrar el
+    turno. El cerco ya no es solo daño entrante: fuerza a la máquina.
+  Implementación fiel al núcleo: nuevo `strainSystem` (registrado ANTES que
+  heat para que el calor que añade se evalúe el mismo turno), acción
+  `overclock` y evento `overclock-changed` (eventos solo se AÑADEN), bono por
+  StatModifier con `source:'overclock'`, todo gated en hasReactor(). Ningún
+  sistema conoce a otro: strain solo escribe en el componente de calor
+  compartido. 7 tests nuevos (tests/overclock.test.ts), 286 en verde, golden
+  intacto, tsc limpio. Cliente cableado (botón 🔥 Sobrecarga + tecla O + líneas
+  de registro que NOMBRAN la consecuencia) y verificado en el juego real
+  (Playwright headless: enganche, bono, apagado que la corta, toggle).
+  Aplazadas para siguientes bloques: CT como recurso (propuesta 4), sinergias
+  de escuadra (6) y control del campo (7).

@@ -384,6 +384,8 @@ export interface UnitState {
   statuses: StatusInstance[];
   /** Postura de energía activa (sin definir = reparto neutro). */
   stance?: StanceId;
+  /** Reactor en SOBRECARGA: más potencia y calor cada turno hasta soltarlo. */
+  overclocked?: boolean;
   /** Flags del turno activo. */
   hasMoved: boolean;
   hasActed: boolean;
@@ -408,6 +410,12 @@ export type BattleAction =
   | { type: 'wait'; unitId: string; facing?: Facing }
   /** Cambio de postura de energía: acción libre, no consume el turno. */
   | { type: 'stance'; unitId: string; stance: StanceId }
+  /**
+   * SOBRECARGA del reactor: acción libre que fuerza el reactor por potencia,
+   * velocidad, iniciativa y daño, a cambio de calor masivo. No es un buff: es
+   * un pacto: si no refrigeras, te apagas. Requiere reactor (energía+calor).
+   */
+  | { type: 'overclock'; unitId: string; on: boolean }
   /** Vigilancia (XCOM): renuncia a actuar y dispara al primero que se mueva. */
   | { type: 'overwatch'; unitId: string }
   /** Retirada por el borde: la unidad abandona el campo intacta. */
@@ -464,6 +472,7 @@ export type BattleEvent =
   /** Apagado de emergencia por exceso térmico: pierde el turno y sufre daño interno. */
   | { type: 'unit-shutdown'; unitId: string; damage: number; targetHp: number }
   | { type: 'stance-changed'; unitId: string; stance: StanceId }
+  | { type: 'overclock-changed'; unitId: string; on: boolean }
   | { type: 'turn-ended'; unitId: string }
   | { type: 'battle-ended'; winner: Team };
 

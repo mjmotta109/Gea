@@ -8,6 +8,7 @@
  */
 import { planTurn } from '../ai/simpleAi.js';
 import { Battle, type ReinforcementWave, type UnitSpawn } from '../core/battle.js';
+import { OVERCLOCK_ENGAGE_HEAT } from '../core/systems.js';
 import { wearTier } from '../core/wear.js';
 import { attackArc, type AttackArc } from '../core/combat.js';
 import { GameMap, posKey, terrainLabel, TERRAIN_COVER } from '../core/grid.js';
@@ -613,6 +614,15 @@ function doOverwatch(): void {
   advance();
 }
 
+/** Sobrecarga del reactor: acción libre (tecla O). Solo con reactor. */
+function doOverclock(): void {
+  const unit = playerUnit();
+  if (!unit || !unit.components.energy || !unit.components.heat) return;
+  const on = !(unit.overclocked ?? false);
+  logEvents(battle.execute({ type: 'overclock', unitId: unit.id, on }));
+  renderAll();
+}
+
 function firstReloadable(unit: UnitState): string | undefined {
   return unit.components.arsenal?.weapons.find((w) => {
     const def = battle.weaponOf(w.weaponId);
@@ -915,6 +925,7 @@ document.addEventListener('keydown', (event) => {
     case 'r': case 'R': doReload(); return;
     case 'f': case 'F': enterFacing(); return;
     case 'v': case 'V': doOverwatch(); return;
+    case 'o': case 'O': doOverclock(); return;
     case 'q': case 'Q': if (currentView() === 'diorama') rotateDiorama(); return;
     case ' ': event.preventDefault(); enterFacing(); return;
     default: {
@@ -1361,6 +1372,23 @@ function renderActionbar(): void {
     }, { on: unit.stance === stance.id, title: stance.title });
   }
 
+  // Sobrecarga del reactor (pacto con el diablo): acción libre reservada a
+  // las máquinas con reactor (energía + calor). Sube potencia, iniciativa y
+  // daño a cambio de un pico de calor inmediato y calor extra cada turno —
+  // el precio, y el riesgo de apagado, los cobran los sistemas.
+  if (unit.components.energy && unit.components.heat) {
+    const oc = unit.overclocked ?? false;
+    mkBtn(oc ? '🔥 Sobrecarga ON' : '🔥 Sobrecarga', '·', () => {
+      logEvents(battle.execute({ type: 'overclock', unitId: unit.id, on: !oc }));
+      renderAll();
+    }, {
+      on: oc,
+      title: oc
+        ? 'reactor sobrecargado: +mov/+iniciativa/+daño, pero el calor no para de subir — púlsalo para cortarla'
+        : `sobrecargar el reactor: +mov/+iniciativa/+daño por +${OVERCLOCK_ENGAGE_HEAT} de calor al instante y calor extra cada turno (riesgo de apagado si no refrigeras)`,
+    });
+  }
+
   const moveVeto = battle.checkVetoes({ type: 'move', unitId: unit.id, to: unit.position });
   mkBtn('Mover', 'M', enterMove, {
     disabled: unit.hasMoved || moveVeto !== null,
@@ -1750,7 +1778,18 @@ function describe(event: BattleEvent): { text: string; cls?: string } | undefine
         ? { text: `⚡ energía de ${event.unitId}: ${event.current} (${event.delta})` }
         : undefined;
     case 'heat-changed':
-      return event.delta > 0 ? { text: `🔥 calor de ${event.unitId}: ${event.current} (+${event.delta})`, cls: 'warn' } : undefined;
+      if (event.delta <= 0) return undefined; // la disipación no satura el registro
+      if (event.reason === 'overclock') {
+        return { text: `🔥 SOBRECARGA: el reactor de ${event.unitId} escupe +${event.delta} de calor (${event.current})`, cls: 'warn' };
+      }
+      if (event.reason === 'strain') {
+        return { text: `🔥 ${event.unitId} opera RODEADO: +${event.delta} de calor por trabajar al límite (${event.current})`, cls: 'warn' };
+      }
+      return { text: `🔥 calor de ${event.unitId}: ${event.current} (+${event.delta})`, cls: 'warn' };
+    case 'overclock-changed':
+      return event.on
+        ? { text: `🔥 ${unitLabel(event.unitId)} SOBRECARGA el reactor: +potencia/+iniciativa/+daño — el calor se disparará`, cls: 'warn' }
+        : { text: `❄ ${unitLabel(event.unitId)} corta la sobrecarga del reactor`, cls: 'good' };
     case 'weapon-reloaded': return { text: `${event.unitId} recarga (${event.ammo} disparos)`, cls: 'good' };
     case 'unit-shutdown': return { text: `⚠ ${unitLabel(event.unitId)}: APAGADO DE EMERGENCIA (${event.damage} daño interno)`, cls: 'warn' };
     case 'stance-changed': return { text: `${event.unitId} cambia a postura ${event.stance.toUpperCase()}` };
