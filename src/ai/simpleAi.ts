@@ -61,6 +61,9 @@ export function planTurn(battle: Battle, unit: UnitState): BattleAction[] {
   for (const option of moveOptions) {
     // Riesgo posicional: enemigos pegados a la casilla final del turno.
     const nearbyThreat = enemies.filter((e) => manhattan(option.from, e.position) <= 2).length;
+    // Terminar el turno sobre fuego se paga (calor + brasas): la IA lo evita.
+    // Fuera de mapas con incendiarias (p.ej. el golden) fireAt es siempre 0.
+    const firePenalty = battle.map.fireAt(option.from) > 0 ? 40 : 0;
 
     for (const ability of offensiveAbilities) {
       for (const enemy of enemies) {
@@ -69,12 +72,33 @@ export function planTurn(battle: Battle, unit: UnitState): BattleAction[] {
 
         const damage = ability.effects.find((e) => e.kind === 'damage');
         const power = damage && damage.kind === 'damage' ? damage.power : 0;
-        // Utilidad base: potencia, rematar bajos de vida y precisión...
-        let score = power + (100 - (enemy.hp / battle.effectiveStats(enemy).maxHp) * 100) + ability.accuracy / 10;
+        // Utilidad del arma COMPLETA, no solo el daño directo: cocer un reactor,
+        // incendiar la zona o suprimir también valen. Todo esto solo aplica a
+        // las mecánicas nuevas (calor/fuego/supresión), ausentes del golden, así
+        // que la valoración de la IA del golden no cambia.
+        let utility = power;
+        for (const eff of ability.effects) {
+          if (eff.kind === 'heat' && enemy.components.heat) {
+            const h = enemy.components.heat;
+            const overshoot = Math.max(0, h.current + eff.amount - h.max);
+            utility += eff.amount * 0.7 + overshoot; // desbordar el reactor (apagado) es oro
+          } else if (eff.kind === 'status' && eff.status === 'suprimido') {
+            utility += (eff.chance / 100) * 26; // fijar al rival prepara el remate del escuadrón
+          }
+        }
+        if (ability.ignites) utility += enemy.components.heat ? 24 : 12; // fuego: cuece + niega zona
+        // Utilidad base: + rematar bajos de vida y precisión...
+        let score = utility + (100 - (enemy.hp / battle.effectiveStats(enemy).maxHp) * 100) + ability.accuracy / 10;
         // ...sesgada por personalidad (fase 5): los prudentes descartan
         // tiros dudosos, los conservadores no terminan rodeados.
         score += (ability.accuracy - 80) * (1 - profile.riskTolerance) * 0.5;
         score -= nearbyThreat * profile.selfPreservation * 12;
+        score -= firePenalty;
+        // Remate seguro (sinergia): un SUPRIMIDO no contraataca; un reactor
+        // COCIDO está al borde del apagado. Prioriza cerrarlos.
+        if (enemy.statuses.some((s) => s.id === 'suprimido')) score += 18;
+        const eh = enemy.components.heat;
+        if (eh && eh.max > 0 && eh.current / eh.max >= 0.7) score += 12;
         if (!best || score > best.score) {
           best = { to: option.to, abilityId: ability.id, target: { ...enemy.position }, score };
         }
@@ -105,6 +129,7 @@ export function planTurn(battle: Battle, unit: UnitState): BattleAction[] {
           score = 28 + danger * 10;
         }
         score -= nearbyThreat * profile.selfPreservation * 12;
+        score -= firePenalty; // tampoco te cures parado en el fuego
         if (!best || score > best.score) {
           best = { to: option.to, abilityId: ability.id, target: { ...allyPos }, score };
         }
@@ -135,13 +160,19 @@ export function planTurn(battle: Battle, unit: UnitState): BattleAction[] {
   let standAt = unit.position;
   if (canMove && !holdPosition) {
     const reachable = battle.legalMoves(unit.id);
-    let bestDist = currentDist;
+    // Puntúa cada casilla: avance quiere -distancia, retirada +distancia; y en
+    // ambos casos huir del fuego pesa fuerte (quedarse ardiendo es peor que no
+    // avanzar). Sin fuego (golden) el término se anula y la elección es idéntica
+    // a la de antes: mismo tile por el mismo criterio de distancia.
+    const tileScore = (pos: Position): number =>
+      (retreat ? manhattan(pos, nearest.position) : -manhattan(pos, nearest.position))
+      - (battle.map.fireAt(pos) > 0 ? 1000 : 0);
+    let bestScore = tileScore(unit.position);
     let bestTile: Position | undefined;
     for (const tile of reachable) {
-      const d = manhattan(tile.pos, nearest.position);
-      // Retirada: maximiza distancia; avance: minimízala.
-      if (retreat ? d > bestDist : d < bestDist) {
-        bestDist = d;
+      const s = tileScore(tile.pos);
+      if (s > bestScore) {
+        bestScore = s;
         bestTile = tile.pos;
       }
     }
