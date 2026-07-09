@@ -227,6 +227,36 @@ export function applyDamageToModule(
 }
 
 /**
+ * Reparte un HP objetivo sobre los módulos de un frame recién construido:
+ * la continuidad de campaña despliega chasis ya dañados (spawn.hp < maxHp),
+ * pero buildFrameState viene con las piezas LLENAS. Sin repartir, el HP
+ * global (deriveUnitHp = suma de estructura) valdría el máximo y el primer
+ * golpe "curaría" al chasis al rederivarlo. Reparto PROPORCIONAL, el núcleo
+ * nunca baja de 1 (desplegar no mata ni arranca piezas: chasis tocado pero
+ * operativo). Puro y determinista (sin azar). No hace nada si viene sano.
+ */
+export function applyInitialDamage(
+  frame: FrameState,
+  catalog: ModuleCatalog,
+  targetHp: number,
+): void {
+  const full = deriveUnitHp(frame, catalog);
+  if (full <= 0 || targetHp >= full) return;
+  const clamped = Math.max(1, targetHp);
+  const ratio = clamped / full;
+  let running = 0;
+  let biggest = frame.modules[0]!;
+  for (const module of frame.modules) {
+    module.hp = Math.max(1, Math.round(module.hp * ratio));
+    running += module.hp;
+    if (module.hp > biggest.hp) biggest = module;
+  }
+  // Corrige el redondeo contra el módulo mayor (el núcleo) para clavar el objetivo.
+  const drift = clamped - running;
+  if (drift !== 0) biggest.hp = Math.max(1, biggest.hp + drift);
+}
+
+/**
  * Reparación de campo: restaura el módulo operativo más dañado (mayor HP
  * perdido; empate → orden del frame). Los módulos destruidos no se pueden
  * reparar en combate. Devuelve null si no hay nada que reparar.

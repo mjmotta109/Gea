@@ -43,6 +43,29 @@ describe('integridad de datos: todos los chasis se despliegan con el catálogo c
   }
 });
 
+describe('daño localizado: los chasis con frame se ven en batalla', () => {
+  // Los 7 chasis de combate que ganaron frame a medida (2026-07-09) + los 2 de
+  // núcleo desnudo. Si alguno pierde el frame o descuadra su HP, salta aquí.
+  const FRAMED = [
+    'liger-zero', 'command-wolf', 'gun-sniper', 'gojulas', 'iron-kong', 'pteras', 'geno-saurer',
+    'liger-zero-cas', 'geno-saurer-cp',
+  ];
+
+  for (const id of FRAMED) {
+    it(`'${id}' tiene frame y sus módulos suman su maxHp`, () => {
+      const unit = deploy(id).unit('U');
+      const frame = unit.components.frame;
+      expect(frame).toBeDefined();
+      const sum = frame!.modules.reduce((n, m) => n + m.hp, 0);
+      expect(sum).toBe(ZOIDS[id]!.stats.maxHp);
+      // Un frame de combate tiene exactamente un núcleo crítico y piezas con placa.
+      const cores = frame!.modules.filter((m) => MODULES[m.moduleId]!.critical);
+      expect(cores).toHaveLength(1);
+      expect(frame!.modules.some((m) => m.plating > 0)).toBe(true);
+    });
+  }
+});
+
 describe('el catálogo sin biblioteca falla con un mensaje útil', () => {
   it('un chasis lib-* nombra el chasis y sugiere withWeaponLibrary', () => {
     // brachios monta lib-w-arc-emitter, ausente del catálogo base WEAPONS.

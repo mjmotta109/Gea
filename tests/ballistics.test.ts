@@ -3,6 +3,7 @@ import { Battle } from '../src/core/battle.js';
 import { GameMap } from '../src/core/grid.js';
 import { knockbackDestination } from '../src/core/physics.js';
 import { ABILITIES } from '../src/data/abilities.js';
+import { MODULES } from '../src/data/modules.js';
 import { WEAPONS } from '../src/data/weapons.js';
 import { ZOIDS } from '../src/data/zoids.js';
 
@@ -11,6 +12,7 @@ function artillery(map: GameMap, extraSpawns: Array<Record<string, unknown>> = [
     map,
     unitCatalog: ZOIDS,
     abilityCatalog: ABILITIES,
+    moduleCatalog: MODULES,
     weaponCatalog: WEAPONS,
     seed: 11,
     spawns: [
@@ -103,6 +105,7 @@ describe('fase 4: balística', () => {
       map: GameMap.fromAscii(['000#00', '000000']),
       unitCatalog: ZOIDS,
       abilityCatalog: ABILITIES,
+      moduleCatalog: MODULES,
       weaponCatalog: WEAPONS,
       seed: 5,
       spawns: [
@@ -163,6 +166,7 @@ describe('fase 5: personalidad y mando', () => {
         map: GameMap.fromAscii(['000000000000000000']),
         unitCatalog: catalog,
         abilityCatalog: ABILITIES,
+        moduleCatalog: MODULES,
         seed: 2,
         spawns: [
           { id: 'A', name: 'A', unitTypeId: typeId, team: 'player', position: { x: 0, y: 0 } },

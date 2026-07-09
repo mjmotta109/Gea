@@ -3,6 +3,7 @@ import { Battle } from '../src/core/battle.js';
 import { WATER_ATTACK_PENALTY } from '../src/core/combat.js';
 import { GameMap } from '../src/core/grid.js';
 import { ABILITIES } from '../src/data/abilities.js';
+import { MODULES } from '../src/data/modules.js';
 import { WEAPONS } from '../src/data/weapons.js';
 import { withWeaponLibrary } from '../src/data/weaponLibrary.js';
 import { ZOIDS } from '../src/data/zoids.js';
@@ -23,7 +24,7 @@ function previewFrom(attackerTile: '0' | '~', attackerType: string) {
   // Fila llana salvo la casilla del atacante; blanco a 3 casillas, de frente.
   const map = GameMap.fromAscii([`${attackerTile}0000`]);
   const battle = new Battle({
-    map, unitCatalog: ZOIDS, abilityCatalog, weaponCatalog, seed: 1,
+    map, unitCatalog: ZOIDS, abilityCatalog, weaponCatalog, moduleCatalog: MODULES, seed: 1,
     spawns: [
       { id: 'A', name: 'Atacante', unitTypeId: attackerType, team: 'player', position: { x: 0, y: 0 }, facing: 'east' },
       { id: 'B', name: 'Blanco', unitTypeId: 'molga', team: 'enemy', position: { x: 3, y: 0 }, facing: 'west' },

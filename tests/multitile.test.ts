@@ -5,6 +5,7 @@ import { FLAT_ARENA } from '../src/data/maps.js';
 import { WEAPONS } from '../src/data/weapons.js';
 import { ZOIDS } from '../src/data/zoids.js';
 import { ABILITIES } from '../src/data/abilities.js';
+import { MODULES } from '../src/data/modules.js';
 import type { UnitState } from '../src/core/types.js';
 
 const P = (id: string, unitTypeId: string, x: number, y: number): UnitSpawn =>
@@ -17,6 +18,7 @@ function arena(overrides: Partial<BattleConfig>): Battle {
     map: FLAT_ARENA,
     unitCatalog: ZOIDS,
     abilityCatalog: ABILITIES,
+    moduleCatalog: MODULES,
     weaponCatalog: WEAPONS,
     seed: 31,
     spawns: [],

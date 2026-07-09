@@ -6,6 +6,7 @@ import {
   sellWeapon, setMountedWeapons, updateDossier,
 } from '../src/game/mercenary.js';
 import { ABILITIES } from '../src/data/abilities.js';
+import { MODULES } from '../src/data/modules.js';
 import { CONTRACT_ENEMY_POOL, ECONOMY } from '../src/data/economy.js';
 import { VALLEY_CROSSING } from '../src/data/maps.js';
 import { WEAPONS } from '../src/data/weapons.js';
@@ -245,6 +246,7 @@ describe('motor: UnitSpawn.hp (daño persistente)', () => {
     map: VALLEY_CROSSING,
     unitCatalog: ZOIDS,
     abilityCatalog: ABILITIES,
+    moduleCatalog: MODULES,
     weaponCatalog: WEAPONS,
     seed: 7,
     spawns: [
@@ -257,6 +259,8 @@ describe('motor: UnitSpawn.hp (daño persistente)', () => {
     expect(mk(40).unit('P1').hp).toBe(40);
     expect(mk(undefined).unit('P1').hp).toBe(100);
     expect(mk(FULL_HP).unit('P1').hp).toBe(100); // centinela del mercenario
-    expect(mk(-5).unit('P1').hp).toBe(1);
+    // Framed: el mínimo vivo es el nº de piezas (cada módulo ≥1 al repartir el
+    // daño de despliegue), no 1. Command Wolf = 5 módulos.
+    expect(mk(-5).unit('P1').hp).toBe(5);
   });
 });

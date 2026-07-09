@@ -19,6 +19,14 @@ export const ZOIDS: Record<string, UnitDefinition> = {
     },
     abilityIds: ['strike-laser-claw', 'bite-crush', 'e-shield'],
     aiProfile: { aggression: 0.85, selfPreservation: 0.4, riskTolerance: 0.6 },
+    frame: [
+      { slot: 'casco', moduleId: 'lz-casco' },
+      { slot: 'nucleo', moduleId: 'lz-nucleo' },
+      { slot: 'tren-del', moduleId: 'lz-tren-del' },
+      { slot: 'tren-tras', moduleId: 'lz-tren-tras' },
+      { slot: 'garras', moduleId: 'lz-garras' },
+      { slot: 'lomo', moduleId: 'lz-lomo' },
+    ],
   },
   'command-wolf': {
     id: 'command-wolf',
@@ -30,6 +38,13 @@ export const ZOIDS: Record<string, UnitDefinition> = {
       speed: 14, move: 5, jump: 2, evade: 15, accuracy: 0,
     },
     abilityIds: ['bite-crush', 'shock-cannon', 'smoke-discharger'],
+    frame: [
+      { slot: 'casco', moduleId: 'cw-casco' },
+      { slot: 'nucleo', moduleId: 'cw-nucleo' },
+      { slot: 'patas-del', moduleId: 'cw-patas-del' },
+      { slot: 'patas-tras', moduleId: 'cw-patas-tras' },
+      { slot: 'canon', moduleId: 'cw-canon' },
+    ],
   },
   'gojulas': {
     id: 'gojulas',
@@ -43,6 +58,13 @@ export const ZOIDS: Record<string, UnitDefinition> = {
       speed: 8, move: 4, jump: 1, evade: 0, accuracy: 3,
     },
     abilityIds: ['bite-crush', 'missile-pod', 'e-shield'],
+    frame: [
+      { slot: 'casco', moduleId: 'gj-casco' },
+      { slot: 'nucleo', moduleId: 'gj-nucleo' },
+      { slot: 'patas', moduleId: 'gj-patas' },
+      { slot: 'misiles', moduleId: 'gj-misiles' },
+      { slot: 'coraza', moduleId: 'gj-coraza' },
+    ],
   },
   'gun-sniper': {
     id: 'gun-sniper',
@@ -56,6 +78,13 @@ export const ZOIDS: Record<string, UnitDefinition> = {
     abilityIds: ['bite-crush'],
     weapons: ['w-sniper-rifle'],
     aiProfile: { aggression: 0.35, selfPreservation: 0.8, riskTolerance: 0.2 },
+    frame: [
+      { slot: 'sensor', moduleId: 'gsn-sensor' },
+      { slot: 'nucleo', moduleId: 'gsn-nucleo' },
+      { slot: 'patas', moduleId: 'gsn-patas' },
+      { slot: 'cola', moduleId: 'gsn-cola' },
+      { slot: 'rifle', moduleId: 'gsn-rifle' },
+    ],
   },
   'pteras': {
     id: 'pteras',
@@ -69,6 +98,13 @@ export const ZOIDS: Record<string, UnitDefinition> = {
       speed: 15, move: 7, jump: 99, evade: 28, accuracy: 0,
     },
     abilityIds: ['shock-cannon', 'stun-blade'],
+    frame: [
+      { slot: 'casco', moduleId: 'pt-casco' },
+      { slot: 'fuselaje', moduleId: 'pt-fuselaje' },
+      { slot: 'ala-izq', moduleId: 'pt-ala-izq' },
+      { slot: 'ala-der', moduleId: 'pt-ala-der' },
+      { slot: 'cola', moduleId: 'pt-cola' },
+    ],
   },
   'gustav': {
     id: 'gustav',
@@ -105,6 +141,13 @@ export const ZOIDS: Record<string, UnitDefinition> = {
     },
     abilityIds: ['charged-particle-gun', 'bite-crush', 'e-shield'],
     aiProfile: { aggression: 0.6, selfPreservation: 0.6, riskTolerance: 0.7 },
+    frame: [
+      { slot: 'casco', moduleId: 'gsa-casco' },
+      { slot: 'nucleo', moduleId: 'gsa-nucleo' },
+      { slot: 'patas', moduleId: 'gsa-patas' },
+      { slot: 'canon', moduleId: 'gsa-canon' },
+      { slot: 'cola', moduleId: 'gsa-cola' },
+    ],
   },
 
   // La Gun Sniper de Naomi: monocasco, pero con munición finita — cuatro
@@ -143,7 +186,10 @@ export const ZOIDS: Record<string, UnitDefinition> = {
   },
   'zaber-fang': {
     id: 'zaber-fang', name: 'Zaber Fang', role: 'skirmisher', moveType: 'ground',
-    stats: { maxHp: 105, atk: 40, energyAtk: 32, def: 30, energyDef: 24, speed: 14, move: 5, jump: 2, evade: 14, accuracy: 0 },
+    // Nerf (2026-07-09): con el daño localizado su autocañón gemelo lo subió a
+    // ~61% (castiga bien las piezas frágiles). atk 40→37: sigue siendo un
+    // cerrador fuerte, dentro de banda.
+    stats: { maxHp: 105, atk: 37, energyAtk: 32, def: 30, energyDef: 24, speed: 14, move: 5, jump: 2, evade: 14, accuracy: 0 },
     abilityIds: ['bite-crush'],
     weapons: ['lib-w-twin-autocannon'],
     aiProfile: { aggression: 0.65, selfPreservation: 0.45, riskTolerance: 0.55 },
@@ -154,6 +200,13 @@ export const ZOIDS: Record<string, UnitDefinition> = {
     abilityIds: ['bite-crush'],
     weapons: ['lib-w-gauss-hammer', 'lib-w-micro-missile-swarm'],
     aiProfile: { aggression: 0.6, selfPreservation: 0.5, riskTolerance: 0.4 },
+    frame: [
+      { slot: 'casco', moduleId: 'ik-casco' },
+      { slot: 'nucleo', moduleId: 'ik-nucleo' },
+      { slot: 'brazos', moduleId: 'ik-brazos' },
+      { slot: 'piernas', moduleId: 'ik-piernas' },
+      { slot: 'mochila', moduleId: 'ik-mochila' },
+    ],
   },
   'dibison': {
     id: 'dibison', name: 'Dibison', role: 'tank', moveType: 'ground',

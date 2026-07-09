@@ -16,6 +16,7 @@ import { applyModifiers } from './derived.js';
 import { wearModifiers } from './wear.js';
 import {
   applyDamageToModule,
+  applyInitialDamage,
   buildFrameState,
   deriveUnitHp,
   frameMaxHp,
@@ -283,6 +284,16 @@ export class Battle {
       }
 
       const weaponIds = spawn.loadout?.weapons ?? def.weapons;
+      // Frame: se construye UNA vez; si el chasis se despliega ya dañado
+      // (continuidad de campaña), se reparte ese daño sobre los módulos para
+      // que el HP global no se "cure" al rederivarse en el primer golpe.
+      const frameState = frameConfig ? buildFrameState(frameConfig, this.modules) : undefined;
+      if (frameState && spawn.hp !== undefined && spawn.hp < maxHp) {
+        applyInitialDamage(frameState, this.modules, Math.round(spawn.hp));
+      }
+      const initialHp = frameState
+        ? deriveUnitHp(frameState, this.modules)
+        : spawn.hp !== undefined ? Math.max(1, Math.min(maxHp, Math.round(spawn.hp))) : maxHp;
       return {
         id: spawn.id,
         name: spawn.name,
@@ -293,7 +304,7 @@ export class Battle {
         size,
         reactionReady: true,
         facing: spawn.facing ?? (spawn.team === 'player' ? 'east' : 'west'),
-        hp: spawn.hp !== undefined ? Math.max(1, Math.min(maxHp, Math.round(spawn.hp))) : maxHp,
+        hp: initialHp,
         armor: Math.max(0, Math.round(spawn.armor ?? 0)),
         maxHpOverride: spawn.loadout?.slots ? maxHp : undefined,
         ...(spawn.modifiers && spawn.modifiers.length > 0
@@ -303,7 +314,7 @@ export class Battle {
         hasMoved: false,
         hasActed: false,
         components: {
-          ...(frameConfig ? { frame: buildFrameState(frameConfig, this.modules) } : {}),
+          ...(frameState ? { frame: frameState } : {}),
           ...(def.energy ? {
             energy: {
               // Continuidad: energía inicial residual (acotada; ausente = llena).

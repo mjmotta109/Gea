@@ -1,59 +1,46 @@
 {
   "seed": 424242,
-  "winner": "enemy",
-  "turns": 31,
+  "winner": "player",
+  "turns": 28,
   "finalUnits": [
     {
       "id": "P1",
       "hp": 0,
-      "x": 10,
-      "y": 2,
-      "facing": "south",
-      "ct": 36,
-      "statuses": [
-        {
-          "id": "evasion-up",
-          "remainingTurns": 2
-        },
-        {
-          "id": "overheat",
-          "remainingTurns": 1
-        }
-      ]
+      "x": 5,
+      "y": 3,
+      "facing": "north",
+      "ct": 22,
+      "statuses": []
     },
     {
       "id": "P2",
       "hp": 0,
-      "x": 5,
+      "x": 6,
       "y": 4,
-      "facing": "north",
-      "ct": 18,
+      "facing": "east",
+      "ct": 84,
       "statuses": [
         {
           "id": "evasion-up",
-          "remainingTurns": 1
-        },
-        {
-          "id": "overheat",
-          "remainingTurns": 1
+          "remainingTurns": 3
         }
       ]
     },
     {
       "id": "P3",
       "hp": 0,
-      "x": 1,
-      "y": 2,
+      "x": 5,
+      "y": 3,
       "facing": "east",
-      "ct": 56,
+      "ct": 14,
       "statuses": []
     },
     {
       "id": "P4",
-      "hp": 0,
-      "x": 6,
-      "y": 4,
-      "facing": "north",
+      "hp": 91,
+      "x": 5,
+      "y": 3,
+      "facing": "east",
       "ct": 100,
       "statuses": []
     },
@@ -63,16 +50,16 @@
       "x": 10,
       "y": 4,
       "facing": "west",
-      "ct": -14,
+      "ct": 86,
       "statuses": []
     },
     {
       "id": "E2",
       "hp": 0,
-      "x": 7,
-      "y": 6,
+      "x": 6,
+      "y": 3,
       "facing": "west",
-      "ct": 76,
+      "ct": -21,
       "statuses": []
     },
     {
@@ -81,16 +68,16 @@
       "x": 7,
       "y": 6,
       "facing": "west",
-      "ct": 45,
+      "ct": 97,
       "statuses": []
     },
     {
       "id": "E4",
-      "hp": 38,
-      "x": 5,
-      "y": 2,
+      "hp": 0,
+      "x": 9,
+      "y": 3,
       "facing": "west",
-      "ct": 100,
+      "ct": 80,
       "statuses": []
     }
   ],
@@ -179,11 +166,44 @@
       }
     },
     {
+      "type": "hit-location-rolled",
+      "targetUnitId": "P1",
+      "slot": "nucleo"
+    },
+    {
       "type": "damage-dealt",
       "unitId": "E4",
       "targetUnitId": "P1",
       "amount": 62,
-      "targetHp": 58
+      "targetHp": 0
+    },
+    {
+      "type": "module-armor-damaged",
+      "targetUnitId": "P1",
+      "slot": "nucleo",
+      "amount": 14,
+      "plating": 0
+    },
+    {
+      "type": "module-armor-broken",
+      "targetUnitId": "P1",
+      "slot": "nucleo"
+    },
+    {
+      "type": "module-damaged",
+      "targetUnitId": "P1",
+      "slot": "nucleo",
+      "amount": 44,
+      "moduleHp": 0
+    },
+    {
+      "type": "module-destroyed",
+      "targetUnitId": "P1",
+      "slot": "nucleo"
+    },
+    {
+      "type": "unit-destroyed",
+      "unitId": "P1"
     },
     {
       "type": "tempo-spent",
@@ -208,43 +228,24 @@
           "y": 5
         },
         {
-          "x": 0,
-          "y": 4
-        },
-        {
-          "x": 0,
-          "y": 3
-        },
-        {
           "x": 1,
-          "y": 3
+          "y": 5
         },
         {
           "x": 2,
-          "y": 3
+          "y": 5
+        },
+        {
+          "x": 3,
+          "y": 5
         }
       ]
     },
     {
-      "type": "ability-used",
-      "unitId": "P2",
-      "abilityId": "smoke-discharger",
-      "target": {
-        "x": 5,
-        "y": 3
-      }
-    },
-    {
-      "type": "status-applied",
-      "targetUnitId": "P1",
-      "status": "evasion-up",
-      "duration": 3
-    },
-    {
       "type": "tempo-spent",
       "unitId": "P2",
-      "ct": -18,
-      "delta": 130
+      "ct": 22,
+      "delta": 90
     },
     {
       "type": "turn-ended",
@@ -255,30 +256,36 @@
       "unitId": "E1"
     },
     {
-      "type": "ability-used",
+      "type": "unit-moved",
       "unitId": "E1",
-      "abilityId": "charged-particle-gun",
-      "target": {
-        "x": 5,
-        "y": 3
-      }
-    },
-    {
-      "type": "ability-missed",
-      "unitId": "E1",
-      "targetUnitId": "P1"
-    },
-    {
-      "type": "status-applied",
-      "targetUnitId": "P1",
-      "status": "overheat",
-      "duration": 2
+      "path": [
+        {
+          "x": 10,
+          "y": 3
+        },
+        {
+          "x": 10,
+          "y": 4
+        },
+        {
+          "x": 10,
+          "y": 5
+        },
+        {
+          "x": 9,
+          "y": 5
+        },
+        {
+          "x": 8,
+          "y": 5
+        }
+      ]
     },
     {
       "type": "tempo-spent",
       "unitId": "E1",
-      "ct": -22,
-      "delta": 130
+      "ct": 18,
+      "delta": 90
     },
     {
       "type": "turn-ended",
@@ -307,330 +314,6 @@
       "unitId": "E2"
     },
     {
-      "type": "overwatch-set",
-      "unitId": "E2"
-    },
-    {
-      "type": "tempo-spent",
-      "unitId": "E2",
-      "ct": 10,
-      "delta": 100
-    },
-    {
-      "type": "turn-ended",
-      "unitId": "E2"
-    },
-    {
-      "type": "turn-started",
-      "unitId": "E3"
-    },
-    {
-      "type": "overwatch-set",
-      "unitId": "E3"
-    },
-    {
-      "type": "tempo-spent",
-      "unitId": "E3",
-      "ct": 10,
-      "delta": 100
-    },
-    {
-      "type": "turn-ended",
-      "unitId": "E3"
-    },
-    {
-      "type": "turn-started",
-      "unitId": "P4"
-    },
-    {
-      "type": "unit-moved",
-      "unitId": "P4",
-      "path": [
-        {
-          "x": 0,
-          "y": 4
-        },
-        {
-          "x": 1,
-          "y": 4
-        },
-        {
-          "x": 2,
-          "y": 4
-        },
-        {
-          "x": 3,
-          "y": 4
-        }
-      ]
-    },
-    {
-      "type": "ability-used",
-      "unitId": "P4",
-      "abilityId": "repair-drones",
-      "target": {
-        "x": 5,
-        "y": 3
-      }
-    },
-    {
-      "type": "unit-healed",
-      "unitId": "P4",
-      "targetUnitId": "P1",
-      "amount": 45,
-      "targetHp": 103
-    },
-    {
-      "type": "tempo-spent",
-      "unitId": "P4",
-      "ct": -30,
-      "delta": 130
-    },
-    {
-      "type": "turn-ended",
-      "unitId": "P4"
-    },
-    {
-      "type": "round-started",
-      "round": 2
-    },
-    {
-      "type": "turn-started",
-      "unitId": "P1"
-    },
-    {
-      "type": "unit-moved",
-      "unitId": "P1",
-      "path": [
-        {
-          "x": 5,
-          "y": 3
-        },
-        {
-          "x": 6,
-          "y": 3
-        },
-        {
-          "x": 7,
-          "y": 3
-        },
-        {
-          "x": 8,
-          "y": 3
-        },
-        {
-          "x": 8,
-          "y": 2
-        },
-        {
-          "x": 9,
-          "y": 2
-        },
-        {
-          "x": 10,
-          "y": 2
-        }
-      ]
-    },
-    {
-      "type": "reaction",
-      "unitId": "E2",
-      "targetUnitId": "P1",
-      "reaction": "vigilancia",
-      "abilityId": "shock-cannon"
-    },
-    {
-      "type": "ability-missed",
-      "unitId": "E2",
-      "targetUnitId": "P1"
-    },
-    {
-      "type": "reaction",
-      "unitId": "E3",
-      "targetUnitId": "P1",
-      "reaction": "vigilancia",
-      "abilityId": "shock-cannon"
-    },
-    {
-      "type": "damage-dealt",
-      "unitId": "E3",
-      "targetUnitId": "P1",
-      "amount": 41,
-      "targetHp": 62
-    },
-    {
-      "type": "ability-used",
-      "unitId": "P1",
-      "abilityId": "strike-laser-claw",
-      "target": {
-        "x": 10,
-        "y": 3
-      }
-    },
-    {
-      "type": "damage-dealt",
-      "unitId": "P1",
-      "targetUnitId": "E1",
-      "amount": 112,
-      "targetHp": 18
-    },
-    {
-      "type": "reaction",
-      "unitId": "E1",
-      "targetUnitId": "P1",
-      "reaction": "contraataque",
-      "abilityId": "bite-crush"
-    },
-    {
-      "type": "damage-dealt",
-      "unitId": "E1",
-      "targetUnitId": "P1",
-      "amount": 48,
-      "targetHp": 14
-    },
-    {
-      "type": "status-ticked",
-      "targetUnitId": "P1",
-      "status": "overheat",
-      "damage": 10,
-      "targetHp": 4
-    },
-    {
-      "type": "tempo-spent",
-      "unitId": "P1",
-      "ct": -28,
-      "delta": 130
-    },
-    {
-      "type": "turn-ended",
-      "unitId": "P1"
-    },
-    {
-      "type": "turn-started",
-      "unitId": "E4"
-    },
-    {
-      "type": "unit-moved",
-      "unitId": "E4",
-      "path": [
-        {
-          "x": 9,
-          "y": 3
-        },
-        {
-          "x": 9,
-          "y": 4
-        }
-      ]
-    },
-    {
-      "type": "ability-used",
-      "unitId": "E4",
-      "abilityId": "shock-cannon",
-      "target": {
-        "x": 10,
-        "y": 2
-      }
-    },
-    {
-      "type": "damage-dealt",
-      "unitId": "E4",
-      "targetUnitId": "P1",
-      "amount": 45,
-      "targetHp": 0
-    },
-    {
-      "type": "unit-destroyed",
-      "unitId": "P1"
-    },
-    {
-      "type": "tempo-spent",
-      "unitId": "E4",
-      "ct": -20,
-      "delta": 130
-    },
-    {
-      "type": "turn-ended",
-      "unitId": "E4"
-    },
-    {
-      "type": "turn-started",
-      "unitId": "P2"
-    },
-    {
-      "type": "unit-moved",
-      "unitId": "P2",
-      "path": [
-        {
-          "x": 2,
-          "y": 3
-        },
-        {
-          "x": 2,
-          "y": 4
-        },
-        {
-          "x": 3,
-          "y": 4
-        },
-        {
-          "x": 4,
-          "y": 4
-        },
-        {
-          "x": 5,
-          "y": 4
-        }
-      ]
-    },
-    {
-      "type": "ability-used",
-      "unitId": "P2",
-      "abilityId": "smoke-discharger",
-      "target": {
-        "x": 5,
-        "y": 4
-      }
-    },
-    {
-      "type": "status-applied",
-      "targetUnitId": "P2",
-      "status": "evasion-up",
-      "duration": 3
-    },
-    {
-      "type": "tempo-spent",
-      "unitId": "P2",
-      "ct": -22,
-      "delta": 130
-    },
-    {
-      "type": "turn-ended",
-      "unitId": "P2"
-    },
-    {
-      "type": "turn-started",
-      "unitId": "P3"
-    },
-    {
-      "type": "overwatch-set",
-      "unitId": "P3"
-    },
-    {
-      "type": "tempo-spent",
-      "unitId": "P3",
-      "ct": 4,
-      "delta": 100
-    },
-    {
-      "type": "turn-ended",
-      "unitId": "P3"
-    },
-    {
-      "type": "turn-started",
-      "unitId": "E2"
-    },
-    {
       "type": "unit-moved",
       "unitId": "E2",
       "path": [
@@ -639,27 +322,19 @@
           "y": 5
         },
         {
-          "x": 11,
-          "y": 4
-        },
-        {
           "x": 10,
-          "y": 4
+          "y": 5
         },
         {
           "x": 9,
-          "y": 4
-        },
-        {
-          "x": 8,
-          "y": 4
+          "y": 5
         }
       ]
     },
     {
       "type": "tempo-spent",
       "unitId": "E2",
-      "ct": 19,
+      "ct": 20,
       "delta": 90
     },
     {
@@ -693,26 +368,10 @@
       ]
     },
     {
-      "type": "ability-used",
-      "unitId": "E3",
-      "abilityId": "shock-cannon",
-      "target": {
-        "x": 5,
-        "y": 4
-      }
-    },
-    {
-      "type": "damage-dealt",
-      "unitId": "E3",
-      "targetUnitId": "P2",
-      "amount": 53,
-      "targetHp": 47
-    },
-    {
       "type": "tempo-spent",
       "unitId": "E3",
-      "ct": -21,
-      "delta": 130
+      "ct": 20,
+      "delta": 90
     },
     {
       "type": "turn-ended",
@@ -720,60 +379,38 @@
     },
     {
       "type": "turn-started",
-      "unitId": "E1"
-    },
-    {
-      "type": "unit-moved",
-      "unitId": "E1",
-      "path": [
-        {
-          "x": 10,
-          "y": 3
-        },
-        {
-          "x": 10,
-          "y": 4
-        }
-      ]
-    },
-    {
-      "type": "ability-used",
-      "unitId": "E1",
-      "abilityId": "charged-particle-gun",
-      "target": {
-        "x": 5,
-        "y": 4
-      }
-    },
-    {
-      "type": "ability-missed",
-      "unitId": "E1",
-      "targetUnitId": "P2"
-    },
-    {
-      "type": "status-applied",
-      "targetUnitId": "P2",
-      "status": "overheat",
-      "duration": 2
-    },
-    {
-      "type": "tempo-spent",
-      "unitId": "E1",
-      "ct": -50,
-      "delta": 160
-    },
-    {
-      "type": "turn-ended",
-      "unitId": "E1"
-    },
-    {
-      "type": "turn-started",
       "unitId": "P4"
     },
     {
-      "type": "unit-moved",
+      "type": "overwatch-set",
+      "unitId": "P4"
+    },
+    {
+      "type": "tempo-spent",
       "unitId": "P4",
+      "ct": 0,
+      "delta": 100
+    },
+    {
+      "type": "turn-ended",
+      "unitId": "P4"
+    },
+    {
+      "type": "round-started",
+      "round": 2
+    },
+    {
+      "type": "turn-started",
+      "unitId": "P2"
+    },
+    {
+      "type": "unit-moved",
+      "unitId": "P2",
       "path": [
+        {
+          "x": 3,
+          "y": 5
+        },
         {
           "x": 3,
           "y": 4
@@ -794,96 +431,39 @@
     },
     {
       "type": "ability-used",
-      "unitId": "P4",
-      "abilityId": "shock-cannon",
+      "unitId": "P2",
+      "abilityId": "smoke-discharger",
       "target": {
-        "x": 10,
+        "x": 6,
         "y": 4
       }
     },
     {
-      "type": "projectile-fired",
-      "unitId": "P4",
-      "weaponId": "w-impact-cannon",
-      "from": {
-        "x": 6,
-        "y": 4
-      },
-      "to": {
-        "x": 10,
-        "y": 4
-      },
-      "flightTime": 0.5
-    },
-    {
-      "type": "damage-dealt",
-      "unitId": "P4",
-      "targetUnitId": "E1",
-      "amount": 38,
-      "targetHp": 0
-    },
-    {
-      "type": "unit-destroyed",
-      "unitId": "E1"
+      "type": "status-applied",
+      "targetUnitId": "P2",
+      "status": "evasion-up",
+      "duration": 3
     },
     {
       "type": "tempo-spent",
-      "unitId": "P4",
-      "ct": -30,
+      "unitId": "P2",
+      "ct": -24,
       "delta": 130
     },
     {
       "type": "turn-ended",
-      "unitId": "P4"
-    },
-    {
-      "type": "round-started",
-      "round": 3
+      "unitId": "P2"
     },
     {
       "type": "turn-started",
       "unitId": "E4"
     },
     {
-      "type": "unit-moved",
-      "unitId": "E4",
-      "path": [
-        {
-          "x": 9,
-          "y": 4
-        },
-        {
-          "x": 9,
-          "y": 3
-        },
-        {
-          "x": 9,
-          "y": 2
-        },
-        {
-          "x": 9,
-          "y": 1
-        },
-        {
-          "x": 8,
-          "y": 1
-        },
-        {
-          "x": 7,
-          "y": 1
-        },
-        {
-          "x": 6,
-          "y": 1
-        }
-      ]
-    },
-    {
       "type": "ability-used",
       "unitId": "E4",
       "abilityId": "shock-cannon",
       "target": {
-        "x": 5,
+        "x": 6,
         "y": 4
       }
     },
@@ -895,12 +475,68 @@
     {
       "type": "tempo-spent",
       "unitId": "E4",
-      "ct": -30,
-      "delta": 130
+      "ct": 10,
+      "delta": 100
     },
     {
       "type": "turn-ended",
       "unitId": "E4"
+    },
+    {
+      "type": "turn-started",
+      "unitId": "E1"
+    },
+    {
+      "type": "unit-moved",
+      "unitId": "E1",
+      "path": [
+        {
+          "x": 8,
+          "y": 5
+        },
+        {
+          "x": 8,
+          "y": 4
+        },
+        {
+          "x": 9,
+          "y": 4
+        },
+        {
+          "x": 10,
+          "y": 4
+        }
+      ]
+    },
+    {
+      "type": "ability-used",
+      "unitId": "E1",
+      "abilityId": "charged-particle-gun",
+      "target": {
+        "x": 6,
+        "y": 4
+      }
+    },
+    {
+      "type": "ability-missed",
+      "unitId": "E1",
+      "targetUnitId": "P2"
+    },
+    {
+      "type": "status-applied",
+      "targetUnitId": "P2",
+      "status": "overheat",
+      "duration": 2
+    },
+    {
+      "type": "tempo-spent",
+      "unitId": "E1",
+      "ct": -58,
+      "delta": 160
+    },
+    {
+      "type": "turn-ended",
+      "unitId": "E1"
     },
     {
       "type": "turn-started",
@@ -947,7 +583,7 @@
       "type": "damage-dealt",
       "unitId": "P3",
       "targetUnitId": "E3",
-      "amount": 77,
+      "amount": 87,
       "targetHp": 0
     },
     {
@@ -957,49 +593,12 @@
     {
       "type": "tempo-spent",
       "unitId": "P3",
-      "ct": -30,
+      "ct": -26,
       "delta": 130
     },
     {
       "type": "turn-ended",
       "unitId": "P3"
-    },
-    {
-      "type": "turn-started",
-      "unitId": "P2"
-    },
-    {
-      "type": "ability-used",
-      "unitId": "P2",
-      "abilityId": "shock-cannon",
-      "target": {
-        "x": 6,
-        "y": 1
-      }
-    },
-    {
-      "type": "damage-dealt",
-      "unitId": "P2",
-      "targetUnitId": "E4",
-      "amount": 62,
-      "targetHp": 38
-    },
-    {
-      "type": "status-ticked",
-      "targetUnitId": "P2",
-      "status": "overheat",
-      "damage": 8,
-      "targetHp": 39
-    },
-    {
-      "type": "tempo-spent",
-      "unitId": "P2",
-      "ct": 4,
-      "delta": 100
-    },
-    {
-      "type": "turn-ended",
-      "unitId": "P2"
     },
     {
       "type": "turn-started",
@@ -1010,20 +609,24 @@
       "unitId": "E2",
       "path": [
         {
-          "x": 8,
-          "y": 4
-        },
-        {
-          "x": 8,
+          "x": 9,
           "y": 5
         },
         {
-          "x": 8,
-          "y": 6
+          "x": 9,
+          "y": 4
         },
         {
-          "x": 7,
-          "y": 6
+          "x": 9,
+          "y": 3
+        },
+        {
+          "x": 9,
+          "y": 2
+        },
+        {
+          "x": 8,
+          "y": 2
         }
       ]
     },
@@ -1032,30 +635,42 @@
       "unitId": "E2",
       "abilityId": "shock-cannon",
       "target": {
-        "x": 5,
+        "x": 6,
         "y": 4
       }
     },
     {
-      "type": "damage-dealt",
+      "type": "ability-missed",
       "unitId": "E2",
-      "targetUnitId": "P2",
-      "amount": 56,
-      "targetHp": 0
-    },
-    {
-      "type": "unit-destroyed",
-      "unitId": "P2"
+      "targetUnitId": "P2"
     },
     {
       "type": "tempo-spent",
       "unitId": "E2",
-      "ct": -23,
+      "ct": -22,
       "delta": 130
     },
     {
       "type": "turn-ended",
       "unitId": "E2"
+    },
+    {
+      "type": "turn-started",
+      "unitId": "P4"
+    },
+    {
+      "type": "overwatch-set",
+      "unitId": "P4"
+    },
+    {
+      "type": "tempo-spent",
+      "unitId": "P4",
+      "ct": 0,
+      "delta": 100
+    },
+    {
+      "type": "turn-ended",
+      "unitId": "P4"
     },
     {
       "type": "turn-started",
@@ -1071,11 +686,217 @@
       }
     },
     {
-      "type": "damage-dealt",
+      "type": "ability-missed",
       "unitId": "E4",
-      "targetUnitId": "P4",
-      "amount": 61,
-      "targetHp": 79
+      "targetUnitId": "P2"
+    },
+    {
+      "type": "tempo-spent",
+      "unitId": "E4",
+      "ct": 0,
+      "delta": 100
+    },
+    {
+      "type": "turn-ended",
+      "unitId": "E4"
+    },
+    {
+      "type": "round-started",
+      "round": 3
+    },
+    {
+      "type": "turn-started",
+      "unitId": "P2"
+    },
+    {
+      "type": "ability-used",
+      "unitId": "P2",
+      "abilityId": "shock-cannon",
+      "target": {
+        "x": 10,
+        "y": 4
+      }
+    },
+    {
+      "type": "hit-location-rolled",
+      "targetUnitId": "E1",
+      "slot": "canon"
+    },
+    {
+      "type": "damage-dealt",
+      "unitId": "P2",
+      "targetUnitId": "E1",
+      "amount": 49,
+      "targetHp": 98
+    },
+    {
+      "type": "module-armor-damaged",
+      "targetUnitId": "E1",
+      "slot": "canon",
+      "amount": 5,
+      "plating": 0
+    },
+    {
+      "type": "module-armor-broken",
+      "targetUnitId": "E1",
+      "slot": "canon"
+    },
+    {
+      "type": "module-damaged",
+      "targetUnitId": "E1",
+      "slot": "canon",
+      "amount": 20,
+      "moduleHp": 0
+    },
+    {
+      "type": "module-destroyed",
+      "targetUnitId": "E1",
+      "slot": "canon"
+    },
+    {
+      "type": "module-damaged",
+      "targetUnitId": "E1",
+      "slot": "nucleo",
+      "amount": 12,
+      "moduleHp": 38
+    },
+    {
+      "type": "status-ticked",
+      "targetUnitId": "P2",
+      "status": "overheat",
+      "damage": 8,
+      "targetHp": 92
+    },
+    {
+      "type": "tempo-spent",
+      "unitId": "P2",
+      "ct": 2,
+      "delta": 100
+    },
+    {
+      "type": "turn-ended",
+      "unitId": "P2"
+    },
+    {
+      "type": "turn-started",
+      "unitId": "P3"
+    },
+    {
+      "type": "unit-moved",
+      "unitId": "P3",
+      "path": [
+        {
+          "x": 1,
+          "y": 6
+        },
+        {
+          "x": 1,
+          "y": 5
+        },
+        {
+          "x": 1,
+          "y": 4
+        },
+        {
+          "x": 2,
+          "y": 4
+        },
+        {
+          "x": 3,
+          "y": 4
+        }
+      ]
+    },
+    {
+      "type": "ability-used",
+      "unitId": "P3",
+      "abilityId": "sniper-rifle",
+      "target": {
+        "x": 10,
+        "y": 4
+      }
+    },
+    {
+      "type": "projectile-fired",
+      "unitId": "P3",
+      "weaponId": "w-sniper-rifle",
+      "from": {
+        "x": 3,
+        "y": 4
+      },
+      "to": {
+        "x": 10,
+        "y": 4
+      },
+      "flightTime": 0.44
+    },
+    {
+      "type": "hit-location-rolled",
+      "targetUnitId": "E1",
+      "slot": "nucleo"
+    },
+    {
+      "type": "damage-dealt",
+      "unitId": "P3",
+      "targetUnitId": "E1",
+      "amount": 58,
+      "targetHp": 0
+    },
+    {
+      "type": "module-armor-damaged",
+      "targetUnitId": "E1",
+      "slot": "nucleo",
+      "amount": 9,
+      "plating": 0
+    },
+    {
+      "type": "module-armor-broken",
+      "targetUnitId": "E1",
+      "slot": "nucleo"
+    },
+    {
+      "type": "module-damaged",
+      "targetUnitId": "E1",
+      "slot": "nucleo",
+      "amount": 38,
+      "moduleHp": 0
+    },
+    {
+      "type": "module-destroyed",
+      "targetUnitId": "E1",
+      "slot": "nucleo"
+    },
+    {
+      "type": "unit-destroyed",
+      "unitId": "E1"
+    },
+    {
+      "type": "tempo-spent",
+      "unitId": "P3",
+      "ct": -24,
+      "delta": 130
+    },
+    {
+      "type": "turn-ended",
+      "unitId": "P3"
+    },
+    {
+      "type": "turn-started",
+      "unitId": "E4"
+    },
+    {
+      "type": "ability-used",
+      "unitId": "E4",
+      "abilityId": "shock-cannon",
+      "target": {
+        "x": 6,
+        "y": 4
+      }
+    },
+    {
+      "type": "ability-missed",
+      "unitId": "E4",
+      "targetUnitId": "P2"
     },
     {
       "type": "tempo-spent",
@@ -1089,97 +910,137 @@
     },
     {
       "type": "turn-started",
-      "unitId": "P3"
-    },
-    {
-      "type": "ability-used",
-      "unitId": "P3",
-      "abilityId": "sniper-rifle",
-      "target": {
-        "x": 7,
-        "y": 6
-      }
-    },
-    {
-      "type": "projectile-fired",
-      "unitId": "P3",
-      "weaponId": "w-sniper-rifle",
-      "from": {
-        "x": 1,
-        "y": 6
-      },
-      "to": {
-        "x": 7,
-        "y": 6
-      },
-      "flightTime": 0.38
-    },
-    {
-      "type": "damage-dealt",
-      "unitId": "P3",
-      "targetUnitId": "E2",
-      "amount": 88,
-      "targetHp": 0
-    },
-    {
-      "type": "unit-destroyed",
       "unitId": "E2"
     },
     {
+      "type": "ability-used",
+      "unitId": "E2",
+      "abilityId": "shock-cannon",
+      "target": {
+        "x": 6,
+        "y": 4
+      }
+    },
+    {
+      "type": "ability-missed",
+      "unitId": "E2",
+      "targetUnitId": "P2"
+    },
+    {
       "type": "tempo-spent",
-      "unitId": "P3",
-      "ct": 2,
+      "unitId": "E2",
+      "ct": 10,
       "delta": 100
     },
     {
       "type": "turn-ended",
-      "unitId": "P3"
+      "unitId": "E2"
     },
     {
-      "type": "round-started",
-      "round": 4
+      "type": "turn-started",
+      "unitId": "P2"
+    },
+    {
+      "type": "ability-used",
+      "unitId": "P2",
+      "abilityId": "shock-cannon",
+      "target": {
+        "x": 8,
+        "y": 2
+      }
+    },
+    {
+      "type": "damage-dealt",
+      "unitId": "P2",
+      "targetUnitId": "E2",
+      "amount": 57,
+      "targetHp": 13
+    },
+    {
+      "type": "status-ticked",
+      "targetUnitId": "P2",
+      "status": "overheat",
+      "damage": 8,
+      "targetHp": 84
+    },
+    {
+      "type": "status-expired",
+      "targetUnitId": "P2",
+      "status": "evasion-up"
+    },
+    {
+      "type": "status-expired",
+      "targetUnitId": "P2",
+      "status": "overheat"
+    },
+    {
+      "type": "tempo-spent",
+      "unitId": "P2",
+      "ct": 0,
+      "delta": 100
+    },
+    {
+      "type": "turn-ended",
+      "unitId": "P2"
     },
     {
       "type": "turn-started",
       "unitId": "P4"
     },
     {
+      "type": "unit-moved",
+      "unitId": "P4",
+      "path": [
+        {
+          "x": 0,
+          "y": 4
+        },
+        {
+          "x": 1,
+          "y": 4
+        },
+        {
+          "x": 2,
+          "y": 4
+        },
+        {
+          "x": 3,
+          "y": 4
+        },
+        {
+          "x": 4,
+          "y": 4
+        }
+      ]
+    },
+    {
       "type": "ability-used",
       "unitId": "P4",
-      "abilityId": "shock-cannon",
+      "abilityId": "smoke-discharger",
       "target": {
         "x": 6,
-        "y": 1
+        "y": 4
       }
     },
     {
-      "type": "projectile-fired",
-      "unitId": "P4",
-      "weaponId": "w-impact-cannon",
-      "from": {
-        "x": 6,
-        "y": 4
-      },
-      "to": {
-        "x": 6,
-        "y": 1
-      },
-      "flightTime": 0.38
-    },
-    {
-      "type": "ability-missed",
-      "unitId": "P4",
-      "targetUnitId": "E4"
+      "type": "status-applied",
+      "targetUnitId": "P2",
+      "status": "evasion-up",
+      "duration": 3
     },
     {
       "type": "tempo-spent",
       "unitId": "P4",
-      "ct": 0,
-      "delta": 100
+      "ct": -30,
+      "delta": 130
     },
     {
       "type": "turn-ended",
       "unitId": "P4"
+    },
+    {
+      "type": "round-started",
+      "round": 4
     },
     {
       "type": "turn-started",
@@ -1195,11 +1056,44 @@
       }
     },
     {
+      "type": "hit-location-rolled",
+      "targetUnitId": "P2",
+      "slot": "nucleo"
+    },
+    {
       "type": "damage-dealt",
       "unitId": "E4",
-      "targetUnitId": "P4",
-      "amount": 52,
-      "targetHp": 27
+      "targetUnitId": "P2",
+      "amount": 59,
+      "targetHp": 0
+    },
+    {
+      "type": "module-armor-damaged",
+      "targetUnitId": "P2",
+      "slot": "nucleo",
+      "amount": 12,
+      "plating": 0
+    },
+    {
+      "type": "module-armor-broken",
+      "targetUnitId": "P2",
+      "slot": "nucleo"
+    },
+    {
+      "type": "module-damaged",
+      "targetUnitId": "P2",
+      "slot": "nucleo",
+      "amount": 24,
+      "moduleHp": 0
+    },
+    {
+      "type": "module-destroyed",
+      "targetUnitId": "P2",
+      "slot": "nucleo"
+    },
+    {
+      "type": "unit-destroyed",
+      "unitId": "P2"
     },
     {
       "type": "tempo-spent",
@@ -1213,6 +1107,94 @@
     },
     {
       "type": "turn-started",
+      "unitId": "E2"
+    },
+    {
+      "type": "unit-moved",
+      "unitId": "E2",
+      "path": [
+        {
+          "x": 8,
+          "y": 2
+        },
+        {
+          "x": 8,
+          "y": 3
+        },
+        {
+          "x": 7,
+          "y": 3
+        },
+        {
+          "x": 6,
+          "y": 3
+        }
+      ]
+    },
+    {
+      "type": "ability-used",
+      "unitId": "E2",
+      "abilityId": "shock-cannon",
+      "target": {
+        "x": 3,
+        "y": 4
+      }
+    },
+    {
+      "type": "hit-location-rolled",
+      "targetUnitId": "P3",
+      "slot": "sensor"
+    },
+    {
+      "type": "damage-dealt",
+      "unitId": "E2",
+      "targetUnitId": "P3",
+      "amount": 60,
+      "targetHp": 47
+    },
+    {
+      "type": "module-armor-damaged",
+      "targetUnitId": "P3",
+      "slot": "sensor",
+      "amount": 2,
+      "plating": 0
+    },
+    {
+      "type": "module-armor-broken",
+      "targetUnitId": "P3",
+      "slot": "sensor"
+    },
+    {
+      "type": "module-damaged",
+      "targetUnitId": "P3",
+      "slot": "sensor",
+      "amount": 8,
+      "moduleHp": 0
+    },
+    {
+      "type": "module-destroyed",
+      "targetUnitId": "P3",
+      "slot": "sensor"
+    },
+    {
+      "type": "module-damaged",
+      "targetUnitId": "P3",
+      "slot": "nucleo",
+      "amount": 25,
+      "moduleHp": 5
+    },
+    {
+      "type": "tempo-spent",
+      "unitId": "E2",
+      "ct": -21,
+      "delta": 130
+    },
+    {
+      "type": "turn-ended",
+      "unitId": "E2"
+    },
+    {
+      "type": "turn-started",
       "unitId": "P3"
     },
     {
@@ -1220,46 +1202,52 @@
       "unitId": "P3",
       "path": [
         {
-          "x": 1,
-          "y": 6
-        },
-        {
-          "x": 1,
-          "y": 5
-        },
-        {
-          "x": 1,
+          "x": 3,
           "y": 4
         },
         {
-          "x": 1,
-          "y": 3
+          "x": 4,
+          "y": 4
         },
         {
-          "x": 1,
-          "y": 2
+          "x": 5,
+          "y": 4
+        },
+        {
+          "x": 5,
+          "y": 3
         }
       ]
     },
     {
-      "type": "weapon-reloaded",
+      "type": "ability-used",
       "unitId": "P3",
-      "weaponId": "w-sniper-rifle",
-      "ammo": 2
+      "abilityId": "bite-crush",
+      "target": {
+        "x": 6,
+        "y": 3
+      }
+    },
+    {
+      "type": "damage-dealt",
+      "unitId": "P3",
+      "targetUnitId": "E2",
+      "amount": 71,
+      "targetHp": 0
+    },
+    {
+      "type": "unit-destroyed",
+      "unitId": "E2"
     },
     {
       "type": "tempo-spent",
       "unitId": "P3",
-      "ct": -20,
+      "ct": -22,
       "delta": 130
     },
     {
       "type": "turn-ended",
       "unitId": "P3"
-    },
-    {
-      "type": "round-started",
-      "round": 5
     },
     {
       "type": "turn-started",
@@ -1270,20 +1258,61 @@
       "unitId": "E4",
       "abilityId": "shock-cannon",
       "target": {
-        "x": 6,
-        "y": 4
+        "x": 5,
+        "y": 3
       }
+    },
+    {
+      "type": "hit-location-rolled",
+      "targetUnitId": "P3",
+      "slot": "patas"
     },
     {
       "type": "damage-dealt",
       "unitId": "E4",
-      "targetUnitId": "P4",
-      "amount": 51,
+      "targetUnitId": "P3",
+      "amount": 73,
       "targetHp": 0
     },
     {
+      "type": "module-armor-damaged",
+      "targetUnitId": "P3",
+      "slot": "patas",
+      "amount": 4,
+      "plating": 0
+    },
+    {
+      "type": "module-armor-broken",
+      "targetUnitId": "P3",
+      "slot": "patas"
+    },
+    {
+      "type": "module-damaged",
+      "targetUnitId": "P3",
+      "slot": "patas",
+      "amount": 16,
+      "moduleHp": 0
+    },
+    {
+      "type": "module-destroyed",
+      "targetUnitId": "P3",
+      "slot": "patas"
+    },
+    {
+      "type": "module-damaged",
+      "targetUnitId": "P3",
+      "slot": "nucleo",
+      "amount": 5,
+      "moduleHp": 0
+    },
+    {
+      "type": "module-destroyed",
+      "targetUnitId": "P3",
+      "slot": "nucleo"
+    },
+    {
       "type": "unit-destroyed",
-      "unitId": "P4"
+      "unitId": "P3"
     },
     {
       "type": "tempo-spent",
@@ -1297,6 +1326,108 @@
     },
     {
       "type": "turn-started",
+      "unitId": "P4"
+    },
+    {
+      "type": "unit-moved",
+      "unitId": "P4",
+      "path": [
+        {
+          "x": 4,
+          "y": 4
+        },
+        {
+          "x": 5,
+          "y": 4
+        },
+        {
+          "x": 5,
+          "y": 3
+        }
+      ]
+    },
+    {
+      "type": "ability-used",
+      "unitId": "P4",
+      "abilityId": "shock-cannon",
+      "target": {
+        "x": 9,
+        "y": 3
+      }
+    },
+    {
+      "type": "projectile-fired",
+      "unitId": "P4",
+      "weaponId": "w-impact-cannon",
+      "from": {
+        "x": 5,
+        "y": 3
+      },
+      "to": {
+        "x": 9,
+        "y": 3
+      },
+      "flightTime": 0.5
+    },
+    {
+      "type": "hit-location-rolled",
+      "targetUnitId": "E4",
+      "slot": "fuselaje"
+    },
+    {
+      "type": "damage-dealt",
+      "unitId": "P4",
+      "targetUnitId": "E4",
+      "amount": 46,
+      "targetHp": 64
+    },
+    {
+      "type": "module-armor-damaged",
+      "targetUnitId": "E4",
+      "slot": "fuselaje",
+      "amount": 10,
+      "plating": 0
+    },
+    {
+      "type": "module-armor-broken",
+      "targetUnitId": "E4",
+      "slot": "fuselaje"
+    },
+    {
+      "type": "module-damaged",
+      "targetUnitId": "E4",
+      "slot": "fuselaje",
+      "amount": 36,
+      "moduleHp": 4
+    },
+    {
+      "type": "unit-pushed",
+      "unitId": "E4",
+      "from": {
+        "x": 9,
+        "y": 3
+      },
+      "to": {
+        "x": 10,
+        "y": 3
+      }
+    },
+    {
+      "type": "tempo-spent",
+      "unitId": "P4",
+      "ct": -30,
+      "delta": 130
+    },
+    {
+      "type": "turn-ended",
+      "unitId": "P4"
+    },
+    {
+      "type": "round-started",
+      "round": 5
+    },
+    {
+      "type": "turn-started",
       "unitId": "E4"
     },
     {
@@ -1304,16 +1435,12 @@
       "unitId": "E4",
       "path": [
         {
-          "x": 6,
-          "y": 1
+          "x": 10,
+          "y": 3
         },
         {
-          "x": 6,
-          "y": 2
-        },
-        {
-          "x": 5,
-          "y": 2
+          "x": 9,
+          "y": 3
         }
       ]
     },
@@ -1322,16 +1449,16 @@
       "unitId": "E4",
       "abilityId": "shock-cannon",
       "target": {
-        "x": 1,
-        "y": 2
+        "x": 5,
+        "y": 3
       }
     },
     {
       "type": "damage-dealt",
       "unitId": "E4",
-      "targetUnitId": "P3",
-      "amount": 67,
-      "targetHp": 13
+      "targetUnitId": "P4",
+      "amount": 49,
+      "targetHp": 91
     },
     {
       "type": "tempo-spent",
@@ -1345,151 +1472,86 @@
     },
     {
       "type": "turn-started",
-      "unitId": "P3"
+      "unitId": "P4"
     },
     {
       "type": "ability-used",
-      "unitId": "P3",
-      "abilityId": "sniper-rifle",
+      "unitId": "P4",
+      "abilityId": "shock-cannon",
       "target": {
-        "x": 5,
-        "y": 2
+        "x": 9,
+        "y": 3
       }
     },
     {
       "type": "projectile-fired",
-      "unitId": "P3",
-      "weaponId": "w-sniper-rifle",
+      "unitId": "P4",
+      "weaponId": "w-impact-cannon",
       "from": {
-        "x": 1,
-        "y": 2
+        "x": 5,
+        "y": 3
       },
       "to": {
-        "x": 5,
-        "y": 2
+        "x": 9,
+        "y": 3
       },
-      "flightTime": 0.25
+      "flightTime": 0.5
     },
     {
-      "type": "ability-missed",
-      "unitId": "P3",
-      "targetUnitId": "E4"
-    },
-    {
-      "type": "tempo-spent",
-      "unitId": "P3",
-      "ct": 0,
-      "delta": 100
-    },
-    {
-      "type": "turn-ended",
-      "unitId": "P3"
-    },
-    {
-      "type": "round-started",
-      "round": 6
-    },
-    {
-      "type": "turn-started",
-      "unitId": "E4"
-    },
-    {
-      "type": "ability-used",
-      "unitId": "E4",
-      "abilityId": "shock-cannon",
-      "target": {
-        "x": 1,
-        "y": 2
-      }
-    },
-    {
-      "type": "ability-missed",
-      "unitId": "E4",
-      "targetUnitId": "P3"
-    },
-    {
-      "type": "tempo-spent",
-      "unitId": "E4",
-      "ct": 10,
-      "delta": 100
-    },
-    {
-      "type": "turn-ended",
-      "unitId": "E4"
-    },
-    {
-      "type": "turn-started",
-      "unitId": "P3"
-    },
-    {
-      "type": "ability-used",
-      "unitId": "P3",
-      "abilityId": "sniper-rifle",
-      "target": {
-        "x": 5,
-        "y": 2
-      }
-    },
-    {
-      "type": "projectile-fired",
-      "unitId": "P3",
-      "weaponId": "w-sniper-rifle",
-      "from": {
-        "x": 1,
-        "y": 2
-      },
-      "to": {
-        "x": 5,
-        "y": 2
-      },
-      "flightTime": 0.25
-    },
-    {
-      "type": "ability-missed",
-      "unitId": "P3",
-      "targetUnitId": "E4"
-    },
-    {
-      "type": "tempo-spent",
-      "unitId": "P3",
-      "ct": 8,
-      "delta": 100
-    },
-    {
-      "type": "turn-ended",
-      "unitId": "P3"
-    },
-    {
-      "type": "round-started",
-      "round": 7
-    },
-    {
-      "type": "turn-started",
-      "unitId": "E4"
-    },
-    {
-      "type": "ability-used",
-      "unitId": "E4",
-      "abilityId": "shock-cannon",
-      "target": {
-        "x": 1,
-        "y": 2
-      }
+      "type": "hit-location-rolled",
+      "targetUnitId": "E4",
+      "slot": "cola"
     },
     {
       "type": "damage-dealt",
-      "unitId": "E4",
-      "targetUnitId": "P3",
-      "amount": 61,
+      "unitId": "P4",
+      "targetUnitId": "E4",
+      "amount": 51,
       "targetHp": 0
     },
     {
+      "type": "module-armor-damaged",
+      "targetUnitId": "E4",
+      "slot": "cola",
+      "amount": 3,
+      "plating": 0
+    },
+    {
+      "type": "module-armor-broken",
+      "targetUnitId": "E4",
+      "slot": "cola"
+    },
+    {
+      "type": "module-damaged",
+      "targetUnitId": "E4",
+      "slot": "cola",
+      "amount": 14,
+      "moduleHp": 0
+    },
+    {
+      "type": "module-destroyed",
+      "targetUnitId": "E4",
+      "slot": "cola"
+    },
+    {
+      "type": "module-damaged",
+      "targetUnitId": "E4",
+      "slot": "fuselaje",
+      "amount": 4,
+      "moduleHp": 0
+    },
+    {
+      "type": "module-destroyed",
+      "targetUnitId": "E4",
+      "slot": "fuselaje"
+    },
+    {
       "type": "unit-destroyed",
-      "unitId": "P3"
+      "unitId": "E4"
     },
     {
       "type": "battle-ended",
-      "winner": "enemy"
+      "winner": "player"
     }
   ]
 }

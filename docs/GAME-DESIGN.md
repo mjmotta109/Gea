@@ -1274,3 +1274,38 @@ arquitectura del motor van en DESIGN.md.)*
   planTurn es opt-in (por defecto = el de la batalla = 1). 2 tests nuevos
   (glide de campaignStrength; la fuerza compra chasis mejores), 338 en verde,
   tsc limpio, cliente arranca sin errores.
+- **2026-07-09** — QUE EL DAÑO LOCALIZADO SE VEA (dirección del usuario: "haz que
+  el daño localizado se vea"). El sistema de frames —impactos por zona, blindaje
+  por placa que se arranca, secuela al perder una pieza, desbordamiento al núcleo—
+  solo lo tenían 2 de 25 chasis (Liger CAS, Geno CP), así que la mayoría de
+  batallas eran de barra de HP única. El director eligió la opción B: frames a
+  MEDIDA para 7 chasis comunes, con IDENTIDAD legible.
+  · Chasis: Liger Zero, Command Wolf, Gun Sniper, Gojulas, Iron Kong, Pteras y
+    Geno Saurer. Cada uno con su carácter: el Gojulas guarda el HP en un TORSO
+    grueso, el Iron Kong lleva la MOCHILA de misiles a la espalda (rear-exposed
+    ×2), la Pteras tiene ALAS frágiles y fáciles de acertar (rómpele un ala y
+    pierde evasión/vuelo), al Gun Sniper la COLA-sensor le da la puntería, al Geno
+    el CAÑÓN de partículas es su pegada energética.
+  · Convención NUEVA (coexiste con la de "núcleo desnudo" del CAS): el chasis
+    conserva sus stats base COMPLETAS y el módulo es CARCASA pura (`struct` en
+    data/modules.ts: contributions [], armor 0 para no mitigar doble). La
+    identidad la dan el reparto de HP, las tags, el hitWeight y la SECUELA
+    (onDestroyed): sin patas frenas y desapuntas, sin ala no esquivas, sin cañón
+    pierdes tu pegada. El HP de las piezas SUMA el maxHp (lo exige el motor).
+  · Arreglado un fallo REAL que el frame masivo destapó: un chasis se despliega
+    ya dañado (continuidad), pero el frame venía con las piezas LLENAS → el HP
+    global (derivado de la estructura) se "curaba" al primer golpe. Nuevo
+    `applyInitialDamage` reparte el daño de despliegue por las piezas
+    (proporcional, núcleo ≥1), determinista.
+  REGENERA EL GOLDEN (5 de los 7 están en la batalla de referencia; cada impacto
+  ahora tira localización → azar nuevo, declarado y AUTORIZADO por el director).
+  Verificado determinista byte-idéntico y que las batallas terminan (8-9 tiradas
+  de localización y ~9 piezas destruidas por batalla del golden). BALANCE
+  (balance:hangar): el blindaje por placa engordó a los duros —gojulas 59.5%,
+  se recortó su placa (banda 54%)— y el meta se movió; zaber-fang subió a 61%
+  (atk 40→37). Los 7 chasis con frame quedan en banda (43-56%). El cliente ya
+  tenía el lector de casco: en batalla, Command Wolf y Gun Sniper YA se ven como
+  piezas (10/40/15/15 y 8/30/16), no una barra. 9 tests nuevos (integridad de
+  cada frame), 347 en verde, tsc limpio, verificado en el juego real.
+  PENDIENTE (el otro frente del hueco nº1): la IA sigue CIEGA al arco —no
+  flanquea ni protege su espalda—; darle eso es el siguiente salto.

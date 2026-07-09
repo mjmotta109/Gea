@@ -37,7 +37,7 @@ de este archivo.
 ## 3. El ritual de cada bloque de trabajo
 
 1. Lee el código antes de editar; toca con bisturí.
-2. Código + **tests vitest** (338 en verde al momento del traspaso:
+2. Código + **tests vitest** (347 en verde al momento del traspaso:
    `npx vitest run`). `npx tsc --noEmit` limpio.
 3. **Verificación Playwright** del flujo real: Chromium en
    `/opt/pw-browsers/chromium`; guiones de ejemplo en el scratchpad de
@@ -98,19 +98,18 @@ de este archivo.
     `fillSquad`) y `wear` (desgaste por dificultad). Validada a 100
     contratos: banda 45-65% si mantienes el paso; el techo baja a ~48% al
     final y el suelo (nunca mejoras) se desmorona a 12-17%.
-- **PRÓXIMO de mayor palanca (diagnóstico HECHO, sin empezar): sacarle
-  partido al DAÑO LOCALIZADO.** `frame.ts` es profundo (arcos, altura,
-  placas que se arrancan, desbordamiento al núcleo estilo BattleTech,
-  penetración) pero está medio dormido: (1) solo 2 de 25 chasis tienen
-  `frame` (geno-saurer-cp, gran-brontes) → mutilar piezas casi nunca
-  ocurre; (2) la IA es CIEGA al arco: no flanquea, no protege su espalda
-  (nunca pasa `facing` en executeWait), no elige arma por penetración →
-  en IA-vs-IA el sistema está INERTE y contra la IA es una granja de un
-  solo lado. La base SÍ vive: arco + altura ya dan +daño/+acierto a TODOS
-  los chasis y el cliente lo muestra en el pronóstico. Movimiento
-  recomendado: enseñar a la IA a jugar el arco (flanquear + cerrar turno
-  de cara a la amenaza), gateado por la misma curva de destreza; después
-  repartir `frame` a más chasis.
+- **DAÑO LOCALIZADO — mitad hecho (2026-07-09).** Antes solo 2 chasis
+  tenían `frame`; ahora **9** (los 2 de núcleo desnudo + 7 a medida:
+  liger-zero, command-wolf, gun-sniper, gojulas, iron-kong, pteras,
+  geno-saurer). Convención nueva para los 7: stats base COMPLETAS + módulo
+  CARCASA (`struct` en data/modules.ts, contributions [], armor 0); la
+  identidad la dan reparto de HP + tags + hitWeight + secuela (onDestroyed).
+  En batalla ya SE VE (el lector de casco pinta las piezas). Regeneró el
+  golden. **Queda el otro frente del hueco:** la IA sigue CIEGA al arco —no
+  flanquea, no protege su espalda (nunca pasa `facing` en executeWait), no
+  elige arma por penetración—; enseñarle a jugar el arco (gateado por la
+  curva de destreza) es el siguiente salto de mayor palanca. Y se pueden
+  dar frames a más chasis con el mismo patrón `struct`.
 - **Pendiente del DIRECTOR**: conseguir arte (empezar por el felino en
   3 estilos; ENCARGO-ARTE.md). Cuando llegue: bestias → sprites/diorama;
   láminas técnicas → lector de casco con zonas separables.

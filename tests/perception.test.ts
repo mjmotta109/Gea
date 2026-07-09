@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Battle } from '../src/core/battle.js';
 import { GameMap } from '../src/core/grid.js';
 import { ABILITIES } from '../src/data/abilities.js';
+import { MODULES } from '../src/data/modules.js';
 import { WEAPONS } from '../src/data/weapons.js';
 import { ZOIDS } from '../src/data/zoids.js';
 
@@ -11,6 +12,7 @@ function corridor(middle: string) {
     map: GameMap.fromAscii([`00${middle}00`, '00000', '00000']),
     unitCatalog: ZOIDS,
     abilityCatalog: ABILITIES,
+    moduleCatalog: MODULES,
     // El rifle del gun-sniper es un arma montada desde el ciclo de
     // balance del hangar (antes era habilidad innata).
     weaponCatalog: WEAPONS,
@@ -56,6 +58,7 @@ describe('fase 3: cobertura por terreno', () => {
       map: GameMap.fromAscii(['0000A', '00000']),
       unitCatalog: ZOIDS,
       abilityCatalog: ABILITIES,
+      moduleCatalog: MODULES,
       seed: 9,
       spawns: [
         { id: 'P1', name: 'Wolf', unitTypeId: 'command-wolf', team: 'player', position: { x: 0, y: 0 } },
@@ -95,7 +98,6 @@ describe('fase 3: clima', () => {
   it('la lluvia acelera la disipación de calor un 50%', async () => {
     const { GameMap } = await import('../src/core/grid.js');
     const { WEAPONS } = await import('../src/data/weapons.js');
-    const { MODULES } = await import('../src/data/modules.js');
     const mk = (weather: 'clear' | 'rain') => new Battle({
       map: GameMap.fromAscii(['00000']),
       unitCatalog: ZOIDS,
@@ -126,6 +128,7 @@ describe('fase 3: clima', () => {
         map: GameMap.fromAscii(['000000']),
         unitCatalog: ZOIDS,
         abilityCatalog: ABILITIES,
+        moduleCatalog: MODULES,
         weather,
         seed: 3,
         spawns: [

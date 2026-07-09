@@ -3,6 +3,7 @@ import { Battle, type BattleConfig } from '../src/core/battle.js';
 import { defaultSystems } from '../src/core/systems.js';
 import type { BattleSystem } from '../src/core/systems.js';
 import { ABILITIES } from '../src/data/abilities.js';
+import { MODULES } from '../src/data/modules.js';
 import { FLAT_ARENA } from '../src/data/maps.js';
 import { ZOIDS } from '../src/data/zoids.js';
 
@@ -11,6 +12,7 @@ function duel(overrides: Partial<BattleConfig> = {}): Battle {
     map: FLAT_ARENA,
     unitCatalog: ZOIDS,
     abilityCatalog: ABILITIES,
+    moduleCatalog: MODULES,
     seed: 123,
     spawns: [
       { id: 'P1', name: 'Liger', unitTypeId: 'liger-zero', team: 'player', position: { x: 1, y: 2 } },
