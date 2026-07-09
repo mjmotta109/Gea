@@ -209,7 +209,7 @@
     <h1 class="title"><span class="g">GEA</span> — motor táctico y bestias mecánicas</h1>
     <p class="lede">Sucesor espiritual de Final Fantasy Tactics con profundidad de Armored Core / BattleTech, envuelto en un juego de expediciones con una máquina compañera. Esta tanda cerró el manifiesto de motor (calor, fuego, tempo, supresión), le dio una IA que <em>se adapta a cómo juegas</em> y una curva de dificultad ancha, validada a 100 contratos. Mapa de todo lo construido y de lo que queda — antes de la pasada gráfica.</p>
     <div class="metaline">
-      <span><span class="dot"></span><b class="num">338</b> tests en verde</span>
+      <span><span class="dot"></span><b class="num">347</b> tests en verde</span>
       <span><b class="num">~16.200</b> líneas TS · 4 capas</span>
       <span>golden master intacto · <code class="mono">tsc</code> limpio</span>
       <span>cliente autocontenido <b class="num">545&nbsp;KB</b> · cero archivos externos</span>
@@ -288,7 +288,7 @@
       <div class="panel">
         <p class="panel-title">Contenido</p>
         <ul class="sys">
-          <li><span class="st"><span class="chip done">ok</span></span><span class="nm">25 chasis<small>Roles asalto/escaramuza/tanque/tirador/apoyo/volador. <b>Solo 2 usan frames</b> (daño localizado) — el hueco nº 1.</small></span></li>
+          <li><span class="st"><span class="chip done">ok</span></span><span class="nm">25 chasis · 9 con frame<small>Roles asalto/escaramuza/tanque/tirador/apoyo/volador. <b>9 usan frames</b> (daño localizado a medida): torso grueso, alas frágiles, mochila a la espalda… se ven romperse las piezas.</small></span></li>
           <li><span class="st"><span class="chip done">ok</span></span><span class="nm">Armas y módulos<small>Catálogo base + biblioteca anexa (armas <code class="mono">lib-*</code> montables en cualquier chasis): térmicas, incendiarias, supresor, humo. Ninguna entra en el golden.</small></span></li>
           <li><span class="st"><span class="chip done">ok</span></span><span class="nm">Generador de campos<small>5 biomas, determinista por clave, conectividad garantizada de lado a lado.</small></span></li>
           <li><span class="st"><span class="chip part">°</span></span><span class="nm">Facciones y mundo<small>Sistema definitivo; contenido de primera pasada por repoblar.</small></span></li>
@@ -403,7 +403,7 @@
     <div class="sec-head"><span class="sec-num">06</span><h2>Huecos: lo que falta o cojea</h2></div>
     <p class="sec-sub">No son mecánicas nuevas, son deudas — cosas construidas a medias o inconsistencias que conviene saldar antes de invertir en arte.</p>
     <div class="panel">
-      <div class="gap"><span class="mark hi">‼</span><p><span class="h">El daño localizado casi no se ve — y la IA no lo juega.</span> El blindaje por capas, el desgaste por zona y las averías con síntoma son las mecánicas más profundas del combate, pero <strong>solo 2 de 25 chasis</strong> usan frames. Y aunque el arco y la altura ya dan +daño/+acierto a todos, <strong>la IA es ciega al arco</strong>: no flanquea ni protege su espalda, así que el sistema está inerte en IA-vs-IA y es una granja de un solo lado contra ella. Hueco nº 1 en dos frentes: enseñar a la IA a jugar el arco, y dar frames a más chasis.</p></div>
+      <div class="gap"><span class="mark hi">‼</span><p><span class="h">La IA sigue ciega al arco.</span> El daño localizado ya SE VE —<strong>9 de 25 chasis</strong> tienen frame a medida (2026-07-09) y en batalla se ve romperse las piezas—, pero el otro frente del hueco sigue abierto: aunque el arco y la altura dan +daño/+acierto a todos, <strong>la IA no juega el arco</strong> —no flanquea, no protege su espalda (nunca pasa <code class="mono">facing</code>), no elige arma por penetración—, así que en IA-vs-IA ese eje está inerte y contra ella es una granja de un solo lado. Enseñarle a jugar el arco (gateado por la curva) es el siguiente salto.</p></div>
       <div class="gap"><span class="mark">▚</span><p><span class="h">Balance: reglas emergentes, no plano.</span> Tras la pasada con datos se subieron los frágiles (storm-sworder, rev-raptor, pteras, guysak) y se bajó el gojulas dominante; el suelo quedó sano. Los pegadores rinden mejor con el fuego concentrado (esperado y simétrico). Requiere vigilancia con <code class="mono">balance:hangar</code> tras cada cambio de combate.</p></div>
       <div class="gap"><span class="mark">▚</span><p><span class="h">Sin onboarding.</span> No hay tutorial ni primera-expedición guiada; el guion canónico del §1.3 existe en papel pero no en el juego. Con la curva de dificultad ya suave al arranque, es el momento de guiarla.</p></div>
       <div class="gap"><span class="mark">○</span><p><span class="h">Multijugador y replays.</span> El determinismo por semilla ya lo permite (lockstep, desafíos compartibles), pero no está construido. Oportunidad barata dado el motor.</p></div>
@@ -416,8 +416,8 @@
     <div class="sec-head"><span class="sec-num">07</span><h2>Orden que propongo antes de lo gráfico</h2></div>
     <p class="sec-sub">La tanda de profundidad de combate está cerrada y la curva, medida. Lo que queda es sacar a la superficie el sistema más rico que aún no se ve, sumar un par de mecánicas que lo ensanchen, y solo entonces vestirlo.</p>
     <ol class="steps">
-      <li><div><span class="h">Enseñar a la IA a jugar el arco.</span><small>El movimiento de mayor palanca y golden-safe: que flanquee cuando pueda y cierre el turno de cara a la amenaza (protegerse la espalda), gateado por la curva. Convierte el posicionamiento en un duelo de dos <em>sin sistemas nuevos</em>, y hace que el arco importe contra los 25 chasis.</small></div></li>
-      <li><div><span class="h">Repartir frames por el hangar.</span><small>Dar frames a más chasis (o un frame ligero universal) para que blindaje, desgaste y averías por zona aparezcan de verdad en pantalla — no solo contra dos jefes.</small></div></li>
+      <li><div><span class="h">Enseñar a la IA a jugar el arco.</span><small>El movimiento de mayor palanca y golden-safe: que flanquee cuando pueda y cierre el turno de cara a la amenaza (protegerse la espalda), gateado por la curva. Convierte el posicionamiento en un duelo de dos <em>sin sistemas nuevos</em>, y hace que el arco importe contra los 25 chasis. <b>El daño localizado ya se ve (9 chasis con frame); esto es su otra mitad.</b></small></div></li>
+      <li><div><span class="h">Repartir frames al resto del hangar.</span><small>Con el patrón <code class="mono">struct</code> ya establecido (7 chasis hechos), extender a los que faltan para que blindaje, desgaste y averías por zona aparezcan en toda batalla — no solo en los comunes.</small></div></li>
       <li><div><span class="h">Sumar 1–2 mecánicas del §05.</span><small>Mi terna: <b>proyección táctica</b> (barata, aprovecha el terreno), <b>habilidades activas del piloto</b> (la herencia FFT que falta) y <b>memoria de dosier por facción</b> (profundiza la adaptación ya construida). Cada una con su rebanada mínima y sus tests.</small></div></li>
       <li><div><span class="h">Entonces sí, la fase gráfica.</span><small>Empezar por el felino en 3 estilos (flujo de <code class="mono">ENCARGO-ARTE.md</code>); el buzón <code class="mono">art/</code> tiene los enchufes listos. Sprites → diorama, láminas → lector de casco.</small></div></li>
     </ol>
