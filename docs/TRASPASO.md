@@ -37,7 +37,7 @@ de este archivo.
 ## 3. El ritual de cada bloque de trabajo
 
 1. Lee el código antes de editar; toca con bisturí.
-2. Código + **tests vitest** (230 en verde al momento del traspaso:
+2. Código + **tests vitest** (338 en verde al momento del traspaso:
    `npx vitest run`). `npx tsc --noEmit` limpio.
 3. **Verificación Playwright** del flujo real: Chromium en
    `/opt/pw-browsers/chromium`; guiones de ejemplo en el scratchpad de
@@ -49,26 +49,70 @@ de este archivo.
 5. Reconstruir y republicar el artifact si el juego cambió.
 6. Anotar decisiones nuevas en `docs/GAME-DESIGN.md` §7 con fecha.
 
-## 4. Estado al traspasar (2026-07-07)
+## 4. Estado al traspasar (2026-07-09)
 
-- 230 tests en verde, golden al día, artifact publicado.
-- Sistemas vivos: batalla CT con objetivos (eliminar/asesinar/proteger/
-  llegar/aguantar), reacciones + vigilancia XCOM, retirada/eyección,
-  refuerzos por oleadas, jefes 2×2, terreno destructible; expediciones
-  con atlas (3 regiones, ferry/lanzadera), clima regional con peso,
-  encrucijadas, reputación de facciones, ciudades-lugar, destacamentos,
-  taller/garaje; pilotos con árbol (básica + principal/secundaria),
-  manías, estrés, terapia, heridas; compañera con marcas; hoja de
-  servicio del chasis con cicatrices; 3 vistas de batalla (plana, mesa,
-  diorama giratorio con clima dibujado); 12 arquetipos de silueta.
+- 338 tests en verde (`npx vitest run`), golden al día, tsc limpio, el
+  cliente arranca sin errores. Herramientas de balance: `npm run
+  balance:hangar` (300 duelos 4v4 IA-vs-IA, marca outliers ≥58%/≤42%) y
+  `npx tsx scripts/campaign-sim.ts 100 [campaign|meta|frozen]` (valida el
+  ARCO de 100 contratos — realista / techo / suelo).
+- Base heredada (2026-07-07): batalla CT con objetivos, reacciones +
+  vigilancia, retirada/eyección, oleadas, jefes 2×2, terreno
+  destructible; expediciones con atlas (3 regiones), clima, encrucijadas,
+  reputación, ciudades, destacamentos, taller/garaje; pilotos con árbol,
+  manías, estrés, terapia, heridas; compañera; hoja de servicio del
+  chasis; 3 vistas de batalla; siluetas.
+- **Añadido esta tanda (manifiesto Flow + profundidad + curva)** — todo
+  fechado en `docs/GAME-DESIGN.md` §7:
+  · CALOR / REACTOR como encrucijada: solo 2 chasis con reactor
+    (liger-zero-cas, geno-saurer-cp) llevan energía + calor; sobrecarga,
+    atasco de armas, apagado; SÍNTOMAS legibles en ficha/registro. Armas
+    TÉRMICAS (calientan) e INCENDIARIAS (prenden casillas → control de
+    campo: quien cierra turno sobre fuego se quema y se calienta).
+  · SUPRESIÓN: primera sinergia de escuadra (fijas al enemigo: sin
+    contra ni vigilancia).
+  · CT COMO TEMPO + SOBREMARCHA (regeneró golden): el turno cuesta base +
+    recargo de lo cometido; sobremarcha ×1.5 cediendo el turno siguiente;
+    las armas pesadas declaran `ctCost`.
+  · CONTINUIDAD expedición↔combate: sales de una batalla como entras a la
+    siguiente (calor/energía/munición residual); una jornada de descanso
+    hace refit (evita la espiral de la muerte).
+  · INERCIA (propuesta 11): APLAZADA — complejidad por complejidad; el
+    propio director avisó del "síndrome del simulador".
+  · IA MÁS PROFUNDA: fuego concentrado (foco de escuadra EMERGENTE, sin
+    memoria compartida) + emboscada (estrena la vigilancia en la IA).
+    Determinista, regeneró golden.
+  · LA FACCIÓN TE FICHA: dosier determinista de tu estilo
+    (melee/ranged/reactor) → escuadras que te contrarrestan por CHASIS y
+    por ARMA (lanzallamas contra reactores), también en la taberna.
+  · CURVA DE DIFICULTAD AMPLIA: la maestría de la IA es el TECHO del arco,
+    no el suelo. Tres ejes por progreso — `campaignAiSkill`
+    (contratos/25 + desfase por dificultad; escalona foco≥0.35,
+    emboscada≥0.65, contra-chasis≥0.45, contra-arma≥0.7), `campaignStrength`
+    (glide 0.55→1.6; el presupuesto enemigo se GASTA en élites vía
+    `fillSquad`) y `wear` (desgaste por dificultad). Validada a 100
+    contratos: banda 45-65% si mantienes el paso; el techo baja a ~48% al
+    final y el suelo (nunca mejoras) se desmorona a 12-17%.
+- **PRÓXIMO de mayor palanca (diagnóstico HECHO, sin empezar): sacarle
+  partido al DAÑO LOCALIZADO.** `frame.ts` es profundo (arcos, altura,
+  placas que se arrancan, desbordamiento al núcleo estilo BattleTech,
+  penetración) pero está medio dormido: (1) solo 2 de 25 chasis tienen
+  `frame` (geno-saurer-cp, gran-brontes) → mutilar piezas casi nunca
+  ocurre; (2) la IA es CIEGA al arco: no flanquea, no protege su espalda
+  (nunca pasa `facing` en executeWait), no elige arma por penetración →
+  en IA-vs-IA el sistema está INERTE y contra la IA es una granja de un
+  solo lado. La base SÍ vive: arco + altura ya dan +daño/+acierto a TODOS
+  los chasis y el cliente lo muestra en el pronóstico. Movimiento
+  recomendado: enseñar a la IA a jugar el arco (flanquear + cerrar turno
+  de cara a la amenaza), gateado por la misma curva de destreza; después
+  repartir `frame` a más chasis.
 - **Pendiente del DIRECTOR**: conseguir arte (empezar por el felino en
-  3 estilos; ver flujo de compra en ENCARGO-ARTE.md). Cuando llegue,
-  integrarlo: bestias → sprites/diorama; láminas técnicas → lector de
-  casco con zonas separables.
-- Backlog anotado (no pedido aún): suministros por cabeza, encargos de
-  destacamento por facción, quinto piloto de taberna, 4ª región
-  (Cinturón de Ceniza), interiores ilustrados, coste por cambiar de
-  escuela del piloto.
+  3 estilos; ENCARGO-ARTE.md). Cuando llegue: bestias → sprites/diorama;
+  láminas técnicas → lector de casco con zonas separables.
+- Backlog anotado (no pedido aún): memoria de dosier POR FACCIÓN (exige
+  contratos etiquetados por facción); suministros por cabeza, encargos de
+  destacamento por facción, quinto piloto de taberna, 4ª región (Cinturón
+  de Ceniza), interiores ilustrados, coste por cambiar de escuela.
 
 ## 5. Cómo trabaja el director
 
