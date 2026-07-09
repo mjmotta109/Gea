@@ -466,8 +466,14 @@ la batalla se decide a corta distancia.
 - Golden master regenerado en el commit que introdujo el cambio de
   comportamiento, como manda la regla transversal 1.
 
-Pendiente de la fase: sensores/niebla de guerra (punto 3), clima (4) y
-la herramienta de balance por lotes.
+**Actualización (2026-07-09)**: del pendiente de la fase, ya están hechos
+el **clima** como estado de batalla (niebla/arena/etc. con peso regional,
+`tests/weather.test.ts`) y la **herramienta de balance por lotes**
+(`npm run balance:hangar`, 300 duelos 4v4). Lo único que queda —
+**sensores/niebla de guerra** (punto 3) y la IA sobre percepción filtrada
+(punto 4)— está **APLAZADO por decisión del director** (ver
+`docs/TRASPASO.md` §2.6): no reproponer salvo que él lo pida. En la
+práctica la Fase 3 está cerrada salvo esa parte aplazada.
 
 ---
 
