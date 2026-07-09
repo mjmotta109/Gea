@@ -63,7 +63,11 @@ function teamFocusTarget(battle: Battle, self: UnitState, enemies: UnitState[]):
  * (termina en wait). Es deliberadamente simple: sirve de sparring y de
  * referencia para IAs más serias.
  */
-export function planTurn(battle: Battle, unit: UnitState): BattleAction[] {
+export function planTurn(battle: Battle, unit: UnitState, skill?: number): BattleAction[] {
+  // Competencia efectiva: el override permite skill POR EQUIPO (un jugador
+  // simulado a tope contra un enemigo que sube por la curva). Sin override rige
+  // el de la batalla (por defecto 1 → golden idéntico).
+  const aiSkill = skill ?? battle.aiSkill;
   const enemies = battle.units.filter((u) => u.team !== unit.team && u.hp > 0 && !u.retreated);
   if (enemies.length === 0) return [{ type: 'wait', unitId: unit.id }];
 
@@ -99,7 +103,7 @@ export function planTurn(battle: Battle, unit: UnitState): BattleAction[] {
   const profile = profileOf(battle, unit);
   // Coordinación de escuadra: solo una IA competente concentra el fuego (curva
   // de dificultad). Grunts torpes (skill bajo) pelean cada uno por su lado.
-  const focus = battle.aiSkill >= AI_SKILL_FOCUS ? teamFocusTarget(battle, unit, enemies) : undefined;
+  const focus = aiSkill >= AI_SKILL_FOCUS ? teamFocusTarget(battle, unit, enemies) : undefined;
 
   for (const option of moveOptions) {
     // Riesgo posicional: enemigos pegados a la casilla final del turno.
@@ -217,7 +221,7 @@ export function planTurn(battle: Battle, unit: UnitState): BattleAction[] {
     if (eProfile.aggression <= profile.aggression) return false;
     return d <= maxRange + battle.effectiveStats(e).move + 1; // entrará a tiro tras avanzar
   });
-  if (battle.aiSkill >= AI_SKILL_AMBUSH && !retreat && !unit.hasActed
+  if (aiSkill >= AI_SKILL_AMBUSH && !retreat && !unit.hasActed
     && profile.aggression < 0.7 && enemyAboutToEnter) {
     return [{ type: 'overwatch', unitId: unit.id }];
   }

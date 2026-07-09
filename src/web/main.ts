@@ -46,7 +46,7 @@ import { ZOIDS } from '../data/zoids.js';
 import {
   armorRepairCost, buyBlueprint, buySupplies, buyWeapon, buyZoid, cityRepair, consumeSupplies,
   contractOffers, mountedCount, newCampaign, rebuildCost, rebuildZoid, reinforceArmor,
-  adaptationHint, counterRoles, counterWeapons, readStyle, updateDossier,
+  adaptationHint, campaignStrength, counterRoles, counterWeapons, readStyle, updateDossier,
   refitZoid, reinforcementModifiers, repairArmor, repairCost, repairZoid, resolveContract, scarLevel,
   sellCargo, sellWeapon, serviceTier, setMountedWeapons, stashCargo, stripReinforcement,
   tavernJob, updateZoidRecord, zoidRecord,
@@ -396,16 +396,18 @@ function campaignWear(): number {
 
 /**
  * Competencia de la IA para esta batalla: la CURVA de dificultad. Arranca torpe
- * y madura con los contratos cumplidos (0→1 en ~15); la dificultad la desplaza.
+ * y madura con los contratos cumplidos (0→1 en ~25); la dificultad la desplaza.
  * Es lo que hace que la coordinación, la emboscada y la adaptación del enemigo
  * asomen GRADUALMENTE — el juego enseña antes de exigir, no es un Dark Souls.
- * Sin campaña (escaramuza) rinde a tope (1).
+ * La rampa es ANCHA a propósito: la precisión total es el TECHO del arco (final
+ * de campaña), no un muro de mitad de partida. Sin campaña (escaramuza) rinde a
+ * tope (1).
  */
 function campaignAiSkill(): number {
   const c = campaign;
   if (!c) return 1;
   const spec = DIFFICULTIES.find((d) => d.id === (c.difficulty ?? 'mercenario'));
-  return Math.max(0, Math.min(1, c.contractsDone / 15 + (spec?.aiCurve ?? 0)));
+  return Math.max(0, Math.min(1, c.contractsDone / 25 + (spec?.aiCurve ?? 0)));
 }
 
 function startBattle(
@@ -2831,7 +2833,7 @@ function renderContracts(): void {
   // El cupo de la mesa depende de cómo te mira el Gremio.
   const guildTier = reputationTier(campaign!.reputation['gremio'] ?? 0);
   const slots = contractSlots(guildTier.id);
-  const all = contractOffers(campaign!.contractsDone, ECONOMY, CONTRACT_ENEMY_POOL, adaptiveWeight());
+  const all = contractOffers(campaign!.contractsDone, ECONOMY, CONTRACT_ENEMY_POOL, adaptiveWeight(), campaignStrengthNow());
   const rot = campaign!.contractsDone % all.length;
   const offers = [...all.slice(rot), ...all.slice(0, rot)].slice(0, slots);
   if (slots < 3) {
@@ -3190,7 +3192,7 @@ function partyCandidates(): Array<{ slot: number; label: string; detail: string 
 /** Acepta el contrato seleccionado y abre la expedición hacia su lugar. */
 function startContractExpedition(): void {
   if (!campaign || !selectedContractId) return;
-  const offers = contractOffers(campaign.contractsDone, ECONOMY, CONTRACT_ENEMY_POOL, adaptiveWeight());
+  const offers = contractOffers(campaign.contractsDone, ECONOMY, CONTRACT_ENEMY_POOL, adaptiveWeight(), campaignStrengthNow());
   const contract = offers.find((c) => c.id === selectedContractId);
   if (!contract) return;
   if (!campaign.roster.some((z) => !z.destroyed)) return;
@@ -3226,6 +3228,11 @@ function startFreeRoam(): void {
  * undefined si aún no hay para adaptarse — así en partidas nuevas la generación
  * es idéntica a la de antes.
  */
+/** Fuerza de la oposición ahora (curva de dificultad por progreso). */
+function campaignStrengthNow(): number {
+  return campaignStrength(campaign?.contractsDone ?? 0);
+}
+
 function adaptiveWeight(): ((id: string) => number) | undefined {
   if (campaignAiSkill() < 0.45) return undefined; // la facción aún no te estudia (curva)
   const roles = counterRoles(readStyle(campaign?.dossier));
@@ -3541,7 +3548,7 @@ function saveExpedition(): void {
 
 function expeditionContract(): Contract | undefined {
   if (!campaign || !expedition) return undefined;
-  return contractOffers(campaign.contractsDone, ECONOMY, CONTRACT_ENEMY_POOL, adaptiveWeight())
+  return contractOffers(campaign.contractsDone, ECONOMY, CONTRACT_ENEMY_POOL, adaptiveWeight(), campaignStrengthNow())
     .find((c) => c.id === expedition!.contractId);
 }
 
@@ -4212,7 +4219,7 @@ function renderCity(): void {
   tavern.insertAdjacentHTML('beforeend',
     '<div class="cnote">Los contratos OFICIALES del gremio se firman en el cuartel (Base Arcadia). Aquí, entre jarras, se consiguen otros encargos…</div>');
   const jobDone = (expedition.tavernJobsDone ?? []).includes(node.id);
-  let job = tavernJob(node.id, city.level, campaign.contractsDone, ECONOMY, CONTRACT_ENEMY_POOL, adaptiveWeight());
+  let job = tavernJob(node.id, city.level, campaign.contractsDone, ECONOMY, CONTRACT_ENEMY_POOL, adaptiveWeight(), campaignStrengthNow());
   // En ciudad de clanes, el trabajo sucio paga como lo que es.
   if (faction?.id === 'chatarreros') {
     job = { ...job, reward: Math.round(job.reward * 1.25) };

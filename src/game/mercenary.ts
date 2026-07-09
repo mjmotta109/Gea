@@ -367,6 +367,18 @@ export function adaptationHint(style: PlayerStyle): string | undefined {
   }
 }
 
+/**
+ * FUERZA de la oposición según el progreso: el presupuesto de la escuadra
+ * enemiga arranca FLOJO (grunts baratos, para aprender el oficio) y sube SUAVE
+ * y SIN MESETA para que el final apriete de verdad aun con roster de élite. Es
+ * una GLIDE ancha: ~0.55 al empezar, ~1.0 (nominal) hacia el contrato ~20 y
+ * hasta 1.6 en el tramo final. Es el eje de STRENGTH de la curva de dificultad
+ * (la inteligencia la lleva aiSkill; esto es el MÚSCULO). 1 = presupuesto base.
+ */
+export function campaignStrength(contractsDone: number): number {
+  return Math.min(1.6, 0.55 + contractsDone / 45); // 0.55 → 1.0 (~c20) → 1.6 (~c47)
+}
+
 /** Elige un id proporcional a su peso (determinista dado `r` en [0,1)). */
 function weightedPick(ids: string[], r: number, weightOf?: (id: string) => number): string {
   if (!weightOf) return ids[Math.floor(r * ids.length)]!;
@@ -380,30 +392,56 @@ function weightedPick(ids: string[], r: number, weightOf?: (id: string) => numbe
   return ids[ids.length - 1]!;
 }
 
+/**
+ * Rellena una escuadra de `slots` GASTANDO el presupuesto: por hueco elige entre
+ * lo que cabe, favoreciendo unidades que aprovechan el hueco (afinidad ∝ (precio/
+ * hueco)²) para que un contrato RICO traiga chasis caros en vez de malgastarse en
+ * chatarra — es lo que hace que la FUERZA importe pasado el presupuesto base. El
+ * sesgo de composición `weightOf` (adaptación de facción) sigue multiplicando.
+ * Determinista dado `rand`; una tirada por hueco. El líder (más caro) va primero.
+ */
+function fillSquad(
+  enemyPool: string[],
+  economy: EconomyTable,
+  slots: number,
+  budget: number,
+  rand: () => number,
+  weightOf?: (id: string) => number,
+  affordCap = 1.35,
+): string[] {
+  const squad: string[] = [];
+  let remaining = budget;
+  for (let i = 0; i < slots; i++) {
+    const slotBudget = remaining / (slots - i);
+    const affordable = enemyPool.filter((id) => (economy.zoidPrices[id] ?? 0) <= slotBudget * affordCap);
+    const spendWeight = (id: string) => {
+      const ratio = (economy.zoidPrices[id] ?? 0) / Math.max(1, slotBudget);
+      return ratio * ratio; // favorece gastar el hueco (élites en contratos ricos)
+    };
+    const weight = (id: string) => Math.max(0.0001, weightOf?.(id) ?? 1) * spendWeight(id);
+    const pick = affordable.length > 0
+      ? weightedPick(affordable, rand(), weight)
+      : enemyPool.reduce((a, b) => ((economy.zoidPrices[a] ?? 0) <= (economy.zoidPrices[b] ?? 0) ? a : b));
+    squad.push(pick);
+    remaining -= economy.zoidPrices[pick] ?? 0;
+  }
+  // El más caro lidera (comandante) — orden estable para el cliente.
+  squad.sort((a, b) => (economy.zoidPrices[b] ?? 0) - (economy.zoidPrices[a] ?? 0));
+  return squad;
+}
+
 export function contractOffers(
   contractsDone: number,
   economy: EconomyTable,
   enemyPool: string[],
   /** Sesgo de composición (adaptación de facción). Ausente = uniforme, igual que antes. */
   weightOf?: (id: string) => number,
+  /** Multiplicador de FUERZA (curva de dificultad). Ausente = 1 (presupuesto base). */
+  strength = 1,
 ): Contract[] {
   return TIERS.map((spec, tierIndex) => {
     const rand = mulberry32((contractsDone * 3 + tierIndex + 1) * 0x9e3779b1);
-    const squad: string[] = [];
-    let remaining = spec.budget;
-    for (let i = 0; i < 4; i++) {
-      // Candidatos que caben en lo que queda de presupuesto (repartido
-      // entre los huecos que faltan); si ninguno cabe, chatarra barata.
-      const slotBudget = remaining / (4 - i);
-      const affordable = enemyPool.filter((id) => (economy.zoidPrices[id] ?? 0) <= slotBudget * 1.35);
-      const pick = affordable.length > 0
-        ? weightedPick(affordable, rand(), weightOf)
-        : enemyPool.reduce((a, b) => (economy.zoidPrices[a] ?? 0) <= (economy.zoidPrices[b] ?? 0) ? a : b);
-      squad.push(pick);
-      remaining -= economy.zoidPrices[pick] ?? 0;
-    }
-    // El más caro lidera (comandante) — orden estable para el cliente.
-    squad.sort((a, b) => (economy.zoidPrices[b] ?? 0) - (economy.zoidPrices[a] ?? 0));
+    const squad = fillSquad(enemyPool, economy, 4, spec.budget * strength, rand, weightOf);
     const name = spec.names[(contractsDone + tierIndex) % spec.names.length]!;
     return {
       id: `c${contractsDone}-${spec.tier}`,
@@ -735,21 +773,12 @@ export function tavernJob(
   enemyPool: string[],
   /** Sesgo de composición (adaptación de facción). Ausente = uniforme. */
   weightOf?: (id: string) => number,
+  /** Multiplicador de fuerza (curva de dificultad). Ausente = 1. */
+  strength = 1,
 ): Contract {
   const rand = mulberry32(hashStr(`${nodeId}|tab|${cycle}`));
-  const budget = 2200 + cityLevel * 900;
-  const squad: string[] = [];
-  let remaining = budget;
-  for (let i = 0; i < 3; i++) {
-    const slotBudget = remaining / (3 - i);
-    const affordable = enemyPool.filter((id) => (economy.zoidPrices[id] ?? 0) <= slotBudget * 1.3);
-    const pick = affordable.length > 0
-      ? weightedPick(affordable, rand(), weightOf)
-      : enemyPool.reduce((a, b) => ((economy.zoidPrices[a] ?? 0) <= (economy.zoidPrices[b] ?? 0) ? a : b));
-    squad.push(pick);
-    remaining -= economy.zoidPrices[pick] ?? 0;
-  }
-  squad.sort((a, b) => (economy.zoidPrices[b] ?? 0) - (economy.zoidPrices[a] ?? 0));
+  const budget = (2200 + cityLevel * 900) * strength;
+  const squad = fillSquad(enemyPool, economy, 3, budget, rand, weightOf, 1.3);
   const names = ['Deuda de juego ajena', 'Espantar a los recaudadores', 'El silo en disputa', 'Un rival del tabernero'];
   return {
     id: `tav-${nodeId}-${cycle}`,

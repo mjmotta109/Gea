@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Battle } from '../src/core/battle.js';
 import {
-  buyWeapon, buyZoid, contractOffers, counterRoles, counterWeapons, FULL_HP, mountedCount,
+  buyWeapon, buyZoid, campaignStrength, contractOffers, counterRoles, counterWeapons, FULL_HP, mountedCount,
   newCampaign, readStyle, rebuildZoid, refitZoid, repairCost, repairZoid, resolveContract,
   sellWeapon, setMountedWeapons, updateDossier,
 } from '../src/game/mercenary.js';
@@ -146,6 +146,35 @@ describe('modo mercenario: campaña', () => {
     expect(contractOffers(0, ECONOMY, CONTRACT_ENEMY_POOL, heavyOnSnipers)).toEqual(biased);
     // Sin sesgo, idéntico a la generación de siempre (retro-compatible).
     expect(contractOffers(0, ECONOMY, CONTRACT_ENEMY_POOL)).toEqual(uniform);
+  });
+
+  it('campaignStrength es una glide ancha: floja al empezar, sin meseta, con techo', () => {
+    // Arranca por debajo del presupuesto nominal (final gentil de la rampa).
+    expect(campaignStrength(0)).toBeLessThan(0.6);
+    // Nominal (~1) hacia el contrato 20; monótona creciente por el camino.
+    expect(campaignStrength(20)).toBeGreaterThan(0.9);
+    expect(campaignStrength(20)).toBeLessThan(1.1);
+    for (let c = 0; c < 60; c++) {
+      expect(campaignStrength(c + 1)).toBeGreaterThanOrEqual(campaignStrength(c));
+    }
+    // Sin meseta temprana: el final (c40) aprieta más que la mitad (c20).
+    expect(campaignStrength(40)).toBeGreaterThan(campaignStrength(20) + 0.25);
+    // Techo acotado (no se dispara en campañas larguísimas).
+    expect(campaignStrength(1000)).toBeLessThanOrEqual(1.6);
+  });
+
+  it('la FUERZA compra chasis mejores: un contrato rico trae élites, no chatarra', () => {
+    const squadPrice = (squad: string[]): number =>
+      squad.reduce((n, id) => n + ECONOMY.zoidPrices[id]!, 0);
+    const flojo = contractOffers(0, ECONOMY, CONTRACT_ENEMY_POOL, undefined, 0.55);
+    const fuerte = contractOffers(0, ECONOMY, CONTRACT_ENEMY_POOL, undefined, 1.6);
+    // Más fuerza ⇒ escuadra más cara en cada tramo (el presupuesto SE GASTA).
+    for (let t = 0; t < flojo.length; t++) {
+      expect(squadPrice(fuerte[t]!.enemySquad)).toBeGreaterThan(squadPrice(flojo[t]!.enemySquad));
+      expect(fuerte[t]!.enemySquad).toHaveLength(4);
+    }
+    // Determinista con fuerza fija.
+    expect(contractOffers(0, ECONOMY, CONTRACT_ENEMY_POOL, undefined, 1.6)).toEqual(fuerte);
   });
 
   it('refitZoid enfría/reabastece: limpia el residual y no toca HP ni blindaje', () => {

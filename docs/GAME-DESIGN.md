@@ -1240,3 +1240,37 @@ arquitectura del motor van en DESIGN.md.)*
   336 en verde, tsc limpio. Verificado en el juego real: mismo dosier 'reactor',
   a contractsDone 0 el enemigo NO trae lanzallamas ni sale el aviso; a 12 (skill
   0.8) sí. Satisfactorio: cuesta, pero se aprende antes de que apriete.
+- **2026-07-09** — 100 CONTRATOS: VALIDAR Y AFINAR EL ARCO (dirección del
+  usuario: "hagamos 100 contratos"). Construido un SIMULADOR de campaña
+  (scripts/campaign-sim.ts) que juega N contratos seguidos —jugador competente
+  (IA a tope, skill 1) contra la curva + adaptación— y reporta la tasa de
+  victoria por decenas y dificultad. Tres modos que ACOTAN la experiencia:
+  `campaign` (arco realista: el roster CRECE por tramos y toma encargos acordes
+  a su progreso), `meta` (roster de élite CONGELADO = el TECHO) y `frozen`
+  (roster de arranque congelado = el SUELO). Cada decil junta 10·REPEATS
+  batallas (6 semillas) para una lectura estable, no anecdótica.
+  El simulador DESTAPÓ dos fallos que el ojo no veía:
+  · La FUERZA no tenía músculo pasado 1.0: la escuadra enemiga son siempre 4
+    unidades y el relleno gastaba mal el presupuesto (compraba 4 skirmishers
+    baratos y DESPERDICIABA el resto), así que un final con roster de élite era
+    un paseo (90% de victorias). Arreglo: `fillSquad` (extraído y compartido por
+    contractOffers y tavernJob) ahora GASTA el hueco —afinidad de precio ∝
+    (precio/hueco)²— de modo que un contrato rico trae ÉLITES, no chatarra. La
+    caza de élite (presupuesto 7200) por fin se siente de élite, y la fuerza
+    importa hasta el final. (Sin sesgo ni fuerza, retro-compatible: los tests de
+    composición y de escalado por tramo siguen en verde.)
+  · La rampa de destreza era demasiado ESTRECHA (contratos/15: precisión total
+    hacia el contrato 15, media partida) y la fuerza tenía MESETA temprana
+    (0.6→1.3 y plano). Reajuste hacia una GLIDE ANCHA: `campaignAiSkill` pasa a
+    contratos/25 (la maestría es el final del arco, no su mitad) y
+    `campaignStrength` a 0.55 + c/45 con techo 1.6 (floja al empezar, SIN meseta,
+    apretando de verdad al final).
+  ENVOLVENTE validada (mercenario): TECHO (élite desde el día 1) 80% al principio
+  → la curva lo alcanza → 48% al final (no se compra la partida); SUELO (nunca
+  mejoras) 57% → se desmorona a 12-17% (hay que invertir); REALISTA (mantienes el
+  paso) una banda de 45-65% de principio a fin. Eso es "amplia, satisfactoria,
+  pero que cuesta". Todo en la capa de campaña + una constante del cliente →
+  GOLDEN-SAFE (verificado byte-idéntico) y el override de skill por equipo en
+  planTurn es opt-in (por defecto = el de la batalla = 1). 2 tests nuevos
+  (glide de campaignStrength; la fuerza compra chasis mejores), 338 en verde,
+  tsc limpio, cliente arranca sin errores.
