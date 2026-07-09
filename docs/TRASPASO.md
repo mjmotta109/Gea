@@ -48,6 +48,11 @@ de este archivo.
 4. Commit en **español**, descriptivo, y push a la rama de trabajo.
 5. Reconstruir y republicar el artifact si el juego cambió.
 6. Anotar decisiones nuevas en `docs/GAME-DESIGN.md` §7 con fecha.
+7. **Consola de estado** (el artefacto que el director consulta): su fuente
+   vive versionada en `docs/consola-estado.html`. Para actualizarla, edita ese
+   archivo y republícalo con la herramienta Artifact **a la MISMA URL**
+   (`url: https://claude.ai/code/artifact/43841a36-a375-47fd-b6c3-35af5035cf4a`,
+   favicon 📟) para no acuñar una nueva. Mantenla al día cuando cambie el estado.
 
 ## 4. Estado al traspasar (2026-07-09)
 
