@@ -386,6 +386,12 @@
   .wnode.cur .dot { background: var(--energy); border-color: #fff; box-shadow: 0 0 10px 2px rgba(95,217,164,0.5); }
   .wnode.cur { color: var(--ink); font-weight: 700; }
   .wnode .tag { font-size: 12px; }
+  /* Nodo ALCANZABLE: se pincha directamente en el mapa para viajar. */
+  .wnode.reachable { cursor: pointer; }
+  .wnode.reachable .dot { border-color: var(--energy); box-shadow: 0 0 0 3px rgba(95,217,164,0.14); }
+  .wnode.reachable:hover { color: var(--ink); }
+  .wnode.reachable:hover .dot { background: var(--energy); box-shadow: 0 0 10px 3px rgba(95,217,164,0.55); }
+  .wnode.locked-node { opacity: 0.5; cursor: not-allowed; }
   #world-side { min-width: 0; }
   .wroute {
     display: block; width: 100%; text-align: left; background: var(--panel-2); color: var(--ink);

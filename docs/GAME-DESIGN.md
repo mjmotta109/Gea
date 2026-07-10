@@ -1309,3 +1309,15 @@ arquitectura del motor van en DESIGN.md.)*
   cada frame), 347 en verde, tsc limpio, verificado en el juego real.
   PENDIENTE (el otro frente del hueco nº1): la IA sigue CIEGA al arco —no
   flanquea ni protege su espalda—; darle eso es el siguiente salto.
+- **2026-07-09** — NAVEGAR PINCHANDO EL MAPA (dirección del usuario). El mapa de
+  expedición ya dibujaba los nodos y los tramos, pero solo se viajaba por la
+  LISTA de rutas (botones). Ahora el destino se PINCHA directo en el mapa: los
+  nodos vecinos alcanzables se resaltan (anillo verde, cursor de mano, título con
+  las jornadas) y al clicarlos se viaja (equivale a su ruta). Respeta las reglas:
+  sin suministros solo se marcan las rutas hacia la civilización (los demás
+  quedan atenuados y no clicables), y los tramos rotos avisan del vadeo (+1 día).
+  La lista de rutas SE MANTIENE (lleva el detalle de coste/relato y los enlaces
+  interregionales de ferry/lanzadera, que van a otra región y no están en este
+  mapa). Cambio solo de cliente (renderWorld + CSS de .wnode), sin tocar el motor
+  de viaje. Verificado en el juego real: clicar 'Base Arcadia' viaja (Cruce del
+  Río → Base Arcadia, Día 0 → 1). tsc limpio, 347 tests en verde.

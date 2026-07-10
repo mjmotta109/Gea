@@ -3590,33 +3590,53 @@ function renderWorld(): void {
     return `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"${blocked ? ' class="blocked"' : ''}/>`;
   }).join('');
 
-  // Nodos: los ocultos no se dibujan hasta descubrirlos.
+  // Rutas transitables desde aquí. Sin suministros, la tripulación solo
+  // acepta moverse hacia la civilización. Se calcula ANTES de pintar los
+  // nodos para poder marcar en el MAPA cuáles son destino alcanzable.
+  const starving = campaign.supplies <= 0;
+  const allowed = starving
+    ? new Set(edgesTowardCivilization(expedition, REGION).map((e) => edgeKey(e.a, e.b)))
+    : null;
+  const reachable = new Map<string, { edge: ReturnType<typeof neighbors>[number]; broken: boolean; locked: boolean; days: number }>();
+  for (const edge of neighbors(REGION, expedition.at)) {
+    const dest = REGION.nodes.find((n) => n.id === otherEnd(edge, expedition!.at))!;
+    if (!isNodeVisible(dest, discovered)) continue;
+    const broken = expedition.blockedEdges.includes(edgeKey(edge.a, edge.b));
+    const locked = allowed !== null && !allowed.has(edgeKey(edge.a, edge.b));
+    reachable.set(dest.id, { edge, broken, locked, days: edge.days + (broken ? 1 : 0) });
+  }
+
+  // Nodos: los ocultos no se dibujan hasta descubrirlos. Un destino
+  // alcanzable se PINCHA directo en el mapa para viajar (equivale a su ruta).
   const nodesHost = $('world-nodes');
   nodesHost.innerHTML = '';
   for (const node of REGION.nodes) {
     if (!isNodeVisible(node, discovered)) continue;
     const el = document.createElement('div');
+    const reach = reachable.get(node.id);
     el.className = 'wnode' +
       (node.id === expedition.at ? ' cur' : '') +
       (node.id === expedition.targetNodeId && !expedition.missionDone ? ' target' : '') +
       (node.id === REGION.hq ? ' hq' : '') +
-      (node.kind === 'ruinas' ? ' ruin' : '');
+      (node.kind === 'ruinas' ? ' ruin' : '') +
+      (reach && !reach.locked ? ' reachable' : reach && reach.locked ? ' locked-node' : '');
     el.style.left = `${node.x}%`;
     el.style.top = `${node.y}%`;
-    el.title = node.description;
+    if (reach && !reach.locked) {
+      el.title = `→ Viajar a ${node.name} · ${reach.days} jornada${reach.days > 1 ? 's' : ''}${reach.broken ? ' · vadear el puente caído' : ''}`;
+      el.addEventListener('click', () => doTravel(reach.edge));
+    } else if (reach && reach.locked) {
+      el.title = 'Sin suministros: solo se aceptan rutas hacia la ciudad más cercana.';
+    } else {
+      el.title = node.description;
+    }
     const glyph = node.secret ? '✦ ' : node.kind === 'ruinas' ? '🏛 ' : '';
     el.innerHTML = `<div class="dot"></div><span class="tag">${node.id === REGION.hq ? '⚒ ' : ''}${node.id === expedition.targetNodeId && !expedition.missionDone ? '🎯 ' : ''}${glyph}</span>${node.name}`;
     nodesHost.appendChild(el);
   }
 
-  // Rutas disponibles desde aquí. Sin suministros, la tripulación solo
-  // acepta moverse hacia la civilización.
   const routes = $('world-routes');
   routes.innerHTML = '';
-  const starving = campaign.supplies <= 0;
-  const allowed = starving
-    ? new Set(edgesTowardCivilization(expedition, REGION).map((e) => edgeKey(e.a, e.b)))
-    : null;
   if (starving) {
     routes.insertAdjacentHTML('beforeend',
       '<div class="wwarn">⚠ SIN SUMINISTROS: la tripulación solo acepta rutas hacia la ciudad más cercana.</div>');
