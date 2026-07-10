@@ -1321,3 +1321,19 @@ arquitectura del motor van en DESIGN.md.)*
   mapa). Cambio solo de cliente (renderWorld + CSS de .wnode), sin tocar el motor
   de viaje. Verificado en el juego real: clicar 'Base Arcadia' viaja (Cruce del
   Río → Base Arcadia, Día 0 → 1). tsc limpio, 347 tests en verde.
+- **2026-07-09** — EMBOSCADAS DE RUTA: peleas aleatorias al viajar (dirección del
+  usuario: "enemigos fáciles y medio bobos… para aumentar exp"). Tras un tramo
+  por tierra hay un ~35% (determinista por nodo+día) de EMBOSCADA: una chusma de
+  2-3 grunts baratos (molga/guysak/rev-raptor) con la IA a `aiSkill 0.15` —flojos
+  y BOBOS: cada uno a lo suyo, sin coordinar ni vigilar (la curva de destreza que
+  ya teníamos, puesta al mínimo). Objetivo por defecto (derribar a todos). Sirve
+  para CURTIR a los pilotos: la XP la reparte el flujo normal (renderXpSummary),
+  que dispara para cualquier batalla. Sin emboscada en el HQ (refugio), ni en el
+  nodo-objetivo (ya trae su batalla), ni sin party viva, ni en ferry/lanzadera
+  (pasaje seguro), ni cuando el tramo ya trae una encrucijada (un evento por
+  viaje). Nuevo `settleSkirmish` (sin contrato): persiste HP + residual de
+  continuidad y las heridas igual que un contrato, da una chatarra menor de
+  saqueo (30/derribo) y vuelve al mapa. `startBattle` acepta un `aiSkill` de
+  brief (override de la curva). Solo cliente; el motor no se toca. Verificado en
+  el juego: a los 5 viajes salta la emboscada —4 máquinas (con su daño arrastrado)
+  contra 2 grunts— y se resuelve devolviendo al mapa. tsc limpio, 347 en verde.

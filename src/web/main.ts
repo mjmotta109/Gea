@@ -359,6 +359,7 @@ function refreshMapSelect(): void {
 /** Escaramuza libre: el equipo del garaje contra un equipo por semilla. */
 function newBattle(seed: number, weather: WeatherId): void {
   activeContract = null; // empezar escaramuza abandona el contrato en curso
+  activeSkirmish = false;
   deployedSlots = [];
   returnToMerc = false;
   const field = battlefield();
@@ -382,6 +383,9 @@ interface BattleBrief {
   reinforcements?: ReinforcementWave[];
   /** Línea de briefing que abre el registro táctico. */
   briefing?: string;
+  /** Competencia de la IA para ESTA batalla; ausente = la de la curva de campaña.
+   *  Una emboscada de ruta la baja a propósito (enemigos flojos y bobos). */
+  aiSkill?: number;
 }
 
 /**
@@ -421,7 +425,7 @@ function startBattle(
     weaponCatalog: CATALOGS.weaponCatalog,
     weather,
     wear: campaignWear(),
-    aiSkill: campaignAiSkill(),
+    aiSkill: brief.aiSkill ?? campaignAiSkill(),
     seed,
     spawns,
     ...(brief.objective ? { objective: brief.objective } : {}),
@@ -2222,7 +2226,7 @@ function showOverlay(): void {
   $('ov-title').textContent = won ? 'Victoria' : 'Derrota';
   $('ov-title').style.color = won ? 'var(--player)' : 'var(--enemy)';
   // Liquida el contrato (fija el destino de vuelta) ANTES de decidir el texto.
-  $('ov-merc').innerHTML = activeContract ? settleContract() : '';
+  $('ov-merc').innerHTML = activeContract ? settleContract() : activeSkirmish ? settleSkirmish() : '';
   // El botón y el subtítulo dicen A DÓNDE se vuelve — mismas condiciones que
   // restart(), para que texto y acción nunca mientan.
   const toWorld = returnToWorld && !!expedition && !!campaign;
@@ -2570,6 +2574,9 @@ let campaign: CampaignState | null = loadCampaign();
 let selectedContractId: string | null = null;
 /** Contrato de la batalla en curso (null = escaramuza libre). */
 let activeContract: Contract | null = null;
+/** Emboscada de ruta en curso: liquida como campaña (persiste HP + XP), pero
+ *  sin contrato (sin recompensa fija; solo chatarra menor). */
+let activeSkirmish = false;
 /** Huecos del roster desplegados en la batalla de contrato actual. */
 let deployedSlots: number[] = [];
 /** Tras resolver un contrato, "Nueva batalla" vuelve a la campaña. */
@@ -3482,6 +3489,69 @@ function settleContract(): string {
   if (report.lost.length > 0) {
     lines.push(`<div class="mloss">bajas: ${report.lost.map((id) => ZOIDS[id]!.name).join(', ')} — reconstruir cuesta el 60%</div>`);
   }
+  lines.push(`<div class="pv-muted" style="color:var(--muted)">saldo: ⌾${campaign.credits}</div>`);
+  return lines.join('');
+}
+
+/** Chatarra de saqueo por derribo en una emboscada de ruta (sin recompensa fija). */
+const SKIRMISH_SALVAGE = 30;
+
+/**
+ * Liquida una EMBOSCADA de ruta (sin contrato): persiste el estado de las
+ * máquinas (HP + residual de continuidad), aplica las bajas/heridas igual que un
+ * contrato, reparte una chatarra menor de saqueo y devuelve al mapa. La XP la
+ * reparte el flujo normal (renderXpSummary) — que es a lo que va el jugador.
+ */
+function settleSkirmish(): string {
+  activeSkirmish = false;
+  returnToWorld = true; returnToMerc = false;
+  if (!campaign) return '';
+  const won = battle.winner === 'player';
+  const res = survivorResidual();
+  campaign = {
+    ...campaign,
+    roster: campaign.roster.map((zoid, slot) => {
+      if (!deployedSlots.includes(slot)) return zoid;
+      const u = battle.unit(`P${slot + 1}`);
+      if (u.hp <= 0) return { ...zoid, hp: 0, destroyed: true };
+      return {
+        ...zoid,
+        hp: u.hp,
+        ...(zoid.reinforced ? { armor: u.armor ?? 0 } : {}),
+        residualHeat: res.heat[slot],
+        residualEnergy: res.energy[slot],
+        ammo: res.ammo[slot],
+      };
+    }),
+  };
+  // El precio humano: quien pierde su máquina sale herido (mismo que un contrato).
+  const injured: string[] = [];
+  for (const slot of deployedSlots) {
+    const u = battle.units.find((x) => x.id === `P${slot + 1}`);
+    const pilotId = PILOT_IDS[slot];
+    if (!u || !pilotId || u.hp > 0) continue;
+    const days = u.ejected ? 1 : 3;
+    pilots[pilotId] = adjustStress(injurePilot(pilots[pilotId]!, days), u.ejected ? 8 : 15);
+    injured.push(`${pilots[pilotId]!.name} (${days}j)`);
+  }
+  if (injured.length > 0) savePilots();
+  const kills = battle.units.filter((u) => u.team === 'enemy' && u.hp <= 0).length;
+  const loot = won ? kills * SKIRMISH_SALVAGE : 0;
+  if (loot > 0) campaign = { ...campaign, credits: campaign.credits + loot };
+  saveCampaign();
+  if (expedition) {
+    expedition = {
+      ...expedition,
+      log: [...expedition.log,
+        `Día ${expedition.day} — ${won ? '⚔ Emboscada rechazada' : '⚠ Emboscada: mal trago'} en la ruta${loot > 0 ? ` · saqueo ⌾${loot}` : ''}.`],
+    };
+    saveExpedition();
+  }
+  const lines = [`<div><b>Emboscada en la ruta</b> — chusma de bandidos</div>`];
+  lines.push(won
+    ? `<div class="mgain">+⌾${loot} de saqueo · los pilotos curten galones (XP abajo)</div>`
+    : `<div class="mloss">Replegados: las máquinas vuelven tocadas.</div>`);
+  if (injured.length > 0) lines.push(`<div class="mloss">heridos: ${injured.join(', ')}</div>`);
   lines.push(`<div class="pv-muted" style="color:var(--muted)">saldo: ⌾${campaign.credits}</div>`);
   return lines.join('');
 }
@@ -4439,6 +4509,9 @@ function doTravel(edge: WorldEdge): void {
       saveExpedition();
       renderWorld();
     });
+  } else {
+    // Sin encrucijada: puede saltar una emboscada de ruta (peleas de curtido).
+    maybeAmbush();
   }
 }
 
@@ -4628,6 +4701,7 @@ function fightExpeditionBattle(): void {
 
   deployedSlots = alive.map(({ slot }) => slot);
   activeContract = contract;
+  activeSkirmish = false;
   returnToMerc = false;
   returnToWorld = false;
   closeWorld();
@@ -4635,6 +4709,103 @@ function fightExpeditionBattle(): void {
   // El cielo del día de la región; la tormenta que nos siguió aún manda.
   const weather = expedition.forcedWeather ?? weatherFor(REGION, expedition.day);
   startBattle(spawns, seed, weather, field.map, brief);
+}
+
+// ── Emboscadas de ruta: peleas aleatorias al viajar (curtir a los pilotos) ──
+
+/** RNG determinista a partir de una clave (mulberry32 sembrado por hash). */
+function seededRng(key: string): () => number {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < key.length; i++) { h ^= key.charCodeAt(i); h = Math.imul(h, 16777619); }
+  let s = h >>> 0;
+  return () => {
+    s = (s + 0x6D2B79F5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** Chusma barata y débil: la emboscada es fácil a propósito (XP, no reto). */
+const AMBUSH_POOL = ['molga', 'guysak', 'rev-raptor'];
+const AMBUSH_CHANCE = 0.35;
+
+/**
+ * Tras un tramo por tierra, tira (determinista) por una EMBOSCADA: chusma de
+ * bandidos flojos y bobos (aiSkill 0.15: sin coordinación ni vigilancia). Es
+ * para CURTIR a los pilotos —ganan XP— con poco riesgo. No hay emboscadas en el
+ * HQ (refugio) ni en el nodo-objetivo (ya trae su batalla), ni sin party viva.
+ */
+function maybeAmbush(): void {
+  if (!campaign || !expedition) return;
+  if (expedition.at === REGION.hq) return;
+  if (expedition.at === expedition.targetNodeId && !expedition.missionDone) return;
+  const rng = seededRng(`ambush|${expedition.at}|${expedition.day}|${expedition.contractId ?? ''}`);
+  if (rng() >= AMBUSH_CHANCE) return;
+  startTravelBattle(rng);
+}
+
+/** Monta y lanza la batalla de emboscada (sin contrato). */
+function startTravelBattle(rng: () => number): void {
+  if (!campaign || !expedition) return;
+  const party = expedition.party ?? [0, 1, 2, 3];
+  const alive = campaign.roster
+    .map((zoid, slot) => ({ zoid, slot }))
+    .filter(({ zoid, slot }) => party.includes(slot) && !zoid.destroyed &&
+      !isInjured(pilots[PILOT_IDS[slot]!]!) && !assignmentOf(slot));
+  if (alive.length === 0) return; // nadie puede pelear: no hay emboscada
+
+  const field = generatedField(`ambush|${expedition.at}|${expedition.day}`, 'escolta');
+  const count = Math.min(2 + (rng() < 0.5 ? 0 : 1), field.enemyPos.length); // 2-3 grunts
+  const enemies = Array.from({ length: count }, () => AMBUSH_POOL[Math.floor(rng() * AMBUSH_POOL.length)]!);
+
+  const spawns: UnitSpawn[] = [
+    ...alive.map(({ zoid, slot }, k) => {
+      const mods = [
+        ...(slot === 0 ? companionModifiers(campaign!.companion, COMPANION_TABLE) : []),
+        ...(zoid.reinforced ? reinforcementModifiers(ECONOMY) : []),
+      ];
+      return {
+        id: `P${slot + 1}`,
+        name: ZOIDS[zoid.unitTypeId]!.name,
+        unitTypeId: zoid.unitTypeId,
+        team: 'player' as Team,
+        position: field.playerPos[k]!,
+        hp: zoid.hp,
+        loadout: {
+          weapons: [...zoid.weapons],
+          ...(Object.keys(zoid.slots).length > 0 ? { slots: { ...zoid.slots } } : {}),
+        },
+        ...(zoid.reinforced ? { armor: zoid.armor ?? ECONOMY.reinforcement.armor } : {}),
+        ...(zoid.residualHeat !== undefined ? { initialHeat: zoid.residualHeat } : {}),
+        ...(zoid.residualEnergy !== undefined ? { initialEnergy: zoid.residualEnergy } : {}),
+        ...(zoid.ammo ? { ammo: { ...zoid.ammo } } : {}),
+        ...(mods.length > 0 ? { modifiers: mods } : {}),
+        ...(k === 0 ? { commander: true } : {}),
+      };
+    }),
+    ...enemies.map((unitTypeId, i) => ({
+      id: `E${i + 1}`,
+      name: ZOIDS[unitTypeId]!.name,
+      unitTypeId,
+      team: 'enemy' as Team,
+      position: field.enemyPos[i]!,
+      ...(i === 0 ? { commander: true } : {}),
+    })),
+  ];
+
+  deployedSlots = alive.map(({ slot }) => slot);
+  activeContract = null;
+  activeSkirmish = true;
+  returnToMerc = false;
+  returnToWorld = false; // lo fija settleSkirmish al terminar
+  closeWorld();
+  const seed = 0x5EED ^ (expedition.day * 97 + alive.length * 13 + count);
+  const weather = expedition.forcedWeather ?? weatherFor(REGION, expedition.day);
+  startBattle(spawns, seed, weather, field.map, {
+    aiSkill: 0.15, // flojos y BOBOS: cada uno a lo suyo, sin coordinar ni vigilar
+    briefing: 'Emboscada: una chusma de bandidos corta la ruta. Despáchalos — los pilotos curten galones.',
+  });
 }
 
 /** Cierra la expedición en el taller: vende la bodega y abre el cuartel. */
