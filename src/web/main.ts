@@ -442,6 +442,7 @@ function startBattle(
   startPositions = Object.fromEntries(spawns.map((s) => [s.id, { ...s.position }]));
   unitTeams = Object.fromEntries(spawns.map((s) => [s.id, s.team]));
   xpAwarded = false;
+  inspectedUnitId = null;
   mode = { kind: 'idle' };
   pending = null;
   busy = false;
@@ -1624,9 +1625,16 @@ function renderForecast(): void {
   }
 }
 
+/** Zoid cuyo CASCO se muestra desplegado. null = seguir al activo. Un muerto
+ *  cae de vuelta al activo. Solo UNO a la vez: así el panel no ocupa tanto. */
+let inspectedUnitId: string | null = null;
+
 function renderRoster(): void {
   const el = $('roster');
   el.innerHTML = '';
+  const inspectedAlive = inspectedUnitId
+    && battle.units.some((u) => u.id === inspectedUnitId && u.hp > 0);
+  const focusId = (inspectedAlive ? inspectedUnitId : battle.getActiveUnit()?.id) ?? null;
   for (const unit of battle.units) {
     const stats = battle.effectiveStats(unit);
     const card = document.createElement('div');
@@ -1668,7 +1676,22 @@ function renderRoster(): void {
         }
       }
       if (frame) {
-        card.insertAdjacentHTML('beforeend', moduleDiagram(frame, unit.unitTypeId));
+        // El diagrama del casco ocupa: solo lo muestra el zoid SELECCIONADO (por
+        // defecto el que tiene el turno). Clic en la tarjeta lo abre/cierra; el
+        // resto va compacto (nombre + barras).
+        card.classList.add('frameable');
+        card.title = 'Clic: ver/ocultar el casco';
+        if (unit.id === focusId) {
+          card.classList.add('sel');
+          card.insertAdjacentHTML('beforeend', moduleDiagram(frame, unit.unitTypeId));
+        } else {
+          card.insertAdjacentHTML('beforeend', '<div class="hullhint">▸ ver casco</div>');
+        }
+        const uid = unit.id;
+        card.addEventListener('click', () => {
+          inspectedUnitId = focusId === uid ? null : uid;
+          renderRoster();
+        });
       }
     }
     el.appendChild(card);

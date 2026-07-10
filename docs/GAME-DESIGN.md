@@ -1337,3 +1337,13 @@ arquitectura del motor van en DESIGN.md.)*
   brief (override de la curva). Solo cliente; el motor no se toca. Verificado en
   el juego: a los 5 viajes salta la emboscada —4 máquinas (con su daño arrastrado)
   contra 2 grunts— y se resuelve devolviendo al mapa. tsc limpio, 347 en verde.
+- **2026-07-09** — EL CASCO, SOLO DEL SELECCIONADO (dirección del usuario: "solo
+  si lo selecciono, así no ocupamos tanto espacio"). El panel de UNIDADES pintaba
+  el DIAGRAMA de casco (silueta + módulos) de CADA zoid framed, y con el reparto
+  de frames a 9 chasis eso llenaba la columna. Ahora el diagrama sale solo para el
+  zoid SELECCIONADO —por defecto el que tiene el turno—; el resto va compacto
+  (nombre + barras) con una pista '▸ ver casco'. Clic en cualquier tarjeta la abre
+  (y la cierra al reclicar, volviendo al activo); un seleccionado muerto cae de
+  vuelta al activo. Uno a la vez → caben todas las unidades en la misma altura que
+  antes ocupaban 3 diagramas. Solo cliente (renderRoster + CSS .ucard). Verificado
+  en el juego: 1 diagrama visible, clicar P2 lo mueve a P2. tsc limpio, 347 verde.

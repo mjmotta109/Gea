@@ -205,6 +205,13 @@
   }
   .mods span.destroyed { color: var(--danger); border-color: var(--danger); text-decoration: line-through; }
   .ucard .extra { color: var(--muted); font-size: 10px; font-family: var(--mono); margin-top: 3px; }
+  /* El casco (diagrama) solo se despliega para el zoid seleccionado, para no
+     ocupar tanto: las demás tarjetas quedan compactas y clicables. */
+  .ucard.frameable { cursor: pointer; }
+  .ucard.frameable:hover { background: rgba(127,127,127,0.05); }
+  .ucard.sel { background: rgba(95,217,164,0.06); box-shadow: inset 2px 0 0 var(--energy); }
+  .ucard .hullhint { color: var(--muted); font-size: 10px; font-family: var(--mono); margin-top: 3px; opacity: 0.65; }
+  .ucard.frameable:hover .hullhint { opacity: 1; color: var(--energy); }
 
   #log { max-height: 240px; overflow-y: auto; font-family: var(--mono); font-size: 11px; line-height: 1.5; }
   #log div { color: var(--muted); }
