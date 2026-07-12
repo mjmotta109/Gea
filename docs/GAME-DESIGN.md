@@ -1437,3 +1437,28 @@ arquitectura del motor van en DESIGN.md.)*
   1/8, ✦ Embestida, casco del seleccionado, tempo en la línea de
   turnos, sobrecarga con tecla O e insignia, batalla completa con
   repetición, y el viaje pinchando el mapa. Cero errores de consola.
+- **2026-07-12** — TALLER DE CONTENIDO ("créame un editor de personajes,
+  habilidades, campañas"). La mesa del director, dentro del juego (menú
+  de inicio → 🛠 Taller de contenido), con la validación pura en
+  src/game/taller.ts: NADA de lo creado a mano puede colar basura a una
+  batalla (todo se acota; lo irrescatable se descarta en silencio).
+  · PERSONAJES: los 4 pilotos editables de arriba abajo — nombre,
+    escuela principal/secundaria, XP por pista y básica, estrés, días
+    de baja y olvido de manías. Toca a la tripulación viva.
+  · HABILIDADES: crear/editar habilidades propias (prefijo tx-, nunca
+    pisan contenido de fábrica): alcance, forma, área, precisión, usos
+    por batalla, tempo, incendiaria y hasta 3 efectos (daño, curación,
+    estado, calor al reactor). Se OTORGAN por piloto al desplegar —la
+    misma vía que las de escuela (extraAbilityIds)— y salen en la barra
+    con su cupo ✦. El motor no distingue: le llegan por el catálogo.
+  · CAMPAÑAS: contratos propios (txc-) que aparecen SIEMPRE en el
+    tablero del cuartel marcados 🛠 — tipo (caza/escolta/asalto/
+    incursión/defensa: cada uno ya se juega distinto), recompensa,
+    chatarra y escuadra enemiga de hasta 4 chasis del catálogo.
+  · ARCHIVO: exportar/importar el taller entero como JSON (validado).
+  Bug real arreglado por el camino: las pantallas de debajo (tablero de
+  contratos) se pintaban al arrancar y el cierre del taller no las
+  refrescaba — closeTaller ahora repinta cuartel/mapa. 370 tests en
+  verde (5 nuevos del taller), tsc limpio, verificado en el juego real:
+  crear habilidad → otorgarla → verla con ✦1 en batalla; crear contrato
+  → verlo 🛠 en el tablero; renombrar piloto → persistido.

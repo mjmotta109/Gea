@@ -37,7 +37,7 @@ de este archivo.
 ## 3. El ritual de cada bloque de trabajo
 
 1. Lee el código antes de editar; toca con bisturí.
-2. Código + **tests vitest** (347 en verde al momento del traspaso:
+2. Código + **tests vitest** (370 en verde tras la fusión de ramas y el taller:
    `npx vitest run`). `npx tsc --noEmit` limpio.
 3. **Verificación Playwright** del flujo real: Chromium en
    `/opt/pw-browsers/chromium`; guiones de ejemplo en el scratchpad de

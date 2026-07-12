@@ -497,6 +497,36 @@
   .slot.current { border-color: var(--player); }
 
   /* ── Ficha de pilotos (árbol + manías) ── */
+  #taller {
+    /* Por encima del menú de inicio (30) y de las partidas (32); por
+       debajo del diálogo (40): uiConfirm sigue mandando. */
+    display: none; position: fixed; inset: 0; background: rgba(4, 8, 11, 0.96);
+    z-index: 34; overflow-y: auto; padding: 20px 14px;
+  }
+  #taller.show { display: block; }
+  #taller .gbox { max-width: 1100px; margin: 0 auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; }
+  #taller .gtop { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  #taller h2 { color: var(--accent); font-family: var(--mono); font-size: 16px; letter-spacing: 1px; margin-right: 8px; }
+  .ttabs { display: flex; gap: 6px; }
+  .ttabs button { background: var(--panel-2); border: 1px solid var(--line); color: var(--muted); font-family: var(--mono); font-size: 12px; padding: 6px 12px; border-radius: 4px 4px 0 0; cursor: pointer; }
+  .ttabs button.on { color: var(--accent); border-bottom-color: var(--panel); background: var(--panel); font-weight: 700; }
+  #taller-body { border-top: 1px solid var(--line); padding-top: 12px; }
+  .tgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  @media (max-width: 900px) { .tgrid { grid-template-columns: 1fr; } }
+  .tcard { background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 12px; }
+  .tcard h3 { font-family: var(--mono); font-size: 13px; color: var(--ink); margin-bottom: 8px; }
+  .tcard label { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); font-family: var(--mono); margin: 3px 0; flex-wrap: wrap; }
+  .tcard input[type="text"], .tcard input[type="number"], .tcard select, .tcard textarea {
+    background: var(--panel); border: 1px solid var(--line); color: var(--ink);
+    font-family: var(--mono); font-size: 12px; padding: 4px 6px; border-radius: 3px;
+  }
+  .tcard input[type="number"] { width: 64px; }
+  .tcard .trow { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .tnote { color: var(--muted); font-size: 11px; font-family: var(--mono); margin: 6px 0 10px; }
+  .tbtn { background: var(--panel-2); border: 1px solid var(--line); color: var(--ink); font-family: var(--mono); font-size: 12px; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
+  .tbtn.danger { color: var(--danger); border-color: var(--danger); }
+  .tbtn.accent { color: var(--accent); border-color: var(--accent); }
+  #taller textarea { width: 100%; min-height: 120px; }
   #pilots {
     display: none; position: fixed; inset: 0; background: rgba(4, 8, 11, 0.92);
     z-index: 22; overflow-y: auto; padding: 20px 14px;
@@ -1323,6 +1353,7 @@
         <button id="st-new">▶ Juego nuevo</button>
         <button id="st-load">📂 Cargar partida</button>
         <button id="st-sandbox">⚔ Escaramuza (sandbox)</button>
+        <button id="st-taller">🛠 Taller de contenido</button>
         <button id="st-config" disabled title="próximamente">⚙ Configuración</button>
       </div>
       <div class="sinfo" id="st-info"></div>
@@ -1464,6 +1495,23 @@
         <button id="saves-close" class="gsub">cerrar</button>
       </div>
       <div id="save-slots"></div>
+    </div>
+  </div>
+
+  <div id="taller">
+    <div class="gbox">
+      <div class="gtop">
+        <h2>🛠 TALLER DE CONTENIDO</h2>
+        <div class="ttabs">
+          <button id="tt-personajes" class="on">Personajes</button>
+          <button id="tt-habilidades">Habilidades</button>
+          <button id="tt-campanas">Campañas</button>
+          <button id="tt-archivo">Archivo</button>
+        </div>
+        <span style="flex:1"></span>
+        <button id="taller-close" class="gsub">← volver</button>
+      </div>
+      <div id="taller-body"></div>
     </div>
   </div>
 

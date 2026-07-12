@@ -20,7 +20,7 @@ import {
   type PilotState, type SpecializationId,
 } from '../core/progression.js';
 import { STATUS_DEFINITIONS } from '../core/status.js';
-import type { BattleAction, BattleEvent, BattleObjective, Facing, Position, StatModifier, Team, UnitState, WeatherId, FrameState,
+import type { AbilityEffect, BattleAction, BattleEvent, BattleObjective, Facing, Position, StatModifier, Team, UnitState, WeatherId, FrameState,
 } from '../core/types.js';
 import { ABILITIES } from '../data/abilities.js';
 import { BLUEPRINT_PRICES, CITY_TIERS, CONTRACT_ENEMY_POOL, DIFFICULTIES, ECONOMY, LEISURE_OPTIONS, STARTER_COMPANIONS, THERAPY } from '../data/economy.js';
@@ -59,6 +59,10 @@ import {
   isNodeVisible, isEdgeVisible,
   type ExpeditionState, type WorldEdge, type WorldRegion,
 } from '../game/expedition.js';
+import {
+  emptyTaller, nextAbilityId, nextContractId, sanitizeAbility, sanitizeContract,
+  sanitizeTaller, tallerGrantIds, type TallerState,
+} from '../game/taller.js';
 import { SALT_PASS_REGION, WORLD_ATLAS } from '../data/world.js';
 import { createSave, describeSave, serializeSave, validateSave, type SaveGame } from '../game/save.js';
 import {
@@ -69,6 +73,33 @@ import { COMPANION_TABLE, CORE_TABLE } from '../data/marks.js';
 // Catálogos completos del cliente: base + anexo de la librería de armas.
 // Los Zoids de segunda generación montan armas 'lib-*' y los necesitan.
 const CATALOGS = withWeaponLibrary(ABILITIES, WEAPONS);
+
+// ── Taller de contenido: lo creado por el director se superpone al
+//    catálogo de fábrica (prefijo tx-, nunca lo pisa). El motor no
+//    distingue: le llega todo por el mismo abilityCatalog. ──
+const TALLER_KEY = 'gea-taller-v1';
+
+function loadTaller(): TallerState {
+  try {
+    return sanitizeTaller(JSON.parse(localStorage.getItem(TALLER_KEY) ?? '{}'), new Set(Object.keys(ZOIDS)));
+  } catch { return emptyTaller(); }
+}
+
+let taller: TallerState = loadTaller();
+
+/** Reaplica las habilidades del taller al catálogo vivo (borra las tx- previas). */
+function applyTallerAbilities(): void {
+  for (const key of Object.keys(CATALOGS.abilityCatalog)) {
+    if (key.startsWith('tx-')) delete CATALOGS.abilityCatalog[key];
+  }
+  Object.assign(CATALOGS.abilityCatalog, taller.abilities);
+}
+applyTallerAbilities();
+
+function saveTaller(): void {
+  try { localStorage.setItem(TALLER_KEY, JSON.stringify(taller)); } catch { /* privado */ }
+  applyTallerAbilities();
+}
 
 // ── Estado de la aplicación ──────────────────────────────────────────────
 
@@ -371,8 +402,8 @@ function newBattle(seed: number, weather: WeatherId): void {
       team: 'player' as Team,
       position: field.playerPos[i]!,
       loadout: spawnLoadout(config),
-      ...(schoolAbilityIds(pilots[PILOT_IDS[i]!]!).length > 0
-        ? { extraAbilityIds: schoolAbilityIds(pilots[PILOT_IDS[i]!]!) } : {}),
+      ...(grantedAbilityIds(i).length > 0
+        ? { extraAbilityIds: grantedAbilityIds(i) } : {}),
       ...(i === 0 ? { commander: true } : {}),
     })),
     ...enemyTeam(seed).map((s, i) => ({ ...s, position: field.enemyPos[i]! })),
@@ -1061,6 +1092,10 @@ document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') { if (inCampaign()) openStart(); else closeMerc(); }
     return;
   }
+  if (tallerOpen) {
+    if (event.key === 'Escape') closeTaller();
+    return;
+  }
   if (editorOpen) {
     if (event.key === 'Escape') closeEditor();
     return;
@@ -1303,6 +1338,12 @@ function schoolAbilityIds(pilot: PilotState): string[] {
     if (spec && trackLevel(pilot.tracks[spec]) >= 1) ids.push(SCHOOL_ABILITY[spec]);
   }
   return ids;
+}
+
+/** Habilidades extra del hueco al desplegar: las de escuela del piloto
+ *  más las otorgadas por el taller de contenido. */
+function grantedAbilityIds(slot: number): string[] {
+  return [...schoolAbilityIds(pilots[PILOT_IDS[slot]!]!), ...tallerGrantIds(taller, slot)];
 }
 
 /** Modificadores del núcleo propio al desplegar una no-compañera. */
@@ -3108,13 +3149,13 @@ function renderContracts(): void {
     host.insertAdjacentHTML('beforeend',
       `<div class="cnote" style="grid-column:1/-1">🕵 ${hint}</div>`);
   }
-  if (!offers.some((c) => c.id === selectedContractId)) selectedContractId = null;
-  for (const contract of offers) {
+  if (![...offers, ...taller.contracts].some((c) => c.id === selectedContractId)) selectedContractId = null;
+  for (const contract of [...offers, ...taller.contracts]) {
     const card = document.createElement('div');
     card.className = 'ccard' + (contract.id === selectedContractId ? ' sel' : '');
     card.innerHTML =
-      `<div class="ctier ${contract.tier}">${TIER_LABEL[contract.tier]}</div>` +
-      `<div class="cname">${contract.name}</div>` +
+      `<div class="ctier ${contract.tier}">${TIER_LABEL[contract.tier]}${contract.id.startsWith('txc-') ? ' · 🛠 taller' : ''}</div>` +
+      `<div class="cname">${escapeHtml(contract.name)}</div>` +
       `<div class="creward">recompensa ⌾${contract.reward} · chatarra ⌾${contract.salvagePerKill}/baja</div>` +
       `<div class="csquad">contra: ${contract.enemySquad.map((id) => ZOIDS[id]!.name).join(' · ')}</div>`;
     card.addEventListener('click', () => {
@@ -3471,7 +3512,8 @@ function partyCandidates(): Array<{ slot: number; label: string; detail: string 
 function startContractExpedition(): void {
   if (!campaign || !selectedContractId) return;
   const offers = contractOffers(campaign.contractsDone, ECONOMY, CONTRACT_ENEMY_POOL, adaptiveWeight(), campaignStrengthNow());
-  const contract = offers.find((c) => c.id === selectedContractId);
+  const contract = offers.find((c) => c.id === selectedContractId)
+    ?? taller.contracts.find((c) => c.id === selectedContractId);
   if (!contract) return;
   if (!campaign.roster.some((z) => !z.destroyed)) return;
   void uiParty(`Formación para "${contract.name}": ¿quiénes van? Solo podrás reorganizar en ciudad.`,
@@ -3903,7 +3945,8 @@ function saveExpedition(): void {
 function expeditionContract(): Contract | undefined {
   if (!campaign || !expedition) return undefined;
   return contractOffers(campaign.contractsDone, ECONOMY, CONTRACT_ENEMY_POOL, adaptiveWeight(), campaignStrengthNow())
-    .find((c) => c.id === expedition!.contractId);
+    .find((c) => c.id === expedition!.contractId)
+    ?? taller.contracts.find((c) => c.id === expedition!.contractId);
 }
 
 function openWorld(): void {
@@ -4661,8 +4704,8 @@ function fightTavernBattle(job: Contract, nodeId: string): void {
         ...(zoid.residualEnergy !== undefined ? { initialEnergy: zoid.residualEnergy } : {}),
         ...(zoid.ammo ? { ammo: { ...zoid.ammo } } : {}),
         ...(mods.length > 0 ? { modifiers: mods } : {}),
-        ...(schoolAbilityIds(pilots[PILOT_IDS[slot]!]!).length > 0
-          ? { extraAbilityIds: schoolAbilityIds(pilots[PILOT_IDS[slot]!]!) } : {}),
+        ...(grantedAbilityIds(slot).length > 0
+          ? { extraAbilityIds: grantedAbilityIds(slot) } : {}),
         ...(k === 0 ? { commander: true } : {}),
       };
     }),
@@ -4923,8 +4966,8 @@ function fightExpeditionBattle(): void {
         ...(zoid.ammo ? { ammo: { ...zoid.ammo } } : {}),
         ...(mods.length > 0 ? { modifiers: mods } : {}),
         // Las escuelas del piloto viajan con él (activas, 1/batalla).
-        ...(schoolAbilityIds(pilots[PILOT_IDS[slot]!]!).length > 0
-          ? { extraAbilityIds: schoolAbilityIds(pilots[PILOT_IDS[slot]!]!) } : {}),
+        ...(grantedAbilityIds(slot).length > 0
+          ? { extraAbilityIds: grantedAbilityIds(slot) } : {}),
         ...(k === 0 ? { commander: true } : {}),
       };
     }),
@@ -5440,6 +5483,350 @@ type EditorTool =
   | { kind: 'terrain'; terrain: 'plain' | 'rough' | 'forest' | 'water' | 'wall' }
   | { kind: 'spawn'; team: Team };
 
+// ── Taller de contenido: la mesa del director ────────────────────────────
+// Personajes (los 4 pilotos), habilidades propias (otorgadas al desplegar,
+// como las de escuela) y contratos de campaña hechos a mano. Todo se valida
+// en src/game/taller.ts: aquí solo se pinta y se persiste.
+
+let tallerOpen = false;
+let tallerTab: 'personajes' | 'habilidades' | 'campanas' | 'archivo' = 'personajes';
+
+function openTaller(): void {
+  tallerOpen = true;
+  renderTaller();
+  $('taller').classList.add('show');
+}
+
+function closeTaller(): void {
+  tallerOpen = false;
+  $('taller').classList.remove('show');
+  // Las pantallas de debajo consumen contenido del taller (el tablero de
+  // contratos, los nombres de piloto) y pueden llevar pintadas desde el
+  // arranque: refrescarlas al salir.
+  if (mercOpen) renderMerc();
+  if (worldOpen) renderWorld();
+}
+
+function tallerInput(label: string, field: string, value: string | number, extra = ''): string {
+  const numeric = typeof value === 'number';
+  return `<label>${label} <input type="${numeric ? 'number' : 'text'}" data-f="${field}" value="${escapeHtml(String(value))}" ${extra}></label>`;
+}
+
+function tallerSelect(label: string, field: string, value: string, options: Array<[string, string]>): string {
+  return `<label>${label} <select data-f="${field}">` +
+    options.map(([v, text]) => `<option value="${v}"${v === value ? ' selected' : ''}>${escapeHtml(text)}</option>`).join('') +
+    '</select></label>';
+}
+
+function readField(card: HTMLElement, field: string): string {
+  return (card.querySelector(`[data-f="${field}"]`) as HTMLInputElement | HTMLSelectElement | null)?.value ?? '';
+}
+
+function readNum(card: HTMLElement, field: string): number {
+  return Number(readField(card, field)) || 0;
+}
+
+function renderTaller(): void {
+  for (const tab of ['personajes', 'habilidades', 'campanas', 'archivo'] as const) {
+    $(`tt-${tab}`).classList.toggle('on', tallerTab === tab);
+  }
+  const body = $('taller-body');
+  body.innerHTML = '';
+  if (tallerTab === 'personajes') renderTallerPersonajes(body);
+  else if (tallerTab === 'habilidades') renderTallerHabilidades(body);
+  else if (tallerTab === 'campanas') renderTallerCampanas(body);
+  else renderTallerArchivo(body);
+}
+
+// ── Pestaña Personajes: los 4 pilotos, editables de arriba abajo ──
+
+const SPEC_OPTIONS: Array<[string, string]> = [
+  ['', '— sin elegir —'],
+  ...SPECIALIZATIONS.map((sp): [string, string] => [sp, SPEC_LABEL[sp]]),
+];
+
+function renderTallerPersonajes(body: HTMLElement): void {
+  body.insertAdjacentHTML('beforeend',
+    '<div class="tnote">Los cambios tocan a TU tripulación viva (se guardan al pulsar Aplicar). La escuela secundaria rinde al 60%; la XP en pistas no elegidas alimenta la básica.</div>');
+  const grid = document.createElement('div');
+  grid.className = 'tgrid';
+  PILOT_IDS.forEach((pilotId, slot) => {
+    const pilot = pilots[pilotId]!;
+    const card = document.createElement('div');
+    card.className = 'tcard';
+    card.innerHTML =
+      `<h3>P${slot + 1} · hueco ${slot + 1}${slot === 0 ? ' (compañera)' : ''}</h3>` +
+      tallerInput('nombre', 'name', pilot.name, 'maxlength="20"') +
+      `<div class="trow">${tallerSelect('escuela ★', 'main', pilot.mainSpec ?? '', SPEC_OPTIONS)}` +
+      `${tallerSelect('secundaria ☆', 'side', pilot.sideSpec ?? '', SPEC_OPTIONS)}</div>` +
+      `<div class="trow">${SPECIALIZATIONS.map((sp) =>
+        tallerInput(`xp ${SPEC_LABEL[sp]}`, `xp-${sp}`, pilot.tracks[sp], 'min="0" max="99999"')).join('')}</div>` +
+      `<div class="trow">${tallerInput('xp básica', 'basics', pilot.basics ?? 0, 'min="0" max="99999"')}` +
+      `${tallerInput('estrés', 'stress', pilot.stress, 'min="0" max="100"')}` +
+      `${(pilot.injuryDays ?? 0) > 0 ? tallerInput('días de baja', 'injury', pilot.injuryDays ?? 0, 'min="0" max="30"') : ''}</div>` +
+      (pilot.quirks.length > 0
+        ? `<div class="tnote">manías: ${pilot.quirks.map((q) => escapeHtml(q)).join(', ')} <button class="tbtn danger" data-a="quirks">olvidarlas</button></div>`
+        : '') +
+      '<div class="trow"><button class="tbtn accent" data-a="apply">✔ Aplicar</button></div>';
+    card.querySelector('[data-a="apply"]')!.addEventListener('click', () => {
+      const name = readField(card, 'name').trim().slice(0, 20);
+      if (name) pilot.name = name;
+      const main = readField(card, 'main') as SpecializationId | '';
+      const side = readField(card, 'side') as SpecializationId | '';
+      if (main) pilot.mainSpec = main; else delete pilot.mainSpec;
+      if (side && side !== main) pilot.sideSpec = side; else delete pilot.sideSpec;
+      for (const sp of SPECIALIZATIONS) {
+        pilot.tracks[sp] = Math.max(0, Math.min(99999, Math.round(readNum(card, `xp-${sp}`))));
+      }
+      pilot.basics = Math.max(0, Math.min(99999, Math.round(readNum(card, 'basics'))));
+      pilot.stress = Math.max(0, Math.min(100, Math.round(readNum(card, 'stress'))));
+      if (card.querySelector('[data-f="injury"]')) {
+        pilot.injuryDays = Math.max(0, Math.min(30, Math.round(readNum(card, 'injury'))));
+      }
+      savePilots();
+      renderTaller();
+    });
+    card.querySelector('[data-a="quirks"]')?.addEventListener('click', () => {
+      pilot.quirks = [];
+      savePilots();
+      renderTaller();
+    });
+    grid.appendChild(card);
+  });
+  body.appendChild(grid);
+}
+
+// ── Pestaña Habilidades: crear, editar, otorgar ──
+
+const FX_KINDS: Array<[string, string]> = [
+  ['', '— sin efecto —'], ['damage', 'daño'], ['heal', 'curación'],
+  ['status', 'estado'], ['heat', 'calor al reactor'],
+];
+const FX_STATUS: Array<[string, string]> = [
+  ['armor-up', STATUS_DEFINITIONS['armor-up'].name],
+  ['evasion-up', STATUS_DEFINITIONS['evasion-up'].name],
+  ['stunned', STATUS_DEFINITIONS['stunned'].name],
+  ['suprimido', STATUS_DEFINITIONS['suprimido'].name],
+  ['overheat', STATUS_DEFINITIONS['overheat'].name],
+];
+
+function effectRow(index: number, effect?: AbilityEffect): string {
+  const kind = effect?.kind ?? '';
+  const power = effect && (effect.kind === 'damage' || effect.kind === 'heal') ? effect.power : 20;
+  const dtype = effect?.kind === 'damage' ? effect.damageType : 'physical';
+  const status = effect?.kind === 'status' ? effect.status : 'suprimido';
+  const chance = effect?.kind === 'status' ? effect.chance : 100;
+  const duration = effect?.kind === 'status' ? effect.duration : 2;
+  const amount = effect?.kind === 'heat' ? effect.amount : 15;
+  return `<div class="trow" data-fx="${index}">` +
+    tallerSelect(`efecto ${index + 1}`, `fx${index}-kind`, kind, FX_KINDS) +
+    tallerInput('potencia', `fx${index}-power`, power, 'min="1" max="200"') +
+    tallerSelect('tipo', `fx${index}-dtype`, dtype, [['physical', 'físico'], ['energy', 'energía']]) +
+    tallerSelect('estado', `fx${index}-status`, status, FX_STATUS) +
+    tallerInput('%', `fx${index}-chance`, chance, 'min="5" max="100"') +
+    tallerInput('turnos', `fx${index}-dur`, duration, 'min="1" max="9"') +
+    tallerInput('calor', `fx${index}-amount`, amount, 'min="1" max="60"') +
+    '</div>';
+}
+
+function readEffects(card: HTMLElement): unknown[] {
+  const effects: unknown[] = [];
+  for (let i = 0; i < 3; i++) {
+    switch (readField(card, `fx${i}-kind`)) {
+      case 'damage':
+        effects.push({ kind: 'damage', power: readNum(card, `fx${i}-power`), damageType: readField(card, `fx${i}-dtype`) });
+        break;
+      case 'heal':
+        effects.push({ kind: 'heal', power: readNum(card, `fx${i}-power`) });
+        break;
+      case 'status':
+        effects.push({
+          kind: 'status', status: readField(card, `fx${i}-status`),
+          chance: readNum(card, `fx${i}-chance`), duration: readNum(card, `fx${i}-dur`),
+        });
+        break;
+      case 'heat':
+        effects.push({ kind: 'heat', amount: readNum(card, `fx${i}-amount`) });
+        break;
+      default: break;
+    }
+  }
+  return effects;
+}
+
+function renderTallerHabilidades(body: HTMLElement): void {
+  body.insertAdjacentHTML('beforeend',
+    '<div class="tnote">Las habilidades del taller se OTORGAN a tus pilotos al desplegar (como las de escuela). Con «usos por batalla» 0 son ilimitadas; el tempo pesado (70) retrasa tu próximo turno.</div>');
+  const newBtn = document.createElement('button');
+  newBtn.className = 'tbtn accent';
+  newBtn.textContent = '＋ Nueva habilidad';
+  newBtn.addEventListener('click', () => {
+    const id = nextAbilityId(taller);
+    taller.abilities[id] = sanitizeAbility({ id, name: `Prototipo ${id.slice(3)}` }, id);
+    saveTaller();
+    renderTaller();
+  });
+  body.appendChild(newBtn);
+  const grid = document.createElement('div');
+  grid.className = 'tgrid';
+  grid.style.marginTop = '10px';
+  for (const ability of Object.values(taller.abilities)) {
+    const card = document.createElement('div');
+    card.className = 'tcard';
+    const grants = taller.grants[ability.id] ?? [];
+    card.innerHTML =
+      `<h3>✦ ${escapeHtml(ability.name)} <span style="color:var(--muted);font-weight:400">(${ability.id})</span></h3>` +
+      `<div class="trow">${tallerInput('nombre', 'name', ability.name, 'maxlength="28"')}</div>` +
+      `<div class="trow">${tallerInput('descripción', 'desc', ability.description, 'maxlength="120" style="width:100%"')}</div>` +
+      `<div class="trow">${tallerInput('alcance', 'range', ability.range, 'min="1" max="12"')}` +
+      `${tallerInput('mínimo', 'minRange', ability.minRange, 'min="0" max="12"')}` +
+      `${tallerSelect('forma', 'shape', ability.shape, [['single', 'único'], ['cross', 'cruz'], ['line', 'línea']])}` +
+      `${tallerInput('área', 'aoe', ability.aoeRadius, 'min="0" max="3"')}` +
+      `${tallerInput('precisión', 'acc', ability.accuracy, 'min="10" max="100"')}</div>` +
+      `<div class="trow">${tallerInput('usos/batalla (0=∞)', 'uses', ability.usesPerBattle ?? 0, 'min="0" max="9"')}` +
+      `${tallerSelect('tempo', 'ct', String(ability.ctCost ?? 0), [['0', 'ligero (heredado)'], ['40', 'estándar 40'], ['70', 'pesado 70']])}` +
+      `${tallerInput('incendia (turnos)', 'ignites', ability.ignites ?? 0, 'min="0" max="4"')}` +
+      `<label>apunta a aliados <input type="checkbox" data-f="allies"${ability.targetsAllies ? ' checked' : ''}></label></div>` +
+      effectRow(0, ability.effects[0]) + effectRow(1, ability.effects[1]) + effectRow(2, ability.effects[2]) +
+      `<div class="trow">otorgada a: ${PILOT_IDS.map((pid, slot) =>
+        `<label>${escapeHtml(pilots[pid]!.name)} <input type="checkbox" data-f="grant-${slot}"${grants.includes(slot) ? ' checked' : ''}></label>`).join('')}</div>` +
+      '<div class="trow"><button class="tbtn accent" data-a="save">✔ Guardar</button>' +
+      '<button class="tbtn danger" data-a="del">✕ Borrar</button></div>';
+    card.querySelector('[data-a="save"]')!.addEventListener('click', () => {
+      const updated = sanitizeAbility({
+        id: ability.id,
+        name: readField(card, 'name'),
+        description: readField(card, 'desc'),
+        range: readNum(card, 'range'),
+        minRange: readNum(card, 'minRange'),
+        shape: readField(card, 'shape'),
+        aoeRadius: readNum(card, 'aoe'),
+        accuracy: readNum(card, 'acc'),
+        targetsAllies: (card.querySelector('[data-f="allies"]') as HTMLInputElement).checked,
+        usesPerBattle: readNum(card, 'uses'),
+        ctCost: readNum(card, 'ct'),
+        ignites: readNum(card, 'ignites'),
+        effects: readEffects(card),
+      }, ability.id);
+      taller.abilities[ability.id] = updated;
+      const slots = PILOT_IDS.map((_, slot) => slot)
+        .filter((slot) => (card.querySelector(`[data-f="grant-${slot}"]`) as HTMLInputElement).checked);
+      if (slots.length > 0) taller.grants[ability.id] = slots;
+      else delete taller.grants[ability.id];
+      saveTaller();
+      renderTaller();
+    });
+    card.querySelector('[data-a="del"]')!.addEventListener('click', () => {
+      delete taller.abilities[ability.id];
+      delete taller.grants[ability.id];
+      saveTaller();
+      renderTaller();
+    });
+    grid.appendChild(card);
+  }
+  body.appendChild(grid);
+}
+
+// ── Pestaña Campañas: contratos propios en el tablero ──
+
+function renderTallerCampanas(body: HTMLElement): void {
+  body.insertAdjacentHTML('beforeend',
+    '<div class="tnote">Tus contratos aparecen SIEMPRE en el tablero del cuartel, marcados 🛠. Cada tipo se juega distinto: caza derriba al cabecilla, escolta protege al carguero, asalto aguanta la oleada, incursión planta una máquina en la zona y defensa resiste el asedio.</div>');
+  const newBtn = document.createElement('button');
+  newBtn.className = 'tbtn accent';
+  newBtn.textContent = '＋ Nuevo contrato';
+  newBtn.addEventListener('click', () => {
+    const id = nextContractId(taller);
+    const contract = sanitizeContract({ id, name: `Encargo ${id.slice(4)}`, enemySquad: ['molga', 'guysak'] }, id, new Set(Object.keys(ZOIDS)));
+    if (contract) taller.contracts.push(contract);
+    saveTaller();
+    renderTaller();
+  });
+  body.appendChild(newBtn);
+  const chassisOptions: Array<[string, string]> = [
+    ['', '— hueco vacío —'],
+    ...Object.values(ZOIDS)
+      .map((def): [string, string] => [def.id, def.name])
+      .sort((a, b) => a[1].localeCompare(b[1])),
+  ];
+  const grid = document.createElement('div');
+  grid.className = 'tgrid';
+  grid.style.marginTop = '10px';
+  taller.contracts.forEach((contract, index) => {
+    const card = document.createElement('div');
+    card.className = 'tcard';
+    card.innerHTML =
+      `<h3>🛠 ${escapeHtml(contract.name)} <span style="color:var(--muted);font-weight:400">(${contract.id})</span></h3>` +
+      `<div class="trow">${tallerInput('nombre', 'name', contract.name, 'maxlength="36"')}` +
+      `${tallerSelect('tipo', 'tier', contract.tier, [['caza', 'caza'], ['escolta', 'escolta'], ['asalto', 'asalto'], ['incursion', 'incursión'], ['defensa', 'defensa']])}</div>` +
+      `<div class="trow">${tallerInput('recompensa ⌾', 'reward', contract.reward, 'min="50" max="20000"')}` +
+      `${tallerInput('chatarra ⌾/baja', 'salvage', contract.salvagePerKill, 'min="0" max="500"')}</div>` +
+      `<div class="trow">${[0, 1, 2, 3].map((i) =>
+        tallerSelect(`enemigo ${i + 1}`, `sq-${i}`, contract.enemySquad[i] ?? '', chassisOptions)).join('')}</div>` +
+      '<div class="trow"><button class="tbtn accent" data-a="save">✔ Guardar</button>' +
+      '<button class="tbtn danger" data-a="del">✕ Borrar</button></div>';
+    card.querySelector('[data-a="save"]')!.addEventListener('click', () => {
+      const updated = sanitizeContract({
+        id: contract.id,
+        name: readField(card, 'name'),
+        tier: readField(card, 'tier'),
+        reward: readNum(card, 'reward'),
+        salvagePerKill: readNum(card, 'salvage'),
+        enemySquad: [0, 1, 2, 3].map((i) => readField(card, `sq-${i}`)).filter((u) => u),
+      }, contract.id, new Set(Object.keys(ZOIDS)));
+      if (updated) taller.contracts[index] = updated;
+      saveTaller();
+      renderTaller();
+    });
+    card.querySelector('[data-a="del"]')!.addEventListener('click', () => {
+      taller.contracts.splice(index, 1);
+      saveTaller();
+      renderTaller();
+    });
+    grid.appendChild(card);
+  });
+  body.appendChild(grid);
+}
+
+// ── Pestaña Archivo: exportar / importar el taller entero ──
+
+function renderTallerArchivo(body: HTMLElement): void {
+  body.insertAdjacentHTML('beforeend',
+    '<div class="tnote">El taller entero como JSON: cópialo para compartirlo o pega uno para importarlo (se valida todo; lo irrescatable se descarta).</div>');
+  const area = document.createElement('textarea');
+  area.value = JSON.stringify(taller, null, 2);
+  body.appendChild(area);
+  const row = document.createElement('div');
+  row.className = 'trow';
+  row.style.marginTop = '8px';
+  const importBtn = document.createElement('button');
+  importBtn.className = 'tbtn accent';
+  importBtn.textContent = '⇪ Importar lo pegado';
+  importBtn.addEventListener('click', () => {
+    try {
+      taller = sanitizeTaller(JSON.parse(area.value), new Set(Object.keys(ZOIDS)));
+      saveTaller();
+      renderTaller();
+    } catch {
+      area.value = '⚠ Ese JSON no se pudo leer. Corrígelo y vuelve a intentarlo.';
+    }
+  });
+  const wipeBtn = document.createElement('button');
+  wipeBtn.className = 'tbtn danger';
+  wipeBtn.textContent = '✕ Vaciar el taller';
+  wipeBtn.addEventListener('click', () => {
+    void uiConfirm('¿Vaciar el taller entero? Se pierden habilidades, otorgamientos y contratos propios.').then((yes) => {
+      if (!yes) return;
+      taller = emptyTaller();
+      saveTaller();
+      renderTaller();
+    });
+  });
+  row.appendChild(importBtn);
+  row.appendChild(wipeBtn);
+  body.appendChild(row);
+}
+
 let editorOpen = false;
 let edRows: string[] = [];
 let edPlayer: Position[] = [];
@@ -5916,6 +6303,11 @@ $('st-continue').addEventListener('click', () => {
   closeStart();
 });
 $('st-sandbox').addEventListener('click', enterSandbox);
+$('st-taller').addEventListener('click', openTaller);
+$('taller-close').addEventListener('click', closeTaller);
+for (const tab of ['personajes', 'habilidades', 'campanas', 'archivo'] as const) {
+  $(`tt-${tab}`).addEventListener('click', () => { tallerTab = tab; renderTaller(); });
+}
 $('st-new').addEventListener('click', openNewGame);
 $('ng-cancel').addEventListener('click', closeNewGame);
 $('ng-found').addEventListener('click', foundCompany);
