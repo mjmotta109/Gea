@@ -126,6 +126,16 @@
   .gservice .gsil { width: 46px; flex: none; color: var(--player); }
   .gservice .gsil svg { width: 100%; height: auto; display: block; }
   .cell.hl-zone .hl-label { color: var(--player); }
+  /* Control del campo: casilla ardiendo (brasa pulsante bajo la unidad). */
+  .cell.on-fire { animation: emberpulse 1.1s ease-in-out infinite; }
+  @keyframes emberpulse {
+    0%,100% { box-shadow: inset 0 0 12px 2px rgba(255,90,30,0.55); }
+    50% { box-shadow: inset 0 0 19px 6px rgba(255,150,50,0.9); }
+  }
+  .cell .fire-flame {
+    position: absolute; top: 0; left: 2px; font-size: 12px; pointer-events: none;
+    text-shadow: 0 0 5px rgba(255,130,40,0.95);
+  }
   .cell.path::before {
     content: ''; position: absolute; width: 8px; height: 8px; border-radius: 50%;
     background: var(--player); opacity: 0.75; top: 50%; left: 50%; margin: -4px 0 0 -4px;
@@ -192,6 +202,7 @@
   #forecast .fc { font-family: var(--mono); font-size: 11px; font-weight: 700; padding: 3px 7px; border-radius: 3px; }
   #forecast .fc.player { background: var(--player-dim); color: var(--player); }
   #forecast .fc.enemy { background: var(--enemy-dim); color: var(--enemy); }
+  #forecast .fc.tempo { background: transparent; color: var(--muted); border: 1px dashed var(--muted); }
 
   .ucard { border-top: 1px solid var(--line); padding: 7px 0; font-size: 12px; }
   .ucard:first-of-type { border-top: 0; padding-top: 2px; }
@@ -223,6 +234,13 @@
   }
   .mods span.destroyed { color: var(--danger); border-color: var(--danger); text-decoration: line-through; }
   .ucard .extra { color: var(--muted); font-size: 10px; font-family: var(--mono); margin-top: 3px; }
+  /* El casco (diagrama) solo se despliega para el zoid seleccionado, para no
+     ocupar tanto: las demás tarjetas quedan compactas y clicables. */
+  .ucard.frameable { cursor: pointer; }
+  .ucard.frameable:hover { background: rgba(127,127,127,0.05); }
+  .ucard.sel { background: rgba(95,217,164,0.06); box-shadow: inset 2px 0 0 var(--energy); }
+  .ucard .hullhint { color: var(--muted); font-size: 10px; font-family: var(--mono); margin-top: 3px; opacity: 0.65; }
+  .ucard.frameable:hover .hullhint { opacity: 1; color: var(--energy); }
 
   #log { max-height: 240px; overflow-y: auto; font-family: var(--mono); font-size: 11px; line-height: 1.5; }
   #log div { color: var(--muted); }
@@ -404,6 +422,12 @@
   .wnode.cur .dot { background: var(--energy); border-color: #fff; box-shadow: 0 0 10px 2px rgba(95,217,164,0.5); }
   .wnode.cur { color: var(--ink); font-weight: 700; }
   .wnode .tag { font-size: 12px; }
+  /* Nodo ALCANZABLE: se pincha directamente en el mapa para viajar. */
+  .wnode.reachable { cursor: pointer; }
+  .wnode.reachable .dot { border-color: var(--energy); box-shadow: 0 0 0 3px rgba(95,217,164,0.14); }
+  .wnode.reachable:hover { color: var(--ink); }
+  .wnode.reachable:hover .dot { background: var(--energy); box-shadow: 0 0 10px 3px rgba(95,217,164,0.55); }
+  .wnode.locked-node { opacity: 0.5; cursor: not-allowed; }
   #world-side { min-width: 0; }
   .wroute {
     display: block; width: 100%; text-align: left; background: var(--panel-2); color: var(--ink);

@@ -30,10 +30,15 @@ export function advanceToNextTurn(units: UnitState[], speedOf: SpeedLookup): Uni
  * Predicción del orden de los próximos turnos (para una UI de timeline),
  * sin mutar el estado real.
  */
-export function forecastTurnOrder(units: UnitState[], speedOf: SpeedLookup, count: number): string[] {
+export function forecastTurnOrder(
+  units: UnitState[],
+  speedOf: SpeedLookup,
+  count: number,
+  ctOverride?: Record<string, number>,
+): string[] {
   const sim = units
     .filter((u) => u.hp > 0 && !u.retreated && speedOf(u) > 0)
-    .map((u) => ({ id: u.id, ct: u.ct, speed: speedOf(u) }));
+    .map((u) => ({ id: u.id, ct: ctOverride?.[u.id] ?? u.ct, speed: speedOf(u) }));
   if (sim.length === 0) return [];
 
   const order: string[] = [];

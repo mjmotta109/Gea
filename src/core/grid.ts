@@ -1,5 +1,15 @@
 import type { Position, Tile, TerrainType } from './types.js';
 
+/** Coste de mover por terreno difícil (abrupto/bosque) para no voladores. */
+export const ROUGH_MOVE_COST = 2;
+
+/**
+ * Coste de VADEAR agua para unidades terrestres. El agua ya no es un muro:
+ * se puede entrar, pero cuesta más que el terreno abrupto — dentro del agua
+ * la movilidad queda limitada. Voladores y anfibios la cruzan por 1.
+ */
+export const WATER_WADE_COST = 3;
+
 /**
  * Mapa de batalla: rejilla rectangular de tiles con terreno y altura.
  * La ocupación de unidades vive en Battle, no aquí; el mapa es estático.
@@ -91,6 +101,44 @@ export class GameMap {
     tile.terrain = 'plain';
   }
 
+  /**
+   * Prende una casilla durante `turns` turnos (arma incendiaria). El agua
+   * y los muros no arden — huir al agua apaga el fuego bajo los pies. Si ya
+   * ardía, se toma la duración mayor. Devuelve si prendió de verdad.
+   */
+  ignite(pos: Position, turns: number): boolean {
+    const tile = this.tileAt(pos);
+    if (tile.terrain === 'water' || tile.terrain === 'wall') return false;
+    tile.fire = Math.max(tile.fire ?? 0, turns);
+    return true;
+  }
+
+  /** Turnos de fuego que le quedan a la casilla (0 = sin fuego). */
+  fireAt(pos: Position): number {
+    return this.tileAt(pos).fire ?? 0;
+  }
+
+  /**
+   * Consume un turno de fuego en TODAS las casillas ardiendo (una vez por
+   * ronda). Devuelve las casillas que acaban de apagarse. Determinista:
+   * recorre la rejilla en orden.
+   */
+  decayFires(): Position[] {
+    const extinguished: Position[] = [];
+    for (let y = 0; y < this.height; y++) {
+      for (let x = 0; x < this.width; x++) {
+        const tile = this.tiles[y * this.width + x]!;
+        if (!tile.fire) continue;
+        tile.fire -= 1;
+        if (tile.fire <= 0) {
+          tile.fire = 0;
+          extinguished.push({ x, y });
+        }
+      }
+    }
+    return extinguished;
+  }
+
   inBounds(pos: Position): boolean {
     return pos.x >= 0 && pos.x < this.width && pos.y >= 0 && pos.y < this.height;
   }
@@ -100,7 +148,11 @@ export class GameMap {
     return this.tiles[pos.y * this.width + pos.x]!;
   }
 
-  /** Coste de entrar a un tile según terreno y tipo de movimiento. Infinity = intransitable. */
+  /**
+   * Coste de entrar a un tile según terreno y tipo de movimiento.
+   * Infinity = intransitable (solo el muro lo es). El agua se vadea a un
+   * coste alto: los terrestres pueden entrar, pero les cuesta.
+   */
   entryCost(pos: Position, moveType: 'ground' | 'flying' | 'amphibious'): number {
     const tile = this.tileAt(pos);
     switch (tile.terrain) {
@@ -110,10 +162,10 @@ export class GameMap {
         return 1;
       case 'rough':
       case 'forest':
-        return moveType === 'flying' ? 1 : 2;
+        return moveType === 'flying' ? 1 : ROUGH_MOVE_COST;
       case 'water':
         if (moveType === 'flying' || moveType === 'amphibious') return 1;
-        return Infinity;
+        return WATER_WADE_COST;
     }
   }
 }

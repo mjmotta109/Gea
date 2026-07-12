@@ -20,6 +20,12 @@ export interface Tile {
   terrain: TerrainType;
   /** Altura del tile en "medios niveles", como FFTA (0 = suelo raso). */
   height: number;
+  /**
+   * Turnos de FUEGO que le quedan a la casilla (control del campo). Ausente
+   * o 0 = sin fuego. Una casilla ardiendo calienta el reactor de quien la
+   * pisa y le hace daño al cerrar turno; el agua y los muros no prenden.
+   */
+  fire?: number;
 }
 
 /** Clase de movimiento de una unidad, determina cómo atraviesa el terreno. */
@@ -107,9 +113,18 @@ export type SlotId = string;
 export interface ModuleDefinition {
   id: string;
   name: string;
+  /** Estructura interna del módulo: cuando cae a 0, el módulo se destruye. */
   hp: number;
-  /** Reducción plana de daño antes de tocar el HP del módulo. */
+  /** Reducción plana de daño MIENTRAS el blindaje aguanta. */
   armor: number;
+  /**
+   * BLINDAJE: capa de placas que se GASTA absorbiendo daño antes de que la
+   * estructura sufra. Mientras quede blindaje, la armadura mitiga y el HP
+   * interno está protegido; cuando se agota, el módulo queda EXPUESTO y
+   * recibe el daño íntegro (sin mitigación) hasta destruirse. Ausente/0 =
+   * sin capa (comportamiento clásico: la armadura mitiga siempre).
+   */
+  plating?: number;
   /** Masa del módulo; la consumen estabilidad/energía en fases futuras. */
   weight: number;
   /** Peso relativo en la tabla de localización de impactos (mayor = más fácil de golpear). */
@@ -140,7 +155,10 @@ export interface FrameSlotConfig {
 export interface ModuleState {
   slot: SlotId;
   moduleId: string;
+  /** Estructura interna restante. */
   hp: number;
+  /** Blindaje restante: se gasta antes que la estructura (0 = expuesto). */
+  plating: number;
   destroyed: boolean;
 }
 
@@ -270,7 +288,11 @@ export type TargetShape = 'single' | 'cross' | 'line';
 export type AbilityEffect =
   | { kind: 'damage'; power: number; damageType: DamageType }
   | { kind: 'heal'; power: number }
-  | { kind: 'status'; status: StatusId; duration: number; chance: number };
+  | { kind: 'status'; status: StatusId; duration: number; chance: number }
+  // Arma térmica: vierte calor en el reactor del objetivo (no en el suyo).
+  // Empuja hacia el atasco de armas y el apagado (el otro lado del
+  // calor↔arsenal). Sin reactor que cocer, no hace nada.
+  | { kind: 'heat'; amount: number };
 
 export interface AbilityDefinition {
   id: string;
@@ -290,13 +312,26 @@ export interface AbilityDefinition {
   /** Usos máximos por batalla (omitir = ilimitados). */
   usesPerBattle?: number;
   effects: AbilityEffect[];
+  /**
+   * Arma incendiaria: PRENDE sus casillas de impacto (centro + área) durante
+   * tantos turnos. Ausente = no incendia. El fuego lo resuelve el campo, no
+   * los efectos por víctima (las casillas arden aunque no haya nadie encima).
+   */
+  ignites?: number;
+  /**
+   * Recargo de TEMPO (CT) de usar esta habilidad. Ausente = CT_ACT_LIGHT. Las
+   * armas pesadas lo suben: pegan fuerte, calientan Y te retrasan (identidad
+   * del peso). Numérico y agnóstico: el núcleo no gana vocabulario del universo.
+   */
+  ctCost?: number;
 }
 
 export type StatusId =
   | 'overheat'      // daño por turno (los sistemas internos se sobrecalientan)
   | 'armor-up'      // +DEF temporal
   | 'evasion-up'    // +evasión temporal
-  | 'stunned';      // pierde su próximo turno
+  | 'stunned'       // pierde su próximo turno
+  | 'suprimido';    // fijado: apunta peor y no puede reaccionar (contra/vigilancia)
 
 export interface StatusInstance {
   id: StatusId;
@@ -359,13 +394,30 @@ export interface UnitState {
   position: Position;
   facing: Facing;
   hp: number;
+  /**
+   * BLINDAJE de refuerzo a nivel de máquina: un búnker de placas que
+   * absorbe daño ANTES que el casco/módulos. Se monta en el taller (a
+   * cambio de ir más lento), se gasta en batalla y se repara en el taller.
+   * 0/ausente = sin refuerzo. Es el hermano de campaña del blindaje por
+   * módulos del frame.
+   */
+  armor?: number;
   /** Casillas de lado (copiado de la definición al desplegar). */
   size: number;
   /** Charge Time: al llegar a CT_THRESHOLD la unidad actúa. */
   ct: number;
+  /**
+   * TEMPO del turno activo: recargo de CT acumulado por lo que la unidad ha
+   * hecho este turno (mover, disparar, sobremarcha...). Se resetea al abrir
+   * turno; al cerrar, el turno cuesta CT_TURN_BASE + tempoSpent. Cuanto más
+   * comprometes, más tardas en volver. Flag del turno, como hasMoved/hasActed.
+   */
+  tempoSpent?: number;
   statuses: StatusInstance[];
   /** Postura de energía activa (sin definir = reparto neutro). */
   stance?: StanceId;
+  /** Reactor en SOBRECARGA: más potencia y calor cada turno hasta soltarlo. */
+  overclocked?: boolean;
   /** Flags del turno activo. */
   hasMoved: boolean;
   hasActed: boolean;
@@ -386,7 +438,11 @@ export interface UnitState {
 /** Acciones que un controlador (jugador o IA) puede pedir al motor. */
 export type BattleAction =
   | { type: 'move'; unitId: string; to: Position }
-  | { type: 'ability'; unitId: string; abilityId: string; target: Position }
+  /**
+   * `overdrive` (sobremarcha): pega ×1.5 AHORA a cambio de un recargo brutal
+   * de tempo (cedes tu próximo turno). Solo en habilidades ofensivas.
+   */
+  | { type: 'ability'; unitId: string; abilityId: string; target: Position; overdrive?: boolean }
   /** Impulso extra de movimiento (una vez por turno, coste energético alto). */
   | { type: 'boost'; unitId: string; to: Position }
   /** Recargar un arma consume la acción del turno. */
@@ -394,6 +450,12 @@ export type BattleAction =
   | { type: 'wait'; unitId: string; facing?: Facing }
   /** Cambio de postura de energía: acción libre, no consume el turno. */
   | { type: 'stance'; unitId: string; stance: StanceId }
+  /**
+   * SOBRECARGA del reactor: acción libre que fuerza el reactor por potencia,
+   * velocidad, iniciativa y daño, a cambio de calor masivo. No es un buff: es
+   * un pacto: si no refrigeras, te apagas. Requiere reactor (energía+calor).
+   */
+  | { type: 'overclock'; unitId: string; on: boolean }
   /** Vigilancia (XCOM): renuncia a actuar y dispara al primero que se mueva. */
   | { type: 'overwatch'; unitId: string }
   /** Retirada por el borde: la unidad abandona el campo intacta. */
@@ -412,6 +474,10 @@ export type BattleEvent =
   | { type: 'ability-missed'; unitId: string; targetUnitId: string }
   | { type: 'damage-dealt'; unitId: string; targetUnitId: string; amount: number; targetHp: number }
   | { type: 'hit-location-rolled'; targetUnitId: string; slot: SlotId }
+  | { type: 'unit-armor-damaged'; unitId: string; amount: number; armor: number }
+  | { type: 'unit-armor-broken'; unitId: string }
+  | { type: 'module-armor-damaged'; targetUnitId: string; slot: SlotId; amount: number; plating: number }
+  | { type: 'module-armor-broken'; targetUnitId: string; slot: SlotId }
   | { type: 'module-damaged'; targetUnitId: string; slot: SlotId; amount: number; moduleHp: number }
   | { type: 'module-destroyed'; targetUnitId: string; slot: SlotId }
   | { type: 'unit-healed'; unitId: string; targetUnitId: string; amount: number; targetHp: number }
@@ -428,6 +494,12 @@ export type BattleEvent =
   | { type: 'terrain-destroyed'; pos: Position }
   /** Un bosque arrasado por una explosión pierde su cobertura. */
   | { type: 'terrain-razed'; pos: Position }
+  /** Una casilla se PRENDE (arma incendiaria): arde `turns` turnos. */
+  | { type: 'tile-ignited'; pos: Position; turns: number }
+  /** El fuego de una casilla se apaga (se consumió su tiempo). */
+  | { type: 'tile-extinguished'; pos: Position }
+  /** Una unidad sufre el fuego de la casilla que pisa al cerrar turno. */
+  | { type: 'unit-burned'; unitId: string; damage: number; targetHp: number }
   /** Arranca una ronda nueva (cada unidad actúa ~una vez por ronda). */
   | { type: 'round-started'; round: number }
   /** Tiro fuera de turno: oportunidad (fuga), contraataque o vigilancia. */
@@ -446,7 +518,28 @@ export type BattleEvent =
   /** Apagado de emergencia por exceso térmico: pierde el turno y sufre daño interno. */
   | { type: 'unit-shutdown'; unitId: string; damage: number; targetHp: number }
   | { type: 'stance-changed'; unitId: string; stance: StanceId }
+  | { type: 'overclock-changed'; unitId: string; on: boolean }
+  /** Tempo cedido al cerrar turno: `delta` de CT gastado, `ct` resultante. */
+  | { type: 'tempo-spent'; unitId: string; ct: number; delta: number }
+  /** Sobremarcha: golpe ×1.5 ahora, a costa del próximo turno. */
+  | { type: 'overdrive-used'; unitId: string; abilityId: string }
   | { type: 'turn-ended'; unitId: string }
   | { type: 'battle-ended'; winner: Team };
 
 export const CT_THRESHOLD = 100;
+
+/**
+ * TEMPO como recurso (§pilar iniciativa). El turno cuesta CT_TURN_BASE más el
+ * recargo de cada acción cometida. Así esperar te ADELANTA (cuesta poco),
+ * un disparo normal es neutro (base+ligero = umbral) y comprometer mucho
+ * (mover + arma pesada, o sobremarcha) te RETRASA. Todo determinista.
+ */
+export const CT_TURN_BASE = 60;
+/** Recargo por reposicionarse. */
+export const CT_MOVE = 30;
+/** Recargo de una acción estándar (disparo/golpe/recarga). Ausente ⇒ este. */
+export const CT_ACT_LIGHT = 40;
+/** Recargo de un arma pesada/superpesada o el boost: pega fuerte y te frena. */
+export const CT_ACT_HEAVY = 70;
+/** Recargo de la SOBREMARCHA: el golpe ×1.5 que te cuesta el próximo turno. */
+export const CT_OVERDRIVE = 100;

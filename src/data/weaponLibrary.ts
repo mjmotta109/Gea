@@ -1,4 +1,4 @@
-import type { AbilityDefinition, WeaponDefinition } from '../core/types.js';
+import { CT_ACT_HEAVY, type AbilityDefinition, type WeaponDefinition } from '../core/types.js';
 
 export type WeaponFamily = 'melee' | 'ballistic' | 'missile' | 'energy' | 'support' | 'control';
 export type WeaponWeight = 'light' | 'medium' | 'heavy' | 'superheavy';
@@ -68,6 +68,7 @@ export const WEAPON_LIBRARY_ABILITIES: Record<string, AbilityDefinition> = {
     accuracy: 78,
     targetsAllies: false,
     effects: [{ kind: 'damage', power: 66, damageType: 'energy' }],
+    ctCost: CT_ACT_HEAVY,
   },
   'lib-pile-bunker': {
     id: 'lib-pile-bunker',
@@ -80,6 +81,7 @@ export const WEAPON_LIBRARY_ABILITIES: Record<string, AbilityDefinition> = {
     accuracy: 74,
     targetsAllies: false,
     effects: [{ kind: 'damage', power: 72, damageType: 'physical' }],
+    ctCost: CT_ACT_HEAVY,
   },
   'lib-twin-autocannon': {
     id: 'lib-twin-autocannon',
@@ -116,6 +118,7 @@ export const WEAPON_LIBRARY_ABILITIES: Record<string, AbilityDefinition> = {
     accuracy: 82,
     targetsAllies: false,
     effects: [{ kind: 'damage', power: 54, damageType: 'physical' }],
+    ctCost: CT_ACT_HEAVY,
   },
   'lib-gauss-hammer': {
     id: 'lib-gauss-hammer',
@@ -128,6 +131,7 @@ export const WEAPON_LIBRARY_ABILITIES: Record<string, AbilityDefinition> = {
     accuracy: 74,
     targetsAllies: false,
     effects: [{ kind: 'damage', power: 58, damageType: 'physical' }],
+    ctCost: CT_ACT_HEAVY,
   },
   'lib-micro-missile-swarm': {
     id: 'lib-micro-missile-swarm',
@@ -141,6 +145,21 @@ export const WEAPON_LIBRARY_ABILITIES: Record<string, AbilityDefinition> = {
     targetsAllies: false,
     effects: [{ kind: 'damage', power: 26, damageType: 'physical' }],
   },
+  'lib-incendiary-mortar': {
+    id: 'lib-incendiary-mortar',
+    name: 'Mortero incendiario',
+    description: 'Proyectil de napalm: poco daño directo, PRENDE la zona de impacto. El fuego cuece reactores y niega el terreno; el agua lo apaga.',
+    range: 6,
+    minRange: 2,
+    shape: 'single',
+    aoeRadius: 1,
+    accuracy: 70,
+    targetsAllies: false,
+    effects: [{ kind: 'damage', power: 18, damageType: 'energy' }],
+    // Control del campo: las casillas de impacto arden 3 turnos.
+    ignites: 3,
+    ctCost: CT_ACT_HEAVY,
+  },
   'lib-cluster-mortar': {
     id: 'lib-cluster-mortar',
     name: 'Mortero cluster',
@@ -152,6 +171,7 @@ export const WEAPON_LIBRARY_ABILITIES: Record<string, AbilityDefinition> = {
     accuracy: 64,
     targetsAllies: false,
     effects: [{ kind: 'damage', power: 22, damageType: 'physical' }],
+    ctCost: CT_ACT_HEAVY,
   },
   'lib-thermobaric-rocket': {
     id: 'lib-thermobaric-rocket',
@@ -167,6 +187,7 @@ export const WEAPON_LIBRARY_ABILITIES: Record<string, AbilityDefinition> = {
       { kind: 'damage', power: 34, damageType: 'energy' },
       { kind: 'status', status: 'overheat', duration: 1, chance: 35 },
     ],
+    ctCost: CT_ACT_HEAVY,
   },
   'lib-seismic-driver': {
     id: 'lib-seismic-driver',
@@ -179,6 +200,7 @@ export const WEAPON_LIBRARY_ABILITIES: Record<string, AbilityDefinition> = {
     accuracy: 76,
     targetsAllies: false,
     effects: [{ kind: 'damage', power: 36, damageType: 'physical' }],
+    ctCost: CT_ACT_HEAVY,
   },
   'lib-plasma-carbine': {
     id: 'lib-plasma-carbine',
@@ -207,6 +229,22 @@ export const WEAPON_LIBRARY_ABILITIES: Record<string, AbilityDefinition> = {
       { kind: 'status', status: 'stunned', duration: 1, chance: 20 },
     ],
   },
+  'lib-suppressor': {
+    id: 'lib-suppressor',
+    name: 'Ráfaga de supresión',
+    description: 'Fuego sostenido que apenas hiere pero FIJA al objetivo: apunta peor y no puede contraatacar ni vigilar. Prepara el remate de un aliado.',
+    range: 4,
+    minRange: 1,
+    shape: 'single',
+    aoeRadius: 0,
+    accuracy: 85,
+    targetsAllies: false,
+    // Poco daño; su valor es el estado 'suprimido' (fija la reacción del rival).
+    effects: [
+      { kind: 'damage', power: 20, damageType: 'physical' },
+      { kind: 'status', status: 'suprimido', duration: 1, chance: 80 },
+    ],
+  },
   'lib-ion-lance': {
     id: 'lib-ion-lance',
     name: 'Lanza ionica',
@@ -221,6 +259,7 @@ export const WEAPON_LIBRARY_ABILITIES: Record<string, AbilityDefinition> = {
       { kind: 'damage', power: 34, damageType: 'energy' },
       { kind: 'status', status: 'stunned', duration: 1, chance: 25 },
     ],
+    ctCost: CT_ACT_HEAVY,
   },
   'lib-heat-needle': {
     id: 'lib-heat-needle',
@@ -235,6 +274,25 @@ export const WEAPON_LIBRARY_ABILITIES: Record<string, AbilityDefinition> = {
     effects: [
       { kind: 'damage', power: 30, damageType: 'energy' },
       { kind: 'status', status: 'overheat', duration: 2, chance: 30 },
+    ],
+  },
+  'lib-plasma-flamer': {
+    id: 'lib-plasma-flamer',
+    name: 'Lanzallamas de plasma',
+    description: 'Chorro corto que apenas rasca el blindaje pero INUNDA de calor el reactor: cuece armas pesadas y fuerza el apagado.',
+    range: 2,
+    minRange: 1,
+    shape: 'single',
+    aoeRadius: 0,
+    accuracy: 82,
+    targetsAllies: false,
+    // Poco daño directo; su identidad es el calor vertido en el objetivo
+    // (rider garantizado si el rival tiene reactor). Reconocible sin ficha:
+    // es el arma tras la que el enemigo empieza a humear y se le atascan
+    // las armas.
+    effects: [
+      { kind: 'damage', power: 16, damageType: 'energy' },
+      { kind: 'heat', amount: 26 },
     ],
   },
   'lib-smoke-mortar': {
@@ -379,6 +437,15 @@ export const WEAPON_LIBRARY_WEAPONS: Record<string, WeaponDefinition> = {
     reserves: 3,
     projectile: { velocity: 6, dispersion: 4, penetration: 0, caliber: 140, mass: 3, ricochet: false },
   },
+  'lib-w-incendiary-mortar': {
+    id: 'lib-w-incendiary-mortar',
+    name: 'Mortero incendiario',
+    abilityId: 'lib-incendiary-mortar',
+    costs: { heat: 14, cooldownTurns: 1 },
+    magazine: 2,
+    reserves: 2,
+    projectile: { velocity: 7, dispersion: 3, penetration: 0, caliber: 130, mass: 2, ricochet: false },
+  },
   'lib-w-thermobaric-rocket': {
     id: 'lib-w-thermobaric-rocket',
     name: 'Cohete termobarico',
@@ -415,6 +482,15 @@ export const WEAPON_LIBRARY_WEAPONS: Record<string, WeaponDefinition> = {
     reserves: 0,
     projectile: { velocity: 16, dispersion: 1, penetration: 1, caliber: 0, mass: 0, ricochet: false },
   },
+  'lib-w-suppressor': {
+    id: 'lib-w-suppressor',
+    name: 'Ráfaga de supresión',
+    abilityId: 'lib-suppressor',
+    costs: { heat: 8 },
+    magazine: 5,
+    reserves: 3,
+    projectile: { velocity: 13, dispersion: 1, penetration: 0, caliber: 30, mass: 1, ricochet: true },
+  },
   'lib-w-ion-lance': {
     id: 'lib-w-ion-lance',
     name: 'Lanza ionica',
@@ -432,6 +508,16 @@ export const WEAPON_LIBRARY_WEAPONS: Record<string, WeaponDefinition> = {
     magazine: 3,
     reserves: 3,
     projectile: { velocity: 20, dispersion: 0, penetration: 2, caliber: 25, mass: 1, ricochet: false },
+  },
+  'lib-w-plasma-flamer': {
+    id: 'lib-w-plasma-flamer',
+    name: 'Lanzallamas de plasma',
+    abilityId: 'lib-plasma-flamer',
+    // Corre caliente también para el TIRADOR: usarlo alimenta tu propio
+    // riesgo de sobrecarga. Depósito de combustible corto (cargador).
+    costs: { energy: 12, heat: 14 },
+    magazine: 4,
+    reserves: 1,
   },
   'lib-w-smoke-mortar': {
     id: 'lib-w-smoke-mortar',
@@ -560,6 +646,15 @@ export const WEAPON_LIBRARY_ENTRIES: Record<string, WeaponLibraryEntry> = {
     tags: ['large-aoe', 'ammo', 'scatter'],
     notes: 'Area amplia de bajo dano: herramienta de posicionamiento y castigo grupal.',
   },
+  'lib-w-incendiary-mortar': {
+    weaponId: 'lib-w-incendiary-mortar',
+    abilityId: 'lib-incendiary-mortar',
+    family: 'control',
+    weight: 'heavy',
+    role: 'controller',
+    tags: ['aoe', 'fire', 'area-denial', 'anti-reactor'],
+    notes: 'Control del campo: prende la zona. El fuego cuece reactores y niega el paso; el agua lo apaga.',
+  },
   'lib-w-thermobaric-rocket': {
     weaponId: 'lib-w-thermobaric-rocket',
     abilityId: 'lib-thermobaric-rocket',
@@ -605,6 +700,15 @@ export const WEAPON_LIBRARY_ENTRIES: Record<string, WeaponLibraryEntry> = {
     tags: ['line', 'stun', 'cooldown'],
     notes: 'Control de carriles; menos dano que una railgun, mas utilidad.',
   },
+  'lib-w-suppressor': {
+    weaponId: 'lib-w-suppressor',
+    abilityId: 'lib-suppressor',
+    family: 'control',
+    weight: 'medium',
+    role: 'controller',
+    tags: ['ammo', 'suppress', 'squad-setup'],
+    notes: 'Sinergia de escuadra: fija al rival (sin contraataque ni vigilancia) para que un aliado remate seguro.',
+  },
   'lib-w-heat-needle': {
     weaponId: 'lib-w-heat-needle',
     abilityId: 'lib-heat-needle',
@@ -613,6 +717,15 @@ export const WEAPON_LIBRARY_ENTRIES: Record<string, WeaponLibraryEntry> = {
     role: 'controller',
     tags: ['overheat', 'precision', 'ammo'],
     notes: 'Herramienta anti-generador para presionar unidades calientes.',
+  },
+  'lib-w-plasma-flamer': {
+    weaponId: 'lib-w-plasma-flamer',
+    abilityId: 'lib-plasma-flamer',
+    family: 'energy',
+    weight: 'medium',
+    role: 'controller',
+    tags: ['short-range', 'heat', 'anti-reactor'],
+    notes: 'Anti-reactor de corto alcance: vierte calor para atascar armas y forzar apagados. Inofensivo contra monocasco (solo su daño mínimo).',
   },
   'lib-w-smoke-mortar': {
     weaponId: 'lib-w-smoke-mortar',
@@ -649,10 +762,10 @@ export const WEAPON_LIBRARY_LOADOUTS: Record<string, string[]> = {
   skirmisher: ['lib-w-twin-autocannon', 'lib-w-plasma-carbine'],
   sniper: ['lib-w-rail-lance', 'lib-w-heat-needle'],
   breaker: ['lib-w-gauss-hammer', 'lib-w-micro-missile-swarm'],
-  artillery: ['lib-w-cluster-mortar', 'lib-w-thermobaric-rocket', 'lib-w-flak-burst'],
+  artillery: ['lib-w-cluster-mortar', 'lib-w-thermobaric-rocket', 'lib-w-flak-burst', 'lib-w-incendiary-mortar'],
   support: ['lib-w-field-repair-beam', 'lib-w-smoke-mortar', 'lib-w-barrier-projector'],
-  controller: ['lib-w-ion-lance', 'lib-w-heat-needle', 'lib-w-smoke-mortar', 'lib-w-arc-emitter'],
-  zoneControl: ['lib-w-seismic-driver', 'lib-w-arc-emitter', 'lib-w-flak-burst'],
+  controller: ['lib-w-ion-lance', 'lib-w-heat-needle', 'lib-w-smoke-mortar', 'lib-w-arc-emitter', 'lib-w-plasma-flamer'],
+  zoneControl: ['lib-w-seismic-driver', 'lib-w-arc-emitter', 'lib-w-flak-burst', 'lib-w-suppressor'],
 };
 
 export function withWeaponLibrary(

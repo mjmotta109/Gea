@@ -52,15 +52,15 @@ describe('generador procedural de campos de batalla', () => {
     }
   });
 
-  it('todo spawn enemigo es alcanzable por tierra desde el jugador', () => {
-    for (let i = 0; i < 30; i++) {
+  it('el mapa es transitable de lado a lado: todo spawn es alcanzable (solo el muro corta)', () => {
+    for (let i = 0; i < 40; i++) {
       const map = generateBattlefield(`conn-${i}`);
       const width = map.rows[0]!.length;
       const height = map.rows.length;
+      // El agua se vadea y toda altura se escala: solo el muro es intransitable.
       const passable = (x: number, y: number): boolean => {
         if (x < 0 || y < 0 || x >= width || y >= height) return false;
-        const ch = map.rows[y]![x]!;
-        return ch !== '#' && ch !== '~';
+        return map.rows[y]![x]! !== '#';
       };
       const seen = new Set<string>();
       const queue = [map.playerSpawns[0]!];
@@ -71,7 +71,8 @@ describe('generador procedural de campos de batalla', () => {
         seen.add(key);
         queue.push({ x: x + 1, y }, { x: x - 1, y }, { x, y: y + 1 }, { x, y: y - 1 });
       }
-      for (const target of map.enemySpawns) {
+      // Ambos bandos, no solo el enemigo: la compañía entera debe poder moverse.
+      for (const target of [...map.playerSpawns, ...map.enemySpawns]) {
         expect(seen.has(`${target.x},${target.y}`)).toBe(true);
       }
     }

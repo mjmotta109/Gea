@@ -5,8 +5,8 @@ import { GameMap } from '../core/grid.js';
  *   0-9  llanura con altura
  *   a-j  terreno abrupto (coste 2) con altura 0-9
  *   A-J  bosque (coste 2, cobertura, la copa bloquea la visión) altura 0-9
- *   ~    agua (solo voladores/anfibios)
- *   #    muro intransitable
+ *   ~    agua (vadeable a coste alto; penaliza ataque a los terrestres)
+ *   #    muro intransitable (el único terreno que corta el paso)
  */
 
 /** Valle con río central, colinas en los flancos y bosques que cortan

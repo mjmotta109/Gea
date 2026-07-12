@@ -10,6 +10,46 @@ function profileOf(battle: Battle, unit: UnitState): AIProfile {
   return { ...NEUTRAL_PROFILE, ...battle.definitionOf(unit.unitTypeId).aiProfile };
 }
 
+/** Cuánta prioridad da el escuadrón a concentrar el fuego en su presa. */
+const FOCUS_BONUS = 25;
+/** Competencia mínima (curva de dificultad) para coordinar el fuego de escuadra. */
+const AI_SKILL_FOCUS = 0.35;
+/** Competencia mínima para emboscar (vigilancia defensiva). */
+const AI_SKILL_AMBUSH = 0.65;
+
+/**
+ * FOCO del escuadrón: la presa sobre la que conviene concentrar el fuego esta
+ * ronda. Cada aliado lo calcula IGUAL (función pura del estado, orden fijo,
+ * desempate por-primero), así que convergen sin memoria compartida — la
+ * coordinación es emergente y determinista. Premia a los rematables (poca
+ * vida), a los ya debilitados (suprimido/cocido) y a los que más aliados
+ * pueden alcanzar YA (concentrables). Devuelve undefined si no hay enemigos.
+ */
+function teamFocusTarget(battle: Battle, self: UnitState, enemies: UnitState[]): UnitState | undefined {
+  const allies = battle.units.filter((u) => u.team === self.team && u.hp > 0 && !u.retreated);
+  let best: UnitState | undefined;
+  let bestScore = -Infinity;
+  for (const e of enemies) {
+    const maxHp = Math.max(1, battle.effectiveStats(e).maxHp);
+    let s = (1 - e.hp / maxHp) * 100; // cuanto más bajo de vida, mejor presa
+    let shooters = 0;
+    for (const a of allies) {
+      const canHit = battle.knownAbilityIds(a).some((id) => {
+        const ab = battle.abilityOf(id);
+        return ab.effects.some((x) => x.kind === 'damage')
+          && battle.canTargetFrom(a, a.position, id, e.position);
+      });
+      if (canHit) shooters++;
+    }
+    s += shooters * 15; // concentrable = varios aliados ya le alcanzan
+    if (e.statuses.some((st) => st.id === 'suprimido')) s += 20; // ya fijado
+    const h = e.components.heat;
+    if (h && h.max > 0 && h.current / h.max >= 0.7) s += 15; // reactor al rojo
+    if (s > bestScore) { bestScore = s; best = e; }
+  }
+  return best;
+}
+
 /**
  * IA básica para el turno de una unidad. Estrategia:
  *  1. Si desde alguna casilla alcanzable (incluida la actual) puede usar una
@@ -23,7 +63,11 @@ function profileOf(battle: Battle, unit: UnitState): AIProfile {
  * (termina en wait). Es deliberadamente simple: sirve de sparring y de
  * referencia para IAs más serias.
  */
-export function planTurn(battle: Battle, unit: UnitState): BattleAction[] {
+export function planTurn(battle: Battle, unit: UnitState, skill?: number): BattleAction[] {
+  // Competencia efectiva: el override permite skill POR EQUIPO (un jugador
+  // simulado a tope contra un enemigo que sube por la curva). Sin override rige
+  // el de la batalla (por defecto 1 → golden idéntico).
+  const aiSkill = skill ?? battle.aiSkill;
   const enemies = battle.units.filter((u) => u.team !== unit.team && u.hp > 0 && !u.retreated);
   if (enemies.length === 0) return [{ type: 'wait', unitId: unit.id }];
 
@@ -82,10 +126,16 @@ export function planTurn(battle: Battle, unit: UnitState): BattleAction[] {
     | undefined;
 
   const profile = profileOf(battle, unit);
+  // Coordinación de escuadra: solo una IA competente concentra el fuego (curva
+  // de dificultad). Grunts torpes (skill bajo) pelean cada uno por su lado.
+  const focus = aiSkill >= AI_SKILL_FOCUS ? teamFocusTarget(battle, unit, enemies) : undefined;
 
   for (const option of moveOptions) {
     // Riesgo posicional: enemigos pegados a la casilla final del turno.
     const nearbyThreat = enemies.filter((e) => manhattan(option.from, e.position) <= 2).length;
+    // Terminar el turno sobre fuego se paga (calor + brasas): la IA lo evita.
+    // Fuera de mapas con incendiarias (p.ej. el golden) fireAt es siempre 0.
+    const firePenalty = battle.map.fireAt(option.from) > 0 ? 40 : 0;
 
     for (const ability of offensiveAbilities) {
       for (const enemy of enemies) {
@@ -94,8 +144,23 @@ export function planTurn(battle: Battle, unit: UnitState): BattleAction[] {
 
         const damage = ability.effects.find((e) => e.kind === 'damage');
         const power = damage && damage.kind === 'damage' ? damage.power : 0;
-        // Utilidad base: potencia, rematar bajos de vida y precisión...
-        let score = power + (100 - (enemy.hp / battle.effectiveStats(enemy).maxHp) * 100) + ability.accuracy / 10;
+        // Utilidad del arma COMPLETA, no solo el daño directo: cocer un reactor,
+        // incendiar la zona o suprimir también valen. Todo esto solo aplica a
+        // las mecánicas nuevas (calor/fuego/supresión), ausentes del golden, así
+        // que la valoración de la IA del golden no cambia.
+        let utility = power;
+        for (const eff of ability.effects) {
+          if (eff.kind === 'heat' && enemy.components.heat) {
+            const h = enemy.components.heat;
+            const overshoot = Math.max(0, h.current + eff.amount - h.max);
+            utility += eff.amount * 0.7 + overshoot; // desbordar el reactor (apagado) es oro
+          } else if (eff.kind === 'status' && eff.status === 'suprimido') {
+            utility += (eff.chance / 100) * 26; // fijar al rival prepara el remate del escuadrón
+          }
+        }
+        if (ability.ignites) utility += enemy.components.heat ? 24 : 12; // fuego: cuece + niega zona
+        // Utilidad base: + rematar bajos de vida y precisión...
+        let score = utility + (100 - (enemy.hp / battle.effectiveStats(enemy).maxHp) * 100) + ability.accuracy / 10;
         // Olfato de misión: si el objetivo es proteger a alguien, ese
         // alguien es EL blanco — la IA también lee el contrato.
         const objective = battle.objective;
@@ -104,6 +169,15 @@ export function planTurn(battle: Battle, unit: UnitState): BattleAction[] {
         // tiros dudosos, los conservadores no terminan rodeados.
         score += (ability.accuracy - 80) * (1 - profile.riskTolerance) * 0.5;
         score -= nearbyThreat * profile.selfPreservation * 12;
+        score -= firePenalty;
+        // Remate seguro (sinergia): un SUPRIMIDO no contraataca; un reactor
+        // COCIDO está al borde del apagado. Prioriza cerrarlos.
+        if (enemy.statuses.some((s) => s.id === 'suprimido')) score += 18;
+        const eh = enemy.components.heat;
+        if (eh && eh.max > 0 && eh.current / eh.max >= 0.7) score += 12;
+        // Fuego concentrado: prioriza la presa del escuadrón para rematarla
+        // entre varios en vez de repartir daño (coordinación emergente).
+        if (focus && enemy.id === focus.id) score += FOCUS_BONUS;
         if (!best || score > best.score) {
           best = { to: option.to, abilityId: ability.id, target: { ...enemy.position }, score };
         }
@@ -134,6 +208,7 @@ export function planTurn(battle: Battle, unit: UnitState): BattleAction[] {
           score = 28 + danger * 10;
         }
         score -= nearbyThreat * profile.selfPreservation * 12;
+        score -= firePenalty; // tampoco te cures parado en el fuego
         if (!best || score > best.score) {
           best = { to: option.to, abilityId: ability.id, target: { ...allyPos }, score };
         }
@@ -157,20 +232,49 @@ export function planTurn(battle: Battle, unit: UnitState): BattleAction[] {
   const hurt = unit.hp < battle.effectiveStats(unit).maxHp * 0.35;
   const retreat = hurt && profile.selfPreservation >= 0.7;
   const currentDist = manhattan(unit.position, nearest.position);
+  const aiStats = battle.effectiveStats(unit);
+
+  // EMBOSCADA (vigilancia): si no hay tiro AHORA pero un enemigo entrará a tiro
+  // en cuanto avance, quédate al acecho en vez de caminar a ciegas hacia él. Es
+  // la jugada defensiva —los prudentes la prefieren— y estrena en la IA la
+  // vigilancia, que hasta ahora solo usaba el jugador.
+  const maxRange = offensiveAbilities.reduce((m, a) => Math.max(m, a.range), 0);
+  // Solo se embosca a un enemigo MÁS agresivo que uno mismo (el que de verdad
+  // va a cerrar la distancia — la asimetría garantiza que el más agresivo de
+  // cada pareja SIEMPRE avanza: nunca hay doble-vigilancia mutua que se quede
+  // en un empate por límite de turnos) y que llegará a tiro tras SU avance.
+  const enemyAboutToEnter = offensiveAbilities.length > 0 && enemies.some((e) => {
+    const d = manhattan(unit.position, e.position);
+    if (d <= maxRange) return false; // ya está a tiro: se resolvería como ataque
+    const eProfile = profileOf(battle, e);
+    if (eProfile.aggression <= profile.aggression) return false;
+    return d <= maxRange + battle.effectiveStats(e).move + 1; // entrará a tiro tras avanzar
+  });
+  if (aiSkill >= AI_SKILL_AMBUSH && !retreat && !unit.hasActed
+    && profile.aggression < 0.7 && enemyAboutToEnter) {
+    return [{ type: 'overwatch', unitId: unit.id }];
+  }
+
   // Los poco agresivos mantienen posición salvo que el enemigo ya esté cerca.
   const holdPosition = !retreat && profile.aggression < 0.35
-    && currentDist > battle.effectiveStats(unit).move * 2;
+    && currentDist > aiStats.move * 2;
 
   let standAt = unit.position;
   if (canMove && !holdPosition) {
     const reachable = battle.legalMoves(unit.id);
-    let bestDist = currentDist;
+    // Puntúa cada casilla: avance quiere -distancia, retirada +distancia; y en
+    // ambos casos huir del fuego pesa fuerte (quedarse ardiendo es peor que no
+    // avanzar). Sin fuego (golden) el término se anula y la elección es idéntica
+    // a la de antes: mismo tile por el mismo criterio de distancia.
+    const tileScore = (pos: Position): number =>
+      (retreat ? manhattan(pos, nearest.position) : -manhattan(pos, nearest.position))
+      - (battle.map.fireAt(pos) > 0 ? 1000 : 0);
+    let bestScore = tileScore(unit.position);
     let bestTile: Position | undefined;
     for (const tile of reachable) {
-      const d = manhattan(tile.pos, nearest.position);
-      // Retirada: maximiza distancia; avance: minimízala.
-      if (retreat ? d > bestDist : d < bestDist) {
-        bestDist = d;
+      const s = tileScore(tile.pos);
+      if (s > bestScore) {
+        bestScore = s;
         bestTile = tile.pos;
       }
     }
@@ -198,11 +302,16 @@ export function planTurn(battle: Battle, unit: UnitState): BattleAction[] {
     return actions;
   }
 
-  // Vigilancia: sin tiro posible pero con enemigos a menos de 10, cubrir
-  // el terreno castiga al que avance (paga sus costes como un disparo).
+  // Vigilancia de cobertura: tras la maniobra, sin tiro posible pero con un
+  // enemigo acercándose (≤10), cubrir el terreno castiga al que avance.
+  // Sujeta a las MISMAS reglas que la emboscada: exige competencia (curva de
+  // dificultad — los grunts bobos no vigilan) y solo contra un enemigo MÁS
+  // agresivo (la asimetría evita la doble-vigilancia mutua y el empate).
   const watchFrom = standAt;
-  const closingIn = enemies.some((e) => manhattan(watchFrom, e.position) <= 10);
-  const canWatch = !unit.hasActed && closingIn && offensiveAbilities.length > 0;
+  const closingIn = enemies.some((e) =>
+    manhattan(watchFrom, e.position) <= 10 && profileOf(battle, e).aggression > profile.aggression);
+  const canWatch = aiSkill >= AI_SKILL_AMBUSH && !unit.hasActed && closingIn
+    && profile.aggression < 0.7 && offensiveAbilities.length > 0;
   if (canWatch) {
     actions.push({ type: 'overwatch', unitId: unit.id });
     return actions; // la vigilancia ya cierra el turno

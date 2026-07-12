@@ -20,10 +20,15 @@ describe('reachableTiles', () => {
     expect(tiles.every((t) => Math.abs(t.pos.x - 2) + Math.abs(t.pos.y - 2) <= 2)).toBe(true);
   });
 
-  it('no puede saltar diferencias de altura mayores que jump', () => {
-    const map = GameMap.fromAscii(['030']);
-    const tiles = reachableTiles(map, { x: 0, y: 0 }, { move: 5, jump: 2, moveType: 'ground', team: 'player' }, []);
-    expect(tiles.map((t) => posKey(t.pos))).toEqual(['0,0']);
+  it('escalar desniveles mayores que el salto es posible, pero cuesta movimiento extra', () => {
+    const map = GameMap.fromAscii(['030']); // altura 0 → 3 → 0
+    // Subir 3 con salto 1 = 2 niveles de más × 2 + 1 de entrar = 5 de coste.
+    const rich = reachableTiles(map, { x: 0, y: 0 }, { move: 5, jump: 1, moveType: 'ground', team: 'player' }, []);
+    const cliff = rich.find((t) => posKey(t.pos) === '1,0');
+    expect(cliff?.cost).toBe(5); // ya no está tapiado: se escala
+    // Pero si no le alcanza el movimiento, no puede.
+    const poor = reachableTiles(map, { x: 0, y: 0 }, { move: 4, jump: 1, moveType: 'ground', team: 'player' }, []);
+    expect(poor.map((t) => posKey(t.pos))).not.toContain('1,0');
   });
 
   it('los voladores ignoran altura y agua', () => {
@@ -32,16 +37,16 @@ describe('reachableTiles', () => {
     expect(tiles).toHaveLength(3);
   });
 
-  it('los terrestres no cruzan agua y pagan doble en terreno abrupto', () => {
+  it('los terrestres vadean el agua a coste alto (3), no la cruzan gratis', () => {
     const map = GameMap.fromAscii(['0a0', '0~0', '000']);
-    const tiles = reachableTiles(map, { x: 0, y: 0 }, { move: 2, jump: 1, moveType: 'ground', team: 'player' }, []);
-    const keys = tiles.map((t) => posKey(t.pos)).sort();
-    // Puede: quedarse, entrar al abrupto (coste 2), bajar 2 al sur.
-    expect(keys).toContain('0,0');
-    expect(keys).toContain('1,0'); // abrupto con coste 2
-    expect(keys).toContain('0,2');
-    expect(keys).not.toContain('1,1'); // agua
-    expect(keys).not.toContain('2,0'); // abrupto agotó el movimiento
+    // Con movimiento 2, el agua queda fuera de alcance (vadear cuesta 3),
+    // pero el abrupto se pisa a coste 2.
+    const tight = reachableTiles(map, { x: 0, y: 0 }, { move: 2, jump: 1, moveType: 'ground', team: 'player' }, []);
+    expect(tight.find((t) => posKey(t.pos) === '1,0')?.cost).toBe(2); // abrupto coste 2
+    expect(tight.map((t) => posKey(t.pos))).not.toContain('1,1'); // agua fuera de alcance
+    // Con movimiento 4 sí entra al agua: 0,1 llano (1) + 1,1 agua (3) = 4.
+    const roomy = reachableTiles(map, { x: 0, y: 0 }, { move: 4, jump: 1, moveType: 'ground', team: 'player' }, []);
+    expect(roomy.find((t) => posKey(t.pos) === '1,1')?.cost).toBe(4);
   });
 
   it('no atraviesa enemigos pero sí aliados, sin terminar sobre ellos', () => {

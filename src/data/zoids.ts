@@ -19,6 +19,14 @@ export const ZOIDS: Record<string, UnitDefinition> = {
     },
     abilityIds: ['strike-laser-claw', 'bite-crush', 'e-shield'],
     aiProfile: { aggression: 0.85, selfPreservation: 0.4, riskTolerance: 0.6 },
+    frame: [
+      { slot: 'casco', moduleId: 'lz-casco' },
+      { slot: 'nucleo', moduleId: 'lz-nucleo' },
+      { slot: 'tren-del', moduleId: 'lz-tren-del' },
+      { slot: 'tren-tras', moduleId: 'lz-tren-tras' },
+      { slot: 'garras', moduleId: 'lz-garras' },
+      { slot: 'lomo', moduleId: 'lz-lomo' },
+    ],
   },
   'command-wolf': {
     id: 'command-wolf',
@@ -30,6 +38,13 @@ export const ZOIDS: Record<string, UnitDefinition> = {
       speed: 14, move: 5, jump: 2, evade: 15, accuracy: 0,
     },
     abilityIds: ['bite-crush', 'shock-cannon', 'smoke-discharger'],
+    frame: [
+      { slot: 'casco', moduleId: 'cw-casco' },
+      { slot: 'nucleo', moduleId: 'cw-nucleo' },
+      { slot: 'patas-del', moduleId: 'cw-patas-del' },
+      { slot: 'patas-tras', moduleId: 'cw-patas-tras' },
+      { slot: 'canon', moduleId: 'cw-canon' },
+    ],
   },
   'gojulas': {
     id: 'gojulas',
@@ -37,10 +52,19 @@ export const ZOIDS: Record<string, UnitDefinition> = {
     role: 'tank',
     moveType: 'ground',
     stats: {
-      maxHp: 200, atk: 60, energyAtk: 40, def: 50, energyDef: 40,
+      // Nerf (2026-07-08): con la IA de fuego concentrado su ataque enorme (60)
+      // lo volvía dominante (61.6%). Baja a 52; sigue siendo el tanque más duro.
+      maxHp: 200, atk: 52, energyAtk: 40, def: 50, energyDef: 40,
       speed: 8, move: 4, jump: 1, evade: 0, accuracy: 3,
     },
     abilityIds: ['bite-crush', 'missile-pod', 'e-shield'],
+    frame: [
+      { slot: 'casco', moduleId: 'gj-casco' },
+      { slot: 'nucleo', moduleId: 'gj-nucleo' },
+      { slot: 'patas', moduleId: 'gj-patas' },
+      { slot: 'misiles', moduleId: 'gj-misiles' },
+      { slot: 'coraza', moduleId: 'gj-coraza' },
+    ],
   },
   'gun-sniper': {
     id: 'gun-sniper',
@@ -54,6 +78,13 @@ export const ZOIDS: Record<string, UnitDefinition> = {
     abilityIds: ['bite-crush'],
     weapons: ['w-sniper-rifle'],
     aiProfile: { aggression: 0.35, selfPreservation: 0.8, riskTolerance: 0.2 },
+    frame: [
+      { slot: 'sensor', moduleId: 'gsn-sensor' },
+      { slot: 'nucleo', moduleId: 'gsn-nucleo' },
+      { slot: 'patas', moduleId: 'gsn-patas' },
+      { slot: 'cola', moduleId: 'gsn-cola' },
+      { slot: 'rifle', moduleId: 'gsn-rifle' },
+    ],
   },
   'pteras': {
     id: 'pteras',
@@ -61,10 +92,19 @@ export const ZOIDS: Record<string, UnitDefinition> = {
     role: 'flyer',
     moveType: 'flying',
     stats: {
-      maxHp: 85, atk: 30, energyAtk: 35, def: 15, energyDef: 20,
-      speed: 15, move: 7, jump: 99, evade: 25, accuracy: 0,
+      // Buff (2026-07-08): explorador aéreo frágil de pega floja; +HP y +evasión
+      // para que aguante (no dejar un hueco nuevo al reforzar los otros voladores).
+      maxHp: 100, atk: 30, energyAtk: 35, def: 15, energyDef: 20,
+      speed: 15, move: 7, jump: 99, evade: 28, accuracy: 0,
     },
     abilityIds: ['shock-cannon', 'stun-blade'],
+    frame: [
+      { slot: 'casco', moduleId: 'pt-casco' },
+      { slot: 'fuselaje', moduleId: 'pt-fuselaje' },
+      { slot: 'ala-izq', moduleId: 'pt-ala-izq' },
+      { slot: 'ala-der', moduleId: 'pt-ala-der' },
+      { slot: 'cola', moduleId: 'pt-cola' },
+    ],
   },
   'gustav': {
     id: 'gustav',
@@ -101,6 +141,13 @@ export const ZOIDS: Record<string, UnitDefinition> = {
     },
     abilityIds: ['charged-particle-gun', 'bite-crush', 'e-shield'],
     aiProfile: { aggression: 0.6, selfPreservation: 0.6, riskTolerance: 0.7 },
+    frame: [
+      { slot: 'casco', moduleId: 'gsa-casco' },
+      { slot: 'nucleo', moduleId: 'gsa-nucleo' },
+      { slot: 'patas', moduleId: 'gsa-patas' },
+      { slot: 'canon', moduleId: 'gsa-canon' },
+      { slot: 'cola', moduleId: 'gsa-cola' },
+    ],
   },
 
   // La Gun Sniper de Naomi: monocasco, pero con munición finita — cuatro
@@ -139,7 +186,10 @@ export const ZOIDS: Record<string, UnitDefinition> = {
   },
   'zaber-fang': {
     id: 'zaber-fang', name: 'Zaber Fang', role: 'skirmisher', moveType: 'ground',
-    stats: { maxHp: 105, atk: 40, energyAtk: 32, def: 30, energyDef: 24, speed: 14, move: 5, jump: 2, evade: 14, accuracy: 0 },
+    // Nerf (2026-07-09): con el daño localizado su autocañón gemelo lo subió a
+    // ~61% (castiga bien las piezas frágiles). atk 40→37: sigue siendo un
+    // cerrador fuerte, dentro de banda.
+    stats: { maxHp: 105, atk: 37, energyAtk: 32, def: 30, energyDef: 24, speed: 14, move: 5, jump: 2, evade: 14, accuracy: 0 },
     abilityIds: ['bite-crush'],
     weapons: ['lib-w-twin-autocannon'],
     aiProfile: { aggression: 0.65, selfPreservation: 0.45, riskTolerance: 0.55 },
@@ -150,6 +200,13 @@ export const ZOIDS: Record<string, UnitDefinition> = {
     abilityIds: ['bite-crush'],
     weapons: ['lib-w-gauss-hammer', 'lib-w-micro-missile-swarm'],
     aiProfile: { aggression: 0.6, selfPreservation: 0.5, riskTolerance: 0.4 },
+    frame: [
+      { slot: 'casco', moduleId: 'ik-casco' },
+      { slot: 'nucleo', moduleId: 'ik-nucleo' },
+      { slot: 'brazos', moduleId: 'ik-brazos' },
+      { slot: 'piernas', moduleId: 'ik-piernas' },
+      { slot: 'mochila', moduleId: 'ik-mochila' },
+    ],
   },
   'dibison': {
     id: 'dibison', name: 'Dibison', role: 'tank', moveType: 'ground',
@@ -174,7 +231,10 @@ export const ZOIDS: Record<string, UnitDefinition> = {
   },
   'storm-sworder': {
     id: 'storm-sworder', name: 'Storm Sworder', role: 'flyer', moveType: 'flying',
-    stats: { maxHp: 125, atk: 46, energyAtk: 40, def: 25, energyDef: 26, speed: 17, move: 8, jump: 99, evade: 33, accuracy: 0 },
+    // Buff (2026-07-08): cazador aéreo frágil que muere cerrando distancia. +HP
+    // y +evasión; la evasión alta además lo hace difícil de FIJAR con fuego
+    // concentrado (la IA de foco castiga a los que se dejan clavar).
+    stats: { maxHp: 140, atk: 46, energyAtk: 40, def: 25, energyDef: 26, speed: 17, move: 8, jump: 99, evade: 44, accuracy: 0 },
     abilityIds: ['stun-blade'],
     weapons: ['lib-w-plasma-axe'],
     aiProfile: { aggression: 0.85, selfPreservation: 0.5, riskTolerance: 0.7 },
@@ -188,14 +248,18 @@ export const ZOIDS: Record<string, UnitDefinition> = {
   },
   'rev-raptor': {
     id: 'rev-raptor', name: 'Rev Raptor', role: 'skirmisher', moveType: 'ground',
-    stats: { maxHp: 85, atk: 38, energyAtk: 24, def: 20, energyDef: 16, speed: 15, move: 6, jump: 2, evade: 18, accuracy: 0 },
+    // Buff (2026-07-08): asaltante melee de cristal (95% de bajas, 39.6% victoria).
+    // +HP y +evasión para que llegue al cuerpo a cuerpo con algo de casco.
+    stats: { maxHp: 105, atk: 38, energyAtk: 24, def: 20, energyDef: 16, speed: 15, move: 6, jump: 2, evade: 22, accuracy: 0 },
     abilityIds: ['bite-crush'],
     weapons: ['lib-w-monomolecular-claw'],
     aiProfile: { aggression: 0.8, selfPreservation: 0.3, riskTolerance: 0.6 },
   },
   'guysak': {
     id: 'guysak', name: 'Guysak', role: 'skirmisher', moveType: 'ground',
-    stats: { maxHp: 105, atk: 46, energyAtk: 20, def: 26, energyDef: 18, speed: 12, move: 5, jump: 1, evade: 16, accuracy: 0 },
+    // Buff (2026-07-08): rompedor melee que debe cerrar bajo fuego y paga tempo
+    // pesado con el pilote; +HP y +evasión para que llegue a pegar.
+    stats: { maxHp: 115, atk: 46, energyAtk: 20, def: 26, energyDef: 18, speed: 12, move: 5, jump: 1, evade: 20, accuracy: 0 },
     abilityIds: ['bite-crush', 'stun-blade'],
     weapons: ['lib-w-pile-bunker'],
     aiProfile: { aggression: 0.6, selfPreservation: 0.4, riskTolerance: 0.5 },

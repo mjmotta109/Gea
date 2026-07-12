@@ -1,4 +1,4 @@
-import type { AbilityDefinition } from '../core/types.js';
+import { CT_ACT_HEAVY, type AbilityDefinition } from '../core/types.js';
 
 /**
  * Catálogo de habilidades. Equivalen a las habilidades de job de FFTA;
@@ -85,6 +85,8 @@ export const ABILITIES: Record<string, AbilityDefinition> = {
       { kind: 'damage', power: 36, damageType: 'energy' },
       { kind: 'status', status: 'overheat', duration: 2, chance: 50 },
     ],
+    // Arma pesada definitoria: pega fuerte, calienta Y te retrasa (tempo).
+    ctCost: CT_ACT_HEAVY,
   },
   'repair-drones': {
     id: 'repair-drones',

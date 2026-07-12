@@ -10,6 +10,7 @@ export { attackArc, computeDamage, damageRange, facingTowards, hitChance, type A
 export { advanceToNextTurn, forecastTurnOrder } from './core/turn.js';
 export { applyStatus, hasStatus, tickStatuses, STATUS_DEFINITIONS, STATUS_INFO } from './core/status.js';
 export { applyModifiers, type StatModifier } from './core/derived.js';
+export { wearModifiers, wearTier, WEAR_BRUISED_FRACTION, WEAR_CRIPPLED_FRACTION, type WearTier } from './core/wear.js';
 export {
   applyDamageToModule,
   buildFrameState,
@@ -25,9 +26,19 @@ export {
   defaultSystems,
   energyModifiers,
   energySystem,
+  fieldSystem,
+  hasReactor,
   heatModifiers,
   heatSystem,
+  overclockModifiers,
   overheatSystem,
+  strainSystem,
+  FIRE_HEAT,
+  FIRE_DAMAGE_FRACTION,
+  OVERCLOCK_ENGAGE_HEAT,
+  OVERCLOCK_HEAT_PER_TURN,
+  SURROUNDED_ENEMIES,
+  SURROUNDED_HEAT,
   BOOST_ENERGY_COST,
   BOOST_HEAT,
   HEAT_CRITICAL_THRESHOLD,

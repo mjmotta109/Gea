@@ -32,6 +32,13 @@ export function attackArc(attackerPos: Position, defenderPos: Position, defender
 const ARC_ACCURACY_BONUS: Record<AttackArc, number> = { front: 0, side: 10, back: 25 };
 const ARC_DAMAGE_MULT: Record<AttackArc, number> = { front: 1, side: 1.1, back: 1.25 };
 
+/**
+ * Penalización de puntería del atacante terrestre que dispara/golpea
+ * mientras VADEA el agua: sin suelo firme, apuntar cuesta. Anfibios y
+ * voladores están exentos (pelean bien en/sobre el agua).
+ */
+export const WATER_ATTACK_PENALTY = 20;
+
 export interface CombatContext {
   map: GameMap;
   rng: Rng;

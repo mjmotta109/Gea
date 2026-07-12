@@ -1,6 +1,13 @@
 import { CARDINAL_OFFSETS, footprintTiles, GameMap, posKey } from './grid.js';
 import type { MoveType, Position, Team, UnitState } from './types.js';
 
+/**
+ * Coste de movimiento extra por cada nivel de altura que un no-volador
+ * escala (o baja) POR ENCIMA de su `jump`. Ya no hay tope de salto: si le
+ * alcanza el movimiento, escala cualquier desnivel — pero escalar cuesta.
+ */
+export const CLIMB_COST_PER_LEVEL = 2;
+
 export interface ReachableTile {
   pos: Position;
   cost: number;
@@ -59,9 +66,15 @@ export function reachableTiles(
       const stepCost = map.entryCost(next, mover.moveType);
       if (stamp.some((t) => !isFinite(map.entryCost(t, mover.moveType)))) continue;
 
-      // Los voladores ignoran diferencias de altura.
+      // Escalar cuesta: los voladores ignoran las alturas; el resto puede
+      // subir o bajar CUALQUIER desnivel, pero paga movimiento extra por
+      // cada nivel que exceda su salto. Ya no hay tope de altura.
+      let climbCost = 0;
       if (mover.moveType !== 'flying') {
-        if (stamp.some((t) => Math.abs(map.tileAt(t).height - currentHeight) > mover.jump)) continue;
+        for (const t of stamp) {
+          const over = Math.abs(map.tileAt(t).height - currentHeight) - mover.jump;
+          if (over > 0) climbCost = Math.max(climbCost, over * CLIMB_COST_PER_LEVEL);
+        }
       }
 
       if (stamp.some((t) => {
@@ -69,7 +82,7 @@ export function reachableTiles(
         return blockerTeam !== undefined && blockerTeam !== mover.team;
       })) continue;
 
-      const totalCost = current.cost + stepCost;
+      const totalCost = current.cost + stepCost + climbCost;
       if (totalCost > mover.move) continue;
 
       const key = posKey(next);

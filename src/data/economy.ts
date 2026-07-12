@@ -68,30 +68,44 @@ export const THERAPY = {
   stressRelief: 20,
 };
 
-/** Dificultades de campaña: recursos iniciales (el mundo no cambia). */
+/**
+ * Dificultades de campaña. NO son esponjas de balas: nunca inflan el HP ni
+ * cambian la matemática de combate. Cambian los recursos iniciales y, sobre
+ * todo, el DESGASTE (`wear`): cuánto castiga el daño acumulado a una máquina
+ * (puntería, evasión, movimiento por tramos de HP). Más difícil = cada
+ * impacto pesa más, no que el enemigo aguante más. El determinismo es ley.
+ */
 export interface DifficultySpec {
   id: string;
   name: string;
   description: string;
   credits: number;
   supplies: number;
+  /** Severidad del desgaste de combate (BattleConfig.wear). */
+  wear: number;
+  /**
+   * Desplazamiento de la CURVA de competencia de la IA (se suma al progreso).
+   * Negativo = la IA tarda más en espabilar (más fácil); positivo = arranca ya
+   * coordinada (más difícil). Ausente = 0.
+   */
+  aiCurve?: number;
 }
 
 export const DIFFICULTIES: DifficultySpec[] = [
   {
     id: 'cadete', name: 'Cadete',
-    description: 'Arcas llenas y despensa generosa. Para aprender el oficio.',
-    credits: 3400, supplies: 12,
+    description: 'Arcas llenas y despensa generosa. El daño apenas pasa factura, y el enemigo tarda en aprender tus mañas: para aprender el oficio.',
+    credits: 3400, supplies: 12, wear: 0.5, aiCurve: -0.2,
   },
   {
     id: 'mercenario', name: 'Mercenario',
-    description: 'Lo justo para empezar. El equilibrio pensado del juego.',
-    credits: 2500, supplies: 8,
+    description: 'Lo justo para empezar. Cada golpe deja marca y el enemigo va afinando su táctica contrato a contrato.',
+    credits: 2500, supplies: 8, wear: 1, aiCurve: 0,
   },
   {
     id: 'leyenda', name: 'Leyenda',
-    description: 'Deudas, hambre y una reputación por construir. Duele.',
-    credits: 1600, supplies: 5,
+    description: 'Deudas, hambre y máquinas que se desmoronan bajo el fuego. Y un enemigo que coordina y te contrarresta desde el primer día. Duele.',
+    credits: 1600, supplies: 5, wear: 1.6, aiCurve: 0.35,
   },
 ];
 
@@ -126,6 +140,9 @@ export const BLUEPRINT_PRICES: Record<string, number> = {
  */
 export const ECONOMY: EconomyTable = {
   startingCredits: 2500,
+  // Refuerzo de blindaje: 30 de búnker por ⌾400, reparar a ⌾3/punto; el
+  // precio es ir 1 casilla más lento y cargar CT más despacio.
+  reinforcement: { armor: 30, fitCost: 400, repairPerPoint: 3, movePenalty: 1, speedPenalty: 3 },
   starterRoster: ['liger-zero', 'command-wolf', 'gun-sniper', 'gustav'],
   repairCostPerHp: 2,
   supplyPrice: 40,

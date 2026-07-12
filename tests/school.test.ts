@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Battle, type BattleConfig, type UnitSpawn } from '../src/core/battle.js';
 import { FLAT_ARENA } from '../src/data/maps.js';
 import { ZOIDS } from '../src/data/zoids.js';
+import { MODULES } from '../src/data/modules.js';
 import { ABILITIES } from '../src/data/abilities.js';
 import { WEAPONS } from '../src/data/weapons.js';
 import { withWeaponLibrary } from '../src/data/weaponLibrary.js';
@@ -21,6 +22,7 @@ function arena(overrides: Partial<BattleConfig>): Battle {
   return new Battle({
     map: FLAT_ARENA,
     unitCatalog: ZOIDS,
+    moduleCatalog: MODULES,
     abilityCatalog: CATALOGS.abilityCatalog,
     weaponCatalog: CATALOGS.weaponCatalog,
     seed: 17,

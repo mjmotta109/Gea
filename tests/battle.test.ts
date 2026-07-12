@@ -3,6 +3,7 @@ import { Battle, type BattleConfig } from '../src/core/battle.js';
 import { FLAT_ARENA } from '../src/data/maps.js';
 import { ZOIDS } from '../src/data/zoids.js';
 import { ABILITIES } from '../src/data/abilities.js';
+import { MODULES } from '../src/data/modules.js';
 import { planTurn } from '../src/ai/simpleAi.js';
 import type { BattleEvent } from '../src/core/types.js';
 
@@ -11,6 +12,7 @@ function duel(overrides: Partial<BattleConfig> = {}): Battle {
     map: FLAT_ARENA,
     unitCatalog: ZOIDS,
     abilityCatalog: ABILITIES,
+    moduleCatalog: MODULES,
     seed: 123,
     spawns: [
       { id: 'P1', name: 'Liger', unitTypeId: 'liger-zero', team: 'player', position: { x: 1, y: 2 } },
@@ -95,6 +97,7 @@ describe('Battle: habilidades', () => {
       map: FLAT_ARENA,
       unitCatalog: ZOIDS,
       abilityCatalog: ABILITIES,
+      moduleCatalog: MODULES,
       weaponCatalog: WEAPONS,
       seed: 7,
       spawns: [
@@ -103,7 +106,12 @@ describe('Battle: habilidades', () => {
         { id: 'E1', name: 'Molga', unitTypeId: 'molga', team: 'enemy', position: { x: 7, y: 5 } },
       ],
     });
-    battle.unit('P2').hp = 100; // Liger maxHp 120
+    // Liger framed (maxHp 120): el HP se DERIVA de los módulos, así que para
+    // dejarlo a 100/120 hay que vaciar la ESTRUCTURA (tocar unit.hp no basta,
+    // se rederivaría). Vacía 20 del núcleo.
+    const p2 = battle.unit('P2');
+    p2.components.frame!.modules[1]!.hp -= 20; // núcleo 44→24
+    p2.hp = 100;
     // Avanza turnos hasta que le toque al Gustav.
     for (let i = 0; i < 10 && battle.getActiveUnit()?.id !== 'P1'; i++) {
       if (battle.getActiveUnit()) battle.execute({ type: 'wait', unitId: battle.getActiveUnit()!.id });
@@ -147,6 +155,7 @@ describe('posturas de energía: reparto elegido, dos caras a la vista', () => {
       map: FLAT_ARENA,
       unitCatalog: ZOIDS,
       abilityCatalog: ABILITIES,
+      moduleCatalog: MODULES,
       seed: 7,
       spawns: [
         { id: 'P1', name: 'Wolf', unitTypeId: 'command-wolf', team: 'player', position: { x: 0, y: 0 } },

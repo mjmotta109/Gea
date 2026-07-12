@@ -35,6 +35,14 @@ export const STATUS_DEFINITIONS: Record<StatusId, StatusDefinition> = {
     name: 'Sistemas aturdidos',
     modifiers: [],
   },
+  'suprimido': {
+    name: 'Suprimido',
+    // Fuego de supresión: la máquina mantiene la cabeza gacha. Apunta peor
+    // (el resto —no puede reaccionar— lo hace Battle leyendo el estado).
+    modifiers: [
+      { source: 'status:suprimido', stat: 'accuracy', add: -15 },
+    ],
+  },
 };
 
 /** @deprecated Alias de compatibilidad; usa STATUS_DEFINITIONS. */

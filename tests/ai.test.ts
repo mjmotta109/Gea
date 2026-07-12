@@ -4,6 +4,7 @@ import { planTurn } from '../src/ai/simpleAi.js';
 import { FLAT_ARENA } from '../src/data/maps.js';
 import { ZOIDS } from '../src/data/zoids.js';
 import { ABILITIES } from '../src/data/abilities.js';
+import { MODULES } from '../src/data/modules.js';
 import type { UnitDefinition } from '../src/core/types.js';
 
 // La IA enemiga debe JUGAR al juego nuevo: retirarse malherida si es
@@ -31,6 +32,7 @@ function arena(overrides: Partial<BattleConfig>): Battle {
   return new Battle({
     map: FLAT_ARENA,
     unitCatalog: LAB,
+    moduleCatalog: MODULES,
     abilityCatalog: ABILITIES,
     seed: 7,
     spawns: [],

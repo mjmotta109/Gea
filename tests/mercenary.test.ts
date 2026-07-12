@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { Battle } from '../src/core/battle.js';
 import {
-  buyWeapon, buyZoid, contractOffers, FULL_HP, mountedCount, newCampaign,
-  rebuildZoid, repairCost, repairZoid, resolveContract, sellWeapon, setMountedWeapons,
+  buyWeapon, buyZoid, campaignStrength, contractOffers, counterRoles, counterWeapons, FULL_HP, mountedCount,
+  newCampaign, readStyle, rebuildZoid, refitZoid, repairCost, repairZoid, resolveContract,
+  sellWeapon, setMountedWeapons, updateDossier,
 } from '../src/game/mercenary.js';
 import { ABILITIES } from '../src/data/abilities.js';
+import { MODULES } from '../src/data/modules.js';
 import { CONTRACT_ENEMY_POOL, ECONOMY } from '../src/data/economy.js';
 import { VALLEY_CROSSING } from '../src/data/maps.js';
 import { WEAPONS } from '../src/data/weapons.js';
@@ -67,6 +69,128 @@ describe('modo mercenario: campaña', () => {
     expect(loss.report.creditsEarned).toBe(contract.salvagePerKill);
   });
 
+  it('continuidad: el superviviente arrastra calor/energía/munición residuales', () => {
+    const state = fresh();
+    const contract = contractOffers(0, ECONOMY, CONTRACT_ENEMY_POOL)[0]!;
+    const { state: after } = resolveContract(state, contract, {
+      winner: 'player',
+      finalHp: [80, 0, 55, undefined],
+      finalHeat: [42, undefined, undefined, undefined],
+      finalEnergy: [12, undefined, undefined, undefined],
+      finalAmmo: [{ 'w-x': 1 }, undefined, undefined, undefined],
+      enemiesDestroyed: 2,
+    });
+    // Superviviente: guarda su estado residual.
+    expect(after.roster[0]!.residualHeat).toBe(42);
+    expect(after.roster[0]!.residualEnergy).toBe(12);
+    expect(after.roster[0]!.ammo).toEqual({ 'w-x': 1 });
+    // Sin residual reportado: queda a estrenar (undefined), no fantasma.
+    expect(after.roster[2]!.residualHeat).toBeUndefined();
+    // No desplegado: intacto.
+    expect(after.roster[3]).toEqual(state.roster[3]);
+  });
+
+  it('continuidad: un contrato posterior SIN residual borra el viejo (no arrastra fantasma)', () => {
+    const state = fresh();
+    const contract = contractOffers(0, ECONOMY, CONTRACT_ENEMY_POOL)[0]!;
+    const hot = resolveContract(state, contract, {
+      winner: 'player', finalHp: [90, 100, 100, 100],
+      finalHeat: [30, undefined, undefined, undefined], enemiesDestroyed: 0,
+    }).state;
+    expect(hot.roster[0]!.residualHeat).toBe(30);
+    // Otra batalla con este chasis ya sin componente de calor reportado.
+    const cool = resolveContract(hot, contract, {
+      winner: 'player', finalHp: [88, 100, 100, 100], enemiesDestroyed: 0,
+    }).state;
+    expect(cool.roster[0]!.residualHeat).toBeUndefined();
+  });
+
+  it('el dosier acumula y readStyle detecta el estilo dominante (con muestra)', () => {
+    expect(readStyle(undefined)).toBe('balanced');
+    // Una sola batalla no basta: sin muestra, no se adapta.
+    let d = updateDossier(undefined, { melee: 5, ranged: 1, overclocks: 0 });
+    expect(readStyle(d)).toBe('balanced');
+    d = updateDossier(d, { melee: 5, ranged: 1, overclocks: 0 });
+    expect(readStyle(d)).toBe('melee'); // 10/12 golpes de cerca
+    let r = updateDossier(undefined, { melee: 1, ranged: 6, overclocks: 0 });
+    r = updateDossier(r, { melee: 1, ranged: 6, overclocks: 0 });
+    expect(readStyle(r)).toBe('ranged');
+    let o = updateDossier(undefined, { melee: 2, ranged: 2, overclocks: 3 });
+    o = updateDossier(o, { melee: 2, ranged: 2, overclocks: 2 });
+    expect(readStyle(o)).toBe('reactor'); // 5 sobrecargas / 2 batallas
+  });
+
+  it('counterRoles mapea el estilo a roles que lo contrarrestan', () => {
+    expect(counterRoles('melee')).toContain('sniper'); // kiters castigan el rush
+    expect(counterRoles('ranged')).toContain('assault'); // cerradores
+    expect(counterRoles('balanced')).toEqual([]);
+  });
+
+  it('counterWeapons arma a la facción contra tu estilo (contra por arma)', () => {
+    // Reactor abusón → lanzallamas que cuecen el reactor.
+    expect(counterWeapons('reactor')).toContain('lib-w-plasma-flamer');
+    // Melee → supresor que te fija al cargar.
+    expect(counterWeapons('melee')).toContain('lib-w-suppressor');
+    expect(counterWeapons('balanced')).toEqual([]);
+  });
+
+  it('contractOffers sesga la escuadra hacia el rol pesado, y es determinista', () => {
+    const roleOf = (id: string) => ZOIDS[id]!.role;
+    const heavyOnSnipers = (id: string) => (roleOf(id) === 'sniper' ? 10 : 1);
+    const countSnipers = (cs: ReturnType<typeof contractOffers>) =>
+      cs.reduce((n, c) => n + c.enemySquad.filter((id) => roleOf(id) === 'sniper').length, 0);
+    const uniform = contractOffers(0, ECONOMY, CONTRACT_ENEMY_POOL);
+    const biased = contractOffers(0, ECONOMY, CONTRACT_ENEMY_POOL, heavyOnSnipers);
+    expect(countSnipers(biased)).toBeGreaterThanOrEqual(countSnipers(uniform));
+    expect(countSnipers(biased)).toBeGreaterThan(0);
+    // Determinista: misma llamada → mismo resultado.
+    expect(contractOffers(0, ECONOMY, CONTRACT_ENEMY_POOL, heavyOnSnipers)).toEqual(biased);
+    // Sin sesgo, idéntico a la generación de siempre (retro-compatible).
+    expect(contractOffers(0, ECONOMY, CONTRACT_ENEMY_POOL)).toEqual(uniform);
+  });
+
+  it('campaignStrength es una glide ancha: floja al empezar, sin meseta, con techo', () => {
+    // Arranca por debajo del presupuesto nominal (final gentil de la rampa).
+    expect(campaignStrength(0)).toBeLessThan(0.6);
+    // Nominal (~1) hacia el contrato 20; monótona creciente por el camino.
+    expect(campaignStrength(20)).toBeGreaterThan(0.9);
+    expect(campaignStrength(20)).toBeLessThan(1.1);
+    for (let c = 0; c < 60; c++) {
+      expect(campaignStrength(c + 1)).toBeGreaterThanOrEqual(campaignStrength(c));
+    }
+    // Sin meseta temprana: el final (c40) aprieta más que la mitad (c20).
+    expect(campaignStrength(40)).toBeGreaterThan(campaignStrength(20) + 0.25);
+    // Techo acotado (no se dispara en campañas larguísimas).
+    expect(campaignStrength(1000)).toBeLessThanOrEqual(1.6);
+  });
+
+  it('la FUERZA compra chasis mejores: un contrato rico trae élites, no chatarra', () => {
+    const squadPrice = (squad: string[]): number =>
+      squad.reduce((n, id) => n + ECONOMY.zoidPrices[id]!, 0);
+    const flojo = contractOffers(0, ECONOMY, CONTRACT_ENEMY_POOL, undefined, 0.55);
+    const fuerte = contractOffers(0, ECONOMY, CONTRACT_ENEMY_POOL, undefined, 1.6);
+    // Más fuerza ⇒ escuadra más cara en cada tramo (el presupuesto SE GASTA).
+    for (let t = 0; t < flojo.length; t++) {
+      expect(squadPrice(fuerte[t]!.enemySquad)).toBeGreaterThan(squadPrice(flojo[t]!.enemySquad));
+      expect(fuerte[t]!.enemySquad).toHaveLength(4);
+    }
+    // Determinista con fuerza fija.
+    expect(contractOffers(0, ECONOMY, CONTRACT_ENEMY_POOL, undefined, 1.6)).toEqual(fuerte);
+  });
+
+  it('refitZoid enfría/reabastece: limpia el residual y no toca HP ni blindaje', () => {
+    const hot = { unitTypeId: 'liger-zero', hp: 70, destroyed: false, weapons: [], slots: {},
+      reinforced: true, armor: 5, residualHeat: 40, residualEnergy: 3, ammo: { 'w-x': 0 } };
+    const cool = refitZoid(hot);
+    expect(cool.residualHeat).toBeUndefined();
+    expect(cool.residualEnergy).toBeUndefined();
+    expect(cool.ammo).toBeUndefined();
+    expect(cool.hp).toBe(70);        // HP no lo toca el refit
+    expect(cool.armor).toBe(5);      // el blindaje tampoco
+    // Sin residual, devuelve el mismo objeto (sin trabajo).
+    expect(refitZoid(cool)).toBe(cool);
+  });
+
   it('taller: reparar cuesta por HP perdido y reconstruir revive al destruido', () => {
     let state = fresh();
     state = { ...state, roster: state.roster.map((z, i) => (i === 0 ? { ...z, hp: 100 } : z)) };
@@ -122,6 +246,7 @@ describe('motor: UnitSpawn.hp (daño persistente)', () => {
     map: VALLEY_CROSSING,
     unitCatalog: ZOIDS,
     abilityCatalog: ABILITIES,
+    moduleCatalog: MODULES,
     weaponCatalog: WEAPONS,
     seed: 7,
     spawns: [
@@ -134,6 +259,8 @@ describe('motor: UnitSpawn.hp (daño persistente)', () => {
     expect(mk(40).unit('P1').hp).toBe(40);
     expect(mk(undefined).unit('P1').hp).toBe(100);
     expect(mk(FULL_HP).unit('P1').hp).toBe(100); // centinela del mercenario
-    expect(mk(-5).unit('P1').hp).toBe(1);
+    // Framed: el mínimo vivo es el nº de piezas (cada módulo ≥1 al repartir el
+    // daño de despliegue), no 1. Command Wolf = 5 módulos.
+    expect(mk(-5).unit('P1').hp).toBe(5);
   });
 });

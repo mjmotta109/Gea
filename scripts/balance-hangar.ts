@@ -36,7 +36,13 @@ function mulberry32(seed: number): () => number {
   };
 }
 
-const POOL = Object.keys(ZOIDS);
+// Solo chasis PILOTABLES: fuera las unidades de escenario — bestias 2×2
+// (no caben en los spawns del flanco) y el carguero inmóvil (speed 0). No
+// son combatientes que se compren ni se balanceen.
+const POOL = Object.keys(ZOIDS).filter((id) => {
+  const z = ZOIDS[id]!;
+  return (z.size ?? 1) === 1 && z.stats.speed > 0;
+});
 
 function pickTeam(rand: () => number): string[] {
   const pool = [...POOL];
@@ -138,8 +144,20 @@ for (let seed = 1; seed <= battles; seed++) {
     handle(events);
     if (!active) break;
     for (const action of planTurn(battle, active)) {
-      if (battle.isOver) break;
-      handle(battle.execute(action));
+      // Un contraataque letal puede cerrar el turno del actor a mitad de su
+      // plan: el resto de acciones muere con él (mismo guard que scriptedBattle).
+      if (battle.isOver || battle.getActiveUnit()?.id !== active.id) break;
+      // El plan puede quedar OBSOLETO a mitad de turno: un tiro de oportunidad
+      // al reposicionarse destruye el montaje del arma que iba a disparar, etc.
+      // Sáltate la acción vetada/ilegal en vez de reventar el arnés.
+      if (action.type !== 'wait' && battle.checkVetoes(action)) continue;
+      try { handle(battle.execute(action)); }
+      catch { /* acción inconsistente con el estado actual: se ignora */ }
+    }
+    // Garantiza el cierre del turno aunque el plan abortara sin 'wait'
+    // (si no, el bucle exterior re-planificaría el mismo error en bucle).
+    if (!battle.isOver && battle.getActiveUnit()?.id === active.id) {
+      handle(battle.execute({ type: 'wait', unitId: active.id }));
     }
   }
 

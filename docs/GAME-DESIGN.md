@@ -810,3 +810,630 @@ arquitectura del motor van en DESIGN.md.)*
   calor son telemetría de a bordo, solo de los tuyos; la leyenda dice
   «Q gira el diorama» (en vista plana Q cancela); y las cartas de los
   que ya salieron del campo no calculan stats que nadie pinta.
+- **2026-07-07** — TERRENO TRANSITABLE: EL AGUA SE VADEA Y TODO SE ESCALA
+  (dirección del usuario: "necesito que los mapas puedan ser transitables
+  de un lado a otro —encuentro algunos con el paso cortado—; haz que sea
+  posible entrar al agua, pero en el agua el ataque y la movilidad
+  limitados, y que todo se pueda escalar aunque cueste"). El ÚNICO terreno
+  que corta el paso pasa a ser el MURO.
+  · AGUA VADEABLE (core/grid.ts): el coste de entrar al agua para
+    terrestres deja de ser Infinity y vale WATER_WADE_COST=3 (más que el
+    abrupto: la movilidad dentro del agua queda limitada por el coste).
+    Voladores y anfibios la cruzan por 1. El vado del río deja de ser un
+    muro y pasa a ser el cruce BARATO — decisión táctica, no puerta.
+  · ATAQUE LIMITADO EN EL AGUA (core/combat.ts + battle.ts hitContext): un
+    terrestre que dispara o golpea vadeando sufre −WATER_ATTACK_PENALTY
+    (=20) de puntería (sin suelo firme). Anfibios y voladores exentos. Se
+    refleja en el % del pronóstico: consecuencia anunciada. El agua sigue
+    dando +5 de cobertura al que la ocupa — te oculta las piernas pero
+    apuntas peor: tensión nueva.
+  · ESCALADA SIN TOPE (core/pathfinding.ts): desaparece el tope duro de
+    salto. Cualquier desnivel se sube o baja; el salto (jump) es cuántos
+    niveles se salvan GRATIS y cada nivel de más cuesta
+    CLIMB_COST_PER_LEVEL (=2) de movimiento. Los muros (altura 99, coste
+    Infinity) siguen sin escalarse; los voladores siguen ignorando la
+    altura.
+  · CONECTIVIDAD GARANTIZADA DE VERDAD (game/mapgen.ts): como solo el muro
+    corta, la garantía se vuelve fiable. El BFS de rescate esquiva ahora
+    solo muros (no agua) y conecta TODOS los spawns de ambos bandos —no
+    solo los enemigos— desde el primero del jugador; el pasillo de rescate
+    derriba los muros que cruce. Verificado con el pathfinding real: 1400
+    spawns en 200 mapas generados, 0 inalcanzables.
+  · Golden master regenerado y DECLARADO: en el valle, con el río ya
+    vadeable y el cañón de partículas del Geno castigando a quien cruza a
+    campo abierto con −20, las tres batallas de referencia se inclinan al
+    enemigo (terminan en 26-44 turnos). Es señal de BALANCE del escenario,
+    no de rotura: el motor sigue determinista. Los números (3 / 20 / 2)
+    quedan calibrables.
+- **2026-07-07** — MUNDO AMPLIADO + RUINAS SECRETAS Y DESCUBRIMIENTO
+  (dirección del usuario: "amplía continentes y regiones; quiero ruinas y
+  ruinas secretas y partes del mapa que requieran explorar").
+  · TERCER CONTINENTE — EL VELO, con la región CINTURÓN DE CENIZA
+    (src/data/world.ts): tierra volcánica de escoria, la más dura y la que
+    más esconde. Capital nivel 3 (Catedral Fundida), fábrica de piezas
+    (Ciudad de Hollín), puerto de ferry y dos secretos. Enlazada al mundo
+    por un ferry (Puerto Esmeralda↔Puerto de Brea, ⌾220) y una lanzadera
+    (Forja Alta↔Catedral Fundida, ⌾380). Contenido de primera pasada.
+  · DESCUBRIMIENTO DEL MUNDO (game/expedition.ts, capa pura — NO es la
+    niebla de guerra táctica, que sigue aplazada): los nodos pueden ser
+    `hidden` (no se dibujan ni se viajan hasta descubrirlos) y sus tramos
+    quedan LATENTES; un lugar puede `reveals` otros al explorarlo. Estado
+    persistente `CampaignState.discovered` (migración: ausente = nada
+    descubierto). Helpers isNodeVisible/visibleNodes/isEdgeVisible;
+    availableEdges y canExplore reciben `discovered`; assignTarget NUNCA
+    apunta a un nodo oculto (no se encarga lo que no está en el mapa).
+  · RUINAS SECRETAS (`hidden` + `secret`): 4, una por región — Cripta de
+    Sal, Templo Sumergido, Bóveda Imantada y la Sima de los Primeros. Se
+    revelan explorando la ruina normal vecina (o registrando un paraje con
+    secretos, como el Foso de Vidrio). Botín SECRET_RUIN_FINDS (640-900,
+    vs 300-500 de las normales) y mejores probabilidades, pero el susto
+    muerde más. Explorar un PARAJE con secretos ahora también es una acción
+    ("registrar el lugar"): descubre sin dar botín.
+  · Web: el mapa de mundo filtra nodos/tramos/rutas por visibilidad; el
+    botón de explorar se adapta (ruina / ruina secreta / registrar); lo
+    descubierto se persiste y se queda para siempre. Todo determinista por
+    clave; consecuencias anunciadas. Tests: exploration.test.ts (5) +
+    atlas/expedition intactos.
+- **2026-07-07** — DESGASTE DE COMBATE Y DIFICULTAD SIN ESPONJAS
+  (aclaración del usuario: "no quiero esponjas de balas en dificultades
+  altas; con tanto desgaste visible en cada Zoid, que cueste y que cada
+  impacto deje marca — sin una pata te mueves menos y apuntas peor —, más
+  dinámico pero con reglas claras y opciones"). La dificultad deja de ser
+  solo el punto de partida económico y pasa a escalar la CONSECUENCIA del
+  daño, NUNCA el HP.
+  · WEAR (core/wear.ts): función pura del HP, sin azar. Tramos por fracción
+    — entera (>66%), CASTIGADA (≤66%: −6 punt/−4 eva/−1 mov a severidad 1)
+    y MALHERIDA (≤33%: −14/−8/−2). Entra al pipeline de stats como un
+    modificador más. `BattleConfig.wear` (severidad, 0 por defecto) la fija
+    la campaña; el motor genérico no sabe de dificultad. Con severidad 0,
+    comportamiento y golden IDÉNTICOS (verificado). No toca maxHp jamás.
+  · DIFICULTAD (data/economy.ts): Cadete wear 0.5, Mercenario 1, Leyenda
+    1.6 — mismo Zoid al 15% de HP: −7/−14/−22 de puntería, el HP intacto en
+    los tres. Escaramuza usa el desgaste base (Mercenario). Guardada en
+    CampaignState.difficulty (migración: ausente = mercenario).
+  · SIN UNA PATA (data/modules.ts): las cuatro patas (Liger CAS, Geno CP)
+    ganan onDestroyed −10 de puntería: perder un tren no solo quita
+    movimiento (contribución perdida) — además cuesta apuntar. El retroceso
+    fuerte ya existe (physics.ts knockback), ahora con más sentido (el agua
+    es vadeable: te pueden empujar dentro).
+  · SÍNTOMA LEGIBLE (web): insignias ⚠ castigada / 🩸 malherida junto a las
+    de avería; el % de acierto y el rango de movimiento ya reflejan el
+    desgaste. Reglas claras, decisión del piloto (aguantar/replegarse/
+    cambiar de postura). Tests: wear.test.ts (5). Golden intacto.
+- **2026-07-07** — PASADA DE BALANCE (revisión con datos tras el terreno,
+  el mundo y el desgaste). Las herramientas de balance vuelven a correr:
+  · ARREGLADO npm run balance:hangar (roto desde que se añadieron las
+    unidades de escenario): (a) el driver ejecutaba el plan entero de una
+    unidad aunque un contraataque letal cerrara su turno a mitad ("No es el
+    turno de…") — ahora usa el guard de scriptedBattle; (b) el POOL incluía
+    bestias 2×2 y el carguero inmóvil, que se salían del mapa o no combaten
+    — ahora solo chasis pilotables (size 1, speed>0).
+  · MEDICIÓN (wear 0 en las herramientas, aíslan el terreno): el valle
+    queda 44% jugador / 56% enemigo — DENTRO de la banda 42-58%. El terreno
+    (agua vadeable, escalada) NO rompió el escenario; las 3 semillas golden
+    inclinadas a enemy eran muestreo, no tendencia.
+  · HANGAR (800 batallas 4v4 aleatorias): banda ~40-60%. Fuertes gun-sniper
+    (~60%), dibison y geno-saurer (~59%); débiles rev-raptor (~40%, muere
+    92%) y liger-zero-cas (~42%, muere 90%) — melee frágil que cruza campo
+    abierto contra fuego. Consistente con el límite conocido de la IA greedy
+    (favorece el standoff), que la dirección ya decidió NO sobre-ajustar.
+  · DECISIÓN: valorada la penalización de vadeo (−20→−15): no mueve el
+    balance (43.7% vs 44.0%, ruido), se mantiene −20 por claridad de feel.
+    NO se tocan stats de chasis: los outliers están a ~2pp de la banda y
+    nerfear al gun-sniper (fuerte en el hangar) hundiría al jugador del
+    valle (donde lo pilota) — conflicto entre escenarios. Herramientas
+    listas para una pasada medida futura. Flags para la dirección:
+    gun-sniper/dibison/geno (por arriba), rev-raptor (por abajo).
+- **2026-07-07** — BLINDAJE POR PARTES: LA CAPA QUE SE GASTA (dirección del
+  usuario: "el blindaje, que al momento que se acaba realmente empiezan a
+  sufrir, por partes del cuerpo"). Profundiza el daño localizado del frame
+  (core/frame.ts) con dos capas por módulo, estilo BattleTech:
+  · BLINDAJE (ModuleDefinition.plating, ModuleState.plating): capa de placas
+    que se GASTA absorbiendo daño. Mientras aguanta, la armadura mitiga y la
+    estructura interna está PROTEGIDA (el HP global no baja). Al agotarse se
+    emite `module-armor-broken`: la pieza queda EXPUESTA.
+  · EXPUESTA = sufre de verdad: la estructura recibe el daño ÍNTEGRO, sin
+    mitigación de armadura, hasta destruirse (con su onDestroyed: la pata
+    quita movimiento y puntería, la cabeza puntería, etc.). Ejemplo real
+    (torso Liger CAS, blindaje 16 / armadura 3): golpes de 12 → 9 al
+    blindaje (HP global intacto); roto el blindaje, cada 12 son 12 íntegros
+    a la estructura. Cada impacto deja marca, por zona.
+  · deriveUnitHp sigue la ESTRUCTURA (el blindaje es capa extra): el HP
+    global se protege mientras el blindaje aguanta y cae cuando se rompe —
+    la lectura que pedía el usuario. maxHp y la equivalencia framed↔monocasco
+    intactas; los módulos SIN plating se comportan como siempre (la armadura
+    mitiga cada golpe) → golden y tests clásicos idénticos.
+  · Blindaje en los 18 módulos (12 de frame + 6 aftermarket), ~35-40% de la
+    estructura (defensivos más). BALANCE: da a los 2 chasis framed (débiles,
+    42-46%) algo de aguante temprano, compensado porque expuestos mueren más
+    rápido (sin mitigación). Valores TUNEABLES; medir con el hangar.
+  · LECTOR DE CASCO (web): anilla exterior cian = blindaje; punteada roja =
+    EXPUESTO; el registro avisa "🛡✕ blindaje ROTO". Tests: plating.test.ts
+    (5). 273 tests en verde, tsc limpio, golden intacto.
+- **2026-07-07** — REFUERZO DE BLINDAJE: BÚNKER MONTABLE EN EL TALLER
+  (dirección del usuario: "que el blindaje se repare en el taller; puedes
+  dar extra blindaje para una misión pero serás más lento"). El hermano de
+  CAMPAÑA del blindaje por módulos: un búnker a nivel de máquina que vale
+  para TODO chasis (también los monocasco).
+  · MOTOR (core: UnitSpawn.armor → UnitState.armor): un búnker de placas que
+    absorbe daño ANTES que el casco o los módulos. La penetración del
+    proyectil se cuela sin gastarlo; el resto lo frena hasta agotarse (evento
+    unit-armor-broken). Absorbe también el daño de reacciones. Con armor 0
+    (por defecto) el motor se comporta idéntico: golden INTACTO.
+  · TALLER (game/mercenary.ts + data/economy.ts): OwnedZoid.reinforced +
+    armor. `reinforceArmor` monta el búnker (⌾400, 30 de placas), `repairArmor`
+    lo repara a tope (⌾3/punto gastado), `stripReinforcement` lo quita. El
+    blindaje gastado en batalla PERSISTE (resolveContract.finalArmor) y se
+    repara en el taller — igual que el HP.
+  · EL PRECIO: reforzar resta MOV −1 y velocidad −3 al desplegar
+    (reinforcementModifiers, sumados a las marcas de la compañera). Extra
+    aguante a cambio de ir más lento — consecuencia anunciada. Verificado:
+    Command Wolf reforzado MOV 5→4 con 30 de búnker; vuelve a 8/30 y el
+    taller lo repara a 30/30 por ⌾66.
+  · WEB: el hangar del cuartel gana Reforzar / Reparar blindaje / Quitar
+    refuerzo por máquina; el despliegue aplica búnker + penalización; el
+    registro avisa cuando el búnker se agota. Tests: armor.test.ts (6).
+    279 tests en verde, tsc limpio, golden intacto.
+- **2026-07-07** — ARREGLOS (reporte del usuario): fin de contrato y
+  descansos. Verificado en el juego real (Playwright headless).
+  · FIN DE CONTRATO: al volver al mapa o al cuartel, el overlay de
+    Victoria/Derrota NO se cerraba (solo lo cerraba startBattle); como
+    #world/#merc lo tapan por z-index, "a veces" parecía no volver. Ahora
+    restart() cierra el overlay SIEMPRE. Además el destino de vuelta se fija
+    al inicio de settleContract (antes de liquidar nada: un fallo al repartir
+    ya no manda a una escaramuza suelta), y el botón/subtítulo del overlay
+    DICEN a dónde se vuelve ("🗺 Volver al mapa" / "⚒ Volver al cuartel")
+    en vez del engañoso "Nueva batalla".
+  · DESCANSOS: estaban TODOS deshabilitados cuando ningún piloto tenía
+    estrés (maxStress===0) — es decir, en cuanto la tripulación estaba
+    tranquila (y en toda partida recién fundada). Ahora descansar solo se
+    limita por el bolsillo: pasa una jornada (cura heridas, avanza
+    destacamentos), alivia el estrés que haya y la vela es un momento con la
+    compañera. La vela, además, es GRATIS de verdad (0, no el mínimo de px).
+- **2026-07-08** — EL REACTOR Y EL CALOR COMO ENCRUCIJADA (respuesta a las
+  propuestas del director para "evolucionar el motor": profundidad por
+  INTERACCIÓN entre sistemas ya existentes, no sistemas nuevos). Todo se
+  apoya en el componente de calor (solo lo tienen los chasis con reactor,
+  liger-zero-cas y geno-saurer-cp): los monocascos —y el golden master— no
+  se enteran. Tres piezas, un solo recurso compartido (el calor):
+  · SOBRECARGA DEL REACTOR (el "pacto con el diablo", propuesta 2): acción
+    LIBRE que no gasta turno (como la postura). Mientras esté puesta da
+    +2 mov / +4 iniciativa / +8 daño físico y de energía vía el pipeline de
+    stats (overclockModifiers), pero el reactor pega un tirón de +15 de calor
+    al engancharla y suma +18 cada turno que sigue puesta. El castigo NO es
+    una barra nueva: es el apagado de emergencia que ya existía. Sostenerla
+    sin refrigerar termina en shutdown, y el propio apagado la corta solo
+    (el reactor se protege) — evita el bucle de recalentarse en cadena.
+  · CALOR ↔ ARSENAL (interacción, propuesta 1): un arma cuyo calor
+    desbordaría el reactor no se puede disparar (la máquina se protege). Es
+    simétrico: cocer al enemigo con calor le ATASCA las armas pesadas. El
+    veto cede la razón al arsenal si además hay munición/enfriamiento (razón
+    más específica primero); solo veta un arma que por lo demás sí dispararía.
+  · POSICIÓN ↔ CALOR (interacción, propuesta 5, versión mecánica NO moral):
+    operar rodeado (≥2 enemigos adyacentes) recalienta +10 al cerrar el
+    turno. El cerco ya no es solo daño entrante: fuerza a la máquina.
+  Implementación fiel al núcleo: nuevo `strainSystem` (registrado ANTES que
+  heat para que el calor que añade se evalúe el mismo turno), acción
+  `overclock` y evento `overclock-changed` (eventos solo se AÑADEN), bono por
+  StatModifier con `source:'overclock'`, todo gated en hasReactor(). Ningún
+  sistema conoce a otro: strain solo escribe en el componente de calor
+  compartido. 7 tests nuevos (tests/overclock.test.ts), 286 en verde, golden
+  intacto, tsc limpio. Cliente cableado (botón 🔥 Sobrecarga + tecla O + líneas
+  de registro que NOMBRAN la consecuencia) y verificado en el juego real
+  (Playwright headless: enganche, bono, apagado que la corta, toggle).
+  Aplazadas para siguientes bloques: CT como recurso (propuesta 4), sinergias
+  de escuadra (6) y control del campo (7).
+- **2026-07-08** — LEER LA MÁQUINA: SÍNTOMAS DEL CALOR Y EL REACTOR (propuesta
+  8, "información por síntomas" — NO niebla, que sigue aplazada). El sistema de
+  síntomas ya existía (cojea / sensores rotos / arma inutilizada / desgaste),
+  pero era CIEGO a lo que introdujo el bloque anterior. Ampliado, y es puro
+  cliente (cero motor, golden intacto): la tensión térmica ahora se DELATA a la
+  vista, también en el enemigo —
+  · 🔥 reactor forzado (sobrecarga puesta), 🌋 al rojo vivo (calor crítico
+    ≥85%), ♨ humea (calor alto ≥70%): en color de calor, usando los MISMOS
+    umbrales del motor (HEAT_HIGH/CRITICAL_THRESHOLD), no números mágicos del
+    cliente.
+  · 🔋 sin fuerza (energía a cero: sus penalizaciones defensivas están vivas),
+    🛡 expuesto (una pieza agotó su blindaje pero aún no cae: la costura por
+    donde entra el próximo golpe).
+  Las insignias salen en la ficha del roster Y en el panel de análisis al
+  posar el cursor sobre cualquier unidad ("lectura: …"). No se ocultan las
+  barras numéricas (la niebla sigue aplazada): es una CAPA de lectura, no un
+  recorte de información. Cierra el lazo con el bloque del reactor — un rival
+  humeante o sobrecargado se lee de un vistazo y se castiga. Verificado en el
+  juego real (Playwright headless: la insignia aparece al enganchar la
+  sobrecarga, con el color de calor).
+- **2026-07-08** — ARMA TÉRMICA: EL OTRO LADO DEL CALOR (propuesta 9 —
+  identidad extrema de armas — y el ejemplo estrella de la propuesta 1,
+  "provocar sobrecalentamiento para inutilizar armas pesadas"). Nuevo tipo de
+  efecto de habilidad `{ kind: 'heat', amount }`: en vez de tirar HP, VIERTE
+  calor en el reactor del OBJETIVO, empujándolo hacia el atasco de armas y el
+  apagado que ya existen. Cierra el bucle del calor en los dos sentidos (tu
+  calor te atasca a ti; ahora puedes forzar el del rival). Decisiones de diseño:
+  · El calor vertido es un rider GARANTIZADO (no tira azar propio): así el
+    golden master queda intacto —los monocasco no tienen reactor que cocer, el
+    efecto sale sin tocar el RNG— y el arma es una presión FIABLE, su identidad.
+  · Primera arma: 🔥 Lanzallamas de plasma (biblioteca, `lib-plasma-flamer`):
+    daño mínimo (16) + mucho calor (26), alcance 2. Reconocible sin ficha: es
+    el arma tras la que el enemigo empieza a humear y se le atascan las armas.
+    Híbrida a propósito (lleva daño) para que la IA la use como ofensiva (el
+    planificador clasifica por el efecto de daño); contra monocasco es solo su
+    daño mínimo — es un anti-reactor de nicho, no un arma general.
+    Corre caliente también para el TIRADOR (coste de calor): usarla alimenta tu
+    propio riesgo de sobrecarga.
+  Fiel al núcleo: efecto declarativo nuevo (no un sistema), evento reutilizado
+  (`heat-changed` con razón 'weapon'), sin que ninguna capa conozca a otra. 5
+  tests nuevos (incluido el arma REAL cociendo un reactor +26 pase o no el
+  daño), 290 en verde, golden intacto, tsc limpio. Cliente: línea de registro
+  "es COCIDO" y verificado que el arma se equipa, aparece y se dispara en el
+  juego real sin errores.
+- **2026-07-08** — SUPRESIÓN: LA PRIMERA SINERGIA DE ESCUADRA (propuesta 6,
+  "supresión para que otro aliado remate"; versión enfocada). Nuevo estado
+  `suprimido` — la máquina, fijada por fuego, mantiene la cabeza gacha:
+  · apunta peor (−15 de puntería, vía statusModifiers, como cualquier estado);
+  · y NO PUEDE REACCIONAR — ni contraatacar ni disparar en vigilancia. Esto
+    último lo resuelve Battle leyendo el estado compartido en reactionStrike y
+    en overwatchShots (misma vía que el 'stunned'); ninguna capa nueva, ningún
+    sistema conoce a otro.
+  Es la primera mecánica pensada para el ESCUADRÓN y no para la unidad suelta:
+  una máquina fija al rival (que deja de morder al que se acerca) y otra entra
+  a rematar SEGURA. Genera la historia "lo clavé para que mi pesado entrara sin
+  comerse el contraataque". Primera arma: 🔫 Ráfaga de supresión
+  (`lib-suppressor`): daño mínimo (20) + 'suprimido' al 80%, cargador de fuego
+  sostenido. Híbrida (lleva daño) para que la IA la use. 6 tests nuevos
+  (incluye los controles: sin supresión SÍ hay contraataque y vigilancia), 297
+  en verde, golden intacto, tsc limpio. El estado se lee solo en ficha y
+  registro (vía STATUS_DEFINITIONS). Pendiente/aplazado: que la IA COORDINE la
+  supresión (hoy la usa como daño flojo con el estado de regalo) y las demás
+  sinergias (romper blindaje antes del golpe pesado ya emerge del sistema de
+  placas; designación de objetivos, fuego concentrado).
+- **2026-07-08** — CONTROL DEL CAMPO: CASILLAS DE FUEGO (propuesta 7). Un arma
+  incendiaria PRENDE su zona de impacto; quien CIERRA su turno sobre fuego se
+  quema. Diseño vetado por un flujo de diseño+crítica adversarial (workflow de
+  subagentes) antes de tocar código. Reglas:
+  · El fuego es estado dinámico de casilla (`Tile.fire`), reutilizando el
+    precedente de demolish/raze; el agua y los muros NO prenden (huir al agua
+    apaga el fuego bajo los pies). Decae un turno por RONDA (determinista).
+  · Interactúa con el eje de calor ya construido: el fuego VIERTE calor (+12)
+    en el reactor de quien lo pisa —empujándolo hacia el atasco de armas y el
+    apagado— además de un daño de brasas (5% de HP máx.) que muerde también a
+    los monocasco. `fieldSystem` va al FINAL del bus: el calor del fuego se
+    suma TRAS la disipación (lo arrastra al turno siguiente), para que el
+    fuego amenace de verdad y no lo apague la ventilación el mismo turno.
+  · Se crea con `AbilityDefinition.ignites` (propiedad declarativa, resuelta a
+    nivel de casilla en executeAbility junto a demolish/raze — NO un efecto por
+    víctima). Eventos nuevos (solo añadir): tile-ignited/tile-extinguished/
+    unit-burned; el calor reutiliza heat-changed razón 'fire'.
+  Golden-safe FUERTE (verificado byte-exacto por la crítica): sin arma que
+  incendie, fieldSystem es no-op puro y no consume azar → los mapas del golden
+  nunca arden. Corregido un bug que halló la crítica: el fuego NO quema
+  cadáveres (guarda hp<=0) para no emitir un unit-destroyed doble si un DoT
+  anterior tumbó a la unidad ese mismo cierre. Primera arma: 🔥 Mortero
+  incendiario (napalm de área, alcance 6). 7 tests nuevos, 304 en verde, golden
+  intacto, tsc limpio. Cliente: la casilla ardiendo se VE (brasa pulsante +
+  llama) y el registro la nombra. (Verificación en motor: 34 objetivos legales
+  y enterAbility correcto; el disparo incendiario en vivo no pudo escenificarse
+  en el arnés headless —el pilotaje pasivo pierde la batalla antes— pero la
+  mecánica y el objetivo están probados de forma determinista.)
+- **2026-07-08** — CT COMO RECURSO / TEMPO + SOBREMARCHA (propuesta 4).
+  REGENERADO EL GOLDEN MASTER (autorizado por el director): el coste del turno
+  cambia de un umbral fijo con "refund" ad-hoc a TEMPO por acción. Diseño
+  vetado por el flujo diseño+crítica adversarial. Reglas (todo determinista,
+  cero azar nuevo — verificado: regenerar dos veces da byte-idéntico):
+  · El turno cuesta CT_TURN_BASE (60) + el recargo de lo que cometes: mover
+    +30, disparo/recarga/vigilancia estándar +40, arma pesada/boost +70. Así
+    ESPERAR te adelanta (cuesta 60, bancas 40), un disparo normal es neutro
+    (60+40=100=umbral) y mover+pesado te retrasa (160). Decisión nueva de
+    ritmo, misma que el "compromiso" del reactor y la sobrecarga.
+  · SOBREMARCHA (tecla X): un golpe ×1.5 AHORA a cambio de +100 de tempo (cedes
+    tu próximo turno). No es un buff: es otro pacto. Reutiliza el powerMult que
+    applyEffects ya tenía → NO consume azar extra. Solo en golpes (lanza si no).
+  · Identidad del PESO: las armas pesadas declaran `ctCost` (cañón de
+    partículas, martillo Gauss, pilote, hacha de plasma, railgun, morteros...):
+    pegan fuerte, calientan Y te retrasan. Las ligeras/medias heredan el ligero.
+  · El único punto de cobro sigue siendo executeWait (no hay BattleSystem
+    nuevo); tempoSpent es un flag del turno como hasMoved. Corregido lo que
+    halló la crítica: VIGILANCIA ahora cuesta tempo de acción (si no, salía más
+    barata que disparar y regalaba un tiro reactivo); postura y sobrecarga
+    siguen a tempo 0 a propósito (son acciones libres que no cierran el turno).
+  Eventos nuevos (solo añadir): tempo-spent (por turno) y overdrive-used. La
+  regeneración del golden es LEGÍTIMA: al cambiar el orden de turnos la batalla
+  entera diverge (otras unidades actúan en otro momento → otros blancos, otros
+  daños); no es una regresión, y se verificó que el motor sigue siendo
+  determinista y que las batallas terminan. Cliente: la línea de turnos se
+  REORDENA en vivo con lo comprometido + etiqueta "tempo N", y la sobremarcha
+  se arma con X (anunciada en el registro). 9 tests nuevos, 313 en verde, tsc
+  limpio. Verificado en el juego real (etiqueta de tempo y armado de X).
+- **2026-07-08** — CONTINUIDAD EXPEDICIÓN↔COMBATE: el motor lo PERMITE
+  (propuesta 10). La propuesta pide que el motor —sin conocer la campaña—
+  permita transportar estado residual a la batalla. Implementado como campos
+  OPT-IN en UnitSpawn: initialHeat, initialEnergy y ammo (munición por arma).
+  Ausentes = de fábrica (calor 0, energía llena, cargadores llenos) → golden
+  byte-idéntico (verificado). Acotados a [0,max] con saneo de NaN (helper
+  initClamp: un guardado corrupto cae a fábrica, no propaga basura — endureci-
+  miento que pidió la crítica). El calor residual entra a tope SIN apagar el
+  turno 1 (se acota a max, no por encima). Interactúa con lo ya construido sin
+  tocar sistemas: calor residual = riesgo de atasco/apagado (heat+strain),
+  energía baja = penalización y vetos (energy), cargador a medias = veto de
+  arsenal. 6 tests nuevos, 319 en verde, tsc limpio. PENDIENTE (capa de
+  campaña, no motor): que la liquidación de batalla grabe el estado residual de
+  los supervivientes y el despliegue lo relea — con enfriado/reabastecimiento
+  en el taller para evitar la "espiral de la muerte" que señaló la crítica. Es
+  diseño de campaña con implicaciones de balance; se hará en su propia pasada.
+- **2026-07-08** — INERCIA / PERSONALIDAD MECÁNICA (propuesta 11): APLAZADA.
+  El propio director avisa del riesgo de "síndrome del simulador", y el flujo
+  de diseño+crítica lo confirmó: la inercia-de-movimiento (giro, derrape,
+  aceleración) es complejidad por complejidad; la única versión mínima
+  planteada (masa que resiste el empuje) refina un efecto ya nicho —el
+  knockback ni siquiera dispara en el golden— y su "decisión nueva" es la más
+  débil de las 11. No entra: la identidad de las máquinas ya la dan sus stats,
+  su reactor (o su ausencia), su peso de tempo (ctCost) y sus armas. Se revisará
+  solo si aparece una regla mínima que genere una decisión de verdad.
+- **2026-07-08** — REVISIÓN ADVERSARIAL del lote entero (flujo de subagentes:
+  4 lentes —determinismo/golden, interacciones, desacoplo/eventos, cliente— con
+  verificación adversarial de cada hallazgo). Confirmó 3 bugs reales, ya
+  corregidos con test de regresión:
+  · SOBRECARGA repetible reinyectaba calor: al ser acción libre, re-emitir
+    `overclock on:true` ya sobrecargado volvía a cobrar el tirón de +15 (doble
+    clic = calor gratis hacia un apagado no querido). Arreglo: strainSystem veta
+    el enganche redundante (no-op ⇒ ilegal), así el tirón solo se cobra en la
+    transición real.
+  · Muertes por SISTEMAS (fuego, apagado del reactor, DoT) no degradaban la red
+    de mando: solo la muerte por arma llamaba a afterDestruction. Un comandante
+    quemado/apagado no dejaba a su equipo sin coordinación. Arreglo: Battle
+    centraliza la consecuencia (linkCommandDeaths tras runSystems); golden-safe
+    (ningún comandante del golden muere por estas vías).
+  · La SOBREMARCHA armada (cliente) se filtraba: vigilar cerraba el turno sin
+    resetear el flag. Arreglo: reset en doOverwatch y, como red de seguridad, en
+    advance() (nunca cruza de turno/unidad). Verificado en el juego real.
+  Un 4º hallazgo (el veto de calor bloquearía un contraataque) resultó FALSO
+  POSITIVO (el reflejo no paga calor). 321 tests en verde, golden intacto.
+- **2026-07-08** — "APLICA LO PENDIENTE" (dirección del usuario): cerrados los
+  tres cabos que dejé apuntados. Tres bloques:
+  · BALANCE — pasada con datos (npm run balance:hangar). Cuatro chasis melee/
+    voladores frágiles morían el 86-95% y ganaban <42% (cerrar bajo fuego + el
+    tempo pesado los frena): +HP y +evasión medidos a storm-sworder, rev-raptor,
+    pteras y guysak. Suelo sano en 42.9%, sin débiles; único borde fuerte
+    liger-zero 58.7% (marginal, no se toca). pteras está en el golden → su buff
+    REGENERA el golden (dato, determinismo verificado byte-idéntico).
+  · IA — valoraba solo el daño directo: infravaloraba el arma térmica, la
+    incendiaria y el supresor, y caminaba sobre el fuego. Ahora valora el arma
+    completa (cocer un reactor —desbordarlo = apagado = oro—, incendiar,
+    suprimir), remata al SUPRIMIDO (no contraataca) y al COCIDO, y evita cerrar
+    turno sobre fuego. Golden-safe: fuera del golden no hay fuego/calor/supresión
+    /reactores enemigos, así que su IA no cambia (verificado byte-idéntico).
+  · CONTINUIDAD, CAPA DE CAMPAÑA — el motor ya lo aceptaba; ahora la campaña lo
+    USA. Al liquidar una batalla, cada SUPERVIVIENTE graba su estado residual
+    (calor, energía, munición en cargador) en el roster (OwnedZoid.residualHeat/
+    residualEnergy/ammo). Al desplegar la SIGUIENTE batalla se relee por
+    initialHeat/initialEnergy/ammo: entras como saliste (caliente, con el
+    cargador a medias). Una JORNADA DE DESCANSO hace refit (refitZoid: el
+    reactor se enfría, se reabastece) — es lo que impide la espiral de la
+    muerte. Retro-compatible (campos opt-in; guardados viejos, iguales) y
+    golden-safe (el golden no toca la campaña). Verificado en el juego real: un
+    Liger con calor residual 80 despliega a 80/100 y humea de salida.
+  327 tests en verde (+6 desde la revisión), tsc limpio, golden regenerado
+  (balance) y por lo demás intacto.
+- **2026-07-08** — IA MÁS PROFUNDA: ESCUADRA + EMBOSCADA (dirección del usuario:
+  "¿puedes hacer que la IA aprenda / sea más profunda?"). Aclaración honesta: el
+  "aprendizaje" tipo ML rompería el determinismo/replays/golden del motor; lo
+  que SÍ encaja —y aporta mucho más aquí— es una IA COORDINADA (y, en el futuro,
+  adaptación de campaña: enemigos que traen contras a tu estilo, heurística
+  determinista). Implementado el salto de profundidad:
+  · FUEGO CONCENTRADO: cada unidad calcula el mismo FOCO de escuadra (función
+    pura del estado — presa rematable / ya debilitada / que más aliados
+    alcanzan) y sesga su ataque hacia él. Coordinación EMERGENTE sin memoria
+    compartida: convergen solos, deterministas. Antes cada unidad peleaba
+    aislada; ahora concentran para cerrar presas.
+  · EMBOSCADA: un centinela sin tiro este turno, al ver venir a un enemigo MÁS
+    agresivo (asimetría que garantiza que el más agresivo de cada pareja SIEMPRE
+    avanza → nunca hay doble-vigilancia mutua ni empate por estancamiento), se
+    queda en VIGILANCIA en vez de caminar a ciegas. Estrena la vigilancia en la
+    IA (antes solo la usaba el jugador): 11 emboscadas en las batallas del
+    golden nuevo.
+  Determinista (verificado byte-idéntico) y las batallas siguen terminando
+  (sin empates por estancamiento). REGENERA EL GOLDEN (mejora intencional de IA;
+  ambos equipos la usan, es simétrica). 6 tests de IA (foco, emboscada,
+  agresivo-no-embosca + los previos). BALANCE: el fuego concentrado premia a los
+  pegadores (esperado y simétrico), lo que ensanchó el abanico; compresión de
+  extremos alcanzable sin tocar el golden — gojulas atk 60→52 (dominaba con
+  foco), storm-sworder evasión 38→44 (la evasión alta lo hace difícil de FIJAR).
+  El resto de fuertes (gun-sniper, geno, liger-zero) están en el golden y
+  reflejan la dinámica legítima "los pegadores rinden con coordinación"; no se
+  tocan. 330 tests en verde, tsc limpio, verificado en el juego real.
+- **2026-07-08** — LA FACCIÓN TE FICHA: ADAPTACIÓN DE CAMPAÑA ("vamos a ello").
+  La forma de "aprendizaje" que SÍ encaja en un motor determinista: no ML, sino
+  un DOSIER (conteos) que la facción enemiga acumula de tu estilo a lo largo de
+  los contratos y usa para componer escuadras que te CONTRARRESTAN. Todo en la
+  capa de campaña (src/game/mercenary.ts + src/web) → el motor de batalla no se
+  toca, GOLDEN-SAFE por construcción; y es determinista (conteos + selección
+  ponderada con la misma semilla).
+  · DOSIER (CampaignState.dossier, opt-in): al liquidar cada batalla cuenta los
+    golpes del jugador de cerca (alcance ≤1) vs de lejos (≥3) y las veces que
+    enganchó la sobrecarga. readStyle() exige muestra (≥2 batallas / ≥4 golpes)
+    antes de decidir 'melee' / 'ranged' / 'reactor' / 'balanced'.
+  · CONTRAS (counterRoles): melee→sniper/flyer (kiters que castigan el rush);
+    ranged→assault/skirmisher (cerradores); reactor→assault/skirmisher (presión
+    temprana). contractOffers acepta un weightOf opcional que sesga la selección
+    ponderada hacia esos roles (sin él, generación IDÉNTICA a antes → tests y
+    partidas viejas intactos).
+  · HISTORIA: el tablero de contratos muestra la inteligencia ("te han fichado
+    peleando de cerca: esta escuadra trae más fuego a distancia"). El enemigo
+    deja de ser aleatorio y RESPONDE a cómo juegas.
+  Retro-compatible (dossier ausente = no adapta), golden-safe. 3 tests nuevos
+  (dosier/readStyle, counterRoles, sesgo determinista de contractOffers), 333 en
+  verde, tsc limpio. Verificado en el juego real: con dosier 'melee', las
+  escuadras ofertadas se llenan de voladores y francotiradores y sale el aviso.
+- **2026-07-08** — ADAPTACIÓN: CONTRAS POR ARMA + TABERNA ("de una"). Segundo
+  escalón de la adaptación de facción:
+  · CONTRA POR ARMA (no solo por chasis): a los "especialistas" de la escuadra
+    enemiga (índices pares) se les monta un arma de biblioteca que castiga tu
+    estilo — counterWeapons(): reactor→🔥 lanzallamas/incendiario (te cuecen el
+    reactor), melee→supresor (te FIJAN al cargar: sin contra ni vigilancia),
+    ranged→mortero de humo (sobreviven tu hostigamiento). Las armas 'lib-w-*'
+    no tienen mountSlot: caben en cualquier chasis, y la IA (que ya valora
+    calor/supresión) las USA. La frase de inteligencia lo canta: "se han
+    hartado de tus reactores forzados — vienen con LANZALLAMAS para cocerte".
+  · TABERNA: tavernJob acepta el mismo weightOf; los trabajos sucios también
+    se adaptan (antes solo los contratos oficiales).
+  Golden-safe (capa de campaña), retro-compatible (sin dosier, loadouts de
+  fábrica). 1 test nuevo (counterWeapons), 334 en verde, tsc limpio. Verificado
+  en el juego real: con dosier 'reactor', un enemigo entra a la batalla con el
+  Lanzallamas de plasma montado. Futuro real restante: memoria de dosier POR
+  FACCIÓN (exige contratos etiquetados por facción).
+- **2026-07-08** — CURVA DE DIFICULTAD AMPLIA (dirección del usuario: "no soy
+  una máquina… no es un Dark Souls; que sea satisfactorio pero que cueste"). La
+  IA genio desde el minuto uno es injusta: su profundidad ahora es el TECHO de
+  una curva, no el suelo. Nuevo `BattleConfig.aiSkill` (0..1, por defecto 1 =
+  plena → golden idéntico) que ESCALONA la competencia de la IA:
+  · < 0.35: grunts torpes, cada uno a lo suyo (sin fuego concentrado).
+  · ≥ 0.35: coordina el fuego (foco de escuadra).
+  · ≥ 0.65: además EMBOSCA (vigilancia).
+  Y la adaptación de facción sigue la misma curva (capa de campaña): contras por
+  CHASIS desde skill 0.45, contras por ARMA (lanzallamas) desde 0.7. La campaña
+  calcula el skill con `campaignAiSkill()` = contratos cumplidos/15 + desfase de
+  dificultad (cadete −0.2 espabila tarde; mercenario 0; leyenda +0.35 arranca ya
+  coordinada). Así el jugador APRENDE contra grunts, siente la coordinación
+  hacia el contrato ~5, la emboscada ~10 y la máquina completa (coordina +
+  embosca + te ficha + te trae lanzallamas) solo al final, con un buen roster.
+  El desgaste (wear) ya escalaba con la dificultad; ahora también la INTELIGENCIA.
+  Golden-safe (defecto 1), 2 tests nuevos (skill bajo NO concentra ni embosca),
+  336 en verde, tsc limpio. Verificado en el juego real: mismo dosier 'reactor',
+  a contractsDone 0 el enemigo NO trae lanzallamas ni sale el aviso; a 12 (skill
+  0.8) sí. Satisfactorio: cuesta, pero se aprende antes de que apriete.
+- **2026-07-09** — 100 CONTRATOS: VALIDAR Y AFINAR EL ARCO (dirección del
+  usuario: "hagamos 100 contratos"). Construido un SIMULADOR de campaña
+  (scripts/campaign-sim.ts) que juega N contratos seguidos —jugador competente
+  (IA a tope, skill 1) contra la curva + adaptación— y reporta la tasa de
+  victoria por decenas y dificultad. Tres modos que ACOTAN la experiencia:
+  `campaign` (arco realista: el roster CRECE por tramos y toma encargos acordes
+  a su progreso), `meta` (roster de élite CONGELADO = el TECHO) y `frozen`
+  (roster de arranque congelado = el SUELO). Cada decil junta 10·REPEATS
+  batallas (6 semillas) para una lectura estable, no anecdótica.
+  El simulador DESTAPÓ dos fallos que el ojo no veía:
+  · La FUERZA no tenía músculo pasado 1.0: la escuadra enemiga son siempre 4
+    unidades y el relleno gastaba mal el presupuesto (compraba 4 skirmishers
+    baratos y DESPERDICIABA el resto), así que un final con roster de élite era
+    un paseo (90% de victorias). Arreglo: `fillSquad` (extraído y compartido por
+    contractOffers y tavernJob) ahora GASTA el hueco —afinidad de precio ∝
+    (precio/hueco)²— de modo que un contrato rico trae ÉLITES, no chatarra. La
+    caza de élite (presupuesto 7200) por fin se siente de élite, y la fuerza
+    importa hasta el final. (Sin sesgo ni fuerza, retro-compatible: los tests de
+    composición y de escalado por tramo siguen en verde.)
+  · La rampa de destreza era demasiado ESTRECHA (contratos/15: precisión total
+    hacia el contrato 15, media partida) y la fuerza tenía MESETA temprana
+    (0.6→1.3 y plano). Reajuste hacia una GLIDE ANCHA: `campaignAiSkill` pasa a
+    contratos/25 (la maestría es el final del arco, no su mitad) y
+    `campaignStrength` a 0.55 + c/45 con techo 1.6 (floja al empezar, SIN meseta,
+    apretando de verdad al final).
+  ENVOLVENTE validada (mercenario): TECHO (élite desde el día 1) 80% al principio
+  → la curva lo alcanza → 48% al final (no se compra la partida); SUELO (nunca
+  mejoras) 57% → se desmorona a 12-17% (hay que invertir); REALISTA (mantienes el
+  paso) una banda de 45-65% de principio a fin. Eso es "amplia, satisfactoria,
+  pero que cuesta". Todo en la capa de campaña + una constante del cliente →
+  GOLDEN-SAFE (verificado byte-idéntico) y el override de skill por equipo en
+  planTurn es opt-in (por defecto = el de la batalla = 1). 2 tests nuevos
+  (glide de campaignStrength; la fuerza compra chasis mejores), 338 en verde,
+  tsc limpio, cliente arranca sin errores.
+- **2026-07-09** — QUE EL DAÑO LOCALIZADO SE VEA (dirección del usuario: "haz que
+  el daño localizado se vea"). El sistema de frames —impactos por zona, blindaje
+  por placa que se arranca, secuela al perder una pieza, desbordamiento al núcleo—
+  solo lo tenían 2 de 25 chasis (Liger CAS, Geno CP), así que la mayoría de
+  batallas eran de barra de HP única. El director eligió la opción B: frames a
+  MEDIDA para 7 chasis comunes, con IDENTIDAD legible.
+  · Chasis: Liger Zero, Command Wolf, Gun Sniper, Gojulas, Iron Kong, Pteras y
+    Geno Saurer. Cada uno con su carácter: el Gojulas guarda el HP en un TORSO
+    grueso, el Iron Kong lleva la MOCHILA de misiles a la espalda (rear-exposed
+    ×2), la Pteras tiene ALAS frágiles y fáciles de acertar (rómpele un ala y
+    pierde evasión/vuelo), al Gun Sniper la COLA-sensor le da la puntería, al Geno
+    el CAÑÓN de partículas es su pegada energética.
+  · Convención NUEVA (coexiste con la de "núcleo desnudo" del CAS): el chasis
+    conserva sus stats base COMPLETAS y el módulo es CARCASA pura (`struct` en
+    data/modules.ts: contributions [], armor 0 para no mitigar doble). La
+    identidad la dan el reparto de HP, las tags, el hitWeight y la SECUELA
+    (onDestroyed): sin patas frenas y desapuntas, sin ala no esquivas, sin cañón
+    pierdes tu pegada. El HP de las piezas SUMA el maxHp (lo exige el motor).
+  · Arreglado un fallo REAL que el frame masivo destapó: un chasis se despliega
+    ya dañado (continuidad), pero el frame venía con las piezas LLENAS → el HP
+    global (derivado de la estructura) se "curaba" al primer golpe. Nuevo
+    `applyInitialDamage` reparte el daño de despliegue por las piezas
+    (proporcional, núcleo ≥1), determinista.
+  REGENERA EL GOLDEN (5 de los 7 están en la batalla de referencia; cada impacto
+  ahora tira localización → azar nuevo, declarado y AUTORIZADO por el director).
+  Verificado determinista byte-idéntico y que las batallas terminan (8-9 tiradas
+  de localización y ~9 piezas destruidas por batalla del golden). BALANCE
+  (balance:hangar): el blindaje por placa engordó a los duros —gojulas 59.5%,
+  se recortó su placa (banda 54%)— y el meta se movió; zaber-fang subió a 61%
+  (atk 40→37). Los 7 chasis con frame quedan en banda (43-56%). El cliente ya
+  tenía el lector de casco: en batalla, Command Wolf y Gun Sniper YA se ven como
+  piezas (10/40/15/15 y 8/30/16), no una barra. 9 tests nuevos (integridad de
+  cada frame), 347 en verde, tsc limpio, verificado en el juego real.
+  PENDIENTE (el otro frente del hueco nº1): la IA sigue CIEGA al arco —no
+  flanquea ni protege su espalda—; darle eso es el siguiente salto.
+- **2026-07-09** — NAVEGAR PINCHANDO EL MAPA (dirección del usuario). El mapa de
+  expedición ya dibujaba los nodos y los tramos, pero solo se viajaba por la
+  LISTA de rutas (botones). Ahora el destino se PINCHA directo en el mapa: los
+  nodos vecinos alcanzables se resaltan (anillo verde, cursor de mano, título con
+  las jornadas) y al clicarlos se viaja (equivale a su ruta). Respeta las reglas:
+  sin suministros solo se marcan las rutas hacia la civilización (los demás
+  quedan atenuados y no clicables), y los tramos rotos avisan del vadeo (+1 día).
+  La lista de rutas SE MANTIENE (lleva el detalle de coste/relato y los enlaces
+  interregionales de ferry/lanzadera, que van a otra región y no están en este
+  mapa). Cambio solo de cliente (renderWorld + CSS de .wnode), sin tocar el motor
+  de viaje. Verificado en el juego real: clicar 'Base Arcadia' viaja (Cruce del
+  Río → Base Arcadia, Día 0 → 1). tsc limpio, 347 tests en verde.
+- **2026-07-09** — EMBOSCADAS DE RUTA: peleas aleatorias al viajar (dirección del
+  usuario: "enemigos fáciles y medio bobos… para aumentar exp"). Tras un tramo
+  por tierra hay un ~35% (determinista por nodo+día) de EMBOSCADA: una chusma de
+  2-3 grunts baratos (molga/guysak/rev-raptor) con la IA a `aiSkill 0.15` —flojos
+  y BOBOS: cada uno a lo suyo, sin coordinar ni vigilar (la curva de destreza que
+  ya teníamos, puesta al mínimo). Objetivo por defecto (derribar a todos). Sirve
+  para CURTIR a los pilotos: la XP la reparte el flujo normal (renderXpSummary),
+  que dispara para cualquier batalla. Sin emboscada en el HQ (refugio), ni en el
+  nodo-objetivo (ya trae su batalla), ni sin party viva, ni en ferry/lanzadera
+  (pasaje seguro), ni cuando el tramo ya trae una encrucijada (un evento por
+  viaje). Nuevo `settleSkirmish` (sin contrato): persiste HP + residual de
+  continuidad y las heridas igual que un contrato, da una chatarra menor de
+  saqueo (30/derribo) y vuelve al mapa. `startBattle` acepta un `aiSkill` de
+  brief (override de la curva). Solo cliente; el motor no se toca. Verificado en
+  el juego: a los 5 viajes salta la emboscada —4 máquinas (con su daño arrastrado)
+  contra 2 grunts— y se resuelve devolviendo al mapa. tsc limpio, 347 en verde.
+- **2026-07-09** — EL CASCO, SOLO DEL SELECCIONADO (dirección del usuario: "solo
+  si lo selecciono, así no ocupamos tanto espacio"). El panel de UNIDADES pintaba
+  el DIAGRAMA de casco (silueta + módulos) de CADA zoid framed, y con el reparto
+  de frames a 9 chasis eso llenaba la columna. Ahora el diagrama sale solo para el
+  zoid SELECCIONADO —por defecto el que tiene el turno—; el resto va compacto
+  (nombre + barras) con una pista '▸ ver casco'. Clic en cualquier tarjeta la abre
+  (y la cierra al reclicar, volviendo al activo); un seleccionado muerto cae de
+  vuelta al activo. Uno a la vez → caben todas las unidades en la misma altura que
+  antes ocupaban 3 diagramas. Solo cliente (renderRoster + CSS .ucard). Verificado
+  en el juego: 1 diagrama visible, clicar P2 lo mueve a P2. tsc limpio, 347 verde.
+- **2026-07-12** — LA FUSIÓN DE LAS DOS LÍNEAS DE TIEMPO. La rama del
+  relevo (Opus 4.8, 33 commits: terreno vadeable, mundo con secretos,
+  desgaste, blindaje por partes, reactor/tempo/supresión/fuego,
+  IA de escuadra con curva y adaptación, frames en 9 chasis, simulador
+  de campaña) se fusiona con la nuestra (IA que se retira y vigila,
+  escuelas activas ✦, repeticiones 📼, tutorial, núcleo universal,
+  cartas del destacamento). Decisiones de la costura:
+  · IA unificada: valorador de arma completa (calor/supresión/fuego) +
+    olfato de escolta (+40 al protegido); la vigilancia de cobertura
+    nuestra queda SUJETA a las reglas de la emboscada de Opus (curva de
+    destreza + asimetría de agresión) — sin doble-vigilancia mutua y
+    los grunts siguen bobos.
+  · Repeticiones: TODAS las acciones nuevas (sobrecarga, sobremarcha)
+    pasan por execTracked; la receta graba además wear y aiSkill (el
+    desgaste cambia los impactos: sin él la repetición divergiría).
+  · Panel de unidades: cartas ricas (piloto, ✦, munición, sellos,
+    telemetría solo propia) + el casco SOLO del seleccionado; un clic
+    localiza en el mapa Y despliega el casco.
+  · Spawns de campaña: biografía del núcleo + búnker de refuerzo +
+    continuidad residual + escuelas del piloto, todo en el mismo spawn.
+  · Tutorial: 8 pasos (nuevo: el tempo y el pacto del reactor).
+  REGENERADO EL GOLDEN MASTER (declarado): las dos ramas lo habían
+  regenerado por caminos distintos (tempo/frames vs reacciones/IA); el
+  fusionado une ambas IAs y los 9 frames. Verificado determinista
+  (regenerar dos veces = byte-idéntico). 365 tests en verde (la suma de
+  las dos suites), tsc limpio, verificado en el juego real: tutorial
+  1/8, ✦ Embestida, casco del seleccionado, tempo en la línea de
+  turnos, sobrecarga con tecla O e insignia, batalla completa con
+  repetición, y el viaje pinchando el mapa. Cero errores de consola.

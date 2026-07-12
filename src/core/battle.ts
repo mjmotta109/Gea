@@ -5,6 +5,7 @@ import {
   facingTowards,
   hitChance,
   proximityBonus,
+  WATER_ATTACK_PENALTY,
   type AttackArc,
 } from './combat.js';
 import { footprintDistance, footprintTiles, GameMap, manhattan, posKey, samePos, TERRAIN_COVER } from './grid.js';
@@ -12,8 +13,10 @@ import { hasLineOfSight } from './los.js';
 import { KNOCKBACK_MASS_THRESHOLD, knockbackDestination } from './physics.js';
 import { aoeTiles, reachableTiles, targetableTiles, type ReachableTile } from './pathfinding.js';
 import { applyModifiers } from './derived.js';
+import { wearModifiers } from './wear.js';
 import {
   applyDamageToModule,
+  applyInitialDamage,
   buildFrameState,
   deriveUnitHp,
   frameMaxHp,
@@ -28,7 +31,9 @@ import { applyStatus, hasStatus, statusModifiers, tickStatuses } from './status.
 import {
   defaultSystems,
   energyModifiers,
+  hasReactor,
   heatModifiers,
+  overclockModifiers,
   type ActionVeto,
   type BattleSystem,
   type SystemContext,
@@ -37,6 +42,11 @@ import {
 import { advanceToNextTurn, forecastTurnOrder } from './turn.js';
 import {
   CT_THRESHOLD,
+  CT_TURN_BASE,
+  CT_MOVE,
+  CT_ACT_LIGHT,
+  CT_ACT_HEAVY,
+  CT_OVERDRIVE,
   type AbilityDefinition,
   type BattleAction,
   type BattleEvent,
@@ -54,6 +64,16 @@ import {
   StanceId,
 } from './types.js';
 
+/**
+ * Acota un valor de INICIALIZACIÓN opcional (continuidad de campaña) a
+ * [0, max]. Si es undefined o no finito (guardado corrupto/NaN), usa el
+ * valor de fábrica: nunca propaga basura a los componentes.
+ */
+function initClamp(value: number | undefined, max: number, fallback: number): number {
+  if (value === undefined || !Number.isFinite(value)) return fallback;
+  return Math.max(0, Math.min(max, Math.round(value)));
+}
+
 export interface UnitSpawn {
   id: string;
   /** Nombre del piloto/unidad concreta; el chasis pone el resto. */
@@ -69,6 +89,18 @@ export interface UnitSpawn {
    * persistente). Se acota a [1, maxHp real]; si se omite, sale a tope.
    */
   hp?: number;
+  /** Blindaje de refuerzo (búnker que absorbe antes que el casco). 0 = sin refuerzo. */
+  armor?: number;
+  /**
+   * CONTINUIDAD expedición↔combate (opt-in): estado residual con el que la
+   * máquina ENTRA a la batalla, para que la campaña conecte una pelea con la
+   * siguiente sin que el motor conozca la campaña. Ausentes = de fábrica
+   * (calor 0, energía llena, cargadores llenos) → golden idéntico.
+   */
+  initialHeat?: number;
+  initialEnergy?: number;
+  /** Munición en el cargador por arma (weaponId → balas). Ausente = lleno. */
+  ammo?: Record<string, number>;
   /** Modificadores adjuntos a la unidad durante toda la batalla. */
   modifiers?: StatModifier[];
   /**
@@ -106,6 +138,21 @@ export interface BattleConfig {
   weaponCatalog?: Record<string, WeaponDefinition>;
   /** Clima de la batalla; por defecto despejado. */
   weather?: WeatherId;
+  /**
+   * Severidad del DESGASTE de combate (0 = sin desgaste, por defecto). No es
+   * más HP: escala cuánto degrada a una máquina el daño acumulado (puntería,
+   * evasión, movimiento) por tramos de HP. La dificultad de campaña lo fija;
+   * el motor solo lo aplica. Con 0, comportamiento y golden master idénticos.
+   */
+  wear?: number;
+  /**
+   * COMPETENCIA de la IA (0..1, por defecto 1 = plena). Es la curva de
+   * dificultad de la IA: por debajo de ciertos umbrales, la IA NO coordina el
+   * fuego (0.35) ni embosca (0.65) — juega como grunts torpes. La campaña la
+   * sube con el progreso y la dificultad. Con 1 (por defecto y escaramuza), la
+   * IA rinde a tope y el golden master queda idéntico.
+   */
+  aiSkill?: number;
   /** Pilotos por unidad (progresión, opt-in) y su tabla de perks. */
   pilots?: Record<string, PilotState>;
   perkTable?: PerkTable;
@@ -138,6 +185,10 @@ export class Battle {
   readonly map: GameMap;
   readonly units: UnitState[];
   readonly weather: WeatherId;
+  /** Severidad del desgaste de combate (0 = apagado). Lo fija la campaña. */
+  readonly wear: number;
+  /** Competencia de la IA (0..1; 1 = plena). Curva de dificultad de la IA. */
+  readonly aiSkill: number;
   private definitions: Record<string, UnitDefinition>;
   private abilities: Record<string, AbilityDefinition>;
   private modules: ModuleCatalog;
@@ -169,6 +220,8 @@ export class Battle {
     this.modules = config.moduleCatalog ?? {};
     this.rng = new Rng(config.seed);
     this.weather = config.weather ?? 'clear';
+    this.wear = config.wear ?? 0;
+    this.aiSkill = config.aiSkill ?? 1;
     this.weapons = config.weaponCatalog ?? {};
     this.pilots = config.pilots ?? {};
     this.perkTable = config.perkTable;
@@ -237,6 +290,16 @@ export class Battle {
       }
 
       const weaponIds = spawn.loadout?.weapons ?? def.weapons;
+      // Frame: se construye UNA vez; si el chasis se despliega ya dañado
+      // (continuidad de campaña), se reparte ese daño sobre los módulos para
+      // que el HP global no se "cure" al rederivarse en el primer golpe.
+      const frameState = frameConfig ? buildFrameState(frameConfig, this.modules) : undefined;
+      if (frameState && spawn.hp !== undefined && spawn.hp < maxHp) {
+        applyInitialDamage(frameState, this.modules, Math.round(spawn.hp));
+      }
+      const initialHp = frameState
+        ? deriveUnitHp(frameState, this.modules)
+        : spawn.hp !== undefined ? Math.max(1, Math.min(maxHp, Math.round(spawn.hp))) : maxHp;
       return {
         id: spawn.id,
         name: spawn.name,
@@ -249,7 +312,8 @@ export class Battle {
         ...(spawn.extraAbilityIds && spawn.extraAbilityIds.length > 0
           ? { extraAbilityIds: [...spawn.extraAbilityIds] } : {}),
         facing: spawn.facing ?? (spawn.team === 'player' ? 'east' : 'west'),
-        hp: spawn.hp !== undefined ? Math.max(1, Math.min(maxHp, Math.round(spawn.hp))) : maxHp,
+        hp: initialHp,
+        armor: Math.max(0, Math.round(spawn.armor ?? 0)),
         maxHpOverride: spawn.loadout?.slots ? maxHp : undefined,
         ...(spawn.modifiers && spawn.modifiers.length > 0
           ? { spawnModifiers: spawn.modifiers.map((m) => ({ ...m })) } : {}),
@@ -258,23 +322,39 @@ export class Battle {
         hasMoved: false,
         hasActed: false,
         components: {
-          ...(frameConfig ? { frame: buildFrameState(frameConfig, this.modules) } : {}),
+          ...(frameState ? { frame: frameState } : {}),
           ...(def.energy ? {
             energy: {
-              current: def.energy.capacity,
+              // Continuidad: energía inicial residual (acotada; ausente = llena).
+              current: initClamp(spawn.initialEnergy, def.energy.capacity, def.energy.capacity),
               capacity: def.energy.capacity,
               outputPerTurn: def.energy.outputPerTurn,
               boostedThisTurn: false,
             },
           } : {}),
           ...(def.heat ? {
-            heat: { current: 0, max: def.heat.max, dissipationPerTurn: def.heat.dissipationPerTurn },
+            heat: {
+              // Continuidad: calor residual (acotado a [0,max]; ausente = 0).
+              // Acotar a max (no >) evita el apagado en el turno 1 al entrar a tope.
+              current: initClamp(spawn.initialHeat, def.heat.max, 0),
+              max: def.heat.max,
+              dissipationPerTurn: def.heat.dissipationPerTurn,
+            },
           } : {}),
           ...(weaponIds ? {
             arsenal: {
               weapons: weaponIds.map((weaponId) => {
-                const weapon = this.weaponOf(weaponId);
-                return { weaponId, ammo: weapon.magazine, reserves: weapon.reserves, cooldown: 0 };
+                const weapon = this.weapons[weaponId];
+                if (!weapon) {
+                  throw new Error(
+                    `El chasis '${def.id}' monta el arma '${weaponId}', ausente del catálogo. ` +
+                    `Las armas 'lib-*' viven en la biblioteca anexa: arma el catálogo con ` +
+                    `withWeaponLibrary(ABILITIES, WEAPONS) (como hacen el cliente y la campaña).`,
+                  );
+                }
+                // Continuidad: munición residual en el cargador (ausente = lleno).
+                const ammo = initClamp(spawn.ammo?.[weaponId], weapon.magazine, weapon.magazine);
+                return { weaponId, ammo, reserves: weapon.reserves, cooldown: 0 };
               }),
             },
           } : {}),
@@ -407,6 +487,12 @@ export class Battle {
       ...statusModifiers(unit),
       ...energyModifiers(unit),
       ...heatModifiers(unit),
+      // Sobrecarga del reactor: potencia, iniciativa y daño mientras esté
+      // puesta (el precio, el calor, lo cobra strainSystem).
+      ...overclockModifiers(unit),
+      // Desgaste de combate: el daño acumulado degrada la máquina (nunca
+      // infla HP). Severidad 0 = sin efecto (motor y golden intactos).
+      ...wearModifiers(unit.hp, base.maxHp, this.wear),
     ];
     if (this.linkLostTeams.has(unit.team) && unit.hp > 0) {
       // Sin comandante, la coordinación del equipo se resiente (fase 5).
@@ -462,9 +548,26 @@ export class Battle {
     return this.activeUnitId ? this.unit(this.activeUnitId) : undefined;
   }
 
-  /** Timeline de próximos turnos para la UI. */
+  /**
+   * Timeline de próximos turnos para la UI. La unidad activa se proyecta con
+   * su CT tras cerrar AHORA (base + tempo ya comprometido), así el orden se
+   * reordena en vivo según lo que lleva hecho — el jugador VE el precio en
+   * iniciativa antes de confirmar.
+   */
   forecast(count = 8): string[] {
-    return forecastTurnOrder(this.units, (u) => this.effectiveStats(u).speed, count);
+    let ctOverride: Record<string, number> | undefined;
+    if (this.activeUnitId) {
+      const active = this.unit(this.activeUnitId);
+      ctOverride = { [active.id]: active.ct - (CT_TURN_BASE + (active.tempoSpent ?? 0)) };
+    }
+    return forecastTurnOrder(this.units, (u) => this.effectiveStats(u).speed, count, ctOverride);
+  }
+
+  /** Tempo que la unidad activa ha comprometido y el CT con que volvería. */
+  projectedTempo(unitId: string): { spent: number; resultingCt: number } {
+    const unit = this.unit(unitId);
+    const spent = CT_TURN_BASE + (unit.tempoSpent ?? 0);
+    return { spent, resultingCt: unit.ct - spent };
   }
 
   // ── Avance de turnos ───────────────────────────────────────────────────
@@ -489,6 +592,10 @@ export class Battle {
         this.roundNumber += 1;
         this.activationsThisRound = 0;
         events.push({ type: 'round-started', round: this.roundNumber });
+        // El fuego del campo consume un turno por ronda (determinista).
+        for (const pos of this.map.decayFires()) {
+          events.push({ type: 'tile-extinguished', pos });
+        }
         events.push(...this.arriveReinforcements());
         this.roundQuota = Math.max(1, this.units.filter((u) => u.hp > 0 && !u.retreated).length);
         if (this.checkBattleEnd(events)) return events;
@@ -499,9 +606,11 @@ export class Battle {
       next.hasActed = false;
       next.reactionReady = true;
       next.overwatch = false; // la vigilancia dura hasta tu próximo turno
+      next.tempoSpent = 0;    // el recargo de tempo se cuenta desde cero
       this.activeUnitId = next.id;
       events.push({ type: 'turn-started', unitId: next.id });
       events.push(...this.runSystems((s) => s.onTurnStart?.(next, this.systemContext)));
+      this.linkCommandDeaths(events); // apagado del reactor pudo tumbar a un comandante
       if (this.checkBattleEnd(events)) return events;
 
       // Un sistema pudo destruir a la unidad al abrir su turno (daño
@@ -513,7 +622,9 @@ export class Battle {
       }
 
       if (hasStatus(next, 'stunned')) {
-        // El turno se consume sin poder hacer nada.
+        // El turno se consume sin poder hacer nada. Aturdirse NO regala tempo:
+        // cuesta el umbral completo (base + este relleno), no solo la base.
+        next.tempoSpent = CT_THRESHOLD - CT_TURN_BASE;
         events.push(...this.execute({ type: 'wait', unitId: next.id }));
         if (this.isOver) return events;
         continue;
@@ -582,8 +693,13 @@ export class Battle {
     // Dispersión balística: los proyectiles pierden precisión con la distancia.
     const projectile = this.weaponEntry(user, ability.id)?.def.projectile;
     const dispersionPenalty = projectile ? Math.round(projectile.dispersion * dist) : 0;
+    // Vadear penaliza la puntería: un terrestre disparando desde el agua no
+    // tiene suelo firme. Anfibios y voladores están exentos.
+    const wading = this.map.tileAt(user.position).terrain === 'water'
+      && this.definitionOf(user.unitTypeId).moveType === 'ground';
+    const waterPenalty = wading ? WATER_ATTACK_PENALTY : 0;
     const chance = hitChance({
-      accuracy: ability.accuracy - weatherPenalty - dispersionPenalty,
+      accuracy: ability.accuracy - weatherPenalty - dispersionPenalty - waterPenalty,
       attackerAccuracy: this.effectiveStats(user).accuracy,
       arc,
       defenderEvade: this.effectiveStats(victim).evade + cover,
@@ -641,11 +757,12 @@ export class Battle {
     const events = (() => {
       switch (action.type) {
         case 'move': return this.executeMove(action.unitId, action.to);
-        case 'ability': return this.executeAbility(action.unitId, action.abilityId, action.target);
+        case 'ability': return this.executeAbility(action.unitId, action.abilityId, action.target, action.overdrive ?? false);
         case 'boost': return this.executeBoost(action.unitId, action.to);
         case 'reload': return this.executeReload(action.unitId, action.weaponId);
         case 'wait': return this.executeWait(action.unitId, action.facing);
         case 'stance': return this.executeStance(action.unitId, action.stance);
+        case 'overclock': return this.executeOverclock(action.unitId, action.on);
         case 'overwatch': return this.executeOverwatch(action.unitId);
         case 'retreat': return this.executeRetreat(action.unitId);
         case 'eject': return this.executeEject(action.unitId);
@@ -680,6 +797,7 @@ export class Battle {
       ? facingTowards(option.path[option.path.length - 2]!, to)
       : unit.facing;
     unit.hasMoved = true;
+    unit.tempoSpent = (unit.tempoSpent ?? 0) + CT_MOVE; // reposicionarse cuesta tempo
     const events: BattleEvent[] = [{ type: 'unit-moved', unitId, path: option.path }];
     events.push(...this.overwatchShots(unit));
     events.push(...this.resolveOpportunity(watchers, unit));
@@ -736,6 +854,7 @@ export class Battle {
       ? facingTowards(option.path[option.path.length - 2]!, to)
       : unit.facing;
     energy.boostedThisTurn = true;
+    unit.tempoSpent = (unit.tempoSpent ?? 0) + CT_ACT_HEAVY; // el impulso pesa en tempo
     const events: BattleEvent[] = [{ type: 'unit-boosted', unitId, path: option.path }];
     events.push(...this.overwatchShots(unit));
     events.push(...this.resolveOpportunity(watchers, unit));
@@ -755,12 +874,13 @@ export class Battle {
     if (state.ammo === def.magazine) throw new Error(`${def.name} ya está cargada`);
 
     unit.hasActed = true;
+    unit.tempoSpent = (unit.tempoSpent ?? 0) + CT_ACT_LIGHT; // recargar cuesta la acción
     state.ammo = def.magazine;
     state.reserves -= 1;
     return [{ type: 'weapon-reloaded', unitId, weaponId, ammo: state.ammo }];
   }
 
-  private executeAbility(unitId: string, abilityId: string, target: Position): BattleEvent[] {
+  private executeAbility(unitId: string, abilityId: string, target: Position, overdrive = false): BattleEvent[] {
     const unit = this.requireActive(unitId);
     if (unit.hasActed) throw new Error(`${unitId} ya actuó este turno`);
     const ability = this.abilityOf(abilityId);
@@ -776,10 +896,18 @@ export class Battle {
     const legal = this.legalTargets(unitId, abilityId).some((p) => samePos(p, target));
     if (!legal) throw new Error(`Objetivo ilegal para ${abilityId}: ${target.x},${target.y}`);
 
+    // Sobremarcha: solo tiene sentido en un golpe (necesita daño que amplificar).
+    const offensive = ability.effects.some((e) => e.kind === 'damage');
+    if (overdrive && !offensive) throw new Error(`${abilityId} no es un golpe: no admite sobremarcha`);
+
     unit.hasActed = true;
     unit.facing = samePos(unit.position, target) ? unit.facing : facingTowards(unit.position, target);
+    // Tempo del disparo (peso del arma) + el recargo brutal de la sobremarcha.
+    unit.tempoSpent = (unit.tempoSpent ?? 0) + (ability.ctCost ?? CT_ACT_LIGHT) + (overdrive ? CT_OVERDRIVE : 0);
 
     const events: BattleEvent[] = [{ type: 'ability-used', unitId, abilityId, target }];
+    if (overdrive) events.push({ type: 'overdrive-used', unitId, abilityId });
+    const powerMult = overdrive ? 1.5 : 1;
 
     // Balística (fase 4): el evento de trayectoria permite al renderer
     // animar el proyectil; la resolución sigue siendo instantánea.
@@ -809,14 +937,14 @@ export class Battle {
     }
     const affected = [...byVictim.values()];
 
-    const offensive = ability.effects.some((e) => e.kind === 'damage');
     const struck: UnitState[] = [];
     for (const { victim, aoeDist } of affected) {
       const isAlly = victim.team === unit.team;
       if (offensive && isAlly && !ability.targetsAllies) continue;
       if (offensive && !isAlly) struck.push(victim);
 
-      events.push(...this.applyEffects(unit, victim, ability, aoeDist));
+      // La sobremarcha amplifica el golpe principal (no las reacciones).
+      events.push(...this.applyEffects(unit, victim, ability, aoeDist, powerMult));
       if (this.checkBattleEnd(events)) return events;
     }
 
@@ -848,6 +976,16 @@ export class Battle {
         }
       }
     }
+
+    // Arma incendiaria: PRENDE sus casillas de impacto (control del campo).
+    // Las casillas arden aunque no golpeen a nadie; el agua y los muros no.
+    if (ability.ignites && ability.ignites > 0) {
+      for (const pos of aoeTiles(this.map, target, ability.aoeRadius, true)) {
+        if (this.map.ignite(pos, ability.ignites)) {
+          events.push({ type: 'tile-ignited', pos: { ...pos }, turns: ability.ignites });
+        }
+      }
+    }
     return events;
   }
 
@@ -867,7 +1005,8 @@ export class Battle {
   ): BattleEvent[] {
     if (this.inReaction || !reactor.reactionReady) return [];
     if (reactor.hp <= 0 || reactor.retreated || victim.hp <= 0 || victim.retreated) return [];
-    if (hasStatus(reactor, 'stunned')) return [];
+    // Aturdido o SUPRIMIDO: la máquina no puede responder (fijada por fuego).
+    if (hasStatus(reactor, 'stunned') || hasStatus(reactor, 'suprimido')) return [];
     const abilityId = this.knownAbilityIds(reactor).find((id) => {
       const ability = this.abilityOf(id);
       if (!ability.effects.some((e) => e.kind === 'damage')) return false;
@@ -932,8 +1071,28 @@ export class Battle {
           }, this.rng);
           const projectile = this.weaponEntry(user, ability.id)?.def.projectile;
 
+          // Blindaje de refuerzo (nivel máquina): el búnker de placas absorbe
+          // antes que el casco o los módulos. La penetración del proyectil se
+          // cuela sin gastarlo; el resto lo frena hasta agotarse.
+          let dmg = amount;
+          const armorNow = target.armor ?? 0;
+          if (armorNow > 0 && dmg > 0) {
+            const pierced = Math.min(Math.max(0, projectile?.penetration ?? 0), dmg);
+            const absorbed = Math.min(armorNow, dmg - pierced);
+            target.armor = armorNow - absorbed;
+            dmg -= absorbed;
+            events.push({ type: 'unit-armor-damaged', unitId: target.id, amount: absorbed, armor: target.armor });
+            if (target.armor === 0) events.push({ type: 'unit-armor-broken', unitId: target.id });
+          }
+
           const frame = target.components.frame;
-          if (frame) {
+          if (dmg <= 0) {
+            // El blindaje de refuerzo se comió el golpe entero: el chasis
+            // queda intacto (el impacto se registra, pero no hay daño real).
+            events.push({
+              type: 'damage-dealt', unitId: user.id, targetUnitId: target.id, amount, targetHp: target.hp,
+            });
+          } else if (frame) {
             // Daño localizado: se elige el módulo golpeado y su armadura
             // (menos la penetración del proyectil) absorbe antes de tocar
             // HP; el exceso desborda al núcleo.
@@ -948,12 +1107,12 @@ export class Battle {
             });
             const damageEventIndex = events.length - 1;
             events.push(...applyDamageToModule(
-              frame, this.modules, location, amount, target.id, projectile?.penetration ?? 0,
+              frame, this.modules, location, dmg, target.id, projectile?.penetration ?? 0,
             ));
             target.hp = deriveUnitHp(frame, this.modules);
             (events[damageEventIndex] as Extract<BattleEvent, { type: 'damage-dealt' }>).targetHp = target.hp;
           } else {
-            target.hp = Math.max(0, target.hp - amount);
+            target.hp = Math.max(0, target.hp - dmg);
             events.push({
               type: 'damage-dealt',
               unitId: user.id,
@@ -1021,6 +1180,24 @@ export class Battle {
           });
           break;
         }
+        case 'heat': {
+          // Arma térmica: no rompe blindaje ni tira HP — COCE la máquina.
+          // Vierte calor en el reactor del objetivo, empujándolo hacia el
+          // atasco de armas y el apagado que ya existen (el otro lado del
+          // calor↔arsenal). Sin reactor (monocasco), no hay nada que cocer:
+          // no consume azar, así que el golden master queda intacto.
+          const heat = target.components.heat;
+          if (!heat) break;
+          heat.current += effect.amount;
+          events.push({
+            type: 'heat-changed',
+            unitId: target.id,
+            current: heat.current,
+            delta: effect.amount,
+            reason: 'weapon',
+          });
+          break;
+        }
       }
     }
     return events;
@@ -1076,6 +1253,19 @@ export class Battle {
     return [{ type: 'stance-changed', unitId, stance }];
   }
 
+  /**
+   * Sobrecarga del reactor: acción LIBRE (el turno sigue siendo tuyo). Solo
+   * las máquinas con reactor (energía + calor) pueden hacerlo; sin él, es un
+   * no-op. El calor del enganche lo cobra strainSystem en onActionResolved.
+   */
+  private executeOverclock(unitId: string, on: boolean): BattleEvent[] {
+    const unit = this.requireActive(unitId);
+    if (!hasReactor(unit)) return [];
+    if ((unit.overclocked ?? false) === on) return [];
+    unit.overclocked = on;
+    return [{ type: 'overclock-changed', unitId, on }];
+  }
+
   /** Multiplicador de daño del disparo de vigilancia (apresurado). */
   private static readonly OVERWATCH_POWER_MULT = 0.75;
 
@@ -1088,6 +1278,9 @@ export class Battle {
     if (unit.hasActed) throw new Error(`${unitId} ya actuó este turno`);
     unit.hasActed = true;
     unit.overwatch = true;
+    // Vigilar es un disparo PLANEADO: cuesta tempo como una acción (si no,
+    // saldría más barato que disparar y regalaría un tiro reactivo).
+    unit.tempoSpent = (unit.tempoSpent ?? 0) + CT_ACT_LIGHT;
     const events: BattleEvent[] = [{ type: 'overwatch-set', unitId }];
     events.push(...this.executeWait(unitId));
     return events;
@@ -1103,7 +1296,8 @@ export class Battle {
   private overwatchShots(mover: UnitState): BattleEvent[] {
     const events: BattleEvent[] = [];
     const watchers = this.units.filter((u) =>
-      u.team !== mover.team && u.hp > 0 && !u.retreated && u.overwatch && !hasStatus(u, 'stunned'));
+      u.team !== mover.team && u.hp > 0 && !u.retreated && u.overwatch &&
+      !hasStatus(u, 'stunned') && !hasStatus(u, 'suprimido'));
     for (const watcher of watchers) {
       if (this.isOver || mover.hp <= 0 || mover.retreated) break;
       const abilityId = this.knownAbilityIds(watcher).find((id) => {
@@ -1156,18 +1350,20 @@ export class Battle {
     // disipación de calor, regeneración de energía... en fases futuras),
     // seguidos de la expiración de estados.
     events.push(...this.runSystems((s) => s.onTurnEnd?.(unit, this.systemContext)));
+    this.linkCommandDeaths(events); // fuego o DoT pudieron tumbar a un comandante
     for (const expired of tickStatuses(unit)) {
       events.push({ type: 'status-expired', targetUnitId: unit.id, status: expired.id });
     }
 
     if (facing) unit.facing = facing;
 
-    // Terminar el turno sin gastar todo devuelve algo de CT (estilo FFT):
-    // la unidad vuelve antes si se limitó a esperar.
-    let refund = 0;
-    if (!unit.hasMoved && !unit.hasActed) refund = 20;
-    else if (!unit.hasMoved || !unit.hasActed) refund = 10;
-    unit.ct = unit.ct - CT_THRESHOLD + refund;
+    // TEMPO como recurso: el turno cuesta la base más lo comprometido este
+    // turno (mover, disparar, sobremarcha...). Esperar cuesta solo la base y
+    // te adelanta; comprometer mucho te retrasa. Estilo FFT, ahora legible.
+    const spent = CT_TURN_BASE + (unit.tempoSpent ?? 0);
+    unit.ct -= spent;
+    unit.tempoSpent = 0;
+    events.push({ type: 'tempo-spent', unitId: unit.id, ct: unit.ct, delta: spent });
 
     events.push({ type: 'turn-ended', unitId: unit.id });
     this.activeUnitId = undefined;
@@ -1182,6 +1378,20 @@ export class Battle {
     if (!unit.isCommander || this.linkLostTeams.has(unit.team)) return [];
     this.linkLostTeams.add(unit.team);
     return [{ type: 'command-link-lost', team: unit.team }];
+  }
+
+  /**
+   * Cierra la consecuencia de mando para muertes conducidas por SISTEMAS
+   * (fuego, apagado del reactor, DoT de sobrecalentamiento): esos sistemas
+   * emiten unit-destroyed por su cuenta, saltándose afterDestruction. Aquí se
+   * repara la asimetría con la ruta de daño de arma. afterDestruction es
+   * idempotente (guarda linkLostTeams), así que reprocesar es inofensivo.
+   */
+  private linkCommandDeaths(events: BattleEvent[]): void {
+    for (const e of events.filter((ev) => ev.type === 'unit-destroyed')) {
+      if (e.type !== 'unit-destroyed') continue;
+      events.push(...this.afterDestruction(this.unit(e.unitId)));
+    }
   }
 
   private requireActive(unitId: string): UnitState {

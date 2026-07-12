@@ -4,6 +4,7 @@ import { GameMap } from '../src/core/grid.js';
 import { FLAT_ARENA } from '../src/data/maps.js';
 import { ZOIDS } from '../src/data/zoids.js';
 import { ABILITIES } from '../src/data/abilities.js';
+import { MODULES } from '../src/data/modules.js';
 import { WEAPONS } from '../src/data/weapons.js';
 import { withWeaponLibrary } from '../src/data/weaponLibrary.js';
 import type { BattleEvent } from '../src/core/types.js';
@@ -20,6 +21,7 @@ function arena(overrides: Partial<BattleConfig>): Battle {
     map: FLAT_ARENA,
     unitCatalog: ZOIDS,
     abilityCatalog: CATALOGS.abilityCatalog,
+    moduleCatalog: MODULES,
     weaponCatalog: CATALOGS.weaponCatalog,
     seed: 5,
     spawns: [],

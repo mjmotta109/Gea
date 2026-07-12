@@ -9,9 +9,30 @@
  * de juego que el motor no debe conocer.
  */
 import { newCompanion, type CompanionState } from './companion.js';
+import type { StatModifier } from '../core/types.js';
+
+/**
+ * Refuerzo de blindaje: un búnker de placas que se monta en el taller. Da
+ * aguante (absorbe daño antes que el casco) a cambio de velocidad. Se gasta
+ * en batalla y se repara en el taller.
+ */
+export interface ReinforcementSpec {
+  /** Puntos de blindaje que aporta el refuerzo. */
+  armor: number;
+  /** Coste de montar el refuerzo. */
+  fitCost: number;
+  /** Coste de reparar cada punto de blindaje gastado. */
+  repairPerPoint: number;
+  /** Casillas de movimiento que resta (más lento). */
+  movePenalty: number;
+  /** CT que resta (carga más despacio). */
+  speedPenalty: number;
+}
 
 export interface EconomyTable {
   startingCredits: number;
+  /** Refuerzo de blindaje montable en el taller. */
+  reinforcement: ReinforcementSpec;
   /** unitTypeIds del hangar inicial (orden = huecos de despliegue). */
   starterRoster: string[];
   repairCostPerHp: number;
@@ -56,6 +77,20 @@ export interface OwnedZoid {
    * techos más bajos de CORE_TABLE). Ausente = núcleo verde.
    */
   core?: CompanionState;
+  /** Refuerzo de blindaje montado (búnker de placas). Ausente = sin refuerzo. */
+  reinforced?: boolean;
+  /** Blindaje de refuerzo ACTUAL: se gasta en batalla, se repara en el taller. */
+  armor?: number;
+  /**
+   * CONTINUIDAD expedición↔combate: cómo salió el reactor/arsenal de la última
+   * batalla — calor y energía residuales, munición en cargador. Se ARRASTRA a
+   * la siguiente batalla (entras caliente, con el cargador a medias) hasta que
+   * una jornada de descanso hace refit (el reactor se enfría, se reabastece).
+   * Ausentes = a estrenar. Golden/campañas viejas: sin estos campos, todo igual.
+   */
+  residualHeat?: number;
+  residualEnergy?: number;
+  ammo?: Record<string, number>;
 }
 
 /** Núcleo con valores verdes para guardados viejos (sin migración). */
@@ -138,6 +173,37 @@ export interface CampaignState {
   homeRegionId?: string;
   /** Destacamentos en curso (src/game/assignment.ts). */
   assignments?: import('./assignment.js').ActiveAssignment[];
+  /**
+   * Nodos OCULTOS ya descubiertos (ruinas secretas, parajes velados). Es
+   * PERSISTENTE entre expediciones: un secreto hallado se queda en el mapa.
+   * Ausente = nada descubierto (migración de partidas viejas).
+   */
+  discovered?: string[];
+  /**
+   * Dificultad elegida al fundar la compañía. Fija el DESGASTE de combate
+   * (no infla HP: el determinismo es ley). Ausente = 'mercenario' (partidas
+   * viejas y migración).
+   */
+  difficulty?: string;
+  /**
+   * DOSIER de la facción enemiga: lo que ha visto de tu estilo a lo largo de
+   * los contratos. No es aprendizaje automático (rompería el determinismo): son
+   * conteos que sesgan la composición de las próximas escuadras hacia contras.
+   * Ausente = aún no te han fichado (partidas viejas y primeras batallas).
+   */
+  dossier?: Dossier;
+}
+
+/** Lo que la facción enemiga ha observado del estilo del jugador. */
+export interface Dossier {
+  /** Golpes del jugador a corta distancia (alcance ≤1). */
+  meleeHits: number;
+  /** Golpes del jugador a distancia (alcance ≥3). */
+  rangedHits: number;
+  /** Veces que el jugador ENGANCHÓ la sobrecarga del reactor. */
+  overclocks: number;
+  /** Batallas observadas (para exigir muestra antes de adaptarse). */
+  battles: number;
 }
 
 /**
@@ -172,6 +238,8 @@ export interface NewCampaignConfig {
   supplies?: number;
   /** Roster inicial (la posición 1 es la compañera). */
   starterRoster?: string[];
+  /** Dificultad elegida: fija el desgaste de combate. */
+  difficulty?: string;
 }
 
 export function newCampaign(
@@ -195,6 +263,7 @@ export function newCampaign(
     companion: { markIds: [], memory: {}, rapport: 0 },
     reputation: {},
     chronicle: [],
+    ...(config.difficulty ? { difficulty: config.difficulty } : {}),
   };
 }
 
@@ -244,28 +313,147 @@ const TIERS: Array<{ tier: Contract['tier']; budget: number; reward: number; sal
  * Deterministas: mismas ofertas para el mismo contractsDone. El cliente
  * decide cuántas enseñar (reputación) y en qué orden (rotación).
  */
+/** Suma al dosier lo observado en una batalla (función pura, no muta). */
+export function updateDossier(
+  prev: Dossier | undefined,
+  seen: { melee: number; ranged: number; overclocks: number },
+): Dossier {
+  const d = prev ?? { meleeHits: 0, rangedHits: 0, overclocks: 0, battles: 0 };
+  return {
+    meleeHits: d.meleeHits + seen.melee,
+    rangedHits: d.rangedHits + seen.ranged,
+    overclocks: d.overclocks + seen.overclocks,
+    battles: d.battles + 1,
+  };
+}
+
+/** Estilo dominante del jugador según el dosier. */
+export type PlayerStyle = 'melee' | 'ranged' | 'reactor' | 'balanced';
+
+/**
+ * Lee el estilo dominante. Exige muestra (≥2 batallas y ≥4 golpes clasificados,
+ * o sobrecarga recurrente) antes de decidir: sin datos, no se adapta.
+ */
+export function readStyle(d: Dossier | undefined): PlayerStyle {
+  if (!d || d.battles < 2) return 'balanced';
+  if (d.overclocks >= d.battles) return 'reactor'; // sobrecarga ~1+ por batalla
+  const total = d.meleeHits + d.rangedHits;
+  if (total >= 4) {
+    if (d.meleeHits / total >= 0.62) return 'melee';
+    if (d.rangedHits / total >= 0.62) return 'ranged';
+  }
+  return 'balanced';
+}
+
+/** Roles enemigos que CONTRARRESTAN el estilo del jugador. */
+export function counterRoles(style: PlayerStyle): string[] {
+  switch (style) {
+    case 'melee': return ['sniper', 'flyer'];         // kiters que castigan el rush
+    case 'ranged': return ['assault', 'skirmisher'];  // cerradores rápidos
+    case 'reactor': return ['assault', 'skirmisher']; // presión antes de que el reactor pague
+    case 'balanced': return [];
+  }
+}
+
+/**
+ * Armas que la facción monta para contrarrestarte a nivel de ARMA (loadouts
+ * enemigos), no solo de chasis. Son de la biblioteca (sin mountSlot: caben en
+ * cualquier chasis). Vacío = sin contra por arma.
+ */
+export function counterWeapons(style: PlayerStyle): string[] {
+  switch (style) {
+    case 'reactor': return ['lib-w-plasma-flamer', 'lib-w-incendiary-mortar']; // cuecen tu reactor
+    case 'melee': return ['lib-w-suppressor'];    // te FIJAN al cargar (sin contra ni vigilancia)
+    case 'ranged': return ['lib-w-smoke-mortar'];  // humo para sobrevivir tu hostigamiento
+    case 'balanced': return [];
+  }
+}
+
+/** Frase de inteligencia para el parte de contrato (o nada si no adapta). */
+export function adaptationHint(style: PlayerStyle): string | undefined {
+  switch (style) {
+    case 'melee': return 'Inteligencia: te han fichado peleando de cerca — traen fuego a distancia y supresores para fijarte.';
+    case 'ranged': return 'Inteligencia: saben que hostigas desde lejos — mandan cerradores rápidos con cortinas de humo.';
+    case 'reactor': return 'Inteligencia: se han hartado de tus reactores forzados — vienen con LANZALLAMAS para cocerte.';
+    case 'balanced': return undefined;
+  }
+}
+
+/**
+ * FUERZA de la oposición según el progreso: el presupuesto de la escuadra
+ * enemiga arranca FLOJO (grunts baratos, para aprender el oficio) y sube SUAVE
+ * y SIN MESETA para que el final apriete de verdad aun con roster de élite. Es
+ * una GLIDE ancha: ~0.55 al empezar, ~1.0 (nominal) hacia el contrato ~20 y
+ * hasta 1.6 en el tramo final. Es el eje de STRENGTH de la curva de dificultad
+ * (la inteligencia la lleva aiSkill; esto es el MÚSCULO). 1 = presupuesto base.
+ */
+export function campaignStrength(contractsDone: number): number {
+  return Math.min(1.6, 0.55 + contractsDone / 45); // 0.55 → 1.0 (~c20) → 1.6 (~c47)
+}
+
+/** Elige un id proporcional a su peso (determinista dado `r` en [0,1)). */
+function weightedPick(ids: string[], r: number, weightOf?: (id: string) => number): string {
+  if (!weightOf) return ids[Math.floor(r * ids.length)]!;
+  const weights = ids.map((id) => Math.max(0.0001, weightOf(id)));
+  const total = weights.reduce((a, b) => a + b, 0);
+  let x = r * total;
+  for (let i = 0; i < ids.length; i++) {
+    x -= weights[i]!;
+    if (x < 0) return ids[i]!;
+  }
+  return ids[ids.length - 1]!;
+}
+
+/**
+ * Rellena una escuadra de `slots` GASTANDO el presupuesto: por hueco elige entre
+ * lo que cabe, favoreciendo unidades que aprovechan el hueco (afinidad ∝ (precio/
+ * hueco)²) para que un contrato RICO traiga chasis caros en vez de malgastarse en
+ * chatarra — es lo que hace que la FUERZA importe pasado el presupuesto base. El
+ * sesgo de composición `weightOf` (adaptación de facción) sigue multiplicando.
+ * Determinista dado `rand`; una tirada por hueco. El líder (más caro) va primero.
+ */
+function fillSquad(
+  enemyPool: string[],
+  economy: EconomyTable,
+  slots: number,
+  budget: number,
+  rand: () => number,
+  weightOf?: (id: string) => number,
+  affordCap = 1.35,
+): string[] {
+  const squad: string[] = [];
+  let remaining = budget;
+  for (let i = 0; i < slots; i++) {
+    const slotBudget = remaining / (slots - i);
+    const affordable = enemyPool.filter((id) => (economy.zoidPrices[id] ?? 0) <= slotBudget * affordCap);
+    const spendWeight = (id: string) => {
+      const ratio = (economy.zoidPrices[id] ?? 0) / Math.max(1, slotBudget);
+      return ratio * ratio; // favorece gastar el hueco (élites en contratos ricos)
+    };
+    const weight = (id: string) => Math.max(0.0001, weightOf?.(id) ?? 1) * spendWeight(id);
+    const pick = affordable.length > 0
+      ? weightedPick(affordable, rand(), weight)
+      : enemyPool.reduce((a, b) => ((economy.zoidPrices[a] ?? 0) <= (economy.zoidPrices[b] ?? 0) ? a : b));
+    squad.push(pick);
+    remaining -= economy.zoidPrices[pick] ?? 0;
+  }
+  // El más caro lidera (comandante) — orden estable para el cliente.
+  squad.sort((a, b) => (economy.zoidPrices[b] ?? 0) - (economy.zoidPrices[a] ?? 0));
+  return squad;
+}
+
 export function contractOffers(
   contractsDone: number,
   economy: EconomyTable,
   enemyPool: string[],
+  /** Sesgo de composición (adaptación de facción). Ausente = uniforme, igual que antes. */
+  weightOf?: (id: string) => number,
+  /** Multiplicador de FUERZA (curva de dificultad). Ausente = 1 (presupuesto base). */
+  strength = 1,
 ): Contract[] {
   return TIERS.map((spec, tierIndex) => {
     const rand = mulberry32((contractsDone * 3 + tierIndex + 1) * 0x9e3779b1);
-    const squad: string[] = [];
-    let remaining = spec.budget;
-    for (let i = 0; i < 4; i++) {
-      // Candidatos que caben en lo que queda de presupuesto (repartido
-      // entre los huecos que faltan); si ninguno cabe, chatarra barata.
-      const slotBudget = remaining / (4 - i);
-      const affordable = enemyPool.filter((id) => (economy.zoidPrices[id] ?? 0) <= slotBudget * 1.35);
-      const pick = affordable.length > 0
-        ? affordable[Math.floor(rand() * affordable.length)]!
-        : enemyPool.reduce((a, b) => (economy.zoidPrices[a] ?? 0) <= (economy.zoidPrices[b] ?? 0) ? a : b);
-      squad.push(pick);
-      remaining -= economy.zoidPrices[pick] ?? 0;
-    }
-    // El más caro lidera (comandante) — orden estable para el cliente.
-    squad.sort((a, b) => (economy.zoidPrices[b] ?? 0) - (economy.zoidPrices[a] ?? 0));
+    const squad = fillSquad(enemyPool, economy, 4, spec.budget * strength, rand, weightOf);
     const name = spec.names[(contractsDone + tierIndex) % spec.names.length]!;
     return {
       id: `c${contractsDone}-${spec.tier}`,
@@ -284,6 +472,12 @@ export interface ContractOutcome {
   winner: 'player' | 'enemy' | undefined;
   /** HP final de cada hueco del roster que se desplegó (índice = hueco). */
   finalHp: Array<number | undefined>;
+  /** Blindaje de refuerzo restante de cada hueco (se gasta en batalla). */
+  finalArmor?: Array<number | undefined>;
+  /** Continuidad: estado residual del reactor/arsenal de cada superviviente. */
+  finalHeat?: Array<number | undefined>;
+  finalEnergy?: Array<number | undefined>;
+  finalAmmo?: Array<Record<string, number> | undefined>;
   enemiesDestroyed: number;
 }
 
@@ -308,7 +502,17 @@ export function resolveContract(
       lost.push(zoid.unitTypeId);
       return { ...zoid, hp: 0, destroyed: true };
     }
-    return { ...zoid, hp };
+    // El blindaje de refuerzo gastado persiste: se repara en el taller.
+    const armor = zoid.reinforced ? outcome.finalArmor?.[i] : undefined;
+    const next: OwnedZoid = { ...zoid, hp };
+    if (armor !== undefined) next.armor = armor;
+    // Continuidad: el reactor sale como quedó (calor/energía residual, cargador
+    // a medias). Se sobrescribe el residual viejo con el de ESTA batalla (o se
+    // borra si esta máquina no lo tiene) para no arrastrar estado fantasma.
+    next.residualHeat = outcome.finalHeat?.[i];
+    next.residualEnergy = outcome.finalEnergy?.[i];
+    next.ammo = outcome.finalAmmo?.[i];
+    return next;
   });
   const rewardPaid = outcome.winner === 'player';
   const salvage = outcome.enemiesDestroyed * contract.salvagePerKill;
@@ -322,6 +526,21 @@ export function resolveContract(
     },
     report: { creditsEarned, rewardPaid, salvage, lost },
   };
+}
+
+/**
+ * Refit de una jornada de descanso/taller: el reactor se enfría y el arsenal
+ * se reabastece. Limpia el estado residual de continuidad (calor, energía,
+ * munición) para que la máquina despliegue a estrenar la próxima vez. No toca
+ * HP ni blindaje (tienen su propia reparación). Es lo que evita la "espiral de
+ * la muerte": cualquier jornada de descanso deja el reactor fresco.
+ */
+export function refitZoid(zoid: OwnedZoid): OwnedZoid {
+  if (zoid.residualHeat === undefined && zoid.residualEnergy === undefined && zoid.ammo === undefined) {
+    return zoid; // ya está a estrenar: sin cambios
+  }
+  const { residualHeat: _h, residualEnergy: _e, ammo: _a, ...refit } = zoid;
+  return refit;
 }
 
 // ── Taller y tienda (todo sin mutar; si no se puede pagar, sin cambios) ──
@@ -339,6 +558,69 @@ export function repairZoid(
   const cost = repairCost(zoid, maxHp, economy);
   if (cost === 0 || state.credits < cost) return state;
   const roster = state.roster.map((z, i) => (i === slot ? { ...z, hp: maxHp } : z));
+  return { ...state, roster, credits: state.credits - cost };
+}
+
+// ── Refuerzo de blindaje: aguante extra a cambio de velocidad ───────────
+
+/** Tope de blindaje de refuerzo de una máquina (0 si no está reforzada). */
+export function armorMax(zoid: OwnedZoid, economy: EconomyTable): number {
+  return zoid.reinforced ? economy.reinforcement.armor : 0;
+}
+
+/**
+ * Modificadores del refuerzo al desplegar: la máquina va más lenta (menos
+ * movimiento y CT). Los aplica el cliente como spawnModifiers junto al
+ * blindaje (UnitSpawn.armor). El aguante lo da el búnker, no estos números.
+ */
+export function reinforcementModifiers(economy: EconomyTable): StatModifier[] {
+  const r = economy.reinforcement;
+  return [
+    { source: 'refuerzo:blindaje', stat: 'move', add: -r.movePenalty },
+    { source: 'refuerzo:blindaje', stat: 'speed', add: -r.speedPenalty },
+  ];
+}
+
+/**
+ * Monta el refuerzo de blindaje en el taller: sale a tope de placas. Cuesta
+ * créditos y, al desplegar, la máquina irá más lenta. Sin mutar si no se
+ * puede (destruida, ya reforzada, o sin fondos).
+ */
+export function reinforceArmor(state: CampaignState, slot: number, economy: EconomyTable): CampaignState {
+  const zoid = state.roster[slot];
+  if (!zoid || zoid.destroyed || zoid.reinforced) return state;
+  const cost = economy.reinforcement.fitCost;
+  if (state.credits < cost) return state;
+  const roster = state.roster.map((z, i) =>
+    (i === slot ? { ...z, reinforced: true, armor: economy.reinforcement.armor } : z));
+  return { ...state, roster, credits: state.credits - cost };
+}
+
+/** Desmonta el refuerzo (recupera velocidad; no reembolsa). */
+export function stripReinforcement(state: CampaignState, slot: number): CampaignState {
+  const zoid = state.roster[slot];
+  if (!zoid || !zoid.reinforced) return state;
+  const roster = state.roster.map((z, i) =>
+    (i === slot ? { ...z, reinforced: false, armor: 0 } : z));
+  return { ...state, roster };
+}
+
+/** Coste de reparar el blindaje de refuerzo gastado (0 si no hay refuerzo o está a tope). */
+export function armorRepairCost(zoid: OwnedZoid, economy: EconomyTable): number {
+  if (!zoid.reinforced) return 0;
+  const max = economy.reinforcement.armor;
+  const missing = max - Math.max(0, Math.min(zoid.armor ?? 0, max));
+  return Math.max(0, Math.round(missing * economy.reinforcement.repairPerPoint));
+}
+
+/** Repara el blindaje de refuerzo a tope, si hay con qué pagar. */
+export function repairArmor(state: CampaignState, slot: number, economy: EconomyTable): CampaignState {
+  const zoid = state.roster[slot];
+  if (!zoid || !zoid.reinforced) return state;
+  const cost = armorRepairCost(zoid, economy);
+  if (cost === 0 || state.credits < cost) return state;
+  const roster = state.roster.map((z, i) =>
+    (i === slot ? { ...z, armor: economy.reinforcement.armor } : z));
   return { ...state, roster, credits: state.credits - cost };
 }
 
@@ -501,21 +783,14 @@ export function tavernJob(
   cycle: number,
   economy: EconomyTable,
   enemyPool: string[],
+  /** Sesgo de composición (adaptación de facción). Ausente = uniforme. */
+  weightOf?: (id: string) => number,
+  /** Multiplicador de fuerza (curva de dificultad). Ausente = 1. */
+  strength = 1,
 ): Contract {
   const rand = mulberry32(hashStr(`${nodeId}|tab|${cycle}`));
-  const budget = 2200 + cityLevel * 900;
-  const squad: string[] = [];
-  let remaining = budget;
-  for (let i = 0; i < 3; i++) {
-    const slotBudget = remaining / (3 - i);
-    const affordable = enemyPool.filter((id) => (economy.zoidPrices[id] ?? 0) <= slotBudget * 1.3);
-    const pick = affordable.length > 0
-      ? affordable[Math.floor(rand() * affordable.length)]!
-      : enemyPool.reduce((a, b) => ((economy.zoidPrices[a] ?? 0) <= (economy.zoidPrices[b] ?? 0) ? a : b));
-    squad.push(pick);
-    remaining -= economy.zoidPrices[pick] ?? 0;
-  }
-  squad.sort((a, b) => (economy.zoidPrices[b] ?? 0) - (economy.zoidPrices[a] ?? 0));
+  const budget = (2200 + cityLevel * 900) * strength;
+  const squad = fillSquad(enemyPool, economy, 3, budget, rand, weightOf, 1.3);
   const names = ['Deuda de juego ajena', 'Espantar a los recaudadores', 'El silo en disputa', 'Un rival del tabernero'];
   return {
     id: `tav-${nodeId}-${cycle}`,

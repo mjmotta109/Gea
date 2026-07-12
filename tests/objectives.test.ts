@@ -3,6 +3,7 @@ import { Battle, type BattleConfig, type UnitSpawn } from '../src/core/battle.js
 import { FLAT_ARENA } from '../src/data/maps.js';
 import { ZOIDS } from '../src/data/zoids.js';
 import { ABILITIES } from '../src/data/abilities.js';
+import { MODULES } from '../src/data/modules.js';
 import type { BattleEvent } from '../src/core/types.js';
 
 const P = (id: string, unitTypeId: string, x: number, y: number): UnitSpawn =>
@@ -15,6 +16,7 @@ function arena(overrides: Partial<BattleConfig>): Battle {
     map: FLAT_ARENA,
     unitCatalog: ZOIDS,
     abilityCatalog: ABILITIES,
+    moduleCatalog: MODULES,
     seed: 99,
     spawns: [],
     ...overrides,

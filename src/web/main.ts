@@ -8,6 +8,8 @@
  */
 import { planTurn } from '../ai/simpleAi.js';
 import { Battle, type ReinforcementWave, type UnitSpawn } from '../core/battle.js';
+import { OVERCLOCK_ENGAGE_HEAT, HEAT_HIGH_THRESHOLD, HEAT_CRITICAL_THRESHOLD } from '../core/systems.js';
+import { wearTier } from '../core/wear.js';
 import { attackArc, type AttackArc } from '../core/combat.js';
 import { GameMap, posKey, terrainLabel, TERRAIN_COVER } from '../core/grid.js';
 import { reachableTiles, type ReachableTile } from '../core/pathfinding.js';
@@ -42,16 +44,19 @@ import { withWeaponLibrary } from '../data/weaponLibrary.js';
 import { WEAPONS } from '../data/weapons.js';
 import { ZOIDS } from '../data/zoids.js';
 import {
-  buyBlueprint, buySupplies, buyWeapon, buyZoid, cityRepair, consumeSupplies,
-  contractOffers, mountedCount, newCampaign, rebuildCost, rebuildZoid, repairCost,
-  repairZoid, resolveContract, scarLevel, sellCargo, sellWeapon, serviceTier,
-  setMountedWeapons, stashCargo, tavernJob, updateZoidRecord, zoidCore, zoidRecord,
+  armorRepairCost, buyBlueprint, buySupplies, buyWeapon, buyZoid, cityRepair, consumeSupplies,
+  contractOffers, mountedCount, newCampaign, rebuildCost, rebuildZoid, reinforceArmor,
+  adaptationHint, campaignStrength, counterRoles, counterWeapons, readStyle, updateDossier,
+  refitZoid, reinforcementModifiers, repairArmor, repairCost, repairZoid, resolveContract, scarLevel,
+  sellCargo, sellWeapon, serviceTier, setMountedWeapons, stashCargo, stripReinforcement,
+  tavernJob, updateZoidRecord, zoidCore, zoidRecord,
   type CampaignState, type Contract, type OwnedZoid,
 } from '../game/mercenary.js';
 import {
   canExplore, edgesTowardCivilization, exploreSite, neighbors, otherEnd,
   startExpedition, startFreeExpedition, travel, resolveEncounter, edgeKey,
   regionOf, linksFrom, linkDestination, useLink, weatherFor,
+  isNodeVisible, isEdgeVisible,
   type ExpeditionState, type WorldEdge, type WorldRegion,
 } from '../game/expedition.js';
 import { SALT_PASS_REGION, WORLD_ATLAS } from '../data/world.js';
@@ -80,6 +85,8 @@ let mode: Mode = { kind: 'idle' };
 let cursor: Position = { x: 0, y: 0 };
 /** Objetivo seleccionado pendiente de confirmación (flujo en dos pasos). */
 let pending: Position | null = null;
+/** SOBREMARCHA armada: el próximo golpe pega ×1.5 a costa del próximo turno. */
+let overdriveArmed = false;
 /** true mientras la IA enemiga anima su turno: bloquea la entrada. */
 let busy = false;
 /** Animación pendiente de movimiento: la ficha recorre su camino. */
@@ -352,6 +359,7 @@ function refreshMapSelect(): void {
 /** Escaramuza libre: el equipo del garaje contra un equipo por semilla. */
 function newBattle(seed: number, weather: WeatherId): void {
   activeContract = null; // empezar escaramuza abandona el contrato en curso
+  activeSkirmish = false;
   deployedSlots = [];
   returnToMerc = false;
   const field = battlefield();
@@ -377,6 +385,35 @@ interface BattleBrief {
   reinforcements?: ReinforcementWave[];
   /** Línea de briefing que abre el registro táctico. */
   briefing?: string;
+  /** Competencia de la IA para ESTA batalla; ausente = la de la curva de campaña.
+   *  Una emboscada de ruta la baja a propósito (enemigos flojos y bobos). */
+  aiSkill?: number;
+}
+
+/**
+ * Severidad del desgaste según la dificultad de la campaña. Sin campaña
+ * (escaramuza) rige el desgaste base (Mercenario): cada impacto pesa, pero
+ * sin castigo extra. No infla HP: escala cuánto degrada el daño acumulado.
+ */
+function campaignWear(): number {
+  const id = campaign?.difficulty ?? 'mercenario';
+  return DIFFICULTIES.find((d) => d.id === id)?.wear ?? 1;
+}
+
+/**
+ * Competencia de la IA para esta batalla: la CURVA de dificultad. Arranca torpe
+ * y madura con los contratos cumplidos (0→1 en ~25); la dificultad la desplaza.
+ * Es lo que hace que la coordinación, la emboscada y la adaptación del enemigo
+ * asomen GRADUALMENTE — el juego enseña antes de exigir, no es un Dark Souls.
+ * La rampa es ANCHA a propósito: la precisión total es el TECHO del arco (final
+ * de campaña), no un muro de mitad de partida. Sin campaña (escaramuza) rinde a
+ * tope (1).
+ */
+function campaignAiSkill(): number {
+  const c = campaign;
+  if (!c) return 1;
+  const spec = DIFFICULTIES.find((d) => d.id === (c.difficulty ?? 'mercenario'));
+  return Math.max(0, Math.min(1, c.contractsDone / 25 + (spec?.aiCurve ?? 0)));
 }
 
 // ── Tutorial de primera batalla: siete lecciones y a volar ──────────────
@@ -387,6 +424,7 @@ const TUTORIAL_STEPS = [
   'MUÉVETE con la tecla M o pulsando una casilla cian. El símbolo ⌖ señala las casillas desde las que tendrás al menos un enemigo a tiro.',
   'DISPARA con las teclas 1-9 o sus botones. El % de impacto es la verdad completa (arco, cobertura, clima y cercanía)… y nunca llega al 100: la certeza no existe.',
   'Acciones LIBRES: las posturas 🐆 🐎 🐢 reparten la energía de tu máquina sin gastar el turno. Y 👁 VIGILANCIA (V) cierra el turno al acecho: dispara al primero que se mueva.',
+  'El TEMPO manda: cuanto más hagas en un turno (mover + arma pesada), más tarda en volverte. Con reactor, la 🔥 SOBRECARGA (O) y la ⚡ SOBREMARCHA (X) dan potencia ahora a cambio de calor o de tu próximo turno.',
   'El posicionamiento cuesta: DESPEGARTE de un enemigo en contacto le regala un tiro de oportunidad, y pegar a bocajarro puede costarte un contraataque.',
   'Si la cosa pinta mal: 🏳 RETÍRATE por el borde del mapa (la máquina se salva con su daño) o 🪂 EYECTA (la máquina se pierde, el piloto vuelve casi entero).',
   'Tus máquinas RECUERDAN: hoja de servicio, cicatrices y marcas de núcleo. El piloto también — estrés, manías y escuelas. Cuida el metal y a la gente. ¡Suerte!',
@@ -425,6 +463,10 @@ interface ReplayRecipe {
   mapRows: string[];
   spawns: UnitSpawn[];
   pilots: Record<string, PilotState>;
+  /** Severidad de desgaste de ESA batalla: cambia impactos, va en la receta. */
+  wear: number;
+  /** Competencia de la IA de esa batalla (informativo: las acciones van grabadas). */
+  aiSkill: number;
   objective?: BattleObjective;
   reinforcements?: ReinforcementWave[];
   actions: BattleAction[];
@@ -455,6 +497,8 @@ function startReplay(): void {
     moduleCatalog: MODULES,
     weaponCatalog: CATALOGS.weaponCatalog,
     weather: recipe.weather,
+    wear: recipe.wear,
+    aiSkill: recipe.aiSkill,
     seed: recipe.seed,
     spawns: recipe.spawns,
     pilots: recipe.pilots,
@@ -501,6 +545,8 @@ function startBattle(
     moduleCatalog: MODULES,
     weaponCatalog: CATALOGS.weaponCatalog,
     weather,
+    wear: campaignWear(),
+    aiSkill: brief.aiSkill ?? campaignAiSkill(),
     seed,
     spawns,
     ...(brief.objective ? { objective: brief.objective } : {}),
@@ -517,6 +563,8 @@ function startBattle(
   actionLog = [];
   replaySetup = {
     seed, weather,
+    wear: campaignWear(),
+    aiSkill: brief.aiSkill ?? campaignAiSkill(),
     mapRows: map.toAscii(),
     spawns: JSON.parse(JSON.stringify(spawns)) as UnitSpawn[],
     pilots: JSON.parse(JSON.stringify(Object.fromEntries(
@@ -528,6 +576,7 @@ function startBattle(
   startPositions = Object.fromEntries(spawns.map((s) => [s.id, { ...s.position }]));
   unitTeams = Object.fromEntries(spawns.map((s) => [s.id, s.team]));
   xpAwarded = false;
+  inspectedUnitId = null;
   mode = { kind: 'idle' };
   pending = null;
   busy = false;
@@ -550,6 +599,7 @@ function advance(): void {
 
   const active = battle.getActiveUnit();
   if (!active) { renderAll(); return; }
+  overdriveArmed = false; // defensa: la sobremarcha nunca cruza de turno/unidad
 
   if (active.team === 'enemy') {
     mode = { kind: 'idle' };
@@ -688,6 +738,7 @@ function enterFacing(): void {
 
 function cancel(): void {
   if (!playerUnit()) return;
+  if (overdriveArmed) { overdriveArmed = false; log('sobremarcha desarmada'); renderAll(); return; }
   if (pending) { pending = null; renderAll(); return; }
   if (mode.kind !== 'idle') { mode = { kind: 'idle' }; renderAll(); }
 }
@@ -712,6 +763,7 @@ function doWait(facing?: Facing): void {
   logEvents(execTracked({ type: 'wait', unitId: unit.id, facing }));
   mode = { kind: 'idle' };
   pending = null;
+  overdriveArmed = false; // no sobrevive al turno
   advance();
 }
 
@@ -722,7 +774,32 @@ function doOverwatch(): void {
   logEvents(execTracked({ type: 'overwatch', unitId: unit.id }));
   mode = { kind: 'idle' };
   pending = null;
+  overdriveArmed = false; // no sobrevive al turno (vigilar lo cierra)
   advance();
+}
+
+/**
+ * Arma/desarma la SOBREMARCHA (tecla X): el próximo golpe pega ×1.5 a costa
+ * de ceder el próximo turno (recargo brutal de tempo). Solo tiene sentido
+ * con un arma seleccionada; se anuncia en el registro para que sea legible.
+ */
+function toggleOverdrive(): void {
+  const unit = playerUnit();
+  if (!unit) return;
+  overdriveArmed = !overdriveArmed;
+  log(overdriveArmed
+    ? '⚡ SOBREMARCHA armada: el próximo golpe pega ×1.5 y cederás el próximo turno'
+    : 'sobremarcha desarmada', overdriveArmed ? 'warn' : undefined);
+  renderAll();
+}
+
+/** Sobrecarga del reactor: acción libre (tecla O). Solo con reactor. */
+function doOverclock(): void {
+  const unit = playerUnit();
+  if (!unit || !unit.components.energy || !unit.components.heat) return;
+  const on = !(unit.overclocked ?? false);
+  logEvents(execTracked({ type: 'overclock', unitId: unit.id, on }));
+  renderAll();
 }
 
 function firstReloadable(unit: UnitState): string | undefined {
@@ -767,8 +844,14 @@ function confirm(): void {
       afterAction();
     } else if (mode.kind === 'ability' && mode.targets.has(key)) {
       if (pending && samePosition(pending, cursor)) {
-        logEvents(execTracked({ type: 'ability', unitId: unit.id, abilityId: mode.abilityId, target: cursor }));
+        const ability = battle.abilityOf(mode.abilityId);
+        const offensive = ability.effects.some((e) => e.kind === 'damage');
+        const overdrive = overdriveArmed && offensive;
+        // Por execTracked: la sobremarcha también queda grabada en la receta
+        // de la repetición (el flag viaja dentro de la acción).
+        logEvents(execTracked({ type: 'ability', unitId: unit.id, abilityId: mode.abilityId, target: cursor, overdrive }));
         pending = null;
+        overdriveArmed = false;
         afterAction();
       } else {
         pending = { ...cursor }; // primer paso: seleccionar y analizar
@@ -1038,6 +1121,8 @@ document.addEventListener('keydown', (event) => {
     case 'r': case 'R': doReload(); return;
     case 'f': case 'F': enterFacing(); return;
     case 'v': case 'V': doOverwatch(); return;
+    case 'o': case 'O': doOverclock(); return;
+    case 'x': case 'X': toggleOverdrive(); return;
     case ' ': event.preventDefault(); enterFacing(); return;
     default: {
       const index = Number(event.key);
@@ -1126,6 +1211,15 @@ function renderBoard(): void {
         h.className = 'h';
         h.textContent = String(tile.height);
         cell.appendChild(h);
+      }
+
+      // Control del campo: la casilla ardiendo se VE (brasa + llama).
+      if (battle.map.fireAt(pos) > 0) {
+        cell.classList.add('on-fire');
+        const flame = document.createElement('span');
+        flame.className = 'fire-flame';
+        flame.textContent = '🔥';
+        cell.appendChild(flame);
       }
 
       // Resaltados del modo actual.
@@ -1461,7 +1555,7 @@ function renderBanner(): void {
     facing: 'elige orientación final (WASD) o confirma [E]',
   }[mode.kind];
   banner.innerHTML = isPlayer
-    ? `▶ ${active.id} ${active.name} — ${modeText}<span class="kbd-hint">M mover · B boost · 1-9 armas · R recargar · F/espacio fin de turno</span>`
+    ? `▶ ${active.id} ${active.name} — ${modeText}<span class="kbd-hint">M mover · B boost · 1-9 armas · X sobremarcha · R recargar · F/espacio fin de turno</span>`
     : `■ Turno enemigo: ${active.id} ${active.name}`;
 }
 
@@ -1496,6 +1590,23 @@ function renderActionbar(): void {
       logEvents(execTracked({ type: 'stance', unitId: unit.id, stance: stance.id }));
       renderAll();
     }, { on: unit.stance === stance.id, title: stance.title });
+  }
+
+  // Sobrecarga del reactor (pacto con el diablo): acción libre reservada a
+  // las máquinas con reactor (energía + calor). Sube potencia, iniciativa y
+  // daño a cambio de un pico de calor inmediato y calor extra cada turno —
+  // el precio, y el riesgo de apagado, los cobran los sistemas.
+  if (unit.components.energy && unit.components.heat) {
+    const oc = unit.overclocked ?? false;
+    mkBtn(oc ? '🔥 Sobrecarga ON' : '🔥 Sobrecarga', '·', () => {
+      logEvents(execTracked({ type: 'overclock', unitId: unit.id, on: !oc }));
+      renderAll();
+    }, {
+      on: oc,
+      title: oc
+        ? 'reactor sobrecargado: +mov/+iniciativa/+daño, pero el calor no para de subir — púlsalo para cortarla'
+        : `sobrecargar el reactor: +mov/+iniciativa/+daño por +${OVERCLOCK_ENGAGE_HEAT} de calor al instante y calor extra cada turno (riesgo de apagado si no refrigeras)`,
+    });
   }
 
   const moveVeto = battle.checkVetoes({ type: 'move', unitId: unit.id, to: unit.position });
@@ -1635,6 +1746,8 @@ function renderPreview(): void {
     const stats = battle.effectiveStats(occupant);
     lines.push(`<div class="pv-title">${occupant.id} ${occupant.name} ${FACING_ARROW[occupant.facing]}</div>`);
     lines.push(`<div>HP ${occupant.hp}/${stats.maxHp} · evasión ${stats.evade} · mov ${stats.move}</div>`);
+    const reading = symptomBadges(occupant);
+    if (reading) lines.push(`<div class="pv-muted">lectura: ${reading}</div>`);
     if (unit && occupant.team !== unit.team) {
       const arc = attackArc(unit.position, occupant.position, occupant.facing);
       lines.push(`<div class="pv-muted">desde tu posición lo atacarías por: <b>${ARC_LABEL[arc]}</b></div>`);
@@ -1656,6 +1769,18 @@ function renderPreview(): void {
 function renderForecast(): void {
   const el = $('forecast');
   el.innerHTML = '';
+  // Tempo comprometido por la unidad activa del jugador: el timeline de abajo
+  // ya se reordena en vivo con ello; esta etiqueta le pone número.
+  const active = playerUnit();
+  if (active) {
+    const { spent } = battle.projectedTempo(active.id);
+    const tag = document.createElement('span');
+    tag.className = 'fc tempo';
+    tag.textContent = `tempo ${spent}`;
+    tag.title = 'CT que cederás al cerrar el turno: cuanto más comprometes (mover, arma pesada, sobremarcha), más tardas en volver';
+    if (overdriveArmed) { tag.textContent += ' ⚡'; tag.title += ' — SOBREMARCHA armada (×1.5, cedes el próximo turno)'; }
+    el.appendChild(tag);
+  }
   for (const id of battle.forecast(8)) {
     const unit = battle.unit(id);
     const chip = document.createElement('span');
@@ -1681,7 +1806,7 @@ function pilotOfUnit(unit: UnitState): PilotState | undefined {
  * módulos, cupos de escuela); del enemigo solo se ve lo que verían tus
  * sensores: casco, estados y conducta.
  */
-function rosterCard(unit: UnitState, detailed: boolean): HTMLElement {
+function rosterCard(unit: UnitState, detailed: boolean, focusId: string | null): HTMLElement {
   const card = document.createElement('div');
   const active = battle.getActiveUnit();
   card.className = `ucard ${unit.team}${active?.id === unit.id ? ' oncall' : ''}`;
@@ -1750,27 +1875,53 @@ function rosterCard(unit: UnitState, detailed: boolean): HTMLElement {
           : `✦ <s>${ability.name}</s> — gastada`}</div>`);
       }
       if (frame) {
-        card.insertAdjacentHTML('beforeend', moduleDiagram(frame, unit.unitTypeId));
+        // El diagrama del casco ocupa: solo lo muestra el zoid SELECCIONADO
+        // (por defecto el que tiene el turno). El resto va compacto con la
+        // pista '▸ ver casco'. Uno a la vez: el panel no crece sin control.
+        card.classList.add('frameable');
+        if (unit.id === focusId) {
+          card.classList.add('sel');
+          card.insertAdjacentHTML('beforeend', moduleDiagram(frame, unit.unitTypeId));
+        } else {
+          card.insertAdjacentHTML('beforeend', '<div class="hullhint">▸ ver casco</div>');
+        }
       }
     }
 
-    // Clic: el cursor salta a la unidad para encontrarla en el campo.
+    // Clic: el cursor salta a la unidad en el campo y, si la carta tiene
+    // casco (frame propio), además lo despliega/repliega.
     card.classList.add('locatable');
-    card.title = 'clic: localizar en el mapa';
-    card.addEventListener('click', () => setCursor({ ...unit.position }));
+    card.title = detailed && frame
+      ? 'clic: localizar en el mapa · ver/ocultar el casco'
+      : 'clic: localizar en el mapa';
+    const uid = unit.id;
+    card.addEventListener('click', () => {
+      setCursor({ ...unit.position });
+      if (detailed && frame) {
+        inspectedUnitId = focusId === uid ? null : uid;
+        renderRoster();
+      }
+    });
   }
   return card;
 }
 
+/** Zoid cuyo CASCO se muestra desplegado. null = seguir al activo. Un muerto
+ *  cae de vuelta al activo. Solo UNO a la vez: así el panel no ocupa tanto. */
+let inspectedUnitId: string | null = null;
+
 function renderRoster(): void {
   const el = $('roster');
   el.innerHTML = '';
+  const inspectedAlive = inspectedUnitId
+    && battle.units.some((u) => u.id === inspectedUnitId && u.hp > 0);
+  const focusId = (inspectedAlive ? inspectedUnitId : battle.getActiveUnit()?.id) ?? null;
   const mine = battle.units.filter((u) => u.team === 'player');
   const theirs = battle.units.filter((u) => u.team !== 'player');
-  for (const unit of mine) el.appendChild(rosterCard(unit, true));
+  for (const unit of mine) el.appendChild(rosterCard(unit, true, focusId));
   if (theirs.length > 0) {
     el.insertAdjacentHTML('beforeend', '<div class="udivider">— fuerzas hostiles —</div>');
-    for (const unit of theirs) el.appendChild(rosterCard(unit, false));
+    for (const unit of theirs) el.appendChild(rosterCard(unit, false, focusId));
   }
 }
 
@@ -1805,14 +1956,49 @@ function destroyedTags(unit: UnitState): Set<string> {
   return tags;
 }
 
-/** Insignias de síntoma legible: la avería se VE, no se deduce. */
+/**
+ * Insignias de síntoma legible: la avería y la TENSIÓN se VEN, no se
+ * deducen (leer la máquina, no la ficha). Cubre lo permanente (módulos
+ * caídos, desgaste) y lo transitorio (calor, sobrecarga, energía) —
+ * también en el enemigo: un rival humeante o al rojo se delata.
+ */
 function symptomBadges(unit: UnitState): string {
+  if (unit.hp <= 0) return '';
   const tags = destroyedTags(unit);
-  const badges: string[] = [];
-  if (tags.has('locomotion')) badges.push('🦵 cojea');
-  if (tags.has('sensor')) badges.push('📡 sensores rotos');
-  if (tags.has('weapon')) badges.push('🔫 arma inutilizada');
-  return badges.map((b) => `<span class="symptom">${b}</span>`).join('');
+  const hot: string[] = [];   // señales térmicas/de reactor (color calor)
+  const cold: string[] = [];  // averías y desgaste (borde neutro)
+
+  // Tensión del reactor: el pacto con el diablo se DELATA a la vista.
+  if (unit.overclocked) hot.push('🔥 reactor forzado');
+  const heat = unit.components.heat;
+  if (heat && heat.max > 0) {
+    const ratio = heat.current / heat.max;
+    if (ratio >= HEAT_CRITICAL_THRESHOLD) hot.push('🌋 al rojo vivo');
+    else if (ratio >= HEAT_HIGH_THRESHOLD) hot.push('♨ humea');
+  }
+  const energy = unit.components.energy;
+  if (energy && energy.current <= 0) cold.push('🔋 sin fuerza');
+
+  // Desgaste: el daño acumulado se VE. Solo cuando la dificultad lo activa.
+  if (battle && battle.wear > 0) {
+    const tier = wearTier(unit.hp, battle.effectiveStats(unit).maxHp);
+    if (tier === 'castigada') cold.push('⚠ castigada');
+    else if (tier === 'malherida') cold.push('🩸 malherida');
+  }
+  // Piezas EXPUESTAS: el blindaje de una parte se agotó (aún no destruida):
+  // es la costura por donde entra el próximo golpe.
+  const exposed = (unit.components.frame?.modules ?? []).some((m) =>
+    !m.destroyed && (MODULES[m.moduleId]?.plating ?? 0) > 0 && m.plating <= 0);
+  if (exposed) cold.push('🛡 expuesto');
+
+  if (tags.has('locomotion')) cold.push('🦵 cojea');
+  if (tags.has('sensor')) cold.push('📡 sensores rotos');
+  if (tags.has('weapon')) cold.push('🔫 arma inutilizada');
+
+  return [
+    ...hot.map((b) => `<span class="symptom" style="border-color:var(--heat);color:var(--heat)">${b}</span>`),
+    ...cold.map((b) => `<span class="symptom">${b}</span>`),
+  ].join('');
 }
 
 /**
@@ -1842,9 +2028,14 @@ function moduleDiagram(frame: FrameState, unitTypeId: string): string {
   const wires: string[] = [];
   const R = 10.5;
   const CIRC = 2 * Math.PI * R;
+  const RP = R + 3;           // anilla exterior = blindaje
+  const CIRCP = 2 * Math.PI * RP;
   for (const module of frame.modules) {
     const def = MODULES[module.moduleId];
     const maxHp = def?.hp ?? Math.max(1, module.hp);
+    const maxPlating = def?.plating ?? 0;
+    const platingRatio = maxPlating > 0 ? Math.max(0, Math.min(1, module.plating / maxPlating)) : 0;
+    const exposed = maxPlating > 0 && module.plating <= 0;
     const idx = DIAGRAM_ANCHORS.findIndex((a, i) => !used.has(i) && a.match.test(module.slot));
     let at: { x: number; y: number };
     if (idx >= 0) { used.add(idx); at = DIAGRAM_ANCHORS[idx]!; }
@@ -1852,7 +2043,19 @@ function moduleDiagram(frame: FrameState, unitTypeId: string): string {
     const ratio = Math.max(0, Math.min(1, module.hp / maxHp));
     const color = moduleColor(ratio);
     const critical = !module.destroyed && ratio < 0.35;
-    const title = `${def?.name ?? module.slot} — ${module.destroyed ? 'DESTRUIDO' : `${module.hp}/${maxHp}`}`;
+    // Anilla exterior de blindaje: cian mientras aguanta; roja tenue y
+    // punteada cuando la pieza queda EXPUESTA (blindaje agotado).
+    const armorLabel = maxPlating > 0
+      ? (module.plating > 0 ? `🛡 ${module.plating}/${maxPlating} · ` : '⚠ EXPUESTO · ')
+      : '';
+    const armorRing = module.destroyed ? '' : maxPlating > 0
+      ? (exposed
+        ? `<circle cx="${at.x}" cy="${at.y}" r="${RP}" fill="none" stroke="var(--danger)" stroke-width="1.3" stroke-dasharray="2 3" opacity="0.6"/>`
+        : `<circle cx="${at.x}" cy="${at.y}" r="${RP}" fill="none" stroke="var(--player)" stroke-width="1.6"` +
+          ` stroke-dasharray="${(CIRCP * platingRatio).toFixed(1)} ${CIRCP.toFixed(1)}"` +
+          ` transform="rotate(-90 ${at.x} ${at.y})" stroke-linecap="round" opacity="0.9"/>`)
+      : '';
+    const title = `${def?.name ?? module.slot} — ${module.destroyed ? 'DESTRUIDO' : `${armorLabel}${module.hp}/${maxHp}`}`;
     // Cable del nodo al corazón del casco (el torso), tenue.
     if (!/torso|body|core/.test(module.slot)) {
       wires.push(`<line x1="${at.x}" y1="${at.y}" x2="76" y2="42" class="wire${module.destroyed ? ' dead' : ''}"/>`);
@@ -1865,8 +2068,9 @@ function moduleDiagram(frame: FrameState, unitTypeId: string): string {
         `<text x="${at.x}" y="${at.y + 3.5}" class="broken-x">✕</text></g>`);
     } else {
       nodes.push(
-        `<g class="mnode${critical ? ' critical' : ''}"><title>${escapeHtml(title)}</title>` +
+        `<g class="mnode${critical ? ' critical' : ''}${exposed ? ' exposed' : ''}"><title>${escapeHtml(title)}</title>` +
         `<circle cx="${at.x}" cy="${at.y}" r="${R}" class="socket"/>` +
+        armorRing +
         `<circle cx="${at.x}" cy="${at.y}" r="${R}" fill="none" stroke="${color}" stroke-width="2.4"` +
         ` stroke-dasharray="${(CIRC * ratio).toFixed(1)} ${CIRC.toFixed(1)}"` +
         ` transform="rotate(-90 ${at.x} ${at.y})" stroke-linecap="round"/>` +
@@ -1909,6 +2113,10 @@ function describe(event: BattleEvent): { text: string; cls?: string } | undefine
     case 'ability-missed': return { text: `...${event.targetUnitId} lo esquiva!`, cls: 'good' };
     case 'damage-dealt': return { text: `${event.targetUnitId} recibe ${event.amount} de daño (${event.targetHp} HP)`, cls: 'hit' };
     case 'hit-location-rolled': return undefined;
+    case 'unit-armor-damaged': return undefined; // el goteo del búnker no satura el registro
+    case 'unit-armor-broken': return { text: `🛡✕ el blindaje de refuerzo de ${unitLabel(event.unitId)} se AGOTA: el casco queda al descubierto`, cls: 'warn' };
+    case 'module-armor-damaged': return undefined; // el goteo del blindaje no satura el registro
+    case 'module-armor-broken': return { text: `🛡✕ blindaje de ${event.slot} de ${event.targetUnitId} ROTO: la pieza queda EXPUESTA`, cls: 'warn' };
     case 'module-damaged': return { text: `→ impacto en ${event.slot} (${event.moduleHp} HP del módulo)` };
     case 'module-destroyed': return { text: `💔 ${event.slot} de ${event.targetUnitId} DESTRUIDO`, cls: 'hit' };
     case 'unit-healed': return { text: `${event.targetUnitId} repara ${event.amount} (${event.targetHp} HP)`, cls: 'good' };
@@ -1920,7 +2128,27 @@ function describe(event: BattleEvent): { text: string; cls?: string } | undefine
         ? { text: `⚡ energía de ${event.unitId}: ${event.current} (${event.delta})` }
         : undefined;
     case 'heat-changed':
-      return event.delta > 0 ? { text: `🔥 calor de ${event.unitId}: ${event.current} (+${event.delta})`, cls: 'warn' } : undefined;
+      if (event.delta <= 0) return undefined; // la disipación no satura el registro
+      if (event.reason === 'overclock') {
+        return { text: `🔥 SOBRECARGA: el reactor de ${event.unitId} escupe +${event.delta} de calor (${event.current})`, cls: 'warn' };
+      }
+      if (event.reason === 'strain') {
+        return { text: `🔥 ${event.unitId} opera RODEADO: +${event.delta} de calor por trabajar al límite (${event.current})`, cls: 'warn' };
+      }
+      if (event.reason === 'weapon') {
+        return { text: `🔥 ${unitLabel(event.unitId)} es COCIDO: +${event.delta} de calor en su reactor (${event.current})`, cls: 'hit' };
+      }
+      if (event.reason === 'fire') {
+        return { text: `🔥 ${unitLabel(event.unitId)} arde: +${event.delta} de calor por el fuego (${event.current})`, cls: 'warn' };
+      }
+      return { text: `🔥 calor de ${event.unitId}: ${event.current} (+${event.delta})`, cls: 'warn' };
+    case 'overclock-changed':
+      return event.on
+        ? { text: `🔥 ${unitLabel(event.unitId)} SOBRECARGA el reactor: +potencia/+iniciativa/+daño — el calor se disparará`, cls: 'warn' }
+        : { text: `❄ ${unitLabel(event.unitId)} corta la sobrecarga del reactor`, cls: 'good' };
+    case 'tempo-spent': return undefined; // el coste de tempo se ve en la línea de turnos, no satura el registro
+    case 'overdrive-used':
+      return { text: `⚡ ${unitLabel(event.unitId)} entra en SOBREMARCHA: golpe ×1.5 — cede su próximo turno`, cls: 'hit' };
     case 'weapon-reloaded': return { text: `${event.unitId} recarga (${event.ammo} disparos)`, cls: 'good' };
     case 'unit-shutdown': return { text: `⚠ ${unitLabel(event.unitId)}: APAGADO DE EMERGENCIA (${event.damage} daño interno)`, cls: 'warn' };
     case 'stance-changed': return { text: `${event.unitId} cambia a postura ${event.stance.toUpperCase()}` };
@@ -1928,6 +2156,9 @@ function describe(event: BattleEvent): { text: string; cls?: string } | undefine
     case 'unit-pushed': return { text: `${event.unitId} sale despedido a (${event.to.x},${event.to.y})`, cls: 'warn' };
     case 'terrain-destroyed': return { text: `💥 muro derribado en (${event.pos.x},${event.pos.y})`, cls: 'warn' };
     case 'terrain-razed': return { text: `🔥 el bosque de (${event.pos.x},${event.pos.y}) queda arrasado: sin cobertura`, cls: 'warn' };
+    case 'tile-ignited': return { text: `🔥 la zona (${event.pos.x},${event.pos.y}) PRENDE: arderá ${event.turns} turnos`, cls: 'warn' };
+    case 'tile-extinguished': return undefined; // el fin del fuego no satura el registro
+    case 'unit-burned': return { text: `🔥 ${unitLabel(event.unitId)} se quema en el fuego: ${event.damage} de daño`, cls: 'hit' };
     case 'round-started': return { text: `━━ RONDA ${event.round} ━━`, cls: 'turn' };
     case 'reaction': return {
       text: `⚡ ¡${event.reaction === 'oportunidad' ? 'Tiro de oportunidad' : event.reaction === 'vigilancia' ? 'Disparo de VIGILANCIA' : 'Contraataque'} de ${unitLabel(event.unitId)} contra ${event.targetUnitId}!`,
@@ -2248,10 +2479,29 @@ function showOverlay(): void {
   const won = battle.winner === 'player';
   $('ov-title').textContent = won ? 'Victoria' : 'Derrota';
   $('ov-title').style.color = won ? 'var(--player)' : 'var(--enemy)';
-  $('ov-sub').textContent = won
-    ? 'El equipo cian controla el valle. [Enter] para otra batalla.'
-    : 'Tus Zoids quedan fuera de combate. [Enter] para reintentar.';
-  $('ov-merc').innerHTML = activeContract ? settleContract() : '';
+  // Liquida el contrato (fija el destino de vuelta) ANTES de decidir el texto.
+  $('ov-merc').innerHTML = activeContract ? settleContract() : activeSkirmish ? settleSkirmish() : '';
+  // El botón y el subtítulo dicen A DÓNDE se vuelve — mismas condiciones que
+  // restart(), para que texto y acción nunca mientan.
+  const toWorld = returnToWorld && !!expedition && !!campaign;
+  const toMerc = !toWorld && returnToMerc && !!campaign;
+  const restartBtn = $('ov-restart');
+  if (toWorld) {
+    $('ov-sub').textContent = won
+      ? 'Contrato cumplido. [Enter] para volver al mapa (seguir o volver).'
+      : 'Toca replegarse. [Enter] para volver al mapa.';
+    restartBtn.textContent = '🗺 Volver al mapa';
+  } else if (toMerc) {
+    $('ov-sub').textContent = won
+      ? 'Misión cerrada. [Enter] para volver al cuartel.'
+      : 'La expedición se pierde. [Enter] para volver al cuartel.';
+    restartBtn.textContent = '⚒ Volver al cuartel';
+  } else {
+    $('ov-sub').textContent = won
+      ? 'El equipo cian controla el campo. [Enter] para otra batalla.'
+      : 'Tus Zoids quedan fuera de combate. [Enter] para reintentar.';
+    restartBtn.textContent = 'Nueva batalla';
+  }
   $('ov-xp').innerHTML = renderXpSummary();
   $('overlay').classList.add('show');
 }
@@ -2578,6 +2828,9 @@ let campaign: CampaignState | null = loadCampaign();
 let selectedContractId: string | null = null;
 /** Contrato de la batalla en curso (null = escaramuza libre). */
 let activeContract: Contract | null = null;
+/** Emboscada de ruta en curso: liquida como campaña (persiste HP + XP), pero
+ *  sin contrato (sin recompensa fija; solo chatarra menor). */
+let activeSkirmish = false;
 /** Huecos del roster desplegados en la batalla de contrato actual. */
 let deployedSlots: number[] = [];
 /** Tras resolver un contrato, "Nueva batalla" vuelve a la campaña. */
@@ -2841,12 +3094,19 @@ function renderContracts(): void {
   // El cupo de la mesa depende de cómo te mira el Gremio.
   const guildTier = reputationTier(campaign!.reputation['gremio'] ?? 0);
   const slots = contractSlots(guildTier.id);
-  const all = contractOffers(campaign!.contractsDone, ECONOMY, CONTRACT_ENEMY_POOL);
+  const all = contractOffers(campaign!.contractsDone, ECONOMY, CONTRACT_ENEMY_POOL, adaptiveWeight(), campaignStrengthNow());
   const rot = campaign!.contractsDone % all.length;
   const offers = [...all.slice(rot), ...all.slice(0, rot)].slice(0, slots);
   if (slots < 3) {
     host.insertAdjacentHTML('beforeend',
       `<div class="cnote" style="grid-column:1/-1">⚖ El Gremio te mira con recelo (${guildTier.label}): solo ${slots === 1 ? 'un contrato' : `${slots} contratos`} sobre la mesa. La reputación se repara trabajando… o ayudando en la ruta.</div>`);
+  }
+  // La facción te ha fichado: avisa de que la escuadra viene a contrarrestarte.
+  // Solo cuando la adaptación está de verdad activa (curva de dificultad).
+  const hint = campaignAiSkill() >= 0.45 ? adaptationHint(readStyle(campaign!.dossier)) : undefined;
+  if (hint) {
+    host.insertAdjacentHTML('beforeend',
+      `<div class="cnote" style="grid-column:1/-1">🕵 ${hint}</div>`);
   }
   if (!offers.some((c) => c.id === selectedContractId)) selectedContractId = null;
   for (const contract of offers) {
@@ -2960,6 +3220,40 @@ function renderMercHangar(): void {
           renderMerc();
         });
         card.appendChild(btn);
+      }
+    }
+
+    // Refuerzo de blindaje: un búnker que absorbe antes que el casco, a
+    // cambio de velocidad. Se monta, se repara y se quita en el taller.
+    if (!zoid.destroyed) {
+      const r = ECONOMY.reinforcement;
+      if (zoid.reinforced) {
+        const armor = Math.max(0, Math.min(zoid.armor ?? r.armor, r.armor));
+        const note = document.createElement('div');
+        note.className = 'gnote';
+        note.textContent = `🛡 Blindaje de refuerzo: ${armor}/${r.armor}${armor < r.armor ? ' (gastado)' : ''} · −${r.movePenalty} MOV al desplegar`;
+        card.appendChild(note);
+        const repCost = armorRepairCost(zoid, ECONOMY);
+        if (repCost > 0) {
+          const rb = document.createElement('button');
+          rb.className = 'gbtn';
+          rb.textContent = `Reparar blindaje (⌾${repCost})`;
+          rb.disabled = campaign!.credits < repCost;
+          rb.addEventListener('click', () => { campaign = repairArmor(campaign!, slot, ECONOMY); saveCampaign(); renderMerc(); });
+          card.appendChild(rb);
+        }
+        const sb = document.createElement('button');
+        sb.className = 'gbtn';
+        sb.textContent = 'Quitar refuerzo (recupera velocidad)';
+        sb.addEventListener('click', () => { campaign = stripReinforcement(campaign!, slot); saveCampaign(); renderMerc(); });
+        card.appendChild(sb);
+      } else {
+        const fb = document.createElement('button');
+        fb.className = 'gbtn';
+        fb.textContent = `🛡 Reforzar blindaje (⌾${r.fitCost}: +${r.armor} búnker, −${r.movePenalty} MOV)`;
+        fb.disabled = campaign!.credits < r.fitCost;
+        fb.addEventListener('click', () => { campaign = reinforceArmor(campaign!, slot, ECONOMY); saveCampaign(); renderMerc(); });
+        card.appendChild(fb);
       }
     }
 
@@ -3176,7 +3470,7 @@ function partyCandidates(): Array<{ slot: number; label: string; detail: string 
 /** Acepta el contrato seleccionado y abre la expedición hacia su lugar. */
 function startContractExpedition(): void {
   if (!campaign || !selectedContractId) return;
-  const offers = contractOffers(campaign.contractsDone, ECONOMY, CONTRACT_ENEMY_POOL);
+  const offers = contractOffers(campaign.contractsDone, ECONOMY, CONTRACT_ENEMY_POOL, adaptiveWeight(), campaignStrengthNow());
   const contract = offers.find((c) => c.id === selectedContractId);
   if (!contract) return;
   if (!campaign.roster.some((z) => !z.destroyed)) return;
@@ -3206,11 +3500,82 @@ function startFreeRoam(): void {
   });
 }
 
+/**
+ * Sesgo de composición de la escuadra enemiga según lo que la facción ha visto
+ * de tu estilo (dosier): favorece los roles que te CONTRARRESTAN. Devuelve
+ * undefined si aún no hay para adaptarse — así en partidas nuevas la generación
+ * es idéntica a la de antes.
+ */
+/** Fuerza de la oposición ahora (curva de dificultad por progreso). */
+function campaignStrengthNow(): number {
+  return campaignStrength(campaign?.contractsDone ?? 0);
+}
+
+function adaptiveWeight(): ((id: string) => number) | undefined {
+  if (campaignAiSkill() < 0.45) return undefined; // la facción aún no te estudia (curva)
+  const roles = counterRoles(readStyle(campaign?.dossier));
+  if (roles.length === 0) return undefined;
+  return (id: string) => (roles.includes(ZOIDS[id]?.role ?? '') ? 2.2 : 1);
+}
+
+/**
+ * Contra por ARMA: le monta a un enemigo un arma que castiga tu estilo
+ * (lanzallamas contra reactores, supresor contra el melee...). Solo a los
+ * "especialistas" (índices pares) y solo si el dosier pide contra. undefined =
+ * de fábrica. Las armas de biblioteca no tienen mountSlot: caben en cualquier
+ * chasis y el catálogo de batalla (withWeaponLibrary) ya las incluye.
+ */
+function enemyCounterLoadout(unitTypeId: string, index: number): { weapons: string[] } | undefined {
+  if (campaignAiSkill() < 0.7) return undefined; // las contras por arma son amenaza de final de curva
+  const cw = counterWeapons(readStyle(campaign?.dossier));
+  if (cw.length === 0 || index % 2 !== 0) return undefined;
+  const counter = cw[(index / 2) % cw.length]!;
+  const factory = ZOIDS[unitTypeId]?.weapons ?? [];
+  return { weapons: [counter, ...factory].filter((w, j, a) => a.indexOf(w) === j).slice(0, 3) };
+}
+
+/**
+ * Estado residual (calor/energía/munición) de cada hueco desplegado que
+ * SOBREVIVIÓ, para la continuidad expedición↔combate. undefined en huecos no
+ * desplegados, caídos o sin el componente (monocasco). El motor lo relee vía
+ * initialHeat/initialEnergy/ammo al desplegar la próxima batalla.
+ */
+function survivorResidual(): {
+  heat: Array<number | undefined>;
+  energy: Array<number | undefined>;
+  ammo: Array<Record<string, number> | undefined>;
+} {
+  const heat: Array<number | undefined> = [];
+  const energy: Array<number | undefined> = [];
+  const ammo: Array<Record<string, number> | undefined> = [];
+  campaign!.roster.forEach((_, slot) => {
+    const u = deployedSlots.includes(slot) ? battle.unit(`P${slot + 1}`) : undefined;
+    if (!u || u.hp <= 0) { heat.push(undefined); energy.push(undefined); ammo.push(undefined); return; }
+    heat.push(u.components.heat?.current);
+    energy.push(u.components.energy?.current);
+    const arsenal = u.components.arsenal;
+    if (!arsenal) { ammo.push(undefined); return; }
+    const clip: Record<string, number> = {};
+    for (const w of arsenal.weapons) clip[w.weaponId] = w.ammo;
+    ammo.push(clip);
+  });
+  return { heat, energy, ammo };
+}
+
 /** Liquida el contrato al terminar la batalla; devuelve el HTML del parte. */
 function settleContract(): string {
   const contract = activeContract!;
   activeContract = null;
   const isTavern = contract.id.startsWith('tav-');
+  // Destino de vuelta fijado YA, antes de liquidar nada: pase lo que pase
+  // (o falle) en el reparto, el jugador vuelve a donde toca — al mapa si la
+  // expedición sigue, al cuartel si se cierra — NUNCA a una escaramuza
+  // suelta. Las ramas de abajo lo confirman; este es el seguro.
+  if (isTavern || (expedition && battle.winner === 'player')) {
+    returnToWorld = true; returnToMerc = false;
+  } else {
+    returnToWorld = false; returnToMerc = true;
+  }
   // La compañera (hueco 1) registra la batalla en su núcleo.
   companionMarkLines = [];
   const injuryLines = (): string[] =>
@@ -3264,15 +3629,25 @@ function settleContract(): string {
   if (campaign) {
     const kills = new Map<string, number>();
     let lastAttacker: string | undefined;
+    // La facción enemiga te FICHA: cuenta cómo peleas (cerca/lejos, si fuerzas
+    // el reactor) para adaptar sus próximas escuadras. No es aprendizaje
+    // automático; son conteos deterministas que sesgan la composición.
+    let melee = 0, ranged = 0, overclocks = 0;
     for (const event of allEvents) {
       if (event.type === 'damage-dealt') lastAttacker = event.unitId;
       else if (event.type === 'unit-destroyed' && lastAttacker && lastAttacker !== event.unitId) {
         kills.set(lastAttacker, (kills.get(lastAttacker) ?? 0) + 1);
+      } else if (event.type === 'ability-used' && event.unitId.startsWith('P')) {
+        const r = battle.abilityOf(event.abilityId).range;
+        if (r <= 1) melee++; else if (r >= 3) ranged++;
+      } else if (event.type === 'overclock-changed' && event.on && event.unitId.startsWith('P')) {
+        overclocks++;
       }
     }
     const serviceLines: string[] = [];
     campaign = {
       ...campaign,
+      dossier: updateDossier(campaign.dossier, { melee, ranged, overclocks }),
       roster: campaign.roster.map((zoid, slot) => {
         if (!deployedSlots.includes(slot)) return zoid;
         const unit = battle.units.find((u) => u.id === `P${slot + 1}`);
@@ -3317,9 +3692,13 @@ function settleContract(): string {
   if (isTavern && expedition && campaign) {
     const finalHpT = campaign.roster.map((_, slot) =>
       deployedSlots.includes(slot) ? battle.unit(`P${slot + 1}`).hp : undefined);
+    const finalArmorT = campaign.roster.map((z, slot) =>
+      z.reinforced && deployedSlots.includes(slot) ? battle.unit(`P${slot + 1}`).armor ?? 0 : undefined);
     const enemiesDownT = battle.units.filter((u) => u.team === 'enemy' && u.hp <= 0).length;
+    const resT = survivorResidual();
     const settled = resolveContract(campaign, contract, {
-      winner: battle.winner, finalHp: finalHpT, enemiesDestroyed: enemiesDownT,
+      winner: battle.winner, finalHp: finalHpT, finalArmor: finalArmorT, enemiesDestroyed: enemiesDownT,
+      finalHeat: resT.heat, finalEnergy: resT.energy, finalAmmo: resT.ammo,
     });
     // resolveContract avanza el ciclo oficial: lo devolvemos a su sitio.
     campaign = { ...settled.state, contractsDone: campaign.contractsDone };
@@ -3369,10 +3748,17 @@ function settleContract(): string {
   }
   const finalHp = campaign!.roster.map((_, slot) =>
     deployedSlots.includes(slot) ? battle.unit(`P${slot + 1}`).hp : undefined);
+  const finalArmor = campaign!.roster.map((z, slot) =>
+    z.reinforced && deployedSlots.includes(slot) ? battle.unit(`P${slot + 1}`).armor ?? 0 : undefined);
   const enemiesDestroyed = battle.units.filter((u) => u.team === 'enemy' && u.hp <= 0).length;
+  const res = survivorResidual();
   const { state, report } = resolveContract(campaign!, contract, {
     winner: battle.winner,
     finalHp,
+    finalArmor,
+    finalHeat: res.heat,
+    finalEnergy: res.energy,
+    finalAmmo: res.ammo,
     enemiesDestroyed,
   });
   campaign = state;
@@ -3387,6 +3773,69 @@ function settleContract(): string {
   if (report.lost.length > 0) {
     lines.push(`<div class="mloss">bajas: ${report.lost.map((id) => ZOIDS[id]!.name).join(', ')} — reconstruir cuesta el 60%</div>`);
   }
+  lines.push(`<div class="pv-muted" style="color:var(--muted)">saldo: ⌾${campaign.credits}</div>`);
+  return lines.join('');
+}
+
+/** Chatarra de saqueo por derribo en una emboscada de ruta (sin recompensa fija). */
+const SKIRMISH_SALVAGE = 30;
+
+/**
+ * Liquida una EMBOSCADA de ruta (sin contrato): persiste el estado de las
+ * máquinas (HP + residual de continuidad), aplica las bajas/heridas igual que un
+ * contrato, reparte una chatarra menor de saqueo y devuelve al mapa. La XP la
+ * reparte el flujo normal (renderXpSummary) — que es a lo que va el jugador.
+ */
+function settleSkirmish(): string {
+  activeSkirmish = false;
+  returnToWorld = true; returnToMerc = false;
+  if (!campaign) return '';
+  const won = battle.winner === 'player';
+  const res = survivorResidual();
+  campaign = {
+    ...campaign,
+    roster: campaign.roster.map((zoid, slot) => {
+      if (!deployedSlots.includes(slot)) return zoid;
+      const u = battle.unit(`P${slot + 1}`);
+      if (u.hp <= 0) return { ...zoid, hp: 0, destroyed: true };
+      return {
+        ...zoid,
+        hp: u.hp,
+        ...(zoid.reinforced ? { armor: u.armor ?? 0 } : {}),
+        residualHeat: res.heat[slot],
+        residualEnergy: res.energy[slot],
+        ammo: res.ammo[slot],
+      };
+    }),
+  };
+  // El precio humano: quien pierde su máquina sale herido (mismo que un contrato).
+  const injured: string[] = [];
+  for (const slot of deployedSlots) {
+    const u = battle.units.find((x) => x.id === `P${slot + 1}`);
+    const pilotId = PILOT_IDS[slot];
+    if (!u || !pilotId || u.hp > 0) continue;
+    const days = u.ejected ? 1 : 3;
+    pilots[pilotId] = adjustStress(injurePilot(pilots[pilotId]!, days), u.ejected ? 8 : 15);
+    injured.push(`${pilots[pilotId]!.name} (${days}j)`);
+  }
+  if (injured.length > 0) savePilots();
+  const kills = battle.units.filter((u) => u.team === 'enemy' && u.hp <= 0).length;
+  const loot = won ? kills * SKIRMISH_SALVAGE : 0;
+  if (loot > 0) campaign = { ...campaign, credits: campaign.credits + loot };
+  saveCampaign();
+  if (expedition) {
+    expedition = {
+      ...expedition,
+      log: [...expedition.log,
+        `Día ${expedition.day} — ${won ? '⚔ Emboscada rechazada' : '⚠ Emboscada: mal trago'} en la ruta${loot > 0 ? ` · saqueo ⌾${loot}` : ''}.`],
+    };
+    saveExpedition();
+  }
+  const lines = [`<div><b>Emboscada en la ruta</b> — chusma de bandidos</div>`];
+  lines.push(won
+    ? `<div class="mgain">+⌾${loot} de saqueo · los pilotos curten galones (XP abajo)</div>`
+    : `<div class="mloss">Replegados: las máquinas vuelven tocadas.</div>`);
+  if (injured.length > 0) lines.push(`<div class="mloss">heridos: ${injured.join(', ')}</div>`);
   lines.push(`<div class="pv-muted" style="color:var(--muted)">saldo: ⌾${campaign.credits}</div>`);
   return lines.join('');
 }
@@ -3453,7 +3902,7 @@ function saveExpedition(): void {
 
 function expeditionContract(): Contract | undefined {
   if (!campaign || !expedition) return undefined;
-  return contractOffers(campaign.contractsDone, ECONOMY, CONTRACT_ENEMY_POOL)
+  return contractOffers(campaign.contractsDone, ECONOMY, CONTRACT_ENEMY_POOL, adaptiveWeight(), campaignStrengthNow())
     .find((c) => c.id === expedition!.contractId);
 }
 
@@ -3476,6 +3925,7 @@ function renderWorld(): void {
   const contract = expeditionContract();
   const target = REGION.nodes.find((n) => n.id === expedition!.targetNodeId)!;
   const here = REGION.nodes.find((n) => n.id === expedition!.at)!;
+  const discovered = campaign.discovered ?? [];
   const continent = WORLD_ATLAS.continents.find((c) => c.id === REGION.continentId);
   $('world-title').textContent = `${continent ? `${continent.name} · ` : ''}${REGION.name}`;
   const sky = expedition.forcedWeather ?? weatherFor(REGION, expedition.day);
@@ -3484,44 +3934,70 @@ function renderWorld(): void {
     (contract ? ` · misión: ${contract.name} → ${target.name}${expedition.missionDone ? ' ✔' : ''}` : '');
 
   // Tramos como líneas SVG (los rotos, discontinuos).
+  // Tramos: solo los que unen dos lugares YA visibles (los latentes de un
+  // secreto no descubierto no se dibujan).
   const svg = $('world-svg');
-  svg.innerHTML = REGION.edges.map((e) => {
+  svg.innerHTML = REGION.edges.filter((e) => isEdgeVisible(REGION, e, discovered)).map((e) => {
     const a = REGION.nodes.find((n) => n.id === e.a)!;
     const b = REGION.nodes.find((n) => n.id === e.b)!;
     const blocked = expedition!.blockedEdges.includes(edgeKey(e.a, e.b));
     return `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"${blocked ? ' class="blocked"' : ''}/>`;
   }).join('');
 
-  // Nodos.
-  const nodesHost = $('world-nodes');
-  nodesHost.innerHTML = '';
-  for (const node of REGION.nodes) {
-    const el = document.createElement('div');
-    el.className = 'wnode' +
-      (node.id === expedition.at ? ' cur' : '') +
-      (node.id === expedition.targetNodeId && !expedition.missionDone ? ' target' : '') +
-      (node.id === REGION.hq ? ' hq' : '');
-    el.style.left = `${node.x}%`;
-    el.style.top = `${node.y}%`;
-    el.title = node.description;
-    el.innerHTML = `<div class="dot"></div><span class="tag">${node.id === REGION.hq ? '⚒ ' : ''}${node.id === expedition.targetNodeId && !expedition.missionDone ? '🎯 ' : ''}</span>${node.name}`;
-    nodesHost.appendChild(el);
-  }
-
-  // Rutas disponibles desde aquí. Sin suministros, la tripulación solo
-  // acepta moverse hacia la civilización.
-  const routes = $('world-routes');
-  routes.innerHTML = '';
+  // Rutas transitables desde aquí. Sin suministros, la tripulación solo
+  // acepta moverse hacia la civilización. Se calcula ANTES de pintar los
+  // nodos para poder marcar en el MAPA cuáles son destino alcanzable.
   const starving = campaign.supplies <= 0;
   const allowed = starving
     ? new Set(edgesTowardCivilization(expedition, REGION).map((e) => edgeKey(e.a, e.b)))
     : null;
+  const reachable = new Map<string, { edge: ReturnType<typeof neighbors>[number]; broken: boolean; locked: boolean; days: number }>();
+  for (const edge of neighbors(REGION, expedition.at)) {
+    const dest = REGION.nodes.find((n) => n.id === otherEnd(edge, expedition!.at))!;
+    if (!isNodeVisible(dest, discovered)) continue;
+    const broken = expedition.blockedEdges.includes(edgeKey(edge.a, edge.b));
+    const locked = allowed !== null && !allowed.has(edgeKey(edge.a, edge.b));
+    reachable.set(dest.id, { edge, broken, locked, days: edge.days + (broken ? 1 : 0) });
+  }
+
+  // Nodos: los ocultos no se dibujan hasta descubrirlos. Un destino
+  // alcanzable se PINCHA directo en el mapa para viajar (equivale a su ruta).
+  const nodesHost = $('world-nodes');
+  nodesHost.innerHTML = '';
+  for (const node of REGION.nodes) {
+    if (!isNodeVisible(node, discovered)) continue;
+    const el = document.createElement('div');
+    const reach = reachable.get(node.id);
+    el.className = 'wnode' +
+      (node.id === expedition.at ? ' cur' : '') +
+      (node.id === expedition.targetNodeId && !expedition.missionDone ? ' target' : '') +
+      (node.id === REGION.hq ? ' hq' : '') +
+      (node.kind === 'ruinas' ? ' ruin' : '') +
+      (reach && !reach.locked ? ' reachable' : reach && reach.locked ? ' locked-node' : '');
+    el.style.left = `${node.x}%`;
+    el.style.top = `${node.y}%`;
+    if (reach && !reach.locked) {
+      el.title = `→ Viajar a ${node.name} · ${reach.days} jornada${reach.days > 1 ? 's' : ''}${reach.broken ? ' · vadear el puente caído' : ''}`;
+      el.addEventListener('click', () => doTravel(reach.edge));
+    } else if (reach && reach.locked) {
+      el.title = 'Sin suministros: solo se aceptan rutas hacia la ciudad más cercana.';
+    } else {
+      el.title = node.description;
+    }
+    const glyph = node.secret ? '✦ ' : node.kind === 'ruinas' ? '🏛 ' : '';
+    el.innerHTML = `<div class="dot"></div><span class="tag">${node.id === REGION.hq ? '⚒ ' : ''}${node.id === expedition.targetNodeId && !expedition.missionDone ? '🎯 ' : ''}${glyph}</span>${node.name}`;
+    nodesHost.appendChild(el);
+  }
+
+  const routes = $('world-routes');
+  routes.innerHTML = '';
   if (starving) {
     routes.insertAdjacentHTML('beforeend',
       '<div class="wwarn">⚠ SIN SUMINISTROS: la tripulación solo acepta rutas hacia la ciudad más cercana.</div>');
   }
   for (const edge of neighbors(REGION, expedition.at)) {
     const destination = REGION.nodes.find((n) => n.id === otherEnd(edge, expedition!.at))!;
+    if (!isNodeVisible(destination, discovered)) continue; // destino aún oculto
     const broken = expedition.blockedEdges.includes(edgeKey(edge.a, edge.b));
     const locked = allowed !== null && !allowed.has(edgeKey(edge.a, edge.b));
     const days = edge.days + (broken ? 1 : 0);
@@ -3571,9 +4047,11 @@ function renderWorld(): void {
     home.addEventListener('click', endExpedition);
     actions.appendChild(home);
   }
-  if (canExplore(expedition, REGION)) {
+  if (canExplore(expedition, REGION, discovered)) {
     const explore = document.createElement('button');
-    explore.textContent = '🔦 Explorar las ruinas (1 día)';
+    explore.textContent = here.kind === 'ruinas'
+      ? (here.secret ? '✦ Registrar la ruina secreta (1 día)' : '🔦 Explorar las ruinas (1 día)')
+      : '🧭 Registrar el lugar (1 día)';
     explore.addEventListener('click', doExplore);
     actions.appendChild(explore);
   }
@@ -3790,6 +4268,15 @@ function healingDays(days: number): void {
         return spec ? advanceAssignment(a, spec, days) : a;
       }),
     };
+    saveCampaign();
+  }
+  // Continuidad: una jornada de descanso REFIT el reactor (se enfría) y
+  // reabastece el arsenal — es lo que impide la espiral de la muerte. Solo la
+  // continuidad de máquina (calor/energía/munición); HP e integridad tienen su
+  // propia reparación en el taller.
+  if (campaign && campaign.roster.some((z) =>
+    z.residualHeat !== undefined || z.residualEnergy !== undefined || z.ammo !== undefined)) {
+    campaign = { ...campaign, roster: campaign.roster.map(refitZoid) };
     saveCampaign();
   }
 }
@@ -4042,7 +4529,9 @@ function renderCity(): void {
 
   // 😴 DESCANSOS — de la vela al Farol Rojo, y el consultorio.
   const rest = citySection('😴 Descansos y consultorio');
-  const maxStress = Math.max(...PILOT_IDS.map((id) => pilots[id]!.stress ?? 0));
+  // Descansar SIEMPRE es útil: pasa una jornada (cura heridas y avanza
+  // destacamentos), alivia el estrés que haya, y la vela es un momento con
+  // la compañera. No se bloquea por estar tranquilos — solo por el bolsillo.
   const restDay = (relief: number, cost: number, line: string): void => {
     campaign = { ...campaign!, credits: campaign!.credits - cost };
     for (const id of PILOT_IDS) pilots[id] = adjustStress(pilots[id]!, -relief);
@@ -4050,15 +4539,18 @@ function renderCity(): void {
     savePilots(); saveCampaign();
   };
   cityButton(rest, `😴 Pensión (−${tier.restRelief} estrés, ⌾${px(tier.restCost)}, 1 día)`,
-    campaign.credits < px(tier.restCost) || maxStress === 0,
+    campaign.credits < px(tier.restCost),
     () => restDay(tier.restRelief, px(tier.restCost), `Descanso en ${node.name}.`));
   for (const leisure of LEISURE_OPTIONS) {
     if (city.level < leisure.minLevel) continue;
     const icon = leisure.id === 'vela' ? '🕯' : leisure.id === 'cantina' ? '🍺' : '🏮';
-    cityButton(rest, `${icon} ${leisure.name} (−${leisure.relief}, ⌾${px(leisure.cost)}, 1 día)`,
-      campaign.credits < px(leisure.cost) || maxStress === 0,
+    // La vela es GRATIS de verdad (0, no el mínimo de px): un momento con la
+    // compañera siempre al alcance, aun sin un crédito.
+    const leisureCost = leisure.cost === 0 ? 0 : px(leisure.cost);
+    cityButton(rest, `${icon} ${leisure.name} (−${leisure.relief}, ${leisureCost === 0 ? 'gratis' : `⌾${leisureCost}`}, 1 día)`,
+      campaign.credits < leisureCost,
       () => {
-        let cost = px(leisure.cost);
+        let cost = leisureCost;
         let line = `${leisure.name} en ${node.name}.`;
         if (leisure.rowdy) {
           const roll = (Math.imul(expedition!.day * 2654435761 ^ node.id.length * 97, 668265263) >>> 0) / 4294967296;
@@ -4101,7 +4593,7 @@ function renderCity(): void {
   tavern.insertAdjacentHTML('beforeend',
     '<div class="cnote">Los contratos OFICIALES del gremio se firman en el cuartel (Base Arcadia). Aquí, entre jarras, se consiguen otros encargos…</div>');
   const jobDone = (expedition.tavernJobsDone ?? []).includes(node.id);
-  let job = tavernJob(node.id, city.level, campaign.contractsDone, ECONOMY, CONTRACT_ENEMY_POOL);
+  let job = tavernJob(node.id, city.level, campaign.contractsDone, ECONOMY, CONTRACT_ENEMY_POOL, adaptiveWeight(), campaignStrengthNow());
   // En ciudad de clanes, el trabajo sucio paga como lo que es.
   if (faction?.id === 'chatarreros') {
     job = { ...job, reward: Math.round(job.reward * 1.25) };
@@ -4142,32 +4634,50 @@ function fightTavernBattle(job: Contract, nodeId: string): void {
     } catch { /* cae al generado */ }
   }
   const spawns: UnitSpawn[] = [
-    ...alive.map(({ zoid, slot }, k) => ({
-      id: `P${slot + 1}`,
-      name: ZOIDS[zoid.unitTypeId]!.name,
-      unitTypeId: zoid.unitTypeId,
-      team: 'player' as Team,
-      position: field.playerPos[k]!,
-      hp: zoid.hp,
-      loadout: {
-        weapons: [...zoid.weapons],
-        ...(Object.keys(zoid.slots).length > 0 ? { slots: { ...zoid.slots } } : {}),
-      },
-      ...(slot === 0
-        ? { modifiers: companionModifiers(campaign!.companion, COMPANION_TABLE) }
-        : coreSpawnModifiers(zoid)),
-      ...(schoolAbilityIds(pilots[PILOT_IDS[slot]!]!).length > 0
-        ? { extraAbilityIds: schoolAbilityIds(pilots[PILOT_IDS[slot]!]!) } : {}),
-      ...(k === 0 ? { commander: true } : {}),
-    })),
-    ...job.enemySquad.map((unitTypeId, i) => ({
-      id: `E${i + 1}`,
-      name: ZOIDS[unitTypeId]!.name,
-      unitTypeId,
-      team: 'enemy' as Team,
-      position: field.enemyPos[i]!,
-      ...(i === 0 ? { commander: true } : {}),
-    })),
+    ...alive.map(({ zoid, slot }, k) => {
+      // Modificadores al desplegar: marcas de la compañera (hueco 0) o del
+      // núcleo del propio chasis, más el refuerzo de blindaje si lo lleva
+      // (búnker a cambio de velocidad).
+      const mods = [
+        ...(slot === 0
+          ? companionModifiers(campaign!.companion, COMPANION_TABLE)
+          : coreSpawnModifiers(zoid).modifiers ?? []),
+        ...(zoid.reinforced ? reinforcementModifiers(ECONOMY) : []),
+      ];
+      return {
+        id: `P${slot + 1}`,
+        name: ZOIDS[zoid.unitTypeId]!.name,
+        unitTypeId: zoid.unitTypeId,
+        team: 'player' as Team,
+        position: field.playerPos[k]!,
+        hp: zoid.hp,
+        loadout: {
+          weapons: [...zoid.weapons],
+          ...(Object.keys(zoid.slots).length > 0 ? { slots: { ...zoid.slots } } : {}),
+        },
+        ...(zoid.reinforced ? { armor: zoid.armor ?? ECONOMY.reinforcement.armor } : {}),
+        // Continuidad: el reactor entra como salió si no hubo refit.
+        ...(zoid.residualHeat !== undefined ? { initialHeat: zoid.residualHeat } : {}),
+        ...(zoid.residualEnergy !== undefined ? { initialEnergy: zoid.residualEnergy } : {}),
+        ...(zoid.ammo ? { ammo: { ...zoid.ammo } } : {}),
+        ...(mods.length > 0 ? { modifiers: mods } : {}),
+        ...(schoolAbilityIds(pilots[PILOT_IDS[slot]!]!).length > 0
+          ? { extraAbilityIds: schoolAbilityIds(pilots[PILOT_IDS[slot]!]!) } : {}),
+        ...(k === 0 ? { commander: true } : {}),
+      };
+    }),
+    ...job.enemySquad.map((unitTypeId, i) => {
+      const loadout = enemyCounterLoadout(unitTypeId, i);
+      return {
+        id: `E${i + 1}`,
+        name: ZOIDS[unitTypeId]!.name,
+        unitTypeId,
+        team: 'enemy' as Team,
+        position: field.enemyPos[i]!,
+        ...(loadout ? { loadout } : {}),
+        ...(i === 0 ? { commander: true } : {}),
+      };
+    }),
   ];
   deployedSlots = alive.map(({ slot }) => slot);
   activeContract = job;
@@ -4183,9 +4693,13 @@ function fightTavernBattle(job: Contract, nodeId: string): void {
 /** Explorar las ruinas: un día, y lo que haya dentro. */
 function doExplore(): void {
   if (!campaign || !expedition) return;
-  const result = exploreSite(expedition, REGION);
+  const result = exploreSite(expedition, REGION, campaign.discovered ?? []);
   expedition = result.expedition;
   healingDays(1);
+  // Un secreto hallado se queda en el mapa PARA SIEMPRE (persiste en la campaña).
+  if (result.discovered && result.discovered.length > 0) {
+    campaign = { ...campaign, discovered: [...(campaign.discovered ?? []), ...result.discovered] };
+  }
   if (result.cargo) {
     const before = campaign.cargo.length;
     campaign = stashCargo(campaign, result.cargo, CARGO_CAPACITY);
@@ -4284,6 +4798,9 @@ function doTravel(edge: WorldEdge): void {
       saveExpedition();
       renderWorld();
     });
+  } else {
+    // Sin encrucijada: puede saltar una emboscada de ruta (peleas de curtido).
+    maybeAmbush();
   }
 }
 
@@ -4377,34 +4894,52 @@ function fightExpeditionBattle(): void {
   }
 
   const spawns: UnitSpawn[] = [
-    ...alive.map(({ zoid, slot }, k) => ({
-      id: `P${slot + 1}`,
-      name: ZOIDS[zoid.unitTypeId]!.name,
-      unitTypeId: zoid.unitTypeId,
-      team: 'player' as Team,
-      position: field.playerPos[k]!,
-      hp: zoid.hp,
-      loadout: {
-        weapons: [...zoid.weapons],
-        ...(Object.keys(zoid.slots).length > 0 ? { slots: { ...zoid.slots } } : {}),
-      },
-      // Cada núcleo lleva su biografía a la batalla (la compañera, la suya).
-      ...(slot === 0
-        ? { modifiers: companionModifiers(campaign!.companion, COMPANION_TABLE) }
-        : coreSpawnModifiers(zoid)),
-      // Las escuelas del piloto viajan con él (activas, 1/batalla).
-      ...(schoolAbilityIds(pilots[PILOT_IDS[slot]!]!).length > 0
-        ? { extraAbilityIds: schoolAbilityIds(pilots[PILOT_IDS[slot]!]!) } : {}),
-      ...(k === 0 ? { commander: true } : {}),
-    })),
-    ...contract.enemySquad.map((unitTypeId, i) => ({
-      id: `E${i + 1}`,
-      name: ZOIDS[unitTypeId]!.name,
-      unitTypeId,
-      team: 'enemy' as Team,
-      position: field.enemyPos[i]!,
-      ...(i === 0 ? { commander: true } : {}),
-    })),
+    ...alive.map(({ zoid, slot }, k) => {
+      // Cada núcleo lleva su biografía a la batalla (la compañera la suya,
+      // el resto la del propio chasis); el refuerzo de blindaje añade
+      // búnker a cambio de velocidad.
+      const mods = [
+        ...(slot === 0
+          ? companionModifiers(campaign!.companion, COMPANION_TABLE)
+          : coreSpawnModifiers(zoid).modifiers ?? []),
+        ...(zoid.reinforced ? reinforcementModifiers(ECONOMY) : []),
+      ];
+      return {
+        id: `P${slot + 1}`,
+        name: ZOIDS[zoid.unitTypeId]!.name,
+        unitTypeId: zoid.unitTypeId,
+        team: 'player' as Team,
+        position: field.playerPos[k]!,
+        hp: zoid.hp,
+        loadout: {
+          weapons: [...zoid.weapons],
+          ...(Object.keys(zoid.slots).length > 0 ? { slots: { ...zoid.slots } } : {}),
+        },
+        ...(zoid.reinforced ? { armor: zoid.armor ?? ECONOMY.reinforcement.armor } : {}),
+        // Continuidad: entra como salió de la última pelea (caliente, cargador
+        // a medias) si no hubo refit. Una jornada de descanso lo limpia.
+        ...(zoid.residualHeat !== undefined ? { initialHeat: zoid.residualHeat } : {}),
+        ...(zoid.residualEnergy !== undefined ? { initialEnergy: zoid.residualEnergy } : {}),
+        ...(zoid.ammo ? { ammo: { ...zoid.ammo } } : {}),
+        ...(mods.length > 0 ? { modifiers: mods } : {}),
+        // Las escuelas del piloto viajan con él (activas, 1/batalla).
+        ...(schoolAbilityIds(pilots[PILOT_IDS[slot]!]!).length > 0
+          ? { extraAbilityIds: schoolAbilityIds(pilots[PILOT_IDS[slot]!]!) } : {}),
+        ...(k === 0 ? { commander: true } : {}),
+      };
+    }),
+    ...contract.enemySquad.map((unitTypeId, i) => {
+      const loadout = enemyCounterLoadout(unitTypeId, i);
+      return {
+        id: `E${i + 1}`,
+        name: ZOIDS[unitTypeId]!.name,
+        unitTypeId,
+        team: 'enemy' as Team,
+        position: field.enemyPos[i]!,
+        ...(loadout ? { loadout } : {}),
+        ...(i === 0 ? { commander: true } : {}),
+      };
+    }),
   ];
 
   // Cada tipo de contrato juega distinto (no solo mapa y enemigos):
@@ -4461,6 +4996,7 @@ function fightExpeditionBattle(): void {
 
   deployedSlots = alive.map(({ slot }) => slot);
   activeContract = contract;
+  activeSkirmish = false;
   returnToMerc = false;
   returnToWorld = false;
   closeWorld();
@@ -4468,6 +5004,103 @@ function fightExpeditionBattle(): void {
   // El cielo del día de la región; la tormenta que nos siguió aún manda.
   const weather = expedition.forcedWeather ?? weatherFor(REGION, expedition.day);
   startBattle(spawns, seed, weather, field.map, brief);
+}
+
+// ── Emboscadas de ruta: peleas aleatorias al viajar (curtir a los pilotos) ──
+
+/** RNG determinista a partir de una clave (mulberry32 sembrado por hash). */
+function seededRng(key: string): () => number {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < key.length; i++) { h ^= key.charCodeAt(i); h = Math.imul(h, 16777619); }
+  let s = h >>> 0;
+  return () => {
+    s = (s + 0x6D2B79F5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** Chusma barata y débil: la emboscada es fácil a propósito (XP, no reto). */
+const AMBUSH_POOL = ['molga', 'guysak', 'rev-raptor'];
+const AMBUSH_CHANCE = 0.35;
+
+/**
+ * Tras un tramo por tierra, tira (determinista) por una EMBOSCADA: chusma de
+ * bandidos flojos y bobos (aiSkill 0.15: sin coordinación ni vigilancia). Es
+ * para CURTIR a los pilotos —ganan XP— con poco riesgo. No hay emboscadas en el
+ * HQ (refugio) ni en el nodo-objetivo (ya trae su batalla), ni sin party viva.
+ */
+function maybeAmbush(): void {
+  if (!campaign || !expedition) return;
+  if (expedition.at === REGION.hq) return;
+  if (expedition.at === expedition.targetNodeId && !expedition.missionDone) return;
+  const rng = seededRng(`ambush|${expedition.at}|${expedition.day}|${expedition.contractId ?? ''}`);
+  if (rng() >= AMBUSH_CHANCE) return;
+  startTravelBattle(rng);
+}
+
+/** Monta y lanza la batalla de emboscada (sin contrato). */
+function startTravelBattle(rng: () => number): void {
+  if (!campaign || !expedition) return;
+  const party = expedition.party ?? [0, 1, 2, 3];
+  const alive = campaign.roster
+    .map((zoid, slot) => ({ zoid, slot }))
+    .filter(({ zoid, slot }) => party.includes(slot) && !zoid.destroyed &&
+      !isInjured(pilots[PILOT_IDS[slot]!]!) && !assignmentOf(slot));
+  if (alive.length === 0) return; // nadie puede pelear: no hay emboscada
+
+  const field = generatedField(`ambush|${expedition.at}|${expedition.day}`, 'escolta');
+  const count = Math.min(2 + (rng() < 0.5 ? 0 : 1), field.enemyPos.length); // 2-3 grunts
+  const enemies = Array.from({ length: count }, () => AMBUSH_POOL[Math.floor(rng() * AMBUSH_POOL.length)]!);
+
+  const spawns: UnitSpawn[] = [
+    ...alive.map(({ zoid, slot }, k) => {
+      const mods = [
+        ...(slot === 0 ? companionModifiers(campaign!.companion, COMPANION_TABLE) : []),
+        ...(zoid.reinforced ? reinforcementModifiers(ECONOMY) : []),
+      ];
+      return {
+        id: `P${slot + 1}`,
+        name: ZOIDS[zoid.unitTypeId]!.name,
+        unitTypeId: zoid.unitTypeId,
+        team: 'player' as Team,
+        position: field.playerPos[k]!,
+        hp: zoid.hp,
+        loadout: {
+          weapons: [...zoid.weapons],
+          ...(Object.keys(zoid.slots).length > 0 ? { slots: { ...zoid.slots } } : {}),
+        },
+        ...(zoid.reinforced ? { armor: zoid.armor ?? ECONOMY.reinforcement.armor } : {}),
+        ...(zoid.residualHeat !== undefined ? { initialHeat: zoid.residualHeat } : {}),
+        ...(zoid.residualEnergy !== undefined ? { initialEnergy: zoid.residualEnergy } : {}),
+        ...(zoid.ammo ? { ammo: { ...zoid.ammo } } : {}),
+        ...(mods.length > 0 ? { modifiers: mods } : {}),
+        ...(k === 0 ? { commander: true } : {}),
+      };
+    }),
+    ...enemies.map((unitTypeId, i) => ({
+      id: `E${i + 1}`,
+      name: ZOIDS[unitTypeId]!.name,
+      unitTypeId,
+      team: 'enemy' as Team,
+      position: field.enemyPos[i]!,
+      ...(i === 0 ? { commander: true } : {}),
+    })),
+  ];
+
+  deployedSlots = alive.map(({ slot }) => slot);
+  activeContract = null;
+  activeSkirmish = true;
+  returnToMerc = false;
+  returnToWorld = false; // lo fija settleSkirmish al terminar
+  closeWorld();
+  const seed = 0x5EED ^ (expedition.day * 97 + alive.length * 13 + count);
+  const weather = expedition.forcedWeather ?? weatherFor(REGION, expedition.day);
+  startBattle(spawns, seed, weather, field.map, {
+    aiSkill: 0.15, // flojos y BOBOS: cada uno a lo suyo, sin coordinar ni vigilar
+    briefing: 'Emboscada: una chusma de bandidos corta la ruta. Despáchalos — los pilotos curten galones.',
+  });
 }
 
 /** Cierra la expedición en el taller: vende la bodega y abre el cuartel. */
@@ -5103,6 +5736,7 @@ function foundCompany(): void {
       credits: diff.credits,
       supplies: diff.supplies,
       starterRoster: [ngCompanion, 'command-wolf', 'gun-sniper', 'gustav'],
+      difficulty: diff.id,
     });
     founded.chronicle = [
       `⚑ Se funda ${company}. Dificultad ${diff.name}: ⌾${diff.credits} y ${diff.supplies} suministros. La compañera: ${ZOIDS[ngCompanion]?.name ?? ngCompanion}.`,
@@ -5117,14 +5751,18 @@ function foundCompany(): void {
 // ── Arranque ─────────────────────────────────────────────────────────────
 
 function restart(): void {
+  // Cerrar SIEMPRE el overlay de fin de batalla: al volver al mapa o al
+  // cuartel no se hacía (solo lo cerraba startBattle), y el cartel de
+  // Victoria/Derrota se quedaba encima — parecía que no te mandaba de vuelta.
+  $('overlay').classList.remove('show');
   if (returnToWorld && expedition && campaign) {
     returnToWorld = false;
     openWorld();
     return;
   }
   if (returnToMerc && campaign) {
-    // La batalla de contrato ya se liquidó: "Nueva batalla" vuelve al
-    // cuartel para reparar, comprar y elegir el siguiente contrato.
+    // La batalla de contrato ya se liquidó: vuelve al cuartel para reparar,
+    // comprar y elegir el siguiente contrato.
     openMerc();
     return;
   }
