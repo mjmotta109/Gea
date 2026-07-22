@@ -1337,6 +1337,17 @@ arquitectura del motor van en DESIGN.md.)*
   brief (override de la curva). Solo cliente; el motor no se toca. Verificado en
   el juego: a los 5 viajes salta la emboscada —4 máquinas (con su daño arrastrado)
   contra 2 grunts— y se resuelve devolviendo al mapa. tsc limpio, 347 en verde.
+  · REVISIÓN adversarial (2026-07-09): una crítica encontró que PERDER una
+    emboscada dejaba al jugador tirado en el mapa con el roster destruido —fallo
+    MÁS duro que perder un contrato (que va al cuartel a reconstruir)—, al revés
+    de lo que debe ser una pelea de "poco riesgo". Arreglo alineado con la
+    intención: una emboscada de chusma NO te cuesta la máquina — la que cae se
+    RECUPERA maltrecha (1 HP, sin residual) y el piloto sí sale herido. Perder
+    nunca te deja sin máquinas en el mapa (el contrato SÍ las destruye: esa es la
+    pelea seria). Texto de derrota corregido. El resto de la crítica salió limpio:
+    enemigos de verdad bobos (aiSkill 0.15 llega al planTurn enemigo), HP/residual
+    correctos, determinismo sólido, guardas bien puestas, XP repartida, sin fugas
+    de estado.
 - **2026-07-09** — EL CASCO, SOLO DEL SELECCIONADO (dirección del usuario: "solo
   si lo selecciono, así no ocupamos tanto espacio"). El panel de UNIDADES pintaba
   el DIAGRAMA de casco (silueta + módulos) de CADA zoid framed, y con el reparto

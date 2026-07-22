@@ -3536,7 +3536,11 @@ function settleSkirmish(): string {
     roster: campaign.roster.map((zoid, slot) => {
       if (!deployedSlots.includes(slot)) return zoid;
       const u = battle.unit(`P${slot + 1}`);
-      if (u.hp <= 0) return { ...zoid, hp: 0, destroyed: true };
+      // POCO RIESGO: una emboscada de chusma NO te cuesta la máquina. La que cae
+      // se RECUPERA maltrecha (1 HP), sin residual; el piloto sí sale herido (más
+      // abajo). Así perder una emboscada nunca te deja tirado sin máquinas en el
+      // mapa (a diferencia de un contrato, que sí las destruye — es la pelea seria).
+      if (u.hp <= 0) return { ...zoid, hp: 1, residualHeat: undefined, residualEnergy: undefined, ammo: undefined };
       return {
         ...zoid,
         hp: u.hp,
@@ -3573,7 +3577,7 @@ function settleSkirmish(): string {
   const lines = [`<div><b>Emboscada en la ruta</b> — chusma de bandidos</div>`];
   lines.push(won
     ? `<div class="mgain">+⌾${loot} de saqueo · los pilotos curten galones (XP abajo)</div>`
-    : `<div class="mloss">Replegados: las máquinas vuelven tocadas.</div>`);
+    : `<div class="mloss">Replegados: las máquinas caídas se recuperan MALTRECHAS (a 1 HP) — repáralas en la ciudad. Ninguna se pierde.</div>`);
   if (injured.length > 0) lines.push(`<div class="mloss">heridos: ${injured.join(', ')}</div>`);
   lines.push(`<div class="pv-muted" style="color:var(--muted)">saldo: ⌾${campaign.credits}</div>`);
   return lines.join('');
