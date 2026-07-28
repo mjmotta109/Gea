@@ -60,7 +60,8 @@ describe('fase 4: balística', () => {
     for (let i = 0; i < 12 && battle.unit('M').position.x === 3; i++) {
       const events = battle.execute({ type: 'ability', unitId: 'G', abilityId: 'shock-cannon', target: battle.unit('M').position });
       if (events.some((e) => e.type === 'unit-pushed')) {
-        expect(battle.unit('M').position).toEqual({ x: 4, y: 0 });
+        // La Molga es EXTRALIGERA: el cañonazo la manda dos casillas.
+        expect(battle.unit('M').position).toEqual({ x: 5, y: 0 });
         return;
       }
       battle.execute({ type: 'wait', unitId: 'G' });

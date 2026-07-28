@@ -344,6 +344,13 @@ export interface StatusInstance {
  * El motor es genérico — mechas, tanques, infantería o naves — y todo es
  * data-driven: el contenido concreto vive en src/data/.
  */
+/**
+ * Clase de peso del chasis, de lo extraligero a lo extrapesado. Es
+ * vocabulario genérico de máquinas (no de universo): ordena el hangar
+ * y da dientes a la física — el empuje respeta la báscula.
+ */
+export type WeightClass = 'extraligero' | 'ligero' | 'pesado' | 'extrapesado';
+
 export interface UnitDefinition {
   id: string;
   name: string;
@@ -376,6 +383,8 @@ export interface UnitDefinition {
    * es inmune a los empujones y se le puede apuntar a cualquiera de ellas.
    */
   size?: number;
+  /** Clase de peso (por defecto 'ligero'). */
+  weightClass?: WeightClass;
 }
 
 export interface UnitState {
@@ -404,6 +413,8 @@ export interface UnitState {
   armor?: number;
   /** Casillas de lado (copiado de la definición al desplegar). */
   size: number;
+  /** Clase de peso (copiada de la definición; ausente = ligero). */
+  weightClass?: WeightClass;
   /** Charge Time: al llegar a CT_THRESHOLD la unidad actúa. */
   ct: number;
   /**

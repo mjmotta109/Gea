@@ -10,6 +10,7 @@ import type { UnitDefinition } from '../core/types.js';
 export const ZOIDS: Record<string, UnitDefinition> = {
   'liger-zero': {
     id: 'liger-zero',
+    weightClass: 'ligero',
     name: 'Liger Zero',
     role: 'assault',
     moveType: 'ground',
@@ -30,6 +31,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
   },
   'command-wolf': {
     id: 'command-wolf',
+    weightClass: 'ligero',
     name: 'Command Wolf',
     role: 'skirmisher',
     moveType: 'ground',
@@ -48,6 +50,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
   },
   'gojulas': {
     id: 'gojulas',
+    weightClass: 'extrapesado',
     name: 'Gojulas',
     role: 'tank',
     moveType: 'ground',
@@ -68,6 +71,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
   },
   'gun-sniper': {
     id: 'gun-sniper',
+    weightClass: 'extraligero',
     name: 'Gun Sniper',
     role: 'sniper',
     moveType: 'ground',
@@ -88,6 +92,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
   },
   'pteras': {
     id: 'pteras',
+    weightClass: 'ligero',
     name: 'Pteras',
     role: 'flyer',
     moveType: 'flying',
@@ -108,6 +113,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
   },
   'gustav': {
     id: 'gustav',
+    weightClass: 'pesado',
     name: 'Gustav',
     role: 'support',
     moveType: 'ground',
@@ -121,6 +127,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
   },
   'molga': {
     id: 'molga',
+    weightClass: 'extraligero',
     name: 'Molga',
     role: 'skirmisher',
     moveType: 'ground',
@@ -132,6 +139,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
   },
   'geno-saurer': {
     id: 'geno-saurer',
+    weightClass: 'pesado',
     name: 'Geno Saurer',
     role: 'assault',
     moveType: 'ground',
@@ -154,6 +162,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
   // disparos por cargador y dos de repuesto (fase 2).
   'gun-sniper-naomi': {
     id: 'gun-sniper-naomi',
+    weightClass: 'extraligero',
     name: 'Gun Sniper (custom)',
     role: 'sniper',
     moveType: 'ground',
@@ -172,6 +181,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
 
   'shield-liger': {
     id: 'shield-liger', name: 'Shield Liger', role: 'assault', moveType: 'ground',
+    weightClass: 'pesado',
     stats: { maxHp: 130, atk: 42, energyAtk: 40, def: 38, energyDef: 42, speed: 14, move: 5, jump: 2, evade: 15, accuracy: 0 },
     abilityIds: ['bite-crush', 'e-shield'],
     weapons: ['lib-w-vibro-fang'],
@@ -179,6 +189,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
   },
   'blade-liger': {
     id: 'blade-liger', name: 'Blade Liger', role: 'assault', moveType: 'ground',
+    weightClass: 'pesado',
     stats: { maxHp: 135, atk: 50, energyAtk: 52, def: 34, energyDef: 30, speed: 16, move: 6, jump: 2, evade: 18, accuracy: 0 },
     abilityIds: ['bite-crush', 'e-shield'],
     weapons: ['lib-w-thermal-saber'],
@@ -186,6 +197,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
   },
   'zaber-fang': {
     id: 'zaber-fang', name: 'Zaber Fang', role: 'skirmisher', moveType: 'ground',
+    weightClass: 'ligero',
     // Nerf (2026-07-09): con el daño localizado su autocañón gemelo lo subió a
     // ~61% (castiga bien las piezas frágiles). atk 40→37: sigue siendo un
     // cerrador fuerte, dentro de banda.
@@ -196,6 +208,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
   },
   'iron-kong': {
     id: 'iron-kong', name: 'Iron Kong', role: 'tank', moveType: 'ground',
+    weightClass: 'extrapesado',
     stats: { maxHp: 190, atk: 58, energyAtk: 35, def: 48, energyDef: 38, speed: 9, move: 3, jump: 2, evade: 4, accuracy: 0 },
     abilityIds: ['bite-crush'],
     weapons: ['lib-w-gauss-hammer', 'lib-w-micro-missile-swarm'],
@@ -210,6 +223,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
   },
   'dibison': {
     id: 'dibison', name: 'Dibison', role: 'tank', moveType: 'ground',
+    weightClass: 'extrapesado',
     stats: { maxHp: 165, atk: 48, energyAtk: 28, def: 42, energyDef: 30, speed: 10, move: 4, jump: 1, evade: 6, accuracy: 0 },
     abilityIds: ['bite-crush'],
     weapons: ['lib-w-cluster-mortar', 'lib-w-flak-burst'],
@@ -217,6 +231,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
   },
   'gordos': {
     id: 'gordos', name: 'Gordos', role: 'sniper', moveType: 'ground',
+    weightClass: 'extrapesado',
     stats: { maxHp: 160, atk: 40, energyAtk: 30, def: 40, energyDef: 32, speed: 8, move: 3, jump: 1, evade: 4, accuracy: 5 },
     abilityIds: ['bite-crush'],
     weapons: ['lib-w-rail-lance'],
@@ -224,6 +239,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
   },
   'redler': {
     id: 'redler', name: 'Redler', role: 'flyer', moveType: 'flying',
+    weightClass: 'extraligero',
     stats: { maxHp: 90, atk: 36, energyAtk: 34, def: 18, energyDef: 22, speed: 16, move: 7, jump: 99, evade: 26, accuracy: 0 },
     abilityIds: ['stun-blade'],
     weapons: ['lib-w-plasma-carbine'],
@@ -231,6 +247,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
   },
   'storm-sworder': {
     id: 'storm-sworder', name: 'Storm Sworder', role: 'flyer', moveType: 'flying',
+    weightClass: 'ligero',
     // Buff (2026-07-08): cazador aéreo frágil que muere cerrando distancia. +HP
     // y +evasión; la evasión alta además lo hace difícil de FIJAR con fuego
     // concentrado (la IA de foco castiga a los que se dejan clavar).
@@ -241,6 +258,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
   },
   'konig-wolf': {
     id: 'konig-wolf', name: 'König Wolf', role: 'sniper', moveType: 'ground',
+    weightClass: 'ligero',
     stats: { maxHp: 110, atk: 42, energyAtk: 26, def: 28, energyDef: 26, speed: 12, move: 6, jump: 2, evade: 13, accuracy: 2 },
     abilityIds: ['bite-crush'],
     weapons: ['lib-w-heat-needle'],
@@ -248,6 +266,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
   },
   'rev-raptor': {
     id: 'rev-raptor', name: 'Rev Raptor', role: 'skirmisher', moveType: 'ground',
+    weightClass: 'ligero',
     // Buff (2026-07-08): asaltante melee de cristal (95% de bajas, 39.6% victoria).
     // +HP y +evasión para que llegue al cuerpo a cuerpo con algo de casco.
     stats: { maxHp: 105, atk: 38, energyAtk: 24, def: 20, energyDef: 16, speed: 15, move: 6, jump: 2, evade: 22, accuracy: 0 },
@@ -257,6 +276,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
   },
   'guysak': {
     id: 'guysak', name: 'Guysak', role: 'skirmisher', moveType: 'ground',
+    weightClass: 'ligero',
     // Buff (2026-07-08): rompedor melee que debe cerrar bajo fuego y paga tempo
     // pesado con el pilote; +HP y +evasión para que llegue a pegar.
     stats: { maxHp: 115, atk: 46, energyAtk: 20, def: 26, energyDef: 18, speed: 12, move: 5, jump: 1, evade: 20, accuracy: 0 },
@@ -266,6 +286,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
   },
   'brachios': {
     id: 'brachios', name: 'Brachios', role: 'support', moveType: 'amphibious',
+    weightClass: 'pesado',
     stats: { maxHp: 155, atk: 34, energyAtk: 40, def: 36, energyDef: 34, speed: 9, move: 4, jump: 1, evade: 8, accuracy: 0 },
     abilityIds: ['e-shield'],
     weapons: ['lib-w-arc-emitter', 'lib-w-smoke-mortar'],
@@ -277,6 +298,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
 
   'liger-zero-cas': {
     id: 'liger-zero-cas',
+    weightClass: 'ligero',
     name: 'Liger Zero CAS',
     role: 'assault',
     moveType: 'ground',
@@ -301,6 +323,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
   },
   'geno-saurer-cp': {
     id: 'geno-saurer-cp',
+    weightClass: 'pesado',
     name: 'Geno Saurer CP',
     role: 'assault',
     moveType: 'ground',
@@ -328,6 +351,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
   // bestia 2×2 que ancla los contratos de caza (objetivo: derribarla).
   'gran-brontes': {
     id: 'gran-brontes',
+    weightClass: 'extrapesado',
     name: 'Gran Brontes',
     role: 'tank',
     moveType: 'ground',
@@ -343,6 +367,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
   // (speed 0 nunca gana turno), solo hay que mantenerla en pie.
   'carguero-colono': {
     id: 'carguero-colono',
+    weightClass: 'pesado',
     name: 'Carguero colono',
     role: 'support',
     moveType: 'ground',

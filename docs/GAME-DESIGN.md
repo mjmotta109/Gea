@@ -1462,3 +1462,26 @@ arquitectura del motor van en DESIGN.md.)*
   verde (5 nuevos del taller), tsc limpio, verificado en el juego real:
   crear habilidad → otorgarla → verla con ✦1 en batalla; crear contrato
   → verlo 🛠 en el tablero; renombrar piloto → persistido.
+- **2026-07-12** — LAS CUATRO BÁSCULAS + EL INVENTARIO DEL REBRANDING
+  (dirección: "4 tiers de chasis, de lo extraligero a lo extrapesado" y
+  "lista completa de elementos a cambiar"; rumbo de lore: más mecánico
+  que animal, con base bestial — el camino del cañón de cuatro patas).
+  · CLASES DE PESO (core/types.ts WeightClass): extraligero / ligero /
+    pesado / extrapesado, con el ROL como subcategoría. Los 25 chasis
+    clasificados en data (4/9/7/5). Vocabulario genérico: el motor no
+    gana palabras de universo.
+  · CON DIENTES (core/physics.ts): el empuje respeta la báscula — el
+    EXTRAPESADO no lo mueve un cañonazo (como las bestias 2×2) y el
+    EXTRALIGERO sale volando UNA CASILLA MÁS si el camino sigue libre
+    (muros y ocupantes lo frenan en la primera). Golden-safe verificado:
+    el knockback no dispara en las batallas de referencia. La Molga del
+    test de balística ahora vuela dos casillas: el test lo celebra.
+  · UI: el selector del garaje agrupa por báscula (▖▚▜█), los dos
+    selectores de compra enseñan [báscula], el análisis del cursor y las
+    cartas del hangar dicen «▜ pesado · asalto».
+  · docs/RENOMBRES.md: inventario COMPLETO del rebranding anti-Zoids
+    por báscula — 22 chasis IP + 4 pilotos del anime + 3 armas/módulos
+    + la palabra «Zoid» en ~6 textos visibles; con columnas en blanco
+    para que la dirección bautice y el plan del bloque de aplicación.
+  374 tests en verde (4 nuevos de báscula), tsc limpio, verificado en el
+  juego real (optgroups del garaje y báscula en el análisis).

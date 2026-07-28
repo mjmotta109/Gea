@@ -308,6 +308,7 @@ export class Battle {
         team: spawn.team,
         position: { ...spawn.position },
         size,
+        ...(def.weightClass ? { weightClass: def.weightClass } : {}),
         reactionReady: true,
         ...(spawn.extraAbilityIds && spawn.extraAbilityIds.length > 0
           ? { extraAbilityIds: [...spawn.extraAbilityIds] } : {}),

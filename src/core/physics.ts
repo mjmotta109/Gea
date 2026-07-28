@@ -29,8 +29,9 @@ export function knockbackDestination(
   victim: UnitState,
   units: UnitState[],
 ): Position | null {
-  // Las bestias multi-casilla no se mueven ni con un cañonazo.
-  if (victim.size > 1) return null;
+  // Las bestias multi-casilla no se mueven ni con un cañonazo, y un
+  // chasis EXTRAPESADO tampoco: la báscula manda (consecuencia de clase).
+  if (victim.size > 1 || victim.weightClass === 'extrapesado') return null;
   const dx = victim.position.x - attackerPos.x;
   const dy = victim.position.y - attackerPos.y;
   const step = Math.abs(dx) >= Math.abs(dy)
@@ -38,14 +39,25 @@ export function knockbackDestination(
     : { x: 0, y: Math.sign(dy) };
   if (step.x === 0 && step.y === 0) return null;
 
-  const dest = { x: victim.position.x + step.x, y: victim.position.y + step.y };
-  if (!map.inBounds(dest)) return null;
-  if (!isFinite(map.entryCost(dest, 'ground')) && !isFinite(map.entryCost(dest, 'amphibious'))) {
-    return null; // muro; el agua sí recibe empujados (chapoteo incluido)
+  const stepDest = (from: Position): Position | null => {
+    const dest = { x: from.x + step.x, y: from.y + step.y };
+    if (!map.inBounds(dest)) return null;
+    if (!isFinite(map.entryCost(dest, 'ground')) && !isFinite(map.entryCost(dest, 'amphibious'))) {
+      return null; // muro; el agua sí recibe empujados (chapoteo incluido)
+    }
+    const heightDiff = map.tileAt(dest).height - map.tileAt(from).height;
+    if (heightDiff > 1) return null; // cuesta arriba no se empuja; caer sí
+    if (units.some((u) => u.hp > 0 && !u.retreated && u.id !== victim.id &&
+      footprintTiles(u.position, u.size).some((t) => samePos(t, dest)))) return null;
+    return dest;
+  };
+
+  const first = stepDest(victim.position);
+  if (!first) return null;
+  // Un EXTRALIGERO sale volando: una casilla más si el camino sigue libre.
+  if (victim.weightClass === 'extraligero') {
+    const second = stepDest(first);
+    if (second) return second;
   }
-  const heightDiff = map.tileAt(dest).height - map.tileAt(victim.position).height;
-  if (heightDiff > 1) return null; // cuesta arriba no se empuja; caer sí
-  if (units.some((u) => u.hp > 0 && !u.retreated && u.id !== victim.id &&
-    footprintTiles(u.position, u.size).some((t) => samePos(t, dest)))) return null;
-  return dest;
+  return first;
 }

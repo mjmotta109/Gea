@@ -1786,6 +1786,7 @@ function renderPreview(): void {
   if (occupant) {
     const stats = battle.effectiveStats(occupant);
     lines.push(`<div class="pv-title">${occupant.id} ${occupant.name} ${FACING_ARROW[occupant.facing]}</div>`);
+    lines.push(`<div class="pv-muted">${chassisClassLabel(occupant.unitTypeId)}</div>`);
     lines.push(`<div>HP ${occupant.hp}/${stats.maxHp} · evasión ${stats.evade} · mov ${stats.move}</div>`);
     const reading = symptomBadges(occupant);
     if (reading) lines.push(`<div class="pv-muted">lectura: ${reading}</div>`);
@@ -2624,6 +2625,24 @@ const ROLE_LABEL: Record<string, string> = {
   transport: 'transporte',
 };
 
+/** Las cuatro básculas de chasis, de lo extraligero a lo extrapesado. */
+const WEIGHT_ORDER = ['extraligero', 'ligero', 'pesado', 'extrapesado'] as const;
+const WEIGHT_ICON: Record<string, string> = {
+  extraligero: '▖', ligero: '▚', pesado: '▜', extrapesado: '█',
+};
+
+function weightOf(unitTypeId: string): string {
+  return ZOIDS[unitTypeId]?.weightClass ?? 'ligero';
+}
+
+/** Insignia corta de clase: «█ extrapesado · tanque». */
+function chassisClassLabel(unitTypeId: string): string {
+  const def = ZOIDS[unitTypeId];
+  if (!def) return '';
+  const w = weightOf(unitTypeId);
+  return `${WEIGHT_ICON[w]} ${w} · ${ROLE_LABEL[def.role] ?? def.role}`;
+}
+
 function openGarage(): void {
   garageOpen = true;
   closeMerc();
@@ -2739,13 +2758,19 @@ function renderGarage(): void {
 
     // Chasis (solo los con precio: las bestias de escenario no se pilotan).
     const zoidSelect = document.createElement('select');
-    for (const unit of Object.values(ZOIDS)) {
-      if (ECONOMY.zoidPrices[unit.id] === undefined) continue;
-      const opt = document.createElement('option');
-      opt.value = unit.id;
-      opt.textContent = `${unit.name} · ${ROLE_LABEL[unit.role] ?? unit.role}`;
-      if (unit.id === config.unitTypeId) opt.selected = true;
-      zoidSelect.appendChild(opt);
+    for (const weight of WEIGHT_ORDER) {
+      const group = document.createElement('optgroup');
+      group.label = `${WEIGHT_ICON[weight]} ${weight.toUpperCase()}`;
+      for (const unit of Object.values(ZOIDS)) {
+        if (ECONOMY.zoidPrices[unit.id] === undefined) continue;
+        if (weightOf(unit.id) !== weight) continue;
+        const opt = document.createElement('option');
+        opt.value = unit.id;
+        opt.textContent = `${unit.name} · ${ROLE_LABEL[unit.role] ?? unit.role}`;
+        if (unit.id === config.unitTypeId) opt.selected = true;
+        group.appendChild(opt);
+      }
+      if (group.childElementCount > 0) zoidSelect.appendChild(group);
     }
     zoidSelect.addEventListener('change', () => {
       garage[index] = factorySlot(zoidSelect.value);
@@ -3179,7 +3204,8 @@ function renderMercHangar(): void {
     card.innerHTML =
       `<div class="ghead-row"><span class="gtag">P${slot + 1}${slot === 0 ? ' ❤' : ''}</span>` +
       `<b style="font-family:var(--mono);font-size:13px">${def.name}</b>` +
-      (slot === 0 ? '<span class="gmuted" style="font-size:9px;letter-spacing:0.14em"> COMPAÑERA</span>' : '') +
+      `<span class="gmuted" style="font-size:9px"> ${chassisClassLabel(zoid.unitTypeId)}</span>` +
+      (slot === 0 ? '<span class="gmuted" style="font-size:9px;letter-spacing:0.14em"> · COMPAÑERA</span>' : '') +
       '</div>' +
       `<div class="gtracks">${escapeHtml(pilot.name)}${isInjured(pilot) ? ` <span class="symptom">🩹 ${pilot.injuryDays}j</span>` : ''}${assignmentOf(slot) ? ' <span class="symptom" style="border-color:var(--player);color:var(--player)">📡 destacado</span>' : ''} · ${pilotSummary(pilot)}</div>`;
     {
@@ -3320,7 +3346,7 @@ function renderMercHangar(): void {
       const net = campaign!.credits - probe.credits;
       const opt = document.createElement('option');
       opt.value = unit.id;
-      opt.textContent = `${unit.name} · neto ⌾${net}`;
+      opt.textContent = `${unit.name} [${weightOf(unit.id)}] · neto ⌾${net}`;
       opt.disabled = probe === campaign; // no alcanzan los créditos
       chassisSelect.appendChild(opt);
     }
@@ -4494,7 +4520,7 @@ function renderCity(): void {
         const net = campaign!.credits - probe.credits;
         const opt = document.createElement('option');
         opt.value = unit.id;
-        opt.textContent = `${unit.name} · neto ⌾${net}`;
+        opt.textContent = `${unit.name} [${weightOf(unit.id)}] · neto ⌾${net}`;
         opt.disabled = probe === campaign;
         select.appendChild(opt);
       }
