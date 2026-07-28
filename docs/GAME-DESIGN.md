@@ -1485,3 +1485,26 @@ arquitectura del motor van en DESIGN.md.)*
     para que la dirección bautice y el plan del bloque de aplicación.
   374 tests en verde (4 nuevos de báscula), tsc limpio, verificado en el
   juego real (optgroups del garaje y báscula en el análisis).
+- **2026-07-12** — EL RELOJ DE EXPEDICIÓN ("agrega paso del tiempo, un
+  reloj; cada trayecto cuesta, cada decisión y batalla consume; siempre
+  puedes descansar o esperar"). El tiempo deja de ser solo un contador
+  de jornadas: ahora tiene HORAS y se mueve con todo lo que haces.
+  · MOTOR DE CAMPAÑA (game/expedition.ts, puro): hour (0-23) en el
+    estado; advanceHours devuelve los días cumplidos al cruzar la
+    medianoche — y la campaña los convierte en el tick diario de
+    siempre (curación, refit, destacamentos). hoursUntilDawn para la
+    acampada. Guardados viejos: sin hora = amanecer (07:00).
+  · COSTES: la marcha llega a las 17:00 (se sale al alba); cada batalla
+    (contrato, taberna o emboscada) consume 3 horas, anotadas en el
+    diario; cada decisión de encrucijada, 1 hora. La derrota que pierde
+    la expedición se lleva su diario consigo — como debe ser.
+  · SIEMPRE EN EL MAPA: «⏳ Esperar 2 horas» y «🛏 Acampar hasta el
+    alba (+1 suministro)» — la acampada es descanso DE VERDAD (cura,
+    enfría reactores, avanza destacamentos) y sin raciones no se acampa
+    (consecuencia anunciada en el botón).
+  · INSIGNIA: 🌅 alba / ☀ día / 🌆 tarde / 🌙 noche + hora en punto, en
+    la cabecera del mapa junto al clima. La noche todavía no muerde
+    (sensores/niebla siguen aplazados): el terreno queda listo.
+  380 tests en verde (6 nuevos del reloj), tsc limpio, verificado en el
+  juego real: migración, esperar, acampar (día+1, ración −1) y las 3
+  horas de una emboscada real grabadas en el diario (hora 17→20).

@@ -57,6 +57,7 @@ import {
   startExpedition, startFreeExpedition, travel, resolveEncounter, edgeKey,
   regionOf, linksFrom, linkDestination, useLink, weatherFor,
   isNodeVisible, isEdgeVisible,
+  advanceHours, hourOf, hoursUntilDawn, ARRIVAL_HOUR,
   type ExpeditionState, type WorldEdge, type WorldRegion,
 } from '../game/expedition.js';
 import {
@@ -3634,6 +3635,7 @@ function survivorResidual(): {
 function settleContract(): string {
   const contract = activeContract!;
   activeContract = null;
+  passHours(3, '⏱ La batalla consumió 3 horas.');
   const isTavern = contract.id.startsWith('tav-');
   // Destino de vuelta fijado YA, antes de liquidar nada: pase lo que pase
   // (o falle) en el reparto, el jugador vuelve a donde toca — al mapa si la
@@ -3856,6 +3858,7 @@ const SKIRMISH_SALVAGE = 30;
  */
 function settleSkirmish(): string {
   activeSkirmish = false;
+  passHours(3, '⏱ El combate consumió 3 horas.');
   returnToWorld = true; returnToMerc = false;
   if (!campaign) return '';
   const won = battle.winner === 'player';
@@ -3999,7 +4002,7 @@ function renderWorld(): void {
   $('world-title').textContent = `${continent ? `${continent.name} · ` : ''}${REGION.name}`;
   const sky = expedition.forcedWeather ?? weatherFor(REGION, expedition.day);
   $('world-status').textContent =
-    `Día ${expedition.day} · ${WEATHER_BADGE[sky]} · suministros ${campaign.supplies} · ⌾${campaign.credits}` +
+    `Día ${expedition.day} · ${clockLabel()} · ${WEATHER_BADGE[sky]} · suministros ${campaign.supplies} · ⌾${campaign.credits}` +
     (contract ? ` · misión: ${contract.name} → ${target.name}${expedition.missionDone ? ' ✔' : ''}` : '');
 
   // Tramos como líneas SVG (los rotos, discontinuos).
@@ -4131,6 +4134,35 @@ function renderWorld(): void {
     enter.addEventListener('click', () => openCity());
     actions.appendChild(enter);
   }
+
+  // El tiempo se mueve — y siempre tienes la opción de esperar o descansar.
+  const wait = document.createElement('button');
+  wait.className = 'calm';
+  wait.textContent = '⏳ Esperar 2 horas';
+  wait.addEventListener('click', () => {
+    passHours(2, '⏳ Esperamos. El viento cambia, el metal cruje.');
+    saveCampaign();
+    renderWorld();
+  });
+  actions.appendChild(wait);
+
+  const camp = document.createElement('button');
+  camp.className = 'calm';
+  const noRations = campaign.supplies <= 0;
+  camp.textContent = `🛏 Acampar hasta el alba (+1 suministro${noRations ? ' — SIN RACIONES' : ''})`;
+  camp.disabled = noRations;
+  camp.title = noRations
+    ? 'Sin raciones no se acampa: consigue suministros en una ciudad.'
+    : 'Descanso de verdad: cura heridas, enfría reactores y avanza destacamentos. Cuesta una ración.';
+  camp.addEventListener('click', () => {
+    if (!campaign || !expedition || campaign.supplies <= 0) return;
+    campaign = consumeSupplies(campaign, 1).state;
+    passHours(hoursUntilDawn(expedition),
+      '🛏 Acampamos. El reactor se enfría, las heridas respiran; partimos al alba.');
+    saveCampaign();
+    renderWorld();
+  });
+  actions.appendChild(camp);
   $('world-cargo').innerHTML = campaign.cargo.length > 0
     ? campaign.cargo.map((c) => `<div>${c.name} · ⌾${c.value}</div>`).join('') +
       `<div>(${campaign.cargo.length}/${CARGO_CAPACITY})</div>`
@@ -4321,6 +4353,29 @@ function assignmentOf(slot: number): import('../game/assignment.js').ActiveAssig
 }
 
 /** El tiempo cura Y hace avanzar los destacamentos, jornada a jornada. */
+/** Insignia del reloj: franja del día + hora en punto. */
+function clockLabel(): string {
+  if (!expedition) return '';
+  const h = hourOf(expedition);
+  const icon = h >= 5 && h < 9 ? '🌅' : h >= 9 && h < 18 ? '☀' : h >= 18 && h < 21 ? '🌆' : '🌙';
+  return `${icon} ${String(h).padStart(2, '0')}:00`;
+}
+
+/**
+ * El reloj avanza. Si cruza la medianoche corre el tick diario (curación,
+ * refit, destacamentos): el tiempo se mueve de verdad, no solo el número.
+ */
+function passHours(hours: number, note?: string): void {
+  if (!expedition) return;
+  const res = advanceHours(expedition, hours);
+  expedition = res.expedition;
+  if (note) {
+    expedition = { ...expedition, log: [...expedition.log, `Día ${expedition.day} — ${note}`] };
+  }
+  if (res.daysPassed > 0) healingDays(res.daysPassed);
+  saveExpedition();
+}
+
 function healingDays(days: number): void {
   if (days <= 0) return;
   let changed = false;
@@ -4763,7 +4818,7 @@ function fightTavernBattle(job: Contract, nodeId: string): void {
 function doExplore(): void {
   if (!campaign || !expedition) return;
   const result = exploreSite(expedition, REGION, campaign.discovered ?? []);
-  expedition = result.expedition;
+  expedition = { ...result.expedition, hour: ARRIVAL_HOUR };
   healingDays(1);
   // Un secreto hallado se queda en el mapa PARA SIEMPRE (persiste en la campaña).
   if (result.discovered && result.discovered.length > 0) {
@@ -4788,7 +4843,7 @@ function doTravel(edge: WorldEdge): void {
   const dayBefore = expedition.day;
   const stormToll = weatherFor(REGION, dayBefore) === 'sandstorm' ? 1 : 0;
   const result = travel(expedition, REGION, edge);
-  expedition = result.expedition;
+  expedition = { ...result.expedition, hour: ARRIVAL_HOUR };
   if (stormToll > 0) {
     expedition = {
       ...expedition,
@@ -4839,6 +4894,7 @@ function doTravel(edge: WorldEdge): void {
       if (!campaign || !expedition) return;
       const dayBeforeChoice = expedition.day;
       const outcome = resolveEncounter(expedition, encounter, optionId);
+      passHours(1); // decidir también consume: el reloj no espera
       expedition = outcome.expedition;
       healingDays(expedition.day - dayBeforeChoice);
       if (outcome.supplyDelta > 0) {
@@ -4879,7 +4935,7 @@ function doUseLink(link: import('../game/expedition.js').WorldLink): void {
   if (link.fare > 0 && campaign.credits < link.fare) return;
   const dayBefore = expedition.day;
   const result = useLink(expedition, WORLD_ATLAS, link);
-  expedition = result.expedition;
+  expedition = { ...result.expedition, hour: ARRIVAL_HOUR };
   if (link.fare > 0) campaign = { ...campaign, credits: campaign.credits - link.fare };
   if (result.supplyCost > 0) {
     const consumed = consumeSupplies(campaign, result.supplyCost);

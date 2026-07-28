@@ -206,6 +206,8 @@ export interface ExpeditionState {
   targetNodeId: string;
   at: string;
   day: number;
+  /** Hora del día (0-23). Ausente en guardados viejos = amanecer. */
+  hour?: number;
   missionDone: boolean;
   /** Tramos rotos por eventos (clave normalizada a-b). */
   blockedEdges: string[];
@@ -596,6 +598,40 @@ export function resolveEncounter(
         text: 'El camino sigue.',
       };
   }
+}
+
+// ── El reloj de expedición: el tiempo se mueve ───────────────────────────
+
+/** Amanecer: la hora a la que arranca cada día y termina la acampada. */
+export const DAWN_HOUR = 7;
+/** Hora de llegada tras una jornada de marcha (se sale al alba). */
+export const ARRIVAL_HOUR = 17;
+
+/** Hora actual del reloj (guardados viejos: amanecer). */
+export function hourOf(expedition: ExpeditionState): number {
+  const h = expedition.hour;
+  return typeof h === 'number' && h >= 0 && h < 24 ? Math.floor(h) : DAWN_HOUR;
+}
+
+/**
+ * Avanza el reloj. Las horas que cruzan la medianoche devuelven días
+ * cumplidos para que la campaña corra su tick diario (curación, refit,
+ * destacamentos). Puro y determinista: el tiempo solo va hacia delante.
+ */
+export function advanceHours(
+  expedition: ExpeditionState, hours: number,
+): { expedition: ExpeditionState; daysPassed: number } {
+  const total = hourOf(expedition) + Math.max(0, Math.round(hours));
+  const daysPassed = Math.floor(total / 24);
+  return {
+    expedition: { ...expedition, hour: total % 24, day: expedition.day + daysPassed },
+    daysPassed,
+  };
+}
+
+/** Horas que faltan para el próximo amanecer (acampar SIEMPRE avanza día). */
+export function hoursUntilDawn(expedition: ExpeditionState): number {
+  return (24 - hourOf(expedition)) + DAWN_HOUR;
 }
 
 export interface TravelResult {
