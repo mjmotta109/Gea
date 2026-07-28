@@ -72,6 +72,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
   'gun-sniper': {
     id: 'gun-sniper',
     weightClass: 'extraligero',
+    vision: 8, // ojos de la noche
     name: 'Gun Sniper',
     role: 'sniper',
     moveType: 'ground',
@@ -93,6 +94,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
   'pteras': {
     id: 'pteras',
     weightClass: 'ligero',
+    vision: 8, // ojos de la noche
     name: 'Pteras',
     role: 'flyer',
     moveType: 'flying',
@@ -163,6 +165,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
   'gun-sniper-naomi': {
     id: 'gun-sniper-naomi',
     weightClass: 'extraligero',
+    vision: 8, // ojos de la noche
     name: 'Gun Sniper (custom)',
     role: 'sniper',
     moveType: 'ground',
@@ -240,6 +243,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
   'redler': {
     id: 'redler', name: 'Redler', role: 'flyer', moveType: 'flying',
     weightClass: 'extraligero',
+    vision: 8, // ojos de la noche
     stats: { maxHp: 90, atk: 36, energyAtk: 34, def: 18, energyDef: 22, speed: 16, move: 7, jump: 99, evade: 26, accuracy: 0 },
     abilityIds: ['stun-blade'],
     weapons: ['lib-w-plasma-carbine'],
@@ -248,6 +252,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
   'storm-sworder': {
     id: 'storm-sworder', name: 'Storm Sworder', role: 'flyer', moveType: 'flying',
     weightClass: 'ligero',
+    vision: 8, // ojos de la noche
     // Buff (2026-07-08): cazador aéreo frágil que muere cerrando distancia. +HP
     // y +evasión; la evasión alta además lo hace difícil de FIJAR con fuego
     // concentrado (la IA de foco castiga a los que se dejan clavar).
@@ -259,6 +264,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
   'konig-wolf': {
     id: 'konig-wolf', name: 'König Wolf', role: 'sniper', moveType: 'ground',
     weightClass: 'ligero',
+    vision: 9, // ojos de la noche
     stats: { maxHp: 110, atk: 42, energyAtk: 26, def: 28, energyDef: 26, speed: 12, move: 6, jump: 2, evade: 13, accuracy: 2 },
     abilityIds: ['bite-crush'],
     weapons: ['lib-w-heat-needle'],

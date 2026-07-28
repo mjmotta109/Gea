@@ -385,6 +385,12 @@ export interface UnitDefinition {
   size?: number;
   /** Clase de peso (por defecto 'ligero'). */
   weightClass?: WeightClass;
+  /**
+   * Radio de sensores en combate NOCTURNO (casillas manhattan). De día no
+   * aplica: sin niebla. Ausente = NIGHT_VISION_BASE. Los ojos de la noche
+   * (cazadores nocturnos, voladores, colas-sensor) declaran más.
+   */
+  vision?: number;
 }
 
 export interface UnitState {

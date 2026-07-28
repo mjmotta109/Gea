@@ -240,6 +240,11 @@ function loadPilots(): Record<string, PilotState> {
   return pilots;
 }
 
+/** Escaramuza nocturna (toggle 🌙 del sandbox, persistido). */
+let sandboxNight = ((): boolean => {
+  try { return localStorage.getItem('gea-night') === '1'; } catch { return false; }
+})();
+
 let garage: SlotConfig[] = loadGarage();
 let pilots: Record<string, PilotState> = loadPilots();
 
@@ -409,7 +414,7 @@ function newBattle(seed: number, weather: WeatherId): void {
     })),
     ...enemyTeam(seed).map((s, i) => ({ ...s, position: field.enemyPos[i]! })),
   ];
-  startBattle(spawns, seed, weather, field.map);
+  startBattle(spawns, seed, weather, field.map, { night: sandboxNight });
 }
 
 interface BattleBrief {
@@ -420,6 +425,13 @@ interface BattleBrief {
   /** Competencia de la IA para ESTA batalla; ausente = la de la curva de campaña.
    *  Una emboscada de ruta la baja a propósito (enemigos flojos y bobos). */
   aiSkill?: number;
+  /** Combate NOCTURNO: niebla de sensores. Lo fija el reloj de expedición. */
+  night?: boolean;
+}
+
+/** ¿Es horario de combate nocturno? La franja 🌙 del reloj (21:00-05:00). */
+function isNightHour(hour: number): boolean {
+  return hour >= 21 || hour < 5;
 }
 
 /**
@@ -499,6 +511,8 @@ interface ReplayRecipe {
   wear: number;
   /** Competencia de la IA de esa batalla (informativo: las acciones van grabadas). */
   aiSkill: number;
+  /** Combate nocturno: la niebla cambia lo apuntable, va en la receta. */
+  night: boolean;
   objective?: BattleObjective;
   reinforcements?: ReinforcementWave[];
   actions: BattleAction[];
@@ -531,6 +545,7 @@ function startReplay(): void {
     weather: recipe.weather,
     wear: recipe.wear,
     aiSkill: recipe.aiSkill,
+    night: recipe.night,
     seed: recipe.seed,
     spawns: recipe.spawns,
     pilots: recipe.pilots,
@@ -579,6 +594,7 @@ function startBattle(
     weather,
     wear: campaignWear(),
     aiSkill: brief.aiSkill ?? campaignAiSkill(),
+    night: brief.night ?? false,
     seed,
     spawns,
     ...(brief.objective ? { objective: brief.objective } : {}),
@@ -597,6 +613,7 @@ function startBattle(
     seed, weather,
     wear: campaignWear(),
     aiSkill: brief.aiSkill ?? campaignAiSkill(),
+    night: brief.night ?? false,
     mapRows: map.toAscii(),
     spawns: JSON.parse(JSON.stringify(spawns)) as UnitSpawn[],
     pilots: JSON.parse(JSON.stringify(Object.fromEntries(
@@ -616,6 +633,9 @@ function startBattle(
   $('overlay').classList.remove('show');
   log('— enlace táctico establecido —', 'turn');
   if (brief.briefing) log(`🎯 ${brief.briefing}`, 'turn');
+  document.body.classList.toggle('night', battle.night);
+  $('night-btn').classList.toggle('on', sandboxNight);
+  if (battle.night) log('🌙 COMBATE NOCTURNO — los sensores mandan: lo que queda fuera de la burbuja no existe.', 'turn');
   maybeStartTutorial();
   advance();
 }
@@ -1291,8 +1311,14 @@ function renderBoard(): void {
       if (pending && samePosition(pending, pos)) cell.classList.add('pending');
       if (samePosition(cursor, pos) && playerUnit()) cell.classList.add('cursor');
 
+      // Niebla nocturna: fuera de la burbuja de sensores del jugador, la
+      // casilla se apaga y el enemigo que la pise NO se pinta.
+      const fogged = battle.night && !battle.tileVisibleTo('player', pos);
+      if (fogged) cell.classList.add('fog');
+
       const occupant = battle.unitAt(pos);
-      if (occupant && samePosition(occupant.position, pos)) {
+      if (occupant && samePosition(occupant.position, pos)
+        && battle.unitVisibleTo('player', occupant)) {
         const chip = document.createElement('div');
         chip.className = `chip ${occupant.team}`;
         if (occupant.size > 1) {
@@ -1377,11 +1403,13 @@ function dioramaScene(): DioramaScene {
       const pos = { x, y };
       const key = posKey(pos);
       const tile = battle.map.tileAt(pos);
+      const fogged = battle.night && !battle.tileVisibleTo('player', pos);
       tiles.push({
         x, y,
         terrain: tile.terrain as DioramaTile['terrain'],
         height: tile.height,
         fill: shade(TERRAIN_BASE[tile.terrain]!, tile.height),
+        ...(fogged ? { fogged: true } : {}),
       });
       if ((mode.kind === 'move' || mode.kind === 'boost') && mode.tiles.has(key)) {
         (mode.kind === 'move' ? moveSet : boostSet).add(key);
@@ -1395,7 +1423,7 @@ function dioramaScene(): DioramaScene {
     }
   }
   const units: DioramaUnit[] = battle.units
-    .filter((u) => u.hp > 0 && !u.retreated)
+    .filter((u) => u.hp > 0 && !u.retreated && battle.unitVisibleTo('player', u))
     .map((u) => {
       const pose = walkingPose(u.id);
       const center = (u.size - 1) / 2; // la huella 2x2 se ancla a su centro
@@ -1431,6 +1459,7 @@ function dioramaScene(): DioramaScene {
     time: performance.now(),
     rotation: dioramaRot,
     weather: battle.weather,
+    night: battle.night,
   };
 }
 
@@ -1579,7 +1608,7 @@ function objectiveText(): string {
 
 function renderBanner(): void {
   const objBar = $('objective-bar');
-  objBar.textContent = `🎯 ${objectiveText()} · ronda ${battle.round}`;
+  objBar.textContent = `${battle.night ? '🌙 NOCTURNO · ' : ''}🎯 ${objectiveText()} · ronda ${battle.round}`;
   const banner = $('turn-banner');
   const active = battle.getActiveUnit();
   if (!active) {
@@ -1781,6 +1810,13 @@ function renderPreview(): void {
     }
   }
 
+  // Niebla nocturna: la casilla fuera de sensores no cuenta nada.
+  if (battle.night && !battle.tileVisibleTo('player', cursor)) {
+    lines.push(`<div class="pv-muted">(${cursor.x},${cursor.y}) · 🌙 fuera del alcance de los sensores</div>`);
+    el.innerHTML = lines.join('');
+    return;
+  }
+
   // Contexto general del cursor.
   const cover = TERRAIN_COVER[tile.terrain];
   lines.push(`<div class="pv-muted">(${cursor.x},${cursor.y}) · ${terrainLabel(tile.terrain)} · altura ${tile.height}${cover > 0 ? ` · <span class="pv-good">cobertura +${cover}</span>` : ''}</div>`);
@@ -1827,8 +1863,10 @@ function renderForecast(): void {
   for (const id of battle.forecast(8)) {
     const unit = battle.unit(id);
     const chip = document.createElement('span');
+    const hidden = !battle.unitVisibleTo('player', unit);
     chip.className = `fc ${unit.team}`;
-    chip.textContent = id;
+    chip.textContent = hidden ? '??' : id;
+    if (hidden) chip.title = 'eco en sensores: rumbo sin identificar';
     el.appendChild(chip);
   }
 }
@@ -1851,6 +1889,13 @@ function pilotOfUnit(unit: UnitState): PilotState | undefined {
  */
 function rosterCard(unit: UnitState, detailed: boolean, focusId: string | null): HTMLElement {
   const card = document.createElement('div');
+  // Combate nocturno: del enemigo fuera de la burbuja no hay FICHA — solo
+  // un eco. Ni casco, ni barras, ni nombre (la niebla es información).
+  if (!detailed && unit.hp > 0 && !battle.unitVisibleTo('player', unit)) {
+    card.className = `ucard ${unit.team}`;
+    card.innerHTML = `<div class="name"><span class="tag">??</span> <span class="seal">🌙 fuera de sensores</span></div>`;
+    return card;
+  }
   const active = battle.getActiveUnit();
   card.className = `ucard ${unit.team}${active?.id === unit.id ? ' oncall' : ''}`;
 
@@ -4353,6 +4398,11 @@ function assignmentOf(slot: number): import('../game/assignment.js').ActiveAssig
 }
 
 /** El tiempo cura Y hace avanzar los destacamentos, jornada a jornada. */
+/** ¿La expedición está en horas de lobo? Fija el combate nocturno. */
+function expeditionNight(): boolean {
+  return expedition ? isNightHour(hourOf(expedition)) : false;
+}
+
 /** Insignia del reloj: franja del día + hora en punto. */
 function clockLabel(): string {
   if (!expedition) return '';
@@ -4811,7 +4861,7 @@ function fightTavernBattle(job: Contract, nodeId: string): void {
   closeWorld();
   const seed = (Number(($('seed') as HTMLInputElement).value) || 42) + expedition.day * 131 + nodeId.length * 17;
   const weather = expedition.forcedWeather ?? weatherFor(REGION, expedition.day);
-  startBattle(spawns, seed, weather, field.map);
+  startBattle(spawns, seed, weather, field.map, { night: expeditionNight() });
 }
 
 /** Explorar las ruinas: un día, y lo que haya dentro. */
@@ -5128,6 +5178,7 @@ function fightExpeditionBattle(): void {
   const seed = (Number(($('seed') as HTMLInputElement).value) || 42) + campaign.contractsDone * 1009 + expedition.day * 97;
   // El cielo del día de la región; la tormenta que nos siguió aún manda.
   const weather = expedition.forcedWeather ?? weatherFor(REGION, expedition.day);
+  brief.night = expeditionNight();
   startBattle(spawns, seed, weather, field.map, brief);
 }
 
@@ -5224,6 +5275,7 @@ function startTravelBattle(rng: () => number): void {
   const weather = expedition.forcedWeather ?? weatherFor(REGION, expedition.day);
   startBattle(spawns, seed, weather, field.map, {
     aiSkill: 0.15, // flojos y BOBOS: cada uno a lo suyo, sin coordinar ni vigilar
+    night: expeditionNight(),
     briefing: 'Emboscada: una chusma de bandidos corta la ruta. Despáchalos — los pilotos curten galones.',
   });
 }
@@ -6385,6 +6437,12 @@ $('st-continue').addEventListener('click', () => {
   closeStart();
 });
 $('st-sandbox').addEventListener('click', enterSandbox);
+$('night-btn').addEventListener('click', () => {
+  sandboxNight = !sandboxNight;
+  try { localStorage.setItem('gea-night', sandboxNight ? '1' : '0'); } catch { /* privado */ }
+  $('night-btn').classList.toggle('on', sandboxNight);
+  restart(); // consecuencia anunciada: reinicia la escaramuza con la noche
+});
 $('st-taller').addEventListener('click', openTaller);
 $('taller-close').addEventListener('click', closeTaller);
 for (const tab of ['personajes', 'habilidades', 'campanas', 'archivo'] as const) {

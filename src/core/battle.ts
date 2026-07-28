@@ -127,6 +127,9 @@ export interface ReinforcementWave {
   spawns: UnitSpawn[];
 }
 
+/** Radio de sensores por defecto en combate nocturno (casillas). */
+export const NIGHT_VISION_BASE = 6;
+
 export interface BattleConfig {
   map: GameMap;
   spawns: UnitSpawn[];
@@ -164,6 +167,13 @@ export interface BattleConfig {
    * asalto cuyo grueso está en camino.
    */
   reinforcements?: ReinforcementWave[];
+  /**
+   * Combate NOCTURNO: la niebla existe SOLO de noche. Cada máquina emite
+   * una burbuja de sensores (vision o NIGHT_VISION_BASE) compartida por su
+   * equipo (enlace táctico); lo que queda fuera no se ve ni se puede
+   * apuntar. De día (por defecto) el motor es idéntico: golden a salvo.
+   */
+  night?: boolean;
   seed: number;
   /**
    * Sistemas activos, invocados en el orden del array (determinista).
@@ -189,6 +199,8 @@ export class Battle {
   readonly wear: number;
   /** Competencia de la IA (0..1; 1 = plena). Curva de dificultad de la IA. */
   readonly aiSkill: number;
+  /** Combate nocturno: niebla de sensores activa. */
+  readonly night: boolean;
   private definitions: Record<string, UnitDefinition>;
   private abilities: Record<string, AbilityDefinition>;
   private modules: ModuleCatalog;
@@ -222,6 +234,7 @@ export class Battle {
     this.weather = config.weather ?? 'clear';
     this.wear = config.wear ?? 0;
     this.aiSkill = config.aiSkill ?? 1;
+    this.night = config.night ?? false;
     this.weapons = config.weaponCatalog ?? {};
     this.pilots = config.pilots ?? {};
     this.perkTable = config.perkTable;
@@ -655,7 +668,45 @@ export class Battle {
     const ability = this.abilityOf(abilityId);
     this.assertKnowsAbility(unit, abilityId);
     return targetableTiles(this.map, unit.position, ability.range, ability.minRange, ability.shape)
-      .filter((pos) => hasLineOfSight(this.map, unit.position, pos));
+      .filter((pos) => hasLineOfSight(this.map, unit.position, pos))
+      // De noche solo se apunta dentro de la burbuja de sensores del equipo.
+      .filter((pos) => this.tileVisibleFrom(unit, unit.position, pos));
+  }
+
+  /** Radio de sensores de una unidad en combate nocturno. */
+  visionOf(unit: UnitState): number {
+    return this.definitionOf(unit.unitTypeId).vision ?? NIGHT_VISION_BASE;
+  }
+
+  /**
+   * ¿La casilla cae dentro de la burbuja de sensores del equipo de `unit`,
+   * con la PROPIA unidad situada en `from` (posición hipotética al planear)?
+   * De día, siempre: la niebla solo existe de noche. El enlace táctico
+   * comparte sensores: cualquier aliado vivo ilumina para todos.
+   */
+  tileVisibleFrom(unit: UnitState, from: Position, target: Position): boolean {
+    if (!this.night) return true;
+    if (footprintTiles(from, unit.size).some((t) => manhattan(t, target) <= this.visionOf(unit))) {
+      return true;
+    }
+    return this.units.some((u) =>
+      u.team === unit.team && u.id !== unit.id && u.hp > 0 && !u.retreated &&
+      footprintTiles(u.position, u.size).some((t) => manhattan(t, target) <= this.visionOf(u)));
+  }
+
+  /** ¿La casilla está dentro de los sensores del EQUIPO? (render, análisis) */
+  tileVisibleTo(team: Team, pos: Position): boolean {
+    if (!this.night) return true;
+    return this.units.some((u) =>
+      u.team === team && u.hp > 0 && !u.retreated &&
+      footprintTiles(u.position, u.size).some((t) => manhattan(t, pos) <= this.visionOf(u)));
+  }
+
+  /** ¿La unidad rival se ve? (cualquiera de sus casillas en la burbuja) */
+  unitVisibleTo(team: Team, target: UnitState): boolean {
+    if (!this.night || target.team === team) return true;
+    return footprintTiles(target.position, target.size)
+      .some((t) => this.tileVisibleTo(team, t));
   }
 
   /**
@@ -670,6 +721,7 @@ export class Battle {
     if (dist < ability.minRange || dist > ability.range) return false;
     if (ability.shape === 'line' && from.x !== target.x && from.y !== target.y) return false;
     if (!this.map.inBounds(target) || this.map.tileAt(target).terrain === 'wall') return false;
+    if (!this.tileVisibleFrom(unit, from, target)) return false; // niebla nocturna
     return hasLineOfSight(this.map, from, target);
   }
 

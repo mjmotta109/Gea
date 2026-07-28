@@ -70,6 +70,12 @@ export function planTurn(battle: Battle, unit: UnitState, skill?: number): Battl
   const aiSkill = skill ?? battle.aiSkill;
   const enemies = battle.units.filter((u) => u.team !== unit.team && u.hp > 0 && !u.retreated);
   if (enemies.length === 0) return [{ type: 'wait', unitId: unit.id }];
+  // Combate nocturno: solo se DISPARA a lo que los sensores ven. Para
+  // MOVERSE vale el rumor de los motores (rumbo sin solución de tiro):
+  // así la niebla no congela a la IA en un empate ciego.
+  const visibleEnemies = battle.night
+    ? enemies.filter((e) => battle.unitVisibleTo(unit.team, e))
+    : enemies;
 
   // Retirada REAL: el malherido prudente no maniobra — abandona el campo
   // por el borde (vivir hoy es pelear mañana). El motor exige pisar borde.
@@ -128,7 +134,7 @@ export function planTurn(battle: Battle, unit: UnitState, skill?: number): Battl
   const profile = profileOf(battle, unit);
   // Coordinación de escuadra: solo una IA competente concentra el fuego (curva
   // de dificultad). Grunts torpes (skill bajo) pelean cada uno por su lado.
-  const focus = aiSkill >= AI_SKILL_FOCUS ? teamFocusTarget(battle, unit, enemies) : undefined;
+  const focus = aiSkill >= AI_SKILL_FOCUS ? teamFocusTarget(battle, unit, visibleEnemies) : undefined;
 
   for (const option of moveOptions) {
     // Riesgo posicional: enemigos pegados a la casilla final del turno.
@@ -138,7 +144,7 @@ export function planTurn(battle: Battle, unit: UnitState, skill?: number): Battl
     const firePenalty = battle.map.fireAt(option.from) > 0 ? 40 : 0;
 
     for (const ability of offensiveAbilities) {
-      for (const enemy of enemies) {
+      for (const enemy of visibleEnemies) {
         // Alcance, alineación y línea de visión, igual que el motor.
         if (!battle.canTargetFrom(unit, option.from, ability.id, enemy.position)) continue;
 
@@ -243,7 +249,7 @@ export function planTurn(battle: Battle, unit: UnitState, skill?: number): Battl
   // va a cerrar la distancia — la asimetría garantiza que el más agresivo de
   // cada pareja SIEMPRE avanza: nunca hay doble-vigilancia mutua que se quede
   // en un empate por límite de turnos) y que llegará a tiro tras SU avance.
-  const enemyAboutToEnter = offensiveAbilities.length > 0 && enemies.some((e) => {
+  const enemyAboutToEnter = offensiveAbilities.length > 0 && visibleEnemies.some((e) => {
     const d = manhattan(unit.position, e.position);
     if (d <= maxRange) return false; // ya está a tiro: se resolvería como ataque
     const eProfile = profileOf(battle, e);
@@ -308,7 +314,7 @@ export function planTurn(battle: Battle, unit: UnitState, skill?: number): Battl
   // dificultad — los grunts bobos no vigilan) y solo contra un enemigo MÁS
   // agresivo (la asimetría evita la doble-vigilancia mutua y el empate).
   const watchFrom = standAt;
-  const closingIn = enemies.some((e) =>
+  const closingIn = visibleEnemies.some((e) =>
     manhattan(watchFrom, e.position) <= 10 && profileOf(battle, e).aggression > profile.aggression);
   const canWatch = aiSkill >= AI_SKILL_AMBUSH && !unit.hasActed && closingIn
     && profile.aggression < 0.7 && offensiveAbilities.length > 0;

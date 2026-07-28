@@ -31,8 +31,10 @@ de este archivo.
    (un solo archivo, sin red). Gráficos procedurales (SVG/canvas),
    sonido WebAudio. Cero archivos externos hasta que llegue el arte
    encargado (`docs/ENCARGO-ARTE.md`, buzón `art/`).
-6. **Aplazados por decisión del director**: niebla de guerra/sensores
-   y 3D real. No los propongas de nuevo salvo que él los pida.
+6. **Aplazados por decisión del director**: el 3D real. (La niebla de
+   sensores YA EXISTE — la pidió él, solo en combate NOCTURNO; de día no
+   hay niebla y el golden sigue intacto.) No propongas el 3D salvo que
+   él lo pida.
 
 ## 3. El ritual de cada bloque de trabajo
 

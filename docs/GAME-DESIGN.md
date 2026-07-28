@@ -1508,3 +1508,31 @@ arquitectura del motor van en DESIGN.md.)*
   380 tests en verde (6 nuevos del reloj), tsc limpio, verificado en el
   juego real: migración, esperar, acampar (día+1, ración −1) y las 3
   horas de una emboscada real grabadas en el diario (hora 17→20).
+- **2026-07-12** — COMBATE NOCTURNO CON NIEBLA DE SENSORES ("agrega
+  combate nocturno, ahí sí pongamos niebla" — la dirección levanta el
+  aplazamiento de la niebla, SOLO para la noche). El reloj manda: las
+  batallas entre las 21:00 y las 05:00 son nocturnas.
+  · MOTOR (BattleConfig.night): cada máquina emite una burbuja de
+    sensores (vision, por defecto NIGHT_VISION_BASE=6) COMPARTIDA por su
+    equipo — el enlace táctico ilumina para todos (el explorador
+    adelantado da solución de tiro al tirador de atrás). Fuera de la
+    burbuja NO se ve ni se puede apuntar: veto en legalTargets (ejecutar
+    es ilegal) y en canTargetFrom (IA, vigilancia y ⌖ planean con la
+    posición hipotética). De día, motor idéntico: GOLDEN INTACTO.
+  · OJOS DE LA NOCHE (data): König Wolf visión 9 (cazador nocturno);
+    Gun Sniper/custom (cola-sensor) y los tres voladores, 8.
+  · IA: solo DISPARA a lo visible (foco, emboscada y vigilancia
+    incluidos), pero AVANZA por el rumor de los motores — la niebla no
+    congela la batalla en un empate ciego.
+  · CLIENTE: la niebla se pinta (casillas apagadas en plana y mesa,
+    tinte azul nocturno en el diorama), el enemigo oculto no existe —
+    ni chip en el campo, ni ficha (un eco «?? fuera de sensores»), ni
+    nombre en la línea de turnos («??») —, el análisis calla sobre
+    casillas a oscuras, la barra anuncia 🌙 NOCTURNO y la receta de la
+    repetición graba la noche. En escaramuza, toggle «🌙 noche».
+  · La espera del reloj gana su primer uso táctico real: acampar hasta
+    el alba ANTES de entablar combate evita la noche — o al revés, se
+    busca a propósito.
+  386 tests en verde (6 nuevos de noche), tsc limpio, golden intacto,
+  verificado en el juego real (plana y diorama, ecos que se despejan al
+  acercarse, toggle de escaramuza persistido).

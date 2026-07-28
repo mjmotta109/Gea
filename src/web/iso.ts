@@ -14,6 +14,8 @@ export interface DioramaTile {
   height: number;
   /** Color base ya sombreado por altura (lo calcula quien conoce la paleta). */
   fill: string;
+  /** Niebla nocturna: fuera de la burbuja de sensores. */
+  fogged?: boolean;
 }
 
 export interface DioramaUnit {
@@ -57,6 +59,8 @@ export interface DioramaScene {
   rotation?: number;
   /** Clima de la batalla: lluvia y tormenta se VEN, no solo restan. */
   weather?: 'clear' | 'rain' | 'sandstorm';
+  /** Combate nocturno: tinte azul y niebla en las casillas fogged. */
+  night?: boolean;
 }
 
 /**
@@ -295,12 +299,12 @@ export function drawDiorama(
       // El agua vive hundida y ondula.
       const wc = proj(tile.x, tile.y, 0);
       const wave = Math.sin(scene.time / 900 + (tile.x + tile.y * 1.7)) * 1.5;
-      prism(ctx, wc.x, wc.y + 4 + wave * 0.4, 3, tile.fill);
+      prism(ctx, wc.x, wc.y + 4 + wave * 0.4, 3, tile.fogged ? darken(tile.fill, 0.32) : tile.fill);
       ctx.fillStyle = 'rgba(140, 200, 255, 0.18)';
       diamond(ctx, wc.x, wc.y + 4 + wave, TILE_W * 0.8, TILE_H * 0.8);
       ctx.fill();
     } else {
-      prism(ctx, c.x, c.y, depth, tile.fill);
+      prism(ctx, c.x, c.y, depth, tile.fogged ? darken(tile.fill, 0.32) : tile.fill);
       if (tile.terrain === 'forest') trees(ctx, c.x, c.y, tile.x * 7 + tile.y * 13);
       if (tile.terrain === 'rough') rocks(ctx, c.x, c.y, tile.x * 11 + tile.y * 5);
       if (wall) {
@@ -424,6 +428,12 @@ export function drawDiorama(
   // Pasada 4 — el clima: la lluvia raya y azulea; la tormenta de arena
   // arrastra velos de polvo. Determinista respecto al reloj de escena.
   weatherOverlay(ctx, canvas.width, canvas.height, scene.weather ?? 'clear', scene.time);
+  // Noche: un tinte azul profundo sobre toda la mesa (la niebla por casilla
+  // ya apagó lo que los sensores no alcanzan).
+  if (scene.night) {
+    ctx.fillStyle = 'rgba(8, 14, 38, 0.34)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
 }
 
 function weatherOverlay(
