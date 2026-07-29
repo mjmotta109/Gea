@@ -1536,3 +1536,17 @@ arquitectura del motor van en DESIGN.md.)*
   386 tests en verde (6 nuevos de noche), tsc limpio, golden intacto,
   verificado en el juego real (plana y diorama, ecos que se despejan al
   acercarse, toggle de escaramuza persistido).
+- **2026-07-12** — LA BIBLIA DEL UNIVERSO (la dirección entrega el canon
+  y nombra Lead Game Designer / Narrative Director / World Designer).
+  Prathama (la Primera Civilización caída), Sarvatantra (el Estado que
+  censura en nombre de la estabilidad), Āryam (los ocultos del legado
+  genético). Regla primera: «GEA es primero un videojuego» — Gameplay >
+  Narrativa > Lore, y cada idea responde «¿hace mejor al juego?».
+  Todo en docs/LORE.md, incluidos: el mapeo de sistemas YA hechos que
+  ahora son canon (ruinas=Prathama, núcleos=tecnología incomprendida,
+  dosier=vigilancia del Estado, crónica=manuscrito del jugador), cinco
+  propuestas con veredicto (fragmentos coleccionables, la segunda
+  moneda de la censura, el arco de cierre «El Archivo», las tres
+  señales de Āryam, la nomenclatura burocracia/taller que alimenta
+  RENOMBRES) y los guardarraíles de escritura (voz de documento, sin
+  monólogos expositivos, UNA línea de horror cósmico por juego).

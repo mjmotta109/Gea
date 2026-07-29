@@ -11,7 +11,9 @@ de tocar una línea.
 espiritual de FFT con profundidad Armored Core/BattleTech). La visión
 completa, los seis pilares y TODAS las decisiones fechadas viven en
 `docs/GAME-DESIGN.md` — es la constitución del proyecto. Léelo después
-de este archivo.
+de este archivo. El UNIVERSO (Prathama, Sarvatantra, Āryam) y la regla
+«Gameplay > Narrativa > Lore» viven en `docs/LORE.md`: manda sobre todo
+texto narrativo.
 
 ## 2. Leyes permanentes (no negociables)
 
