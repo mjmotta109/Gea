@@ -1579,3 +1579,22 @@ arquitectura del motor van en DESIGN.md.)*
   intacto, verificado en el juego real: terreno pintado, 9 destinos
   desde un nodo, viaje libre con reloj, ciudad lejana en un clic,
   avistamiento de la Cripta de Sal y emboscada en ruta.
+- **2026-07-12** — LA INTERFAZ DESPIERTA ("dame algo más bonito; se ve
+  tan genérica, tan oscura y apagada — ¿le puedes meter ganas?"). Pasada
+  estética completa SIN traicionar el tono (LORE: serio y melancólico no
+  es muerto — es consolas que brillan en la penumbra):
+  · PALETA: fondo con profundidad (gradiente atmosférico + rejilla de
+    consola + viñeta fija), acentos con voltaje y un ÁMBAR DE CABINA
+    nuevo (--accent) para lo que importa: objetivos, contratos, cupos.
+  · IDENTIDAD: el logo GEA arde en gradiente cian→verde→ámbar; los
+    títulos de pantalla igual; cada panel lleva cabecera con banda de
+    luz y su marcador ▮ ámbar.
+  · TACTO: botones con relieve, glow y respuesta (hover se enciende y
+    levanta); cartas de contrato/garaje que se alzan al pasar; barras
+    de HP/energía/calor como instrumentos (gradiente + brillo + venda
+    animada al cambiar).
+  · HUD: la barra de objetivo es una cinta ámbar de misión; el banner
+    de turno lleva gradiente por bando; el tablero y el territorio del
+    mundo van enmarcados con viñeta interior y borde luminoso.
+  Solo CSS (page.html): cero cambios de lógica, textos intactos (los
+  asserts de Playwright siguen en verde), reduced-motion respetado.
