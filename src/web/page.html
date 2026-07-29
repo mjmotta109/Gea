@@ -691,6 +691,12 @@
 
   /* Mapa del mundo: carta de navegación. */
   #world-map { position: relative; }
+  #world-terrain { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; cursor: crosshair; image-rendering: pixelated; border-radius: 6px; }
+  #world-svg { position: relative; z-index: 1; pointer-events: none; }
+  #world-nodes { z-index: 2; pointer-events: none; }
+  .wnode { pointer-events: auto; }
+  .wribbon { background: var(--panel-2); border: 1px solid var(--energy); border-radius: 4px; padding: 8px 10px; font-family: var(--mono); font-size: 12px; color: var(--ink); margin-bottom: 6px; }
+  .wribbon b { color: var(--energy); }
   #world-compass {
     position: absolute; right: 10px; top: 10px; width: 54px; height: 54px;
     opacity: 0.5; pointer-events: none;
@@ -1467,6 +1473,7 @@
       </div>
       <div id="world-body">
         <div id="world-map">
+          <canvas id="world-terrain" width="720" height="480"></canvas>
           <svg id="world-svg" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
           <svg id="world-compass" viewBox="0 0 40 40" aria-hidden="true">
             <circle cx="20" cy="20" r="18" fill="none" stroke="#53d1e0" stroke-width="1"/>

@@ -205,6 +205,12 @@ export interface ExpeditionState {
   regionId: string;
   targetNodeId: string;
   at: string;
+  /**
+   * Celda de la caravana en el MUNDO ABIERTO de la región (rejilla del
+   * overworld). Ausente en guardados viejos: se deriva del nodo `at`.
+   * En campo abierto, `at` lleva el marcador 'campo:x,y'.
+   */
+  pos?: { x: number; y: number };
   day: number;
   /** Hora del día (0-23). Ausente en guardados viejos = amanecer. */
   hour?: number;
@@ -747,6 +753,45 @@ export function travel(
     log: [...expedition.log, `Día ${day} — ${edge.flavor}. ${eventText}`],
   };
   return { expedition: next, supplyCost: edge.days, event, eventText, cargo, encounter };
+}
+
+/**
+ * Evento de un tramo de marcha por el MUNDO ABIERTO: las mismas mesas y
+ * umbrales que travel() (hallazgo / tormenta / encrucijada / calma),
+ * sin puentes — en el territorio continuo los caminos son geografía y
+ * lo que corta el paso es el terreno. Determinista por clave.
+ */
+export function legEvent(
+  expedition: ExpeditionState,
+  region: WorldRegion,
+  key: string,
+): { event: TravelEventKind; eventText: string; cargo?: CargoItem; encounter?: Encounter; forcedWeather?: 'rain' | 'sandstorm' } {
+  const rand = mulberry32(hashString(`${expedition.contractId}|${key}|${expedition.day}`));
+  const roll = rand();
+  if (roll >= 0.18 && roll < 0.36) {
+    const cargo = FINDS[Math.floor(rand() * FINDS.length)]!;
+    return { event: 'find', eventText: `Entre los restos del camino: ${cargo.name} (⌾${cargo.value}).`, cargo };
+  }
+  if (roll >= 0.36 && roll < 0.52) {
+    const forcedWeather = rand() < 0.5 ? 'sandstorm' as const : 'rain' as const;
+    return {
+      event: 'storm', forcedWeather,
+      eventText: forcedWeather === 'sandstorm'
+        ? 'Una tormenta de arena nos persigue: si hay combate pronto, será dentro de ella.'
+        : 'Frente de lluvia cerrado: si hay combate pronto, será bajo el aguacero.',
+    };
+  }
+  if (roll >= 0.52 && roll < 0.64) {
+    const kind = pickEncounterKind(undefined, region.continentId, rand);
+    const encounter: Encounter = {
+      id: `${expedition.contractId}|${key}|${expedition.day}`,
+      kind,
+      prompt: ENCOUNTERS[kind].prompt,
+      options: ENCOUNTERS[kind].options,
+    };
+    return { event: 'encounter', eventText: encounter.prompt, encounter };
+  }
+  return { event: 'calm', eventText: 'La marcha transcurre sin incidentes.' };
 }
 
 /**

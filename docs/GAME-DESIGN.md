@@ -1550,3 +1550,32 @@ arquitectura del motor van en DESIGN.md.)*
   señales de Āryam, la nomenclatura burocracia/taller que alimenta
   RENOMBRES) y los guardarraíles de escritura (voz de documento, sin
   monólogos expositivos, UNA línea de horror cósmico por juego).
+- **2026-07-12** — EL MUNDO ABIERTO ("amplía el mundo: más que una
+  pantalla de selección de mapa, algo más grande y abierto — se siente
+  limitado"). El grafo de nodos se convierte en GEOGRAFÍA:
+  · TERRITORIO (game/overworld.ts, puro): cada región es una rejilla
+    continua 36×24 determinista — dunas donde manda la arena, verde
+    donde llueve, relieve, lagunas — y las viejas aristas del diseño se
+    TALLAN como caminos visibles y baratos de andar: la conectividad
+    diseñada queda garantizada, pero ya no es una jaula.
+  · VIAJE LIBRE: se pincha CUALQUIER punto transitable. Primer clic
+    propone (cinta con la ruta A* punteada, horas de marcha, hora de
+    llegada y 🌙 si llegarás de noche); segundo clic parte. El reloj
+    cobra las horas, las jornadas cumplidas comen raciones (marcha
+    forzada si no hay), y también se puede acampar en mitad de la nada.
+  · TODO nodo visible con ruta es destino — se acabó "solo vecinos".
+    En campo abierto (`at: campo:x,y`) hay Esperar y Acampar; los nodos
+    conservan sus acciones (taller, explorar, ciudad).
+  · AVISTAMIENTOS: lo oculto entra al mapa al pasar a ≤3 celdas (⚑ en
+    el diario). Explorar es literalmente ANDAR el territorio — la
+    exploración de las ruinas de Prathama hecha geografía (LORE §3).
+  · EVENTOS DE TRAMO (legEvent, extraído de travel() y compartiendo sus
+    mesas): hallazgos, tormentas que te siguen y encrucijadas en las
+    marchas largas; las emboscadas de ruta saltan igual que siempre —
+    verificado VIVO: una marcha de 12 h acabó en emboscada real.
+  · Los transportes interregionales (ferry/lanzadera) siguen como
+    estaban; los puentes rotos mueren como mecánica (el terreno manda).
+  394 tests en verde (8 nuevos del overworld), tsc limpio, golden
+  intacto, verificado en el juego real: terreno pintado, 9 destinos
+  desde un nodo, viaje libre con reloj, ciudad lejana en un clic,
+  avistamiento de la Cripta de Sal y emboscada en ruta.

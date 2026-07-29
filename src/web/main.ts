@@ -57,13 +57,17 @@ import {
   startExpedition, startFreeExpedition, travel, resolveEncounter, edgeKey,
   regionOf, linksFrom, linkDestination, useLink, weatherFor,
   isNodeVisible, isEdgeVisible,
-  advanceHours, hourOf, hoursUntilDawn, ARRIVAL_HOUR,
+  advanceHours, hourOf, hoursUntilDawn, ARRIVAL_HOUR, legEvent,
   type ExpeditionState, type WorldEdge, type WorldRegion,
 } from '../game/expedition.js';
 import {
   emptyTaller, nextAbilityId, nextContractId, sanitizeAbility, sanitizeContract,
   sanitizeTaller, tallerGrantIds, type TallerState,
 } from '../game/taller.js';
+import {
+  buildOverworld, cellOfNode, nodeAtCell, planRoute, spotHiddenNodes,
+  OW_W, OW_H, type Overworld, type OverworldCell, type OverworldTerrain,
+} from '../game/overworld.js';
 import { SALT_PASS_REGION, WORLD_ATLAS } from '../data/world.js';
 import { createSave, describeSave, serializeSave, validateSave, type SaveGame } from '../game/save.js';
 import {
@@ -3975,6 +3979,7 @@ function homeRegion(): WorldRegion {
 
 /** La región activa sigue a la expedición; sin expedición, el cuartel. */
 function syncRegion(): void {
+  owPending = null;
   try {
     REGION = regionOf(WORLD_ATLAS, expedition?.regionId ?? SALT_PASS_REGION.id);
   } catch {
@@ -4037,11 +4042,73 @@ function closeWorld(): void {
   $('world').classList.remove('show');
 }
 
+/** Paleta del territorio: el mundo se LEE de un vistazo. */
+const OW_FILL: Record<OverworldTerrain, string> = {
+  camino: '#5a4f3a',
+  llano: '#2b3d31',
+  arena: '#4d4430',
+  bosque: '#1e4527',
+  abrupto: '#3a3a40',
+  agua: '#1d3a52',
+};
+
+/** Pinta el territorio, la ruta pendiente y la caravana. */
+function drawOverworld(world: Overworld, cur: OverworldCell): void {
+  const canvas = $('world-terrain') as HTMLCanvasElement;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  const cw = canvas.width / OW_W;
+  const ch = canvas.height / OW_H;
+  for (let y = 0; y < OW_H; y++) {
+    for (let x = 0; x < OW_W; x++) {
+      const terrain = world.cells[y * OW_W + x]!;
+      ctx.fillStyle = OW_FILL[terrain];
+      ctx.fillRect(x * cw, y * ch, Math.ceil(cw), Math.ceil(ch));
+      // Textura mínima: el agua brilla, el camino se marca.
+      if (terrain === 'agua') {
+        ctx.fillStyle = 'rgba(120,180,220,0.12)';
+        ctx.fillRect(x * cw + cw * 0.2, y * ch + ch * 0.45, cw * 0.6, 1.5);
+      } else if (terrain === 'camino') {
+        ctx.fillStyle = 'rgba(0,0,0,0.18)';
+        ctx.fillRect(x * cw + cw * 0.3, y * ch + ch * 0.4, cw * 0.4, ch * 0.2);
+      }
+    }
+  }
+  // La ruta pendiente, dibujada paso a paso.
+  if (owPending && expedition) {
+    const route = planRoute(world, cur, owPending.cell);
+    if (route) {
+      ctx.strokeStyle = 'rgba(95,217,164,0.85)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 4]);
+      ctx.beginPath();
+      route.path.forEach((c, i) => {
+        const px = (c.x + 0.5) * cw, py = (c.y + 0.5) * ch;
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      });
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.strokeStyle = 'rgba(95,217,164,0.9)';
+      ctx.strokeRect(owPending.cell.x * cw + 1, owPending.cell.y * ch + 1, cw - 2, ch - 2);
+    }
+  }
+  // La caravana: un rombo con halo, siempre visible.
+  const px = (cur.x + 0.5) * cw, py = (cur.y + 0.5) * ch;
+  ctx.fillStyle = 'rgba(95,217,164,0.25)';
+  ctx.beginPath(); ctx.arc(px, py, Math.max(cw, ch) * 0.9, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#5fd9a4';
+  ctx.beginPath();
+  ctx.moveTo(px, py - ch * 0.45); ctx.lineTo(px + cw * 0.4, py);
+  ctx.lineTo(px, py + ch * 0.45); ctx.lineTo(px - cw * 0.4, py);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = '#0b1216'; ctx.lineWidth = 1.5; ctx.stroke();
+}
+
 function renderWorld(): void {
   if (!campaign || !expedition) return;
   const contract = expeditionContract();
   const target = REGION.nodes.find((n) => n.id === expedition!.targetNodeId)!;
-  const here = REGION.nodes.find((n) => n.id === expedition!.at)!;
+  const here = REGION.nodes.find((n) => n.id === expedition!.at); // undefined = campo abierto
   const discovered = campaign.discovered ?? [];
   const continent = WORLD_ATLAS.continents.find((c) => c.id === REGION.continentId);
   $('world-title').textContent = `${continent ? `${continent.name} · ` : ''}${REGION.name}`;
@@ -4050,54 +4117,39 @@ function renderWorld(): void {
     `Día ${expedition.day} · ${clockLabel()} · ${WEATHER_BADGE[sky]} · suministros ${campaign.supplies} · ⌾${campaign.credits}` +
     (contract ? ` · misión: ${contract.name} → ${target.name}${expedition.missionDone ? ' ✔' : ''}` : '');
 
-  // Tramos como líneas SVG (los rotos, discontinuos).
-  // Tramos: solo los que unen dos lugares YA visibles (los latentes de un
-  // secreto no descubierto no se dibujan).
-  const svg = $('world-svg');
-  svg.innerHTML = REGION.edges.filter((e) => isEdgeVisible(REGION, e, discovered)).map((e) => {
-    const a = REGION.nodes.find((n) => n.id === e.a)!;
-    const b = REGION.nodes.find((n) => n.id === e.b)!;
-    const blocked = expedition!.blockedEdges.includes(edgeKey(e.a, e.b));
-    return `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"${blocked ? ' class="blocked"' : ''}/>`;
-  }).join('');
+  // EL MUNDO ABIERTO: el terreno se pinta, los caminos son geografía y
+  // se viaja pinchando cualquier punto transitable del territorio.
+  const world = buildOverworld(REGION);
+  const cur = caravanCell();
+  $('world-svg').innerHTML = ''; // el grafo dibujado murió: ahora hay terreno
+  drawOverworld(world, cur);
 
-  // Rutas transitables desde aquí. Sin suministros, la tripulación solo
-  // acepta moverse hacia la civilización. Se calcula ANTES de pintar los
-  // nodos para poder marcar en el MAPA cuáles son destino alcanzable.
   const starving = campaign.supplies <= 0;
-  const allowed = starving
-    ? new Set(edgesTowardCivilization(expedition, REGION).map((e) => edgeKey(e.a, e.b)))
-    : null;
-  const reachable = new Map<string, { edge: ReturnType<typeof neighbors>[number]; broken: boolean; locked: boolean; days: number }>();
-  for (const edge of neighbors(REGION, expedition.at)) {
-    const dest = REGION.nodes.find((n) => n.id === otherEnd(edge, expedition!.at))!;
-    if (!isNodeVisible(dest, discovered)) continue;
-    const broken = expedition.blockedEdges.includes(edgeKey(edge.a, edge.b));
-    const locked = allowed !== null && !allowed.has(edgeKey(edge.a, edge.b));
-    reachable.set(dest.id, { edge, broken, locked, days: edge.days + (broken ? 1 : 0) });
-  }
-
-  // Nodos: los ocultos no se dibujan hasta descubrirlos. Un destino
-  // alcanzable se PINCHA directo en el mapa para viajar (equivale a su ruta).
+  // Nodos: los ocultos no se dibujan hasta descubrirlos (o avistarlos al
+  // pasar cerca). TODO nodo visible con ruta es destino: el mundo es uno.
   const nodesHost = $('world-nodes');
   nodesHost.innerHTML = '';
   for (const node of REGION.nodes) {
     if (!isNodeVisible(node, discovered)) continue;
     const el = document.createElement('div');
-    const reach = reachable.get(node.id);
+    const nodeCell = cellOfNode(node);
+    const isHere = node.id === expedition.at;
+    const route = isHere ? null : planRoute(world, cur, nodeCell);
+    const locked = starving && !(node.city || node.id === REGION.hq);
     el.className = 'wnode' +
-      (node.id === expedition.at ? ' cur' : '') +
+      (isHere ? ' cur' : '') +
       (node.id === expedition.targetNodeId && !expedition.missionDone ? ' target' : '') +
       (node.id === REGION.hq ? ' hq' : '') +
       (node.kind === 'ruinas' ? ' ruin' : '') +
-      (reach && !reach.locked ? ' reachable' : reach && reach.locked ? ' locked-node' : '');
-    el.style.left = `${node.x}%`;
-    el.style.top = `${node.y}%`;
-    if (reach && !reach.locked) {
-      el.title = `→ Viajar a ${node.name} · ${reach.days} jornada${reach.days > 1 ? 's' : ''}${reach.broken ? ' · vadear el puente caído' : ''}`;
-      el.addEventListener('click', () => doTravel(reach.edge));
-    } else if (reach && reach.locked) {
-      el.title = 'Sin suministros: solo se aceptan rutas hacia la ciudad más cercana.';
+      (route && !locked ? ' reachable' : route && locked ? ' locked-node' : '');
+    el.style.left = `${((nodeCell.x + 0.5) / OW_W) * 100}%`;
+    el.style.top = `${((nodeCell.y + 0.5) / OW_H) * 100}%`;
+    if (route && !locked) {
+      const eta = (hourOf(expedition) + route.hours) % 24;
+      el.title = `→ Viajar a ${node.name} · ${route.hours} h de marcha · llegada ~${String(eta).padStart(2, '0')}:00${isNightHour(eta) ? ' 🌙' : ''}`;
+      el.addEventListener('click', (event) => { event.stopPropagation(); doTravelTo(nodeCell); });
+    } else if (route && locked) {
+      el.title = 'Sin suministros: la tripulación solo acepta marchar hacia la civilización.';
     } else {
       el.title = node.description;
     }
@@ -4110,20 +4162,17 @@ function renderWorld(): void {
   routes.innerHTML = '';
   if (starving) {
     routes.insertAdjacentHTML('beforeend',
-      '<div class="wwarn">⚠ SIN SUMINISTROS: la tripulación solo acepta rutas hacia la ciudad más cercana.</div>');
+      '<div class="wwarn">⚠ SIN SUMINISTROS: la tripulación solo acepta marchar hacia la civilización.</div>');
   }
-  for (const edge of neighbors(REGION, expedition.at)) {
-    const destination = REGION.nodes.find((n) => n.id === otherEnd(edge, expedition!.at))!;
-    if (!isNodeVisible(destination, discovered)) continue; // destino aún oculto
-    const broken = expedition.blockedEdges.includes(edgeKey(edge.a, edge.b));
-    const locked = allowed !== null && !allowed.has(edgeKey(edge.a, edge.b));
-    const days = edge.days + (broken ? 1 : 0);
-    const btn = document.createElement('button');
-    btn.className = 'wroute' + (locked ? ' locked' : '');
-    btn.disabled = locked;
-    btn.innerHTML = `${locked ? '🔒 ' : broken ? '⛏ ' : '→ '}<b>${destination.name}</b> · ${broken ? 'vadear el puente caído' : edge.flavor} · <span class="cost">${days} jornada${days > 1 ? 's' : ''}</span>`;
-    if (!locked) btn.addEventListener('click', () => doTravel(edge));
-    routes.appendChild(btn);
+  // La cinta de ruta pendiente: el primer clic en el mapa propone, el
+  // segundo parte. Consecuencias por delante, como siempre.
+  if (owPending) {
+    const eta = (hourOf(expedition) + owPending.hours) % 24;
+    const dest = nodeAtCell(REGION, owPending.cell);
+    routes.insertAdjacentHTML('beforeend',
+      `<div class="wribbon">🧭 Marcha a <b>${dest ? dest.name : `(${owPending.cell.x},${owPending.cell.y})`}</b> · ` +
+      `<b>${owPending.hours} h</b> · llegada ~${String(eta).padStart(2, '0')}:00${isNightHour(eta) ? ' 🌙 de noche' : ''} · ` +
+      'las jornadas cumplidas comen raciones · <b>vuelve a pinchar para partir</b></div>');
   }
 
   // Transportes interregionales desde este lugar: caminos, ferris y
@@ -4166,13 +4215,13 @@ function renderWorld(): void {
   }
   if (canExplore(expedition, REGION, discovered)) {
     const explore = document.createElement('button');
-    explore.textContent = here.kind === 'ruinas'
+    explore.textContent = here?.kind === 'ruinas'
       ? (here.secret ? '✦ Registrar la ruina secreta (1 día)' : '🔦 Explorar las ruinas (1 día)')
       : '🧭 Registrar el lugar (1 día)';
     explore.addEventListener('click', doExplore);
     actions.appendChild(explore);
   }
-  if (here.city) {
+  if (here?.city) {
     const enter = document.createElement('button');
     enter.className = 'calm';
     enter.textContent = `🏙 Entrar a ${here.name} (nivel ${here.city.level}${here.city.factory ? ` · fábrica de ${here.city.factory}` : ''})`;
@@ -4888,20 +4937,57 @@ function doExplore(): void {
   saveCampaign(); saveExpedition(); renderWorld();
 }
 
-function doTravel(edge: WorldEdge): void {
+/** Celda actual de la caravana (guardados viejos: derivada del nodo `at`). */
+function caravanCell(): OverworldCell {
+  if (expedition?.pos) return expedition.pos;
+  const node = REGION.nodes.find((n) => n.id === expedition?.at)
+    ?? REGION.nodes.find((n) => n.id === REGION.hq)!;
+  return cellOfNode(node);
+}
+
+/** Ruta pendiente de confirmación en el mapa abierto (segundo clic parte). */
+let owPending: { cell: OverworldCell; hours: number } | null = null;
+
+/**
+ * Marcha por el MUNDO ABIERTO hasta cualquier celda transitable: la ruta
+ * la traza el A*, el coste va en horas (el reloj manda), las jornadas
+ * cumplidas comen raciones y lo oculto se avista al pasar cerca.
+ */
+function doTravelTo(target: OverworldCell): void {
   if (!campaign || !expedition) return;
+  const world = buildOverworld(REGION);
+  const route = planRoute(world, caravanCell(), target);
+  if (!route || route.hours <= 0) return;
+  const destNode = nodeAtCell(REGION, target);
+  // Sin suministros la tripulación solo acepta marchar hacia la civilización.
+  if (campaign.supplies <= 0 && !(destNode && (destNode.city || destNode.id === REGION.hq))) return;
+  owPending = null;
+  const from = expedition.at;
   const dayBefore = expedition.day;
   const stormToll = weatherFor(REGION, dayBefore) === 'sandstorm' ? 1 : 0;
-  const result = travel(expedition, REGION, edge);
-  expedition = { ...result.expedition, hour: ARRIVAL_HOUR };
+  const arrivalName = destNode ? destNode.name : 'campo abierto';
+  passHours(route.hours, `🧭 ${route.hours} horas de marcha hasta ${arrivalName}.`);
   if (stormToll > 0) {
     expedition = {
       ...expedition,
       log: [...expedition.log, `Día ${expedition.day} — 🌪 Viajar bajo la tormenta de arena come raciones: +1 suministro.`],
     };
   }
-  healingDays(expedition.day - dayBefore);
-  const consumed = consumeSupplies(campaign, result.supplyCost + stormToll);
+  expedition = {
+    ...expedition,
+    pos: { ...target },
+    at: destNode ? destNode.id : `campo:${target.x},${target.y}`,
+  };
+  // Avistamientos: lo oculto que queda a la vista entra al mapa para siempre.
+  const spotted = spotHiddenNodes(REGION, target, campaign.discovered ?? []);
+  if (spotted.length > 0) {
+    campaign = { ...campaign, discovered: [...(campaign.discovered ?? []), ...spotted.map((n) => n.id)] };
+    expedition = {
+      ...expedition,
+      log: [...expedition.log, ...spotted.map((n) => `Día ${expedition!.day} — ⚑ Avistamos ${n.name} a lo lejos: queda en el mapa.`)],
+    };
+  }
+  const consumed = consumeSupplies(campaign, (expedition.day - dayBefore) + stormToll);
   campaign = consumed.state;
   if (consumed.shortage > 0) {
     // Marcha forzada: sin suministros, las máquinas sufren (nunca mueren
@@ -4922,15 +5008,27 @@ function doTravel(edge: WorldEdge): void {
       log: [...expedition.log, `⚠ Día ${expedition.day} — Sin suministros: marcha forzada. Máquinas y pilotos sufren.`],
     };
   }
-  if (result.cargo) {
+  // El tramo cuenta su historia: hallazgo, tormenta o encrucijada (solo
+  // en marchas de verdad; un salto corto no da para sorpresas).
+  const ev = route.hours >= 4
+    ? legEvent(expedition, REGION, `${from}->${expedition.at}`)
+    : { event: 'calm' as const, eventText: '' };
+  if (ev.event === 'find' && ev.cargo) {
     const before = campaign.cargo.length;
-    campaign = stashCargo(campaign, result.cargo, CARGO_CAPACITY);
-    if (campaign.cargo.length === before) {
-      expedition = {
-        ...expedition,
-        log: [...expedition.log, `⚠ La bodega está llena: hubo que dejar ${result.cargo.name} atrás.`],
-      };
-    }
+    campaign = stashCargo(campaign, ev.cargo, CARGO_CAPACITY);
+    expedition = {
+      ...expedition,
+      log: [...expedition.log, campaign.cargo.length === before
+        ? `⚠ La bodega está llena: hubo que dejar ${ev.cargo.name} atrás.`
+        : `Día ${expedition.day} — ${ev.eventText}`],
+    };
+  }
+  if (ev.event === 'storm' && ev.forcedWeather) {
+    expedition = {
+      ...expedition,
+      forcedWeather: ev.forcedWeather,
+      log: [...expedition.log, `Día ${expedition.day} — ${ev.eventText}`],
+    };
   }
   saveCampaign();
   saveExpedition();
@@ -4938,8 +5036,8 @@ function doTravel(edge: WorldEdge): void {
 
   // Encrucijada: la ruta pregunta, el jugador responde, y solo entonces
   // se aplican las consecuencias (todas anunciadas en el botón).
-  if (result.encounter) {
-    const encounter = result.encounter;
+  if (ev.event === 'encounter' && ev.encounter) {
+    const encounter = ev.encounter;
     void uiChoice(encounter.prompt, encounter.options).then((optionId) => {
       if (!campaign || !expedition) return;
       const dayBeforeChoice = expedition.day;
@@ -6442,6 +6540,25 @@ $('night-btn').addEventListener('click', () => {
   try { localStorage.setItem('gea-night', sandboxNight ? '1' : '0'); } catch { /* privado */ }
   $('night-btn').classList.toggle('on', sandboxNight);
   restart(); // consecuencia anunciada: reinicia la escaramuza con la noche
+});
+$('world-terrain').addEventListener('click', (event) => {
+  if (!campaign || !expedition || !worldOpen) return;
+  const canvas = $('world-terrain') as HTMLCanvasElement;
+  const rect = canvas.getBoundingClientRect();
+  const cell = {
+    x: Math.max(0, Math.min(OW_W - 1, Math.floor(((event.clientX - rect.left) / rect.width) * OW_W))),
+    y: Math.max(0, Math.min(OW_H - 1, Math.floor(((event.clientY - rect.top) / rect.height) * OW_H))),
+  };
+  const world = buildOverworld(REGION);
+  if (owPending && owPending.cell.x === cell.x && owPending.cell.y === cell.y) {
+    doTravelTo(cell); // segundo clic: la marcha parte
+    return;
+  }
+  const route = planRoute(world, caravanCell(), cell);
+  const destNode = nodeAtCell(REGION, cell);
+  const locked = campaign.supplies <= 0 && !(destNode && (destNode.city || destNode.id === REGION.hq));
+  owPending = route && route.hours > 0 && !locked ? { cell, hours: route.hours } : null;
+  renderWorld();
 });
 $('st-taller').addEventListener('click', openTaller);
 $('taller-close').addEventListener('click', closeTaller);
