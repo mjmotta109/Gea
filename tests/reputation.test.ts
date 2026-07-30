@@ -87,20 +87,26 @@ describe('encrucijadas morales: decisiones con testigos', () => {
 
   it('no todo son 3 opciones: hay encuentros de 2, de 3 y de 4', () => {
     // Caza determinista: claves y TRAMOS distintos (cada bioma tiene su
-    // propia piscina de encuentros) hasta ver los cuatro tipos.
+    // propia piscina de encuentros) hasta ver los clásicos y algún rescate.
     const optionsByKind: Record<string, number> = {};
-    for (let i = 0; i < 400 && Object.keys(optionsByKind).length < 4; i++) {
+    for (let i = 0; i < 400 && Object.keys(optionsByKind).length < 7; i++) {
       for (const edge of SALT_PASS_REGION.edges) {
         const probe = { ...startFreeExpedition(SALT_PASS_REGION, `var-${i}`), at: edge.a };
         const result = travel(probe, SALT_PASS_REGION, edge);
         if (result.encounter) optionsByKind[result.encounter.kind] = result.encounter.options.length;
       }
     }
-    expect(Object.keys(optionsByKind).sort()).toEqual(['caravana', 'manada', 'peaje', 'perdido']);
+    for (const classic of ['caravana', 'manada', 'peaje', 'perdido']) {
+      expect(Object.keys(optionsByKind)).toContain(classic);
+    }
     expect(optionsByKind['manada']).toBe(2);
     expect(optionsByKind['caravana']).toBe(3);
     expect(optionsByKind['perdido']).toBe(3);
     expect(optionsByKind['peaje']).toBe(4);
+    // Los rescates asoman rara vez, pero asoman — y siempre con salida.
+    const rescues = Object.keys(optionsByKind).filter((k) => k.startsWith('rescate-'));
+    expect(rescues.length).toBeGreaterThan(0);
+    for (const kind of rescues) expect(optionsByKind[kind]).toBeGreaterThanOrEqual(2);
     const distinct = new Set(Object.values(optionsByKind));
     expect(distinct.size).toBeGreaterThanOrEqual(3); // 2, 3 y 4: variedad real
   });

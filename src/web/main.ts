@@ -68,6 +68,11 @@ import {
   buildOverworld, cellOfNode, nodeAtCell, planRoute, spotHiddenNodes,
   OW_W, OW_H, type Overworld, type OverworldCell, type OverworldTerrain,
 } from '../game/overworld.js';
+import {
+  agencyRecruits, MAX_PILOTS, QUALITY_LABELS, recruitPilot, rescueBounty,
+  rescueOpposition, rescuePilot, RESCUE_TIERS, tavernRecruits, walkInApplicant,
+  type RecruitOffer,
+} from '../game/barracks.js';
 import { SALT_PASS_REGION, WORLD_ATLAS } from '../data/world.js';
 import { createSave, describeSave, serializeSave, validateSave, type SaveGame } from '../game/save.js';
 import {
@@ -201,46 +206,55 @@ function loadGarage(): SlotConfig[] {
   }
 }
 
+/** Reconstruye un piloto guardado validando cada campo (guardados viejos incluidos). */
+function sanitizePilot(raw: Partial<PilotState> | undefined, id: string, fallbackName: string): PilotState {
+  const pilot = newPilot(id, typeof raw?.name === 'string' && raw.name.trim() ? raw.name : fallbackName);
+  for (const spec of Object.keys(pilot.tracks) as SpecializationId[]) {
+    const xp = raw?.tracks?.[spec];
+    if (typeof xp === 'number' && xp >= 0) pilot.tracks[spec] = Math.round(xp);
+  }
+  if (Array.isArray(raw?.quirks)) pilot.quirks = raw.quirks.filter((q) => typeof q === 'string');
+  if (raw?.memory && typeof raw.memory === 'object') pilot.memory = { ...raw.memory };
+  if (typeof raw?.stress === 'number') pilot.stress = Math.max(0, Math.min(100, Math.round(raw.stress)));
+  if (typeof raw?.injuryDays === 'number') pilot.injuryDays = Math.max(0, Math.round(raw.injuryDays));
+  // Árbol nuevo: guardados de antes reciben la básica (un cuarto de lo
+  // vivido) y sus especializaciones (la dominante + la segunda real).
+  if (typeof raw?.basics === 'number' && raw.basics >= 0) {
+    pilot.basics = Math.round(raw.basics);
+  } else {
+    const total = SPECIALIZATIONS.reduce((n, s) => n + pilot.tracks[s], 0);
+    pilot.basics = Math.round(total * 0.25);
+  }
+  if (raw?.mainSpec && SPECIALIZATIONS.includes(raw.mainSpec)) {
+    pilot.mainSpec = raw.mainSpec;
+    if (raw.sideSpec && SPECIALIZATIONS.includes(raw.sideSpec) && raw.sideSpec !== raw.mainSpec) {
+      pilot.sideSpec = raw.sideSpec;
+    }
+  } else {
+    const total = SPECIALIZATIONS.reduce((n, s) => n + pilot.tracks[s], 0);
+    if (total > 0) {
+      const sorted = [...SPECIALIZATIONS].sort((a, b) => pilot.tracks[b] - pilot.tracks[a]);
+      pilot.mainSpec = sorted[0];
+      if (pilot.tracks[sorted[1]!] > 0) pilot.sideSpec = sorted[1];
+    } // novato de verdad: elegirá en el cuartel
+  }
+  return pilot;
+}
+
 function loadPilots(): Record<string, PilotState> {
   const pilots: Record<string, PilotState> = {};
   let stored: Record<string, PilotState> = {};
   try {
     stored = JSON.parse(localStorage.getItem(PILOTS_KEY) ?? '{}') as Record<string, PilotState>;
   } catch { /* almacenamiento corrupto: pilotos nuevos */ }
+  // Los cuatro fundadores existen siempre; los RECLUTAS (rec-*) del
+  // cuartel vuelven del almacén tal como firmaron.
   PILOT_IDS.forEach((id, i) => {
-    const raw = stored[id];
-    const pilot = newPilot(id, typeof raw?.name === 'string' && raw.name.trim() ? raw.name : DEFAULT_PILOT_NAMES[i]!);
-    for (const spec of Object.keys(pilot.tracks) as SpecializationId[]) {
-      const xp = raw?.tracks?.[spec];
-      if (typeof xp === 'number' && xp >= 0) pilot.tracks[spec] = Math.round(xp);
-    }
-    if (Array.isArray(raw?.quirks)) pilot.quirks = raw.quirks.filter((q) => typeof q === 'string');
-    if (raw?.memory && typeof raw.memory === 'object') pilot.memory = { ...raw.memory };
-    if (typeof raw?.stress === 'number') pilot.stress = Math.max(0, Math.min(100, Math.round(raw.stress)));
-    if (typeof raw?.injuryDays === 'number') pilot.injuryDays = Math.max(0, Math.round(raw.injuryDays));
-    // Árbol nuevo: guardados de antes reciben la básica (un cuarto de lo
-    // vivido) y sus especializaciones (la dominante + la segunda real).
-    if (typeof raw?.basics === 'number' && raw.basics >= 0) {
-      pilot.basics = Math.round(raw.basics);
-    } else {
-      const total = SPECIALIZATIONS.reduce((n, s) => n + pilot.tracks[s], 0);
-      pilot.basics = Math.round(total * 0.25);
-    }
-    if (raw?.mainSpec && SPECIALIZATIONS.includes(raw.mainSpec)) {
-      pilot.mainSpec = raw.mainSpec;
-      if (raw.sideSpec && SPECIALIZATIONS.includes(raw.sideSpec) && raw.sideSpec !== raw.mainSpec) {
-        pilot.sideSpec = raw.sideSpec;
-      }
-    } else {
-      const total = SPECIALIZATIONS.reduce((n, s) => n + pilot.tracks[s], 0);
-      if (total > 0) {
-        const sorted = [...SPECIALIZATIONS].sort((a, b) => pilot.tracks[b] - pilot.tracks[a]);
-        pilot.mainSpec = sorted[0];
-        if (pilot.tracks[sorted[1]!] > 0) pilot.sideSpec = sorted[1];
-      } // novato de verdad: elegirá en el cuartel
-    }
-    pilots[id] = pilot;
+    pilots[id] = sanitizePilot(stored[id], id, DEFAULT_PILOT_NAMES[i]!);
   });
+  for (const [id, raw] of Object.entries(stored)) {
+    if (id.startsWith('rec-') && !pilots[id]) pilots[id] = sanitizePilot(raw, id, 'Recluta');
+  }
   return pilots;
 }
 
@@ -251,6 +265,43 @@ let sandboxNight = ((): boolean => {
 
 let garage: SlotConfig[] = loadGarage();
 let pilots: Record<string, PilotState> = loadPilots();
+
+// ── El crew: quién tripula cada hueco (el resto espera en el banquillo) ──
+
+const CREW_KEY = 'gea-crew-v1';
+
+function loadCrew(): string[] {
+  let stored: unknown[] = [];
+  try {
+    stored = JSON.parse(localStorage.getItem(CREW_KEY) ?? '[]') as unknown[];
+  } catch { /* privado o corrupto: crew fundador */ }
+  const seen = new Set<string>();
+  const crew: string[] = [];
+  for (let slot = 0; slot < PILOT_IDS.length; slot++) {
+    const candidate = stored[slot];
+    let id = typeof candidate === 'string' && pilots[candidate] && !seen.has(candidate)
+      ? candidate : undefined;
+    // Hueco inválido o repetido: el primer fundador libre lo cubre.
+    id ??= PILOT_IDS.find((p) => !seen.has(p)) ?? PILOT_IDS[slot]!;
+    seen.add(id);
+    crew.push(id);
+  }
+  return crew;
+}
+
+let crew: string[] = loadCrew();
+
+function saveCrew(): void {
+  try { localStorage.setItem(CREW_KEY, JSON.stringify(crew)); } catch { /* privado */ }
+}
+
+/** Piloto asignado a un hueco del roster (0-3). */
+function crewId(slot: number): string {
+  return crew[slot] ?? PILOT_IDS[slot] ?? PILOT_IDS[0];
+}
+function crewPilot(slot: number): PilotState {
+  return pilots[crewId(slot)] ?? pilots[PILOT_IDS[0]]!;
+}
 
 function saveGarage(): void {
   try { localStorage.setItem(GARAGE_KEY, JSON.stringify(garage)); } catch { /* privado */ }
@@ -608,7 +659,7 @@ function startBattle(
     // escenario (W1, el carguero) no llevan piloto.
     pilots: Object.fromEntries(
       spawns.filter((s) => s.team === 'player' && /^P\d+$/.test(s.id))
-        .map((s) => [s.id, pilots[PILOT_IDS[Number(s.id.slice(1)) - 1]!]!])),
+        .map((s) => [s.id, crewPilot(Number(s.id.slice(1)) - 1)])),
     perkTable: PERKS,
   });
   allEvents = [];
@@ -622,7 +673,7 @@ function startBattle(
     spawns: JSON.parse(JSON.stringify(spawns)) as UnitSpawn[],
     pilots: JSON.parse(JSON.stringify(Object.fromEntries(
       spawns.filter((s) => s.team === 'player' && /^P\d+$/.test(s.id))
-        .map((s) => [s.id, pilots[PILOT_IDS[Number(s.id.slice(1)) - 1]!]!])))) as Record<string, PilotState>,
+        .map((s) => [s.id, crewPilot(Number(s.id.slice(1)) - 1)])))) as Record<string, PilotState>,
     ...(brief.objective ? { objective: brief.objective } : {}),
     ...(brief.reinforcements ? { reinforcements: brief.reinforcements } : {}),
   };
@@ -1374,7 +1425,7 @@ function schoolAbilityIds(pilot: PilotState): string[] {
 /** Habilidades extra del hueco al desplegar: las de escuela del piloto
  *  más las otorgadas por el taller de contenido. */
 function grantedAbilityIds(slot: number): string[] {
-  return [...schoolAbilityIds(pilots[PILOT_IDS[slot]!]!), ...tallerGrantIds(taller, slot)];
+  return [...schoolAbilityIds(crewPilot(slot)), ...tallerGrantIds(taller, slot)];
 }
 
 /** Modificadores del núcleo propio al desplegar una no-compañera. */
@@ -1806,6 +1857,13 @@ function renderPreview(): void {
           else if (after >= heat.max * 0.7) lines.push('<div class="pv-warn">⚠ calor alto tras el disparo: puntería degradada</div>');
         }
       }
+      // ¿Va a devolver el golpe? El riesgo de reacción, cantado antes de tirar.
+      const counter = battle.counterForecast(unit.id, mode.abilityId, cursor);
+      if (counter) {
+        lines.push(counter.risk === 'contraataque'
+          ? `<div class="pv-danger">⚠ si sobrevive, CONTRAATACA: ${counter.abilityName} · ${counter.chance}% · ${counter.min}–${counter.max} daño</div>`
+          : `<div class="pv-good">✓ no reaccionará: ${counter.reason}</div>`);
+      }
       lines.push(pending && samePosition(pending, cursor)
         ? '<div class="pv-confirm">pulsa E / clic de nuevo para DISPARAR</div>'
         : '<div class="pv-muted">E / clic: seleccionar objetivo</div>');
@@ -1834,6 +1892,10 @@ function renderPreview(): void {
     if (unit && occupant.team !== unit.team) {
       const arc = attackArc(unit.position, occupant.position, occupant.facing);
       lines.push(`<div class="pv-muted">desde tu posición lo atacarías por: <b>${ARC_LABEL[arc]}</b></div>`);
+      // Estado de su reacción: se pelea mejor sabiendo si el perro muerde.
+      lines.push(occupant.reactionReady
+        ? '<div class="pv-warn">reacción LISTA: pegarse o despegarse puede costar un tiro</div>'
+        : '<div class="pv-good">reacción gastada esta ronda</div>');
     }
   }
   if (unit && (mode.kind === 'move' || mode.kind === 'boost')) {
@@ -1844,6 +1906,10 @@ function renderPreview(): void {
       lines.push(shots
         ? `<div class="pv-good">⌖ a tiro desde aquí: ${shots.join(' · ')}</div>`
         : '<div class="pv-muted">sin enemigos a tiro desde esta casilla</div>');
+      const watchers = battle.opportunityRisk(unit.id, cursor);
+      if (watchers.length > 0) {
+        lines.push(`<div class="pv-danger">⚠ despegarse hasta aquí provoca tiro de oportunidad: ${watchers.map((w) => w.id).join(' · ')}</div>`);
+      }
     }
   }
   el.innerHTML = lines.join('');
@@ -1882,7 +1948,7 @@ function pilotOfUnit(unit: UnitState): PilotState | undefined {
   if (replayActive) return replayData?.pilots[unit.id];
   const match = /^P(\d+)$/.exec(unit.id);
   if (!match) return undefined;
-  const pilotId = PILOT_IDS[Number(match[1]) - 1];
+  const pilotId = crew[Number(match[1]) - 1];
   return pilotId ? pilots[pilotId] : undefined;
 }
 
@@ -2605,7 +2671,7 @@ function showOverlay(): void {
 function renderXpSummary(): string {
   if (!xpAwarded) {
     xpAwarded = true;
-    const roster = Object.fromEntries(PLAYER_IDS.map((id, i) => [id, PILOT_IDS[i]!]));
+    const roster = Object.fromEntries(PLAYER_IDS.map((id, i) => [id, crewId(i)]));
     const survivors = new Set(battle.units.filter((u) => u.hp > 0).map((u) => u.id));
     const gains = awardXp(allEvents, roster, unitTeams, startPositions, battle.winner, survivors);
     const before: Record<string, Record<string, number>> = {};
@@ -2620,7 +2686,7 @@ function renderXpSummary(): string {
     const playerUnits = battle.units.filter((u) => u.team === 'player' && /^P\d+$/.test(u.id));
     const alliesLostTotal = playerUnits.filter((u) => u.hp <= 0).length;
     for (const unit of playerUnits) {
-      const pilotId = PILOT_IDS[Number(unit.id.slice(1)) - 1];
+      const pilotId = crew[Number(unit.id.slice(1)) - 1];
       const pilot = pilotId ? pilots[pilotId] : undefined;
       if (!pilot) continue;
       const ratio = unit.hp / Math.max(1, battle.effectiveStats(unit).maxHp);
@@ -2642,7 +2708,7 @@ function renderXpSummary(): string {
     savePilots();
 
     const lines: string[] = [...quirkLines];
-    for (const pilotId of PILOT_IDS) {
+    for (const pilotId of crew) {
       const pilot = pilots[pilotId]!;
       const own = gains.filter((g) => g.pilotId === pilotId);
       if (own.length === 0) continue;
@@ -2772,7 +2838,7 @@ function renderGarage(): void {
 
   garage.forEach((config, index) => {
     const def = ZOIDS[config.unitTypeId]!;
-    const pilotId = PILOT_IDS[index]!;
+    const pilotId = crewId(index);
     const pilot = pilots[pilotId]!;
     const card = document.createElement('div');
     card.className = 'gcard';
@@ -2973,7 +3039,7 @@ function campaignMaxHp(slot: number): number {
   const zoid = campaign!.roster[slot]!;
   const stats = previewStats(
     { unitTypeId: zoid.unitTypeId, weapons: zoid.weapons, slots: zoid.slots },
-    PILOT_IDS[slot]!,
+    crewId(slot),
   );
   return stats?.maxHp ?? ZOIDS[zoid.unitTypeId]!.stats.maxHp;
 }
@@ -3078,7 +3144,7 @@ function renderAssignments(): void {
   for (const assignment of active) {
     const spec = ASSIGNMENT_SPECS.find((sp) => sp.id === assignment.specId);
     if (!spec) continue;
-    const pilot = pilots[PILOT_IDS[assignment.slot]!]!;
+    const pilot = pilots[crewId(assignment.slot)]!;
     const card = document.createElement('div');
     card.className = 'acard';
     const pct = Math.round((assignment.daysDone / assignment.totalDays) * 100);
@@ -3111,7 +3177,7 @@ function renderAssignments(): void {
       btn.textContent = '✔ Recibir al destacamento';
       btn.addEventListener('click', () => {
         if (!campaign) return;
-        const pilotId = PILOT_IDS[assignment.slot]!;
+        const pilotId = crewId(assignment.slot);
         const levels = activePilotLevels(pilots[pilotId]!);
         const report = finishAssignment(assignment, spec, levels);
         campaign = {
@@ -3153,14 +3219,14 @@ function renderAssignments(): void {
     const candidates = campaign!.roster
       .map((zoid, slot) => ({ zoid, slot }))
       .filter(({ zoid, slot }) => slot > 0 && !zoid.destroyed &&
-        !isInjured(pilots[PILOT_IDS[slot]!]!) && !assignmentOf(slot));
+        !isInjured(crewPilot(slot)) && !assignmentOf(slot));
     const btn = document.createElement('button');
     btn.textContent = candidates.length > 0 ? '📡 Destacar piloto…' : 'sin pilotos disponibles';
     btn.disabled = candidates.length === 0;
     btn.addEventListener('click', () => {
       void uiChoice(`¿A quién destacas? ${spec.name} (${spec.days} jornadas). Su máquina se va con él: no despliega hasta volver.`,
         candidates.map(({ zoid, slot }) => {
-          const pilot = pilots[PILOT_IDS[slot]!]!;
+          const pilot = crewPilot(slot);
           const levels = SPECIALIZATIONS.reduce((n, t) => n + trackLevel(pilot.tracks[t]), 0);
           return {
             id: String(slot),
@@ -3174,7 +3240,7 @@ function renderAssignments(): void {
           ...campaign,
           assignments: [...(campaign.assignments ?? []), startAssignment(spec, slot, `${spec.id}|${Date.now()}`)],
         };
-        chronicle(`📡 ${pilots[PILOT_IDS[slot]!]!.name} parte destacado: ${spec.name} (${spec.days} jornadas).`);
+        chronicle(`📡 ${crewPilot(slot).name} parte destacado: ${spec.name} (${spec.days} jornadas).`);
         saveCampaign();
         renderMerc();
       });
@@ -3246,7 +3312,7 @@ function renderMercHangar(): void {
   host.innerHTML = '';
   campaign!.roster.forEach((zoid, slot) => {
     const def = ZOIDS[zoid.unitTypeId]!;
-    const pilot = pilots[PILOT_IDS[slot]!]!;
+    const pilot = crewPilot(slot);
     const maxHp = campaignMaxHp(slot);
     const card = document.createElement('div');
     card.className = 'gcard';
@@ -3493,7 +3559,7 @@ function renderMercHangar(): void {
       // Stats en vivo con las piezas actuales.
       const stats = previewStats(
         { unitTypeId: zoid.unitTypeId, weapons: zoid.weapons, slots: zoid.slots },
-        PILOT_IDS[slot]!,
+        crewId(slot),
       );
       if (stats) {
         const statsBox = document.createElement('div');
@@ -3573,9 +3639,9 @@ function partyCandidates(): Array<{ slot: number; label: string; detail: string 
   return campaign!.roster
     .map((zoid, slot) => ({ zoid, slot }))
     .filter(({ zoid, slot }) => slot > 0 && !zoid.destroyed &&
-      !isInjured(pilots[PILOT_IDS[slot]!]!) && !assignmentOf(slot))
+      !isInjured(crewPilot(slot)) && !assignmentOf(slot))
     .map(({ zoid, slot }) => {
-      const pilot = pilots[PILOT_IDS[slot]!]!;
+      const pilot = crewPilot(slot);
       return {
         slot,
         label: `${pilot.name} — ${ZOIDS[zoid.unitTypeId]!.name}`,
@@ -3726,7 +3792,7 @@ function settleContract(): string {
   if (campaign) {
     for (const slot of deployedSlots) {
       const unit = battle.units.find((u) => u.id === `P${slot + 1}`);
-      const pilotId = PILOT_IDS[slot];
+      const pilotId = crew[slot];
       if (!unit || !pilotId || unit.hp > 0) continue;
       // Eyectar a tiempo salva al piloto: 1 jornada frente a 3.
       const days = unit.ejected ? 1 : 3;
@@ -3907,6 +3973,8 @@ const SKIRMISH_SALVAGE = 30;
  */
 function settleSkirmish(): string {
   activeSkirmish = false;
+  const rescue = pendingRescue;
+  pendingRescue = null;
   passHours(3, '⏱ El combate consumió 3 horas.');
   returnToWorld = true; returnToMerc = false;
   if (!campaign) return '';
@@ -3932,7 +4000,7 @@ function settleSkirmish(): string {
   const injured: string[] = [];
   for (const slot of deployedSlots) {
     const u = battle.units.find((x) => x.id === `P${slot + 1}`);
-    const pilotId = PILOT_IDS[slot];
+    const pilotId = crew[slot];
     if (!u || !pilotId || u.hp > 0) continue;
     const days = u.ejected ? 1 : 3;
     pilots[pilotId] = adjustStress(injurePilot(pilots[pilotId]!, days), u.ejected ? 8 : 15);
@@ -3944,14 +4012,28 @@ function settleSkirmish(): string {
   if (loot > 0) campaign = { ...campaign, credits: campaign.credits + loot };
   saveCampaign();
   if (expedition) {
+    const deed = rescue
+      ? (won ? '⚔ Rescate cumplido' : '⚠ Rescate fallido')
+      : (won ? '⚔ Emboscada rechazada' : '⚠ Emboscada: mal trago');
     expedition = {
       ...expedition,
       log: [...expedition.log,
-        `Día ${expedition.day} — ${won ? '⚔ Emboscada rechazada' : '⚠ Emboscada: mal trago'} en la ruta${loot > 0 ? ` · saqueo ⌾${loot}` : ''}.`],
+        `Día ${expedition.day} — ${deed} en la ruta${loot > 0 ? ` · saqueo ⌾${loot}` : ''}.`],
     };
     saveExpedition();
   }
-  const lines = [`<div><b>Emboscada en la ruta</b> — chusma de bandidos</div>`];
+  const lines = rescue
+    ? [`<div><b>Rescate en la ruta</b> — ${RESCUE_TIERS[rescue.tier].label}</div>`]
+    : [`<div><b>Emboscada en la ruta</b> — chusma de bandidos</div>`];
+  if (rescue && won) {
+    const saved = rescuePilot(rescue.key, rescue.tier);
+    joinRescued(rescue.tier, rescue.key);
+    lines.push(pilots[saved.id]
+      ? `<div class="mgain">🪖 ${escapeHtml(saved.name)} (${QUALITY_LABELS[saved.quality]}) se alista con la compañía — está en el banquillo</div>`
+      : `<div class="mgain">🪙 Sin sitio en plantilla: su gremio salda la deuda (+⌾${rescueBounty(rescue.tier)})</div>`);
+  } else if (rescue) {
+    lines.push('<div class="mloss">El piloto quedó atrás. Nadie habla de ello en cabina.</div>');
+  }
   lines.push(won
     ? `<div class="mgain">+⌾${loot} de saqueo · los pilotos curten galones (XP abajo)</div>`
     : `<div class="mloss">Replegados: las máquinas vuelven tocadas.</div>`);
@@ -4403,6 +4485,10 @@ function cityDoorArt(key: string, accent: string): string {
       <path d="M12 13 v5 h5 v-5 Z" fill="none" stroke="${A}" stroke-width="1.3"/>
       <path d="M17 14 h2 v2 h-2" fill="none" stroke="${A}"/>
       <circle cx="14" cy="22" r="1.4" fill="${A}" opacity="0.7"/>`,
+    '🏛 Agencia': `<rect x="5" y="12" width="30" height="14" fill="#141d26" stroke="#2c3d4c"/>
+      <path d="M4 12 L20 4 L36 12 Z" fill="#1a252f" stroke="#2c3d4c"/>
+      <g stroke="#2c3d4c" stroke-width="2"><path d="M9 26 v-11 M15 26 v-11 M21 26 v-11 M27 26 v-11 M33 26 v-11"/></g>
+      <rect x="17" y="7" width="6" height="3" fill="${A}" opacity="0.5"/>`,
     '🧭 Formación': `<rect x="7" y="8" width="26" height="18" rx="2" fill="#141d26" stroke="#2c3d4c"/>
       <path d="M11 26 V6 l7 3 -7 3" fill="none" stroke="${A}" stroke-width="1.4"/>
       <g fill="#0c2b31" stroke="${A}" stroke-width="0.5" transform="translate(16 13) scale(0.55)">
@@ -4422,6 +4508,7 @@ function cityDoors(city: { level: number; factory?: string }): Array<{ key: stri
   if (city.factory === 'armas') doors.push({ key: '🏭 Fábrica', icon: '🏭', name: 'Fábrica de armas', sub: 'armamento con descuento local' });
   if (city.factory === 'piezas') doors.push({ key: '🏭 Fábrica', icon: '🏭', name: 'Fábrica de piezas', sub: 'planos de módulos' });
   if (city.level >= 2) doors.push({ key: '🏗 Fabricación', icon: '🏗', name: 'Fabricación de Zoids', sub: 'encargar chasis con retoma' });
+  if (city.level >= 2) doors.push({ key: '🏛 Agencia', icon: '🏛', name: 'Agencia de Colocación', sub: 'pilotos certificados del Estado' });
   doors.push(
     { key: '🔧 Modificación', icon: '🔧', name: 'Modificación', sub: 'tunear armas y módulos' },
     { key: '😴 Descansos', icon: '😴', name: 'Descansos', sub: 'pensión, desahogos y consultorio' },
@@ -4478,7 +4565,7 @@ function passHours(hours: number, note?: string): void {
 function healingDays(days: number): void {
   if (days <= 0) return;
   let changed = false;
-  for (const id of PILOT_IDS) {
+  for (const id of Object.keys(pilots)) {
     const healed = healInjury(pilots[id]!, days);
     if (healed !== pilots[id]) { pilots[id] = healed; changed = true; }
   }
@@ -4757,7 +4844,7 @@ function renderCity(): void {
   // la compañera. No se bloquea por estar tranquilos — solo por el bolsillo.
   const restDay = (relief: number, cost: number, line: string): void => {
     campaign = { ...campaign!, credits: campaign!.credits - cost };
-    for (const id of PILOT_IDS) pilots[id] = adjustStress(pilots[id]!, -relief);
+    for (const id of Object.keys(pilots)) pilots[id] = adjustStress(pilots[id]!, -relief);
     cityDay(1, line);
     savePilots(); saveCampaign();
   };
@@ -4781,7 +4868,7 @@ function renderCity(): void {
             cost = Math.round(cost * 1.5);
             line += ' La ronda se alargó: la cuenta también.';
           }
-          for (const id of PILOT_IDS) {
+          for (const id of Object.keys(pilots)) {
             const marked = recordPilotEvent(pilots[id]!, 'parrandas', PERKS);
             pilots[id] = marked.pilot;
             for (const quirk of marked.gained) line += ` ${pilots[id]!.name} vuelve con la manía ${quirk.name}.`;
@@ -4791,7 +4878,7 @@ function renderCity(): void {
       });
   }
   if (city.level >= THERAPY.minLevel) {
-    for (const pilotId of PILOT_IDS) {
+    for (const pilotId of Object.keys(pilots)) {
       const pilot = pilots[pilotId]!;
       for (const quirkId of pilot.quirks ?? []) {
         const quirk = PERKS.quirks?.[quirkId];
@@ -4837,6 +4924,36 @@ function renderCity(): void {
       !campaign.roster.some((z) => !z.destroyed),
       () => fightTavernBattle(job, node.id));
   }
+
+  // Pilotos de barra: gente sin verificar que se alquila entre jarras.
+  // Con la clientela en contra (hostil/odiado) nadie firma con los tuyos.
+  if (!standing || (standing.id !== 'odiado' && standing.id !== 'hostil')) {
+    const barRecruits = tavernRecruits(node.id, city.level, campaign.contractsDone)
+      .filter((offer) => !pilots[offer.id]);
+    for (const offer of barRecruits) {
+      tavern.appendChild(recruitCard(offer, `taberna de ${node.name}`, renderCity));
+    }
+    if (barRecruits.length === 0) {
+      tavern.insertAdjacentHTML('beforeend',
+        '<div class="cnote">Nadie busca contrato en la barra este ciclo.</div>');
+    }
+  }
+
+  // 🏛 AGENCIA DE COLOCACIÓN — pilotos con expediente del Estado (nivel 2+).
+  if (city.level >= 2) {
+    const agency = citySection('🏛 Agencia de Colocación del Estado');
+    agency.insertAdjacentHTML('beforeend',
+      '<div class="cnote">La oficina estatal coloca pilotos certificados: caros, formados y con el expediente en regla. El sello no dice para quién informan.</div>');
+    const official = agencyRecruits(node.id, city.level, campaign.contractsDone)
+      .filter((offer) => !pilots[offer.id]);
+    for (const offer of official) {
+      agency.appendChild(recruitCard(offer, `agencia de ${node.name}`, renderCity));
+    }
+    if (official.length === 0) {
+      agency.insertAdjacentHTML('beforeend',
+        '<div class="cnote">✓ Sin expedientes disponibles este ciclo. Vuelva usted mañana.</div>');
+    }
+  }
 }
 
 /** El trabajo no oficial: un combate local, aquí y ahora. */
@@ -4846,7 +4963,7 @@ function fightTavernBattle(job: Contract, nodeId: string): void {
   const alive = campaign.roster
     .map((zoid, slot) => ({ zoid, slot }))
     .filter(({ zoid, slot }) => party.includes(slot) && !zoid.destroyed &&
-      !isInjured(pilots[PILOT_IDS[slot]!]!) && !assignmentOf(slot));
+      !isInjured(crewPilot(slot)) && !assignmentOf(slot));
   if (alive.length === 0) return;
   const node = REGION.nodes.find((n) => n.id === nodeId)!;
   let field = generatedField(`${job.id}|${nodeId}|${expedition.day}`, job.tier);
@@ -4931,7 +5048,7 @@ function doExplore(): void {
     }
   }
   if (result.stressDelta > 0) {
-    for (const id of PILOT_IDS) pilots[id] = adjustStress(pilots[id]!, result.stressDelta);
+    for (const id of Object.keys(pilots)) pilots[id] = adjustStress(pilots[id]!, result.stressDelta);
     savePilots();
   }
   saveCampaign(); saveExpedition(); renderWorld();
@@ -5001,7 +5118,7 @@ function doTravelTo(target: OverworldCell): void {
         return { ...zoid, hp };
       }),
     };
-    for (const id of PILOT_IDS) pilots[id] = adjustStress(pilots[id]!, 5 * consumed.shortage);
+    for (const id of Object.keys(pilots)) pilots[id] = adjustStress(pilots[id]!, 5 * consumed.shortage);
     savePilots();
     expedition = {
       ...expedition,
@@ -5051,7 +5168,7 @@ function doTravelTo(target: OverworldCell): void {
         campaign = consumeSupplies(campaign, -outcome.supplyDelta).state;
       }
       if (outcome.stressDelta !== 0) {
-        for (const id of PILOT_IDS) pilots[id] = adjustStress(pilots[id]!, outcome.stressDelta);
+        for (const id of Object.keys(pilots)) pilots[id] = adjustStress(pilots[id]!, outcome.stressDelta);
         savePilots();
       }
       if (outcome.cargo) {
@@ -5069,6 +5186,16 @@ function doTravelTo(target: OverworldCell): void {
       }
       saveCampaign();
       saveExpedition();
+      // RESCATE de piloto: con combate se lanza la batalla del tier
+      // anunciado (el recluta llega al vencer, vía settleSkirmish); sin
+      // combate (se pagó su libertad), firma en el acto.
+      if (outcome.rescue) {
+        if (outcome.rescue.fight) {
+          startRescueBattle(outcome.rescue.tier, encounter.id);
+          return;
+        }
+        joinRescued(outcome.rescue.tier, encounter.id);
+      }
       renderWorld();
     });
   } else {
@@ -5151,7 +5278,7 @@ function fightExpeditionBattle(): void {
   const alive = campaign.roster
     .map((zoid, slot) => ({ zoid, slot }))
     .filter(({ zoid, slot }) => party.includes(slot) && !zoid.destroyed &&
-      !isInjured(pilots[PILOT_IDS[slot]!]!) && !assignmentOf(slot));
+      !isInjured(crewPilot(slot)) && !assignmentOf(slot));
   if (alive.length === 0) return;
 
   // El lugar elige el mapa: un mapa del editor con el nombre del nodo
@@ -5314,19 +5441,35 @@ function maybeAmbush(): void {
   startTravelBattle(rng);
 }
 
-/** Monta y lanza la batalla de emboscada (sin contrato). */
-function startTravelBattle(rng: () => number): void {
+/**
+ * Rescate PENDIENTE de la escaramuza en curso: al vencerla, el piloto
+ * salvado se alista (settleSkirmish lo liquida). En memoria a propósito:
+ * una batalla abandonada a media carga no debe dejar deudas fantasma.
+ */
+let pendingRescue: { tier: 1 | 2 | 3; key: string } | null = null;
+
+/** Monta y lanza la batalla de emboscada (sin contrato). Con `opts`, la
+ *  misma maquinaria sirve para los combates de RESCATE (escuadra y sesera
+ *  del tier anunciado). */
+function startTravelBattle(
+  rng: () => number,
+  opts?: { enemies: string[]; aiSkill: number; briefing: string },
+): void {
   if (!campaign || !expedition) return;
   const party = expedition.party ?? [0, 1, 2, 3];
   const alive = campaign.roster
     .map((zoid, slot) => ({ zoid, slot }))
     .filter(({ zoid, slot }) => party.includes(slot) && !zoid.destroyed &&
-      !isInjured(pilots[PILOT_IDS[slot]!]!) && !assignmentOf(slot));
+      !isInjured(crewPilot(slot)) && !assignmentOf(slot));
   if (alive.length === 0) return; // nadie puede pelear: no hay emboscada
 
   const field = generatedField(`ambush|${expedition.at}|${expedition.day}`, 'escolta');
-  const count = Math.min(2 + (rng() < 0.5 ? 0 : 1), field.enemyPos.length); // 2-3 grunts
-  const enemies = Array.from({ length: count }, () => AMBUSH_POOL[Math.floor(rng() * AMBUSH_POOL.length)]!);
+  const count = opts
+    ? Math.min(opts.enemies.length, field.enemyPos.length)
+    : Math.min(2 + (rng() < 0.5 ? 0 : 1), field.enemyPos.length); // 2-3 grunts
+  const enemies = opts
+    ? opts.enemies.slice(0, count)
+    : Array.from({ length: count }, () => AMBUSH_POOL[Math.floor(rng() * AMBUSH_POOL.length)]!);
 
   const spawns: UnitSpawn[] = [
     ...alive.map(({ zoid, slot }, k) => {
@@ -5372,10 +5515,57 @@ function startTravelBattle(rng: () => number): void {
   const seed = 0x5EED ^ (expedition.day * 97 + alive.length * 13 + count);
   const weather = expedition.forcedWeather ?? weatherFor(REGION, expedition.day);
   startBattle(spawns, seed, weather, field.map, {
-    aiSkill: 0.15, // flojos y BOBOS: cada uno a lo suyo, sin coordinar ni vigilar
+    // Sin opts: flojos y BOBOS (cada uno a lo suyo, sin coordinar ni vigilar).
+    aiSkill: opts?.aiSkill ?? 0.15,
     night: expeditionNight(),
-    briefing: 'Emboscada: una chusma de bandidos corta la ruta. Despáchalos — los pilotos curten galones.',
+    briefing: opts?.briefing
+      ?? 'Emboscada: una chusma de bandidos corta la ruta. Despáchalos — los pilotos curten galones.',
   });
+}
+
+/** Lanza el combate de un RESCATE: la escuadra y la sesera del tier
+ *  anunciado en el botón. Al vencer, settleSkirmish alista al salvado. */
+function startRescueBattle(tier: 1 | 2 | 3, key: string): void {
+  if (!campaign || !expedition) return;
+  pendingRescue = { tier, key };
+  const opposition = rescueOpposition(key, tier);
+  startTravelBattle(seededRng(`rescate|${key}`), {
+    enemies: opposition.squad,
+    aiSkill: opposition.aiSkill,
+    briefing: `Rescate: ${RESCUE_TIERS[tier].label} entre el piloto y tú. Despéjalos y se alista con la compañía.`,
+  });
+  // Si nadie pudo desplegar (todos heridos/destacados), no hay rescate.
+  if (!activeSkirmish) pendingRescue = null;
+}
+
+/** El piloto rescatado firma (o, sin sitio, su gremio salda la deuda). */
+function joinRescued(tier: 1 | 2 | 3, key: string): void {
+  if (!campaign) return;
+  const offer = rescuePilot(key, tier);
+  const refusal = hireRecruit(offer, 'rescate en ruta');
+  if (refusal === null) {
+    if (expedition) {
+      expedition = {
+        ...expedition,
+        log: [...expedition.log,
+          `Día ${expedition.day} — 🪖 ${offer.name} (${QUALITY_LABELS[offer.quality]}) se alista: te debe la vida. Espera en el banquillo.`],
+      };
+      saveExpedition();
+    }
+  } else {
+    const bounty = rescueBounty(tier);
+    campaign = { ...campaign, credits: campaign.credits + bounty };
+    chronicle(`🪙 ${offer.name} no cabe en plantilla (${refusal}); su gremio salda la deuda del rescate: +⌾${bounty}.`);
+    saveCampaign();
+    if (expedition) {
+      expedition = {
+        ...expedition,
+        log: [...expedition.log,
+          `Día ${expedition.day} — 🪙 Sin sitio en plantilla: la deuda de ${offer.name} se salda con ⌾${bounty}.`],
+      };
+      saveExpedition();
+    }
+  }
 }
 
 /** Cierra la expedición en el taller: vende la bodega y abre el cuartel. */
@@ -5590,11 +5780,24 @@ function closePilots(): void {
 function renderPilots(hostId = 'pilots-body'): void {
   const host = $(hostId);
   host.innerHTML = '';
-  for (const pilotId of PILOT_IDS) {
+  // El ASPIRANTE del ciclo: a veces alguien llama a la puerta del cuartel.
+  if (hostId === 'merc-pilots' && campaign) {
+    const offer = walkInApplicant(campaign.contractsDone);
+    if (offer && !pilots[offer.id] && !dismissedApplicants().includes(offer.id)) {
+      host.appendChild(applicantCard(offer, hostId));
+    }
+  }
+  // Primero la tripulación asignada (P1-P4), después el banquillo.
+  const bench = Object.keys(pilots).filter((id) => !crew.includes(id)).sort();
+  for (const pilotId of [...crew, ...bench]) {
     const pilot = pilots[pilotId]!;
+    const slot = crew.indexOf(pilotId);
     const card = document.createElement('div');
     card.className = 'pcard';
-    card.innerHTML = `<h3>${escapeHtml(pilot.name)}` +
+    const seatTag = slot >= 0
+      ? `<span class="gtag">P${slot + 1}${slot === 0 ? ' ★' : ''}</span> `
+      : '<span class="gtag" style="opacity:.55">🪑 banquillo</span> ';
+    card.innerHTML = `<h3>${seatTag}${escapeHtml(pilot.name)}` +
       (isInjured(pilot) ? `<span class="symptom">🩹 herido: ${pilot.injuryDays} jornada${pilot.injuryDays! > 1 ? 's' : ''}</span>` : '') +
       (pilot.mainSpec
         ? `<span class="dom">★ ${SPEC_LABEL[pilot.mainSpec]}${pilot.sideSpec ? ` · ☆ ${SPEC_LABEL[pilot.sideSpec]}` : ''}</span>`
@@ -5705,8 +5908,133 @@ function renderPilots(hostId = 'pilots-body'): void {
       quirksBox.appendChild(chip);
     }
     card.appendChild(quirksBox);
+
+    // Relevos: un piloto del banquillo puede tomar cualquier silla (y el
+    // relevado pasa al banquillo). Los huecos destacados no se tocan.
+    if (slot < 0) {
+      const swap = document.createElement('button');
+      swap.className = 'gbtn';
+      swap.textContent = '⇄ Asignar a una máquina';
+      swap.addEventListener('click', () => {
+        void uiChoice(`${pilot.name} — ¿qué hueco toma? (el piloto relevado pasa al banquillo)`,
+          crew.map((currentId, i) => ({ id: String(i), slot: i, currentId }))
+            .filter(({ slot: i }) => !campaign || !assignmentOf(i))
+            .map(({ id, slot: i, currentId }) => ({
+              id,
+              label: `P${i + 1}${i === 0 ? ' ★' : ''} — releva a ${pilots[currentId]?.name ?? currentId}`,
+              detail: isInjured(pilots[currentId]!) ? '🩹 el titular está de baja' : 'titular operativo',
+            }))).then((choice) => {
+          const target = Number(choice);
+          if (!Number.isInteger(target) || target < 0 || target >= crew.length) return;
+          crew = crew.map((id, i) => (i === target ? pilotId : id));
+          saveCrew();
+          renderPilots(hostId);
+        });
+      });
+      card.appendChild(swap);
+    }
     host.appendChild(card);
   }
+}
+
+// ── Reclutamiento: taberna, agencia, rescates y aspirantes ───────────────
+
+const DISMISSED_KEY = 'gea-aspirantes-v1';
+
+function dismissedApplicants(): string[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(DISMISSED_KEY) ?? '[]') as unknown[];
+    return raw.filter((x): x is string => typeof x === 'string');
+  } catch { return []; }
+}
+
+/** Cabecera corta de una oferta: calidad + escuela + origen. */
+function offerBadge(offer: RecruitOffer): string {
+  const quality = QUALITY_LABELS[offer.quality] ?? 'novato';
+  const spec = offer.spec ? ` · ★ ${SPEC_LABEL[offer.spec]}` : '';
+  return `${quality.toUpperCase()}${spec}`;
+}
+
+/**
+ * Firma a un recluta: cobra la prima, lo mete en plantilla y lo deja en
+ * el BANQUILLO (asignarlo a una máquina es decisión aparte). Devuelve el
+ * motivo del rechazo, o null si firmó.
+ */
+function hireRecruit(offer: RecruitOffer, source: string): string | null {
+  if (pilots[offer.id]) return 'ya está en plantilla';
+  if (Object.keys(pilots).length >= MAX_PILOTS) return `plantilla completa (${MAX_PILOTS})`;
+  if (offer.fee > 0) {
+    if (!campaign || campaign.credits < offer.fee) return `faltan créditos (⌾${offer.fee})`;
+    campaign = { ...campaign, credits: campaign.credits - offer.fee };
+  }
+  pilots = { ...pilots, [offer.id]: recruitPilot(offer) };
+  savePilots();
+  if (campaign) {
+    chronicle(`🪖 ${offer.name} se alista (${source}${offer.fee > 0 ? `, prima ⌾${offer.fee}` : ''}). ${offer.blurb}`);
+    saveCampaign();
+  }
+  playSfx('click');
+  return null;
+}
+
+/** Carta de oferta de recluta con botón de firma (taberna/agencia). */
+function recruitCard(offer: RecruitOffer, source: string, rerender: () => void): HTMLElement {
+  const card = document.createElement('div');
+  card.className = 'pcard';
+  const full = Object.keys(pilots).length >= MAX_PILOTS;
+  const hired = Boolean(pilots[offer.id]);
+  card.innerHTML =
+    `<h3>${escapeHtml(offer.name)}<span class="dom">${offerBadge(offer)}</span></h3>` +
+    `<div class="gmuted" style="font-size:11px">${escapeHtml(offer.blurb)}</div>`;
+  const btn = document.createElement('button');
+  btn.className = 'gbtn';
+  if (hired) {
+    btn.textContent = '✓ En plantilla';
+    btn.disabled = true;
+  } else {
+    btn.textContent = offer.fee > 0 ? `✍ Contratar — prima ⌾${offer.fee}` : '✍ Alistar (gratis)';
+    btn.disabled = full || (offer.fee > 0 && (!campaign || campaign.credits < offer.fee));
+    if (full) btn.title = `Plantilla completa (${MAX_PILOTS}): nadie más cabe en la caravana.`;
+    btn.addEventListener('click', () => {
+      const refusal = hireRecruit(offer, source);
+      if (refusal === null) rerender();
+    });
+  }
+  card.appendChild(btn);
+  return card;
+}
+
+/** Carta del aspirante espontáneo del cuartel (aceptar o despedir). */
+function applicantCard(offer: RecruitOffer, hostId: string): HTMLElement {
+  const card = document.createElement('div');
+  card.className = 'pcard';
+  card.style.borderColor = 'var(--accent)';
+  card.innerHTML =
+    `<h3>🚪 ${escapeHtml(offer.name)} pide alistarse<span class="dom">${offerBadge(offer)}</span></h3>` +
+    `<div class="gmuted" style="font-size:11px">${escapeHtml(offer.blurb)}</div>`;
+  const row = document.createElement('div');
+  const accept = document.createElement('button');
+  accept.className = 'gbtn';
+  accept.textContent = '✍ Alistar (gratis, al banquillo)';
+  accept.disabled = Object.keys(pilots).length >= MAX_PILOTS;
+  if (accept.disabled) accept.title = `Plantilla completa (${MAX_PILOTS}).`;
+  accept.addEventListener('click', () => {
+    if (hireRecruit(offer, 'aspirante') === null) renderPilots(hostId);
+  });
+  const reject = document.createElement('button');
+  reject.className = 'gbtn';
+  reject.textContent = '→ Despedir con buenas palabras';
+  reject.addEventListener('click', () => {
+    try {
+      localStorage.setItem(DISMISSED_KEY,
+        JSON.stringify([...dismissedApplicants(), offer.id].slice(-40)));
+    } catch { /* privado */ }
+    renderPilots(hostId);
+  });
+  row.appendChild(accept);
+  row.appendChild(reject);
+  card.appendChild(row);
+  return card;
 }
 
 // ── Editor de mapas ──────────────────────────────────────────────────────
@@ -5782,7 +6110,7 @@ function renderTallerPersonajes(body: HTMLElement): void {
     '<div class="tnote">Los cambios tocan a TU tripulación viva (se guardan al pulsar Aplicar). La escuela secundaria rinde al 60%; la XP en pistas no elegidas alimenta la básica.</div>');
   const grid = document.createElement('div');
   grid.className = 'tgrid';
-  PILOT_IDS.forEach((pilotId, slot) => {
+  crew.forEach((pilotId, slot) => {
     const pilot = pilots[pilotId]!;
     const card = document.createElement('div');
     card.className = 'tcard';
@@ -5920,7 +6248,7 @@ function renderTallerHabilidades(body: HTMLElement): void {
       `${tallerInput('incendia (turnos)', 'ignites', ability.ignites ?? 0, 'min="0" max="4"')}` +
       `<label>apunta a aliados <input type="checkbox" data-f="allies"${ability.targetsAllies ? ' checked' : ''}></label></div>` +
       effectRow(0, ability.effects[0]) + effectRow(1, ability.effects[1]) + effectRow(2, ability.effects[2]) +
-      `<div class="trow">otorgada a: ${PILOT_IDS.map((pid, slot) =>
+      `<div class="trow">otorgada a: ${crew.map((pid, slot) =>
         `<label>${escapeHtml(pilots[pid]!.name)} <input type="checkbox" data-f="grant-${slot}"${grants.includes(slot) ? ' checked' : ''}></label>`).join('')}</div>` +
       '<div class="trow"><button class="tbtn accent" data-a="save">✔ Guardar</button>' +
       '<button class="tbtn danger" data-a="del">✕ Borrar</button></div>';
@@ -5941,7 +6269,7 @@ function renderTallerHabilidades(body: HTMLElement): void {
         effects: readEffects(card),
       }, ability.id);
       taller.abilities[ability.id] = updated;
-      const slots = PILOT_IDS.map((_, slot) => slot)
+      const slots = crew.map((_, slot) => slot)
         .filter((slot) => (card.querySelector(`[data-f="grant-${slot}"]`) as HTMLInputElement).checked);
       if (slots.length > 0) taller.grants[ability.id] = slots;
       else delete taller.grants[ability.id];
@@ -6351,6 +6679,7 @@ function foundCompany(): void {
       freshPilots[id] = newPilot(id, value || DEFAULT_PILOT_NAMES[i]!);
     });
     localStorage.setItem(PILOTS_KEY, JSON.stringify(freshPilots));
+    localStorage.removeItem(CREW_KEY);
     const founded = newCampaign(ECONOMY, factoryLoadout, {
       credits: diff.credits,
       supplies: diff.supplies,

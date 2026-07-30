@@ -1632,3 +1632,55 @@ arquitectura del motor van en DESIGN.md.)*
   verificado byte-idéntico en doble regeneración. 398 tests en verde
   (4 nuevos de la ley: tope anunciado, el golpe absurdo no mata desde
   casco entero, el segundo sí, pronóstico acotado).
+- **2026-07-30** — EL CUARTEL DE PILOTOS ("quiero que sea posible reclutar
+  gente: en el bar, una agencia gubernamental, salvarlos en eventos —haz
+  varios, extra dificultad mejor piloto— o que aparezcan solicitando").
+  La compañía deja de ser cuatro sillas fijas: hay PLANTILLA (hasta 8) y
+  BANQUILLO, y se decide quién tripula cada máquina.
+  · EL CREW (cliente): cada hueco P1-P4 tiene su piloto ASIGNADO
+    ('gea-crew-v1'); el resto espera en el banquillo, viaja con la
+    caravana (descansa, se estresa y se cura como todos) y RELEVA en el
+    cuartel — un herido ya no bloquea su máquina: se sienta otro.
+  · CUATRO VÍAS (game/barracks.ts, puro y determinista):
+    1. TABERNA — gente sin verificar, barata, por (ciudad, ciclo); la
+       capital siempre tiene a alguien con horas de cabina.
+    2. AGENCIA DE COLOCACIÓN (ciudades nivel 2+, puerta propia en la
+       plaza) — pilotos certificados del Estado: caros, formados, y "el
+       sello no dice para quién informan" (Sarvatantra sin decirlo:
+       LORE §2 — la vigilancia entra en tu nómina; veta futura).
+    3. RESCATES EN RUTA (3 encrucijadas nuevas): el cerco al repetidor
+       (combate fácil → CURTIDO), el convoy-prisión de los clanes
+       (combate duro o 4 suministros → VETERANO; asaltarlo cuesta
+       Chatarreros −10) y la cabina de élite entre carroñeros (combate
+       MUY duro → AS). La regla pedida es LEY: el tier del combate ES la
+       calidad del recluta, y el riesgo va anunciado en el botón. Sin
+       sitio en plantilla, su gremio salda la deuda en créditos.
+    4. ASPIRANTES — tras cerrar contratos, a veces alguien llama a la
+       puerta del cuartel (determinista por ciclo; la fama sube la
+       probabilidad). Gratis: se acepta o se despide.
+  · CALIDADES novato/curtido/veterano/as: XP de firma por debajo del
+    umbral siguiente (llegan hechos pero con carrera); los de oficio
+    llegan con su escuela YA elegida. Nombres/frases PROVISIONALES
+    (RENOMBRES-safe, la dirección repoblará con LORE.md).
+  · Guardados viejos migran solos: fundadores intactos, crew por
+    defecto, reclutas (rec-*) del almacén.
+- **2026-07-30** — EL PRONÓSTICO DE REACCIÓN ("dame más info del enemigo
+  antes de atacarlo: que sepa si hay riesgo de que reaccione o no").
+  El contraataque dejaba de ser sorpresa solo después de comértelo.
+  · counterForecast (motor): espeja EXACTAMENTE las condiciones de
+    reactionStrike (adyacencia, reacción lista, ni aturdido ni
+    suprimido, arma pagable a bocajarro) y estima el tiro instintivo
+    con la MISMA cuenta de puntería del disparo real (hitContext con la
+    orientación PREVISTA tras encarar) al 60% de potencia y con la ley
+    del casco. Solo lectura: cero azar consumido, golden intacto.
+  · opportunityRisk (motor): quiénes te clavarían el tiro de
+    oportunidad si te despegas hasta esa casilla.
+  · UI: el pronóstico de disparo añade UNA línea — "⚠ si sobrevive,
+    CONTRAATACA: arma · % · daño" o "✓ no reaccionará: <motivo>" —, la
+    carta del enemigo en reposo canta "reacción LISTA/gastada", y el
+    modo mover avisa del tiro de oportunidad antes de pisar la casilla.
+  409 tests en verde (11 nuevos: 5 del pronóstico, 6 del cuartel),
+  golden intacto, verificado VIVO con Playwright: banquillo y relevo en
+  el cuartel, aspirante alistado, taberna y agencia contratando en
+  Espejo del Norte, y el pronóstico cantando "no reaccionará: fuera de
+  su alcance de reacción" junto al daño.

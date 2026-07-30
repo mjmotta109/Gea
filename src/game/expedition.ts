@@ -419,7 +419,8 @@ export interface EncounterOption {
 export interface Encounter {
   /** Clave determinista (contrato|tramo|día): rehacer no cambia nada. */
   id: string;
-  kind: 'caravana' | 'manada' | 'perdido' | 'peaje' | 'chatarra';
+  kind: 'caravana' | 'manada' | 'perdido' | 'peaje' | 'chatarra'
+    | 'rescate-cerco' | 'rescate-convoy' | 'rescate-as';
   prompt: string;
   options: EncounterOption[];
 }
@@ -433,6 +434,13 @@ export interface EncounterOutcome {
   cargo?: CargoItem;
   /** Quién se entera y qué le parece (facción → delta de reputación). */
   reputation?: Array<{ factionId: string; delta: number }>;
+  /**
+   * RESCATE de piloto: si `fight`, el cliente lanza el combate del tier
+   * anunciado y el piloto se alista SOLO al vencer; sin `fight`, se
+   * alista en el acto (se pagó su libertad). La calidad del recluta es
+   * el tier (src/game/barracks.ts): a más riesgo, mejor piloto.
+   */
+  rescue?: { tier: 1 | 2 | 3; fight: boolean };
   text: string;
 }
 
@@ -477,6 +485,29 @@ const ENCOUNTERS: Record<Encounter['kind'], { prompt: string; options: Encounter
       { id: 'nada', label: '→ No es asunto nuestro', detail: 'sin coste; el desierto decide' },
     ],
   },
+  // Rescates de PILOTO: el riesgo anunciado ES la calidad del recluta.
+  'rescate-cerco': {
+    prompt: 'Una máquina ligera aguanta acorralada contra un repetidor caído. Los bandidos cierran el cerco sin prisa: la quieren entera.',
+    options: [
+      { id: 'combate', label: '⚔ Romper el cerco', detail: 'COMBATE contra chusma de bandidos; si vences, esa piloto CURTIDA se alista (gratis)' },
+      { id: 'seguir', label: '→ Seguir de largo', detail: 'sin coste; el cerco se cierra solo' },
+    ],
+  },
+  'rescate-convoy': {
+    prompt: 'Un convoy-prisión de los clanes arrastra una jaula-cabina. Dentro, un piloto con galones borrados a lija golpea los barrotes.',
+    options: [
+      { id: 'combate', label: '⚔ Asaltar el convoy', detail: 'COMBATE DURO; si vences, un VETERANO se alista (gratis); Chatarreros −10' },
+      { id: 'pagar', label: '📦 Comprar su libertad', detail: 'suministros −4; el VETERANO se alista sin sangre' },
+      { id: 'seguir', label: '→ No es asunto nuestro', detail: 'sin coste; los clanes cobran sus deudas' },
+    ],
+  },
+  'rescate-as': {
+    prompt: 'Una cabina de élite derribada emite en frecuencia cifrada. Los carroñeros ya han olido el metal: llegan en columna, y no vienen a ayudar.',
+    options: [
+      { id: 'combate', label: '⚔ Plantarse ante los carroñeros', detail: 'COMBATE MUY DURO; si vences, un AS se alista (gratis)' },
+      { id: 'seguir', label: '→ No meterse', detail: 'sin coste; nadie sabrá que pasaste de largo' },
+    ],
+  },
 };
 
 /**
@@ -490,12 +521,21 @@ const BIOME_ENCOUNTERS: Record<EdgeBiome, Encounter['kind'][]> = {
   sierra: ['peaje', 'peaje', 'perdido', 'caravana'],
 };
 
+/** Mesa base sin rescates (los rescates entran por su propia tirada). */
+const COMMON_ENCOUNTERS: Encounter['kind'][] = ['caravana', 'manada', 'perdido', 'peaje', 'chatarra'];
+
 function pickEncounterKind(
   biome: EdgeBiome | undefined,
   continentId: string,
   rand: () => number,
 ): Encounter['kind'] {
-  const base = biome ? BIOME_ENCOUNTERS[biome] : (Object.keys(ENCOUNTERS) as Encounter['kind'][]);
+  // Los RESCATES de piloto asoman rara vez, en cualquier tramo: 1 de
+  // cada 6 encrucijadas. El cerco es lo común; el as, un golpe de suerte.
+  if (rand() < 1 / 6) {
+    const roll = rand();
+    return roll < 0.5 ? 'rescate-cerco' : roll < 0.85 ? 'rescate-convoy' : 'rescate-as';
+  }
+  const base = biome ? BIOME_ENCOUNTERS[biome] : COMMON_ENCOUNTERS;
   // En El Hierro la chatarra aflora por todas partes: entra al reparto.
   const pool = continentId === 'hierro' ? [...base, 'chatarra', 'chatarra'] as Encounter['kind'][] : base;
   return pool[Math.floor(rand() * pool.length)]!;
@@ -596,6 +636,35 @@ export function resolveEncounter(
         expedition: stamp(0, 'Le dejamos agua y las señas del siguiente pozo. Se pierde en el reflejo del sol.'),
         supplyDelta: -1, stressDelta: -4,
         text: 'Suministros −1. Esta noche se duerme mejor (estrés −4).',
+      };
+    case 'rescate-cerco|combate':
+      return {
+        expedition: stamp(0, 'Viramos hacia el repetidor caído: el cerco de los bandidos se rompe o nos rompe.'),
+        supplyDelta: 0, stressDelta: 0,
+        rescue: { tier: 1, fight: true },
+        text: 'Motores a tope hacia el cerco. Lo que pase ahora se decide a tiros.',
+      };
+    case 'rescate-convoy|combate':
+      return {
+        expedition: stamp(0, 'Cortamos el paso al convoy-prisión. Los clanes no olvidan a quien les roba una deuda.'),
+        supplyDelta: 0, stressDelta: 0,
+        rescue: { tier: 2, fight: true },
+        reputation: [{ factionId: 'chatarreros', delta: -10 }],
+        text: 'El convoy frena y despliega escolta. Chatarreros −10: esto no se paga con disculpas.',
+      };
+    case 'rescate-convoy|pagar':
+      return {
+        expedition: stamp(0, 'Cuatro cajas de raciones y celdas cambian de manos. La jaula se abre sin una palabra.'),
+        supplyDelta: -4, stressDelta: 0,
+        rescue: { tier: 2, fight: false },
+        text: 'Suministros −4. El veterano sale de la jaula, se estira, y pregunta cuál es su máquina.',
+      };
+    case 'rescate-as|combate':
+      return {
+        expedition: stamp(0, 'Nos plantamos entre la cabina derribada y la columna de carroñeros. Nadie se hace el sorprendido.'),
+        supplyDelta: 0, stressDelta: 0,
+        rescue: { tier: 3, fight: true },
+        text: 'Los carroñeros despliegan en abanico. Vienen en serio: lo saben valioso.',
       };
     default:
       return {

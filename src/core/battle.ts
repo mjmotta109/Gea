@@ -732,13 +732,19 @@ export class Battle {
    * ÚNICO cálculo de probabilidad de impacto del motor — resolución y
    * preview no pueden divergir.
    */
-  private hitContext(user: UnitState, victim: UnitState, ability: AbilityDefinition): {
+  private hitContext(
+    user: UnitState,
+    victim: UnitState,
+    ability: AbilityDefinition,
+    /** Orientación PREVISTA del defensor (pronósticos); ausente = la actual. */
+    victimFacing?: UnitState['facing'],
+  ): {
     chance: number;
     arc: AttackArc;
     cover: number;
     weatherPenalty: number;
   } {
-    const arc = attackArc(user.position, victim.position, victim.facing);
+    const arc = attackArc(user.position, victim.position, victimFacing ?? victim.facing);
     const cover = TERRAIN_COVER[this.map.tileAt(victim.position).terrain];
     // Contra bestias multi-casilla cuenta la casilla ocupada más cercana.
     const dist = footprintDistance(user.position, user.size, victim.position, victim.size);
@@ -801,6 +807,82 @@ export class Battle {
       chance, min: Math.min(range.min, cap), max: Math.min(range.max, cap),
       arc, heightAdvantage, cover, weatherPenalty,
     };
+  }
+
+  /**
+   * Pronóstico de CONTRAATAQUE: si atacas a ese objetivo desde donde
+   * estás, ¿te va a devolver el golpe? Espeja las condiciones exactas de
+   * reactionStrike (adyacencia, reacción lista, ni aturdido ni suprimido,
+   * arma pagable a bocajarro) y estima el tiro instintivo (60% de
+   * potencia, ley del casco incluida). El arco supone que el atacante
+   * queda ENCARADO al objetivo (como hace executeAbility). undefined si
+   * el objetivo no es un enemigo o la habilidad no hace daño.
+   */
+  counterForecast(unitId: string, abilityId: string, target: Position):
+    | { risk: 'contraataque'; abilityId: string; abilityName: string; chance: number; min: number; max: number }
+    | { risk: 'no'; reason: string }
+    | undefined {
+    const unit = this.unit(unitId);
+    const victim = this.unitAt(target);
+    if (!victim || victim.team === unit.team) return undefined;
+    const ability = this.abilityOf(abilityId);
+    if (!ability.effects.some((e) => e.kind === 'damage')) return undefined;
+
+    if (footprintDistance(victim.position, victim.size, unit.position, unit.size) !== 1) {
+      return { risk: 'no', reason: 'fuera de su alcance de reacción' };
+    }
+    if (!victim.reactionReady) return { risk: 'no', reason: 'reacción ya gastada esta ronda' };
+    if (hasStatus(victim, 'stunned')) return { risk: 'no', reason: 'máquina aturdida' };
+    if (hasStatus(victim, 'suprimido')) return { risk: 'no', reason: 'fijada por fuego de supresión' };
+
+    const counterId = this.knownAbilityIds(victim).find((id) => {
+      const a = this.abilityOf(id);
+      if (!a.effects.some((e) => e.kind === 'damage')) return false;
+      if (a.minRange > 1) return false;
+      return this.checkVetoes({
+        type: 'ability', unitId: victim.id, abilityId: id, target: unit.position,
+      }) === null;
+    });
+    if (!counterId) return { risk: 'no', reason: 'sin arma lista a bocajarro' };
+
+    const counter = this.abilityOf(counterId);
+    const damaging = counter.effects.find((e) => e.kind === 'damage')!;
+    if (damaging.kind !== 'damage') return { risk: 'no', reason: 'sin arma lista a bocajarro' };
+    // Tras disparar quedarás encarado al objetivo: el contraataque suele
+    // entrarte de frente. Se calcula con esa orientación prevista.
+    const facing = samePos(unit.position, target) ? unit.facing : facingTowards(unit.position, target);
+    const arc = attackArc(victim.position, unit.position, facing);
+    const attackerStats = this.effectiveStats(victim);
+    const myStats = this.effectiveStats(unit);
+    // La MISMA cuenta de puntería que usará el tiro real (clima, dispersión,
+    // vadeo, cobertura...); solo el arco es el previsto tras encararte.
+    const { chance } = this.hitContext(victim, unit, counter, facing);
+    const range = damageRange({
+      attackerStats,
+      defenderStats: myStats,
+      power: Math.round(damaging.power * Battle.REACTION_POWER_MULT),
+      damageType: damaging.damageType,
+      arc,
+      heightAdvantage:
+        this.map.tileAt(victim.position).height - this.map.tileAt(unit.position).height,
+    });
+    const cap = maxHitCap(myStats.maxHp);
+    return {
+      risk: 'contraataque', abilityId: counterId, abilityName: counter.name,
+      chance, min: Math.min(range.min, cap), max: Math.min(range.max, cap),
+    };
+  }
+
+  /**
+   * Riesgo de tiros de OPORTUNIDAD al moverse a `to`: los enemigos en
+   * contacto con reacción lista que dispararían si te despegas. Vacío si
+   * el movimiento no provoca (quedarse pegado no regala nada).
+   */
+  opportunityRisk(unitId: string, to: Position): UnitState[] {
+    const unit = this.unit(unitId);
+    return this.opportunityWatchers(unit).filter((w) =>
+      footprintDistance(w.position, w.size, to, unit.size) > 1 &&
+      !hasStatus(w, 'stunned') && !hasStatus(w, 'suprimido'));
   }
 
   // ── Ejecución de acciones ──────────────────────────────────────────────
