@@ -101,6 +101,22 @@ function baseDamage(input: DamageInput): number {
 }
 
 /**
+ * LA LEY DEL CASCO: ningún impacto limpio mata a una máquina entera.
+ * Un golpe directo inflige como MUCHO esta fracción del casco máximo
+ * del objetivo — por sano que estés, el primer golpe te deja ventana
+ * para reaccionar (retirarte, curarte, eyectar); el segundo sí mata.
+ * Es simétrica (tus armas tampoco borran de un tiro) y se refleja en
+ * el pronóstico: consecuencia anunciada. El daño acumulado, el fuego y
+ * la caída de módulos quedan fuera: la ley es del IMPACTO.
+ */
+export const MAX_HIT_FRACTION = 0.7;
+
+/** Tope de daño de un golpe directo contra un casco de `maxHp`. */
+export function maxHitCap(maxHp: number): number {
+  return Math.max(1, Math.floor(maxHp * MAX_HIT_FRACTION));
+}
+
+/**
  * Fórmula de daño del motor: baseDamage con varianza ±10%.
  */
 export function computeDamage(input: DamageInput, rng: Rng): number {

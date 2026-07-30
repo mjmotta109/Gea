@@ -102,7 +102,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
       // Buff (2026-07-08): explorador aéreo frágil de pega floja; +HP y +evasión
       // para que aguante (no dejar un hueco nuevo al reforzar los otros voladores).
       maxHp: 100, atk: 30, energyAtk: 35, def: 15, energyDef: 20,
-      speed: 15, move: 7, jump: 99, evade: 28, accuracy: 0,
+      speed: 15, move: 7, jump: 99, evade: 33, accuracy: 0,
     },
     abilityIds: ['shock-cannon', 'stun-blade'],
     frame: [
@@ -120,7 +120,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
     role: 'support',
     moveType: 'ground',
     stats: {
-      maxHp: 140, atk: 20, energyAtk: 15, def: 45, energyDef: 35,
+      maxHp: 140, atk: 28, energyAtk: 15, def: 45, energyDef: 35,
       speed: 10, move: 4, jump: 1, evade: 5, accuracy: 0,
     },
     abilityIds: ['repair-drones', 'smoke-discharger', 'e-shield'],
@@ -204,7 +204,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
     // Nerf (2026-07-09): con el daño localizado su autocañón gemelo lo subió a
     // ~61% (castiga bien las piezas frágiles). atk 40→37: sigue siendo un
     // cerrador fuerte, dentro de banda.
-    stats: { maxHp: 105, atk: 37, energyAtk: 32, def: 30, energyDef: 24, speed: 14, move: 5, jump: 2, evade: 14, accuracy: 0 },
+    stats: { maxHp: 105, atk: 33, energyAtk: 32, def: 30, energyDef: 24, speed: 13, move: 5, jump: 2, evade: 14, accuracy: 0 },
     abilityIds: ['bite-crush'],
     weapons: ['lib-w-twin-autocannon'],
     aiProfile: { aggression: 0.65, selfPreservation: 0.45, riskTolerance: 0.55 },
@@ -212,7 +212,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
   'iron-kong': {
     id: 'iron-kong', name: 'Iron Kong', role: 'tank', moveType: 'ground',
     weightClass: 'extrapesado',
-    stats: { maxHp: 190, atk: 58, energyAtk: 35, def: 48, energyDef: 38, speed: 9, move: 3, jump: 2, evade: 4, accuracy: 0 },
+    stats: { maxHp: 210, atk: 58, energyAtk: 35, def: 48, energyDef: 38, speed: 9, move: 3, jump: 2, evade: 4, accuracy: 0 },
     abilityIds: ['bite-crush'],
     weapons: ['lib-w-gauss-hammer', 'lib-w-micro-missile-swarm'],
     aiProfile: { aggression: 0.6, selfPreservation: 0.5, riskTolerance: 0.4 },
@@ -235,7 +235,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
   'gordos': {
     id: 'gordos', name: 'Gordos', role: 'sniper', moveType: 'ground',
     weightClass: 'extrapesado',
-    stats: { maxHp: 160, atk: 40, energyAtk: 30, def: 40, energyDef: 32, speed: 8, move: 3, jump: 1, evade: 4, accuracy: 5 },
+    stats: { maxHp: 175, atk: 46, energyAtk: 30, def: 40, energyDef: 32, speed: 8, move: 3, jump: 1, evade: 4, accuracy: 5 },
     abilityIds: ['bite-crush'],
     weapons: ['lib-w-rail-lance'],
     aiProfile: { aggression: 0.3, selfPreservation: 0.7, riskTolerance: 0.25 },
@@ -363,7 +363,7 @@ export const ZOIDS: Record<string, UnitDefinition> = {
     moveType: 'ground',
     size: 2,
     stats: {
-      maxHp: 340, atk: 60, energyAtk: 40, def: 44, energyDef: 36,
+      maxHp: 340, atk: 48, energyAtk: 40, def: 44, energyDef: 36,
       speed: 9, move: 3, jump: 1, evade: 2, accuracy: 0,
     },
     abilityIds: ['bite-crush', 'missile-pod'],

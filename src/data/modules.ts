@@ -66,7 +66,7 @@ const COMBAT_FRAME_MODULES: Record<string, ModuleDefinition> = {
 
   // ── Iron Kong (190): gorila; mochila de misiles a la espalda ─────────
   'ik-casco': struct('ik-casco', 'Cabeza sensora', 14, { plate: 4, hit: 10, tags: ['high-profile', 'sensor'], pen: [['accuracy', -15]] }),
-  'ik-nucleo': struct('ik-nucleo', 'Torso y núcleo Zoid', 78, { plate: 22, hit: 42, tags: ['high-profile'], crit: true }),
+  'ik-nucleo': struct('ik-nucleo', 'Torso y núcleo Zoid', 98, { plate: 22, hit: 42, tags: ['high-profile'], crit: true }),
   'ik-brazos': struct('ik-brazos', 'Brazos de impacto', 34, { plate: 8, hit: 14, tags: ['weapon'], pen: [['atk', -18]] }),
   'ik-piernas': struct('ik-piernas', 'Piernas hidráulicas', 34, { plate: 8, hit: 14, tags: ['low-profile', 'locomotion'], pen: [['move', -1], ['accuracy', -6]] }),
   'ik-mochila': struct('ik-mochila', 'Mochila de misiles', 30, { plate: 7, hit: 12, tags: ['rear-exposed', 'weapon'], pen: [['atk', -10]] }),

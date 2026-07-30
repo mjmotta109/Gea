@@ -1598,3 +1598,37 @@ arquitectura del motor van en DESIGN.md.)*
     mundo van enmarcados con viñeta interior y borde luminoso.
   Solo CSS (page.html): cero cambios de lógica, textos intactos (los
   asserts de Playwright siguen en verde), reduced-motion respetado.
+- **2026-07-30** — LA LEY DEL CASCO ("me están matando de un tiro; debe
+  ser algo medio: puedo cagarla un poco pero puedo recuperarme").
+  Diagnóstico con datos (sonda del alfa): en las primeras batallas hubo
+  9 derribos de UN golpe — el Mordisco universal multiplicado por el
+  ataque de los pesados borra un ligero entero sin ventana de reacción.
+  Eso rompe el pilar del juego: castigo sí, sentencia no.
+  · LA LEY (core/combat.ts): MAX_HIT_FRACTION = 0.7 — ningún impacto
+    limpio puede superar el 70% del casco MÁXIMO del objetivo. El
+    primer golpe siempre deja máquina para retirarse, eyectar o
+    responder; el SEGUNDO sí mata. Simétrica: también protege a la IA.
+    El daño acumulado, el fuego de casilla y la caída de módulos quedan
+    fuera de la ley — la muerte por desgaste sigue siendo negocio.
+  · UN SOLO PUNTO: el tope se aplica en el único punto de daño de
+    battle.ts (el dado se tira ENTERO: mismo consumo de azar, los
+    replays antiguos no se corrompen) y en attackPreview — el
+    pronóstico ANUNCIA el tope, nunca promete de más. El instructor
+    la enseña en el paso 3 del tutorial.
+  · REBALANCE MEDIDO (balance:hangar, ~300 batallas por pasada, 3
+    pasadas): la ley beneficia a los gordos lentos (nadie los borra) y
+    castiga a los cañones de un tiro, así que se compensó: Gran
+    Brontes atk 60→48 (el jefe inicial muerde, no ejecuta), zaber-fang
+    atk 37→33 y speed 14→13, gojulas/gordos maxHp 160→175 y atk 40→46,
+    iron-kong maxHp 190→210 (con ik-nucleo 78→98: los módulos SUMAN el
+    casco, invariante respetado), pteras evade 28→33, gustav atk
+    20→28. Banda final sana: centro 46–58%, fuertes marginales dibison
+    58.8 y naomi 58.2 (vigilar), débiles conocidos y aceptados
+    rev-raptor 40.2 (cristal en manos de la IA greedy) y brachios 40.0
+    (soporte que la métrica de winrate infravalora).
+  · La fracción es UN número en UN sitio: si el medio se queda corto o
+    largo en Early Access, se gira 0.7 y listo.
+  GOLDEN REGENERADO (declarado: la ley cambia todo derribo temprano) y
+  verificado byte-idéntico en doble regeneración. 398 tests en verde
+  (4 nuevos de la ley: tope anunciado, el golpe absurdo no mata desde
+  casco entero, el segundo sí, pronóstico acotado).

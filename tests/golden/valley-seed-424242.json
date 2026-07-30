@@ -547,7 +547,7 @@
       "type": "damage-dealt",
       "unitId": "E1",
       "targetUnitId": "P2",
-      "amount": 92,
+      "amount": 70,
       "targetHp": 0
     },
     {

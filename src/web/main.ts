@@ -470,7 +470,7 @@ const TUTORIAL_KEY = 'gea-tutorial-v1';
 const TUTORIAL_STEPS = [
   'Bienvenido al enlace táctico, comandante. Arriba a la izquierda tienes el 🎯 OBJETIVO y la ronda: cada contrato se gana de una forma distinta — léelo siempre antes de mover.',
   'MUÉVETE con la tecla M o pulsando una casilla cian. El símbolo ⌖ señala las casillas desde las que tendrás al menos un enemigo a tiro.',
-  'DISPARA con las teclas 1-9 o sus botones. El % de impacto es la verdad completa (arco, cobertura, clima y cercanía)… y nunca llega al 100: la certeza no existe.',
+  'DISPARA con las teclas 1-9 o sus botones. El % de impacto es la verdad completa (arco, cobertura, clima y cercanía)… y nunca llega al 100. Y rige la LEY DEL CASCO: ningún golpe limpio derriba una máquina entera — el primero siempre deja ventana para reaccionar.',
   'Acciones LIBRES: las posturas 🐆 🐎 🐢 reparten la energía de tu máquina sin gastar el turno. Y 👁 VIGILANCIA (V) cierra el turno al acecho: dispara al primero que se mueva.',
   'El TEMPO manda: cuanto más hagas en un turno (mover + arma pesada), más tarda en volverte. Con reactor, la 🔥 SOBRECARGA (O) y la ⚡ SOBREMARCHA (X) dan potencia ahora a cambio de calor o de tu próximo turno.',
   'El posicionamiento cuesta: DESPEGARTE de un enemigo en contacto le regala un tiro de oportunidad, y pegar a bocajarro puede costarte un contraataque.',

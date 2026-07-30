@@ -1,6 +1,7 @@
 import {
   attackArc,
   computeDamage,
+  maxHitCap,
   damageRange,
   facingTowards,
   hitChance,
@@ -785,15 +786,21 @@ export class Battle {
     const { chance, arc, cover, weatherPenalty } = this.hitContext(unit, victim, ability);
     const heightAdvantage =
       this.map.tileAt(unit.position).height - this.map.tileAt(victim.position).height;
+    const victimStats = this.effectiveStats(victim);
     const range = damageRange({
       attackerStats: this.effectiveStats(unit),
-      defenderStats: this.effectiveStats(victim),
+      defenderStats: victimStats,
       power: damaging.power,
       damageType: damaging.damageType,
       arc,
       heightAdvantage,
     });
-    return { chance, min: range.min, max: range.max, arc, heightAdvantage, cover, weatherPenalty };
+    // La ley del casco también manda en el pronóstico: sin sorpresas.
+    const cap = maxHitCap(victimStats.maxHp);
+    return {
+      chance, min: Math.min(range.min, cap), max: Math.min(range.max, cap),
+      arc, heightAdvantage, cover, weatherPenalty,
+    };
   }
 
   // ── Ejecución de acciones ──────────────────────────────────────────────
@@ -1114,14 +1121,16 @@ export class Battle {
           // Caída radial de las explosiones: cada casilla desde el centro
           // resta 25% del daño (mínimo 30%).
           const falloff = aoeDist > 0 ? Math.max(0.3, 1 - 0.25 * aoeDist) : 1;
-          const amount = computeDamage({
+          // La ley del casco: el impacto se tira ENTERO (mismo consumo de
+          // azar) y luego se acota al tope del objetivo.
+          const amount = Math.min(computeDamage({
             attackerStats: userStats,
             defenderStats: targetStats,
             power: Math.round(effect.power * falloff * powerMult),
             damageType: effect.damageType,
             arc,
             heightAdvantage,
-          }, this.rng);
+          }, this.rng), maxHitCap(targetStats.maxHp));
           const projectile = this.weaponEntry(user, ability.id)?.def.projectile;
 
           // Blindaje de refuerzo (nivel máquina): el búnker de placas absorbe
