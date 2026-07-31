@@ -236,3 +236,125 @@ export function spotHiddenNodes(
     return Math.abs(c.x - at.x) + Math.abs(c.y - at.y) <= SIGHT_RADIUS;
   });
 }
+
+// ── La niebla del territorio: la carta se LEVANTA marchando ─────────────
+//
+// La compañía tiene una carta de rutas (los caminos y los lugares
+// conocidos), pero el campo abierto es NIEBLA hasta que la caravana pasa
+// y lo ventea. La máscara es persistente por región (la lleva la
+// campaña): lo levantado, levantado se queda.
+// Formato: cadena hexadecimal de OW_W×OW_H bits (bit = celda venteada).
+
+const SURVEY_HEX_LEN = Math.ceil((OW_W * OW_H) / 4);
+
+/** Máscara vacía: todo el territorio en niebla. */
+export function emptySurvey(): string {
+  return '0'.repeat(SURVEY_HEX_LEN);
+}
+
+function surveyBit(mask: string, index: number): boolean {
+  const nibble = parseInt(mask[index >> 2] ?? '0', 16);
+  return (nibble & (1 << (index & 3))) !== 0;
+}
+
+/** ¿Está venteada (a la vista en la carta) esta celda? */
+export function surveyHas(mask: string, cell: OverworldCell): boolean {
+  if (cell.x < 0 || cell.y < 0 || cell.x >= OW_W || cell.y >= OW_H) return false;
+  return surveyBit(mask, cell.y * OW_W + cell.x);
+}
+
+/** Ventea el radio manhattan alrededor de una celda. Sin mutar. */
+export function surveyReveal(mask: string, at: OverworldCell, radius = SIGHT_RADIUS): string {
+  const chars = mask.padEnd(SURVEY_HEX_LEN, '0').split('');
+  for (let dy = -radius; dy <= radius; dy++) {
+    for (let dx = -radius; dx <= radius; dx++) {
+      if (Math.abs(dx) + Math.abs(dy) > radius) continue;
+      const x = at.x + dx, y = at.y + dy;
+      if (x < 0 || y < 0 || x >= OW_W || y >= OW_H) continue;
+      const index = y * OW_W + x;
+      const nibble = parseInt(chars[index >> 2]!, 16) | (1 << (index & 3));
+      chars[index >> 2] = nibble.toString(16);
+    }
+  }
+  return chars.join('');
+}
+
+/**
+ * La carta de rutas inicial de una región: los CAMINOS (las arterias
+ * cartografiadas) y el entorno inmediato de los lugares conocidos. El
+ * campo abierto —lo que hay a los lados— queda en niebla hasta andarse.
+ */
+export function initialSurvey(region: WorldRegion, discovered: string[] = []): string {
+  const world = buildOverworld(region);
+  let mask = emptySurvey();
+  const chars = mask.split('');
+  for (let i = 0; i < world.cells.length; i++) {
+    if (world.cells[i] === 'camino') {
+      const nibble = parseInt(chars[i >> 2]!, 16) | (1 << (i & 3));
+      chars[i >> 2] = nibble.toString(16);
+    }
+  }
+  mask = chars.join('');
+  for (const node of region.nodes) {
+    if (node.hidden && !discovered.includes(node.id)) continue;
+    mask = surveyReveal(mask, cellOfNode(node), 2);
+  }
+  return mask;
+}
+
+// ── Hitos del territorio: lo que se ve en el camino ─────────────────────
+//
+// Elementos PUNTUALES dignos de exploración, sembrados por región de
+// forma determinista. Duermen bajo la niebla: la marcha los saca a la
+// luz, y visitarlos trae peleas o decisiones que mueven facciones (las
+// consecuencias viven en src/game/landmarks.ts).
+
+export type LandmarkKind = 'pecio' | 'campamento' | 'antena' | 'caravana' | 'santuario';
+
+export interface Landmark {
+  id: string;
+  kind: LandmarkKind;
+  cell: OverworldCell;
+}
+
+const LANDMARK_KINDS: LandmarkKind[] = ['pecio', 'campamento', 'antena', 'caravana', 'santuario'];
+const LANDMARKS_PER_REGION = 7;
+
+const LANDMARK_CACHE = new Map<string, Landmark[]>();
+
+/**
+ * Los hitos de una región: deterministas, en campo abierto (nunca agua,
+ * camino ni encima de un lugar), separados entre sí y de los nodos.
+ */
+export function regionLandmarks(region: WorldRegion): Landmark[] {
+  const cached = LANDMARK_CACHE.get(region.id);
+  if (cached) return cached;
+  const world = buildOverworld(region);
+  const rand = mulberry32(hashString(`hitos|${region.id}`));
+  const nodeCells = region.nodes.map((n) => cellOfNode(n));
+  const landmarks: Landmark[] = [];
+  const farFrom = (cell: OverworldCell, others: OverworldCell[], min: number): boolean =>
+    others.every((o) => Math.abs(o.x - cell.x) + Math.abs(o.y - cell.y) >= min);
+  for (let attempt = 0; attempt < 400 && landmarks.length < LANDMARKS_PER_REGION; attempt++) {
+    const cell = {
+      x: 1 + Math.floor(rand() * (OW_W - 2)),
+      y: 1 + Math.floor(rand() * (OW_H - 2)),
+    };
+    const terrain = terrainAt(world, cell);
+    if (terrain === 'agua' || terrain === 'camino') continue;
+    if (!farFrom(cell, nodeCells, 3)) continue;
+    if (!farFrom(cell, landmarks.map((l) => l.cell), 4)) continue;
+    landmarks.push({
+      id: `poi:${region.id}:${landmarks.length}`,
+      kind: LANDMARK_KINDS[Math.floor(rand() * LANDMARK_KINDS.length)]!,
+      cell,
+    });
+  }
+  LANDMARK_CACHE.set(region.id, landmarks);
+  return landmarks;
+}
+
+/** Hito que ocupa una celda exacta (si alguno). */
+export function landmarkAtCell(region: WorldRegion, cell: OverworldCell): Landmark | undefined {
+  return regionLandmarks(region).find((l) => l.cell.x === cell.x && l.cell.y === cell.y);
+}

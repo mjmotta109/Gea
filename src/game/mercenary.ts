@@ -180,6 +180,14 @@ export interface CampaignState {
    */
   discovered?: string[];
   /**
+   * La NIEBLA del territorio: máscara hexadecimal de celdas venteadas por
+   * región (src/game/overworld.ts). Lo que la caravana ha visto marchar,
+   * visto se queda. Ausente = solo la carta de rutas inicial.
+   */
+  surveyed?: Record<string, string>;
+  /** Hitos del camino ya RESUELTOS (ids de regionLandmarks). */
+  landmarksDone?: string[];
+  /**
    * Dificultad elegida al fundar la compañía. Fija el DESGASTE de combate
    * (no infla HP: el determinismo es ley). Ausente = 'mercenario' (partidas
    * viejas y migración).

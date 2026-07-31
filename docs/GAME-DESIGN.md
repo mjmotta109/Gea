@@ -1684,3 +1684,40 @@ arquitectura del motor van en DESIGN.md.)*
   el cuartel, aspirante alistado, taberna y agencia contratando en
   Espejo del Norte, y el pronóstico cantando "no reaccionará: fuera de
   su alcance de reacción" junto al daño.
+- **2026-07-31** — EL TRASLADO CON NIEBLA Y LOS HITOS DEL CAMINO ("debe
+  haber una dirección de viaje y un traslado; en ese traslado hay niebla
+  y conforme se avanza se van viendo cosas — además de los eventos,
+  elementos puntuales dignos de exploración que acarrean peleas o
+  decisiones que afectan los puntos de facción").
+  · LA NIEBLA DEL TERRITORIO (overworld.ts): la compañía tiene una CARTA
+    DE RUTAS —los caminos y los lugares conocidos— y el campo abierto es
+    niebla (~75% del mapa al empezar). Máscara de bits hexadecimal por
+    región, PERSISTENTE en la campaña: lo visto, visto se queda.
+  · EL TRASLADO: el primer clic sigue proponiendo (dirección de viaje,
+    cinta con horas/ETA) y el segundo parte — pero ahora la marcha
+    VENTEA todo el corredor (radio de vista por celda del camino), la
+    caravana se ve recorrerlo (animación, respeta reduced-motion), los
+    lugares ocultos se avistan DESDE cualquier punto del trayecto (antes
+    solo desde el destino) y el diario canta lo que asoma.
+  · LOS HITOS (overworld siembra, game/landmarks.ts resuelve): 7 por
+    región, deterministas, en campo abierto y dormidos bajo la niebla.
+    Cinco clases PROVISIONALES: pecio de guerra (desguazar Chatarreros−
+    / avisar Chatarreros+), campamento de asaltantes (COMBATE; al
+    vencer botín y Colonos+), antena de los Primeros (registrar botín+
+    estrés / vender coordenadas Gremio+ — Prathama sin nombrarla, LORE
+    §1), caravana asediada (COMBATE fácil; ignorar Colonos−: estas
+    cosas se saben) y santuario del camino (velar estrés− / saquear
+    botín y Colonos−). Toda consecuencia ANUNCIADA en el botón; los
+    combates de hito se cierran AL VENCER (si pierdes, el hito sigue en
+    la carta y se vuelve con más hierro). Llegar a un hito ES el evento
+    de esa marcha: no se apila con encrucijadas.
+  · ARREGLO de paso: loadExpedition rechazaba los guardados en campo
+    abierto (at='campo:x,y') — recargar en mitad de la nada PERDÍA la
+    expedición. Ahora un guardado en el campo es tan válido como uno en
+    un nodo.
+  416 tests en verde (7 nuevos de territorio: máscara, carta inicial,
+  siembra de hitos, cartas anunciadas, combates deterministas), golden
+  intacto, verificado VIVO: niebla 75%→61% tras una marcha, cinta de
+  propuesta, llegada al santuario con su carta, diario con «en el
+  camino asoma», y el asalto al campamento lanzando combate real (3
+  enemigos).

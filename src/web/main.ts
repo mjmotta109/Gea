@@ -58,7 +58,7 @@ import {
   regionOf, linksFrom, linkDestination, useLink, weatherFor,
   isNodeVisible, isEdgeVisible,
   advanceHours, hourOf, hoursUntilDawn, ARRIVAL_HOUR, legEvent,
-  type ExpeditionState, type WorldEdge, type WorldRegion,
+  type Encounter, type ExpeditionState, type TravelEventKind, type WorldEdge, type WorldRegion,
 } from '../game/expedition.js';
 import {
   emptyTaller, nextAbilityId, nextContractId, sanitizeAbility, sanitizeContract,
@@ -66,8 +66,11 @@ import {
 } from '../game/taller.js';
 import {
   buildOverworld, cellOfNode, nodeAtCell, planRoute, spotHiddenNodes,
-  OW_W, OW_H, type Overworld, type OverworldCell, type OverworldTerrain,
+  emptySurvey, initialSurvey, surveyHas, surveyReveal, SIGHT_RADIUS,
+  regionLandmarks, landmarkAtCell,
+  OW_W, OW_H, type Landmark, type Overworld, type OverworldCell, type OverworldTerrain,
 } from '../game/overworld.js';
+import { landmarkSpec, resolveLandmark } from '../game/landmarks.js';
 import {
   agencyRecruits, MAX_PILOTS, QUALITY_LABELS, recruitPilot, rescueBounty,
   rescueOpposition, rescuePilot, RESCUE_TIERS, tavernRecruits, walkInApplicant,
@@ -3975,6 +3978,8 @@ function settleSkirmish(): string {
   activeSkirmish = false;
   const rescue = pendingRescue;
   pendingRescue = null;
+  const landmark = pendingLandmark;
+  pendingLandmark = null;
   passHours(3, '⏱ El combate consumió 3 horas.');
   returnToWorld = true; returnToMerc = false;
   if (!campaign) return '';
@@ -4011,20 +4016,39 @@ function settleSkirmish(): string {
   const loot = won ? kills * SKIRMISH_SALVAGE : 0;
   if (loot > 0) campaign = { ...campaign, credits: campaign.credits + loot };
   saveCampaign();
+  // Combate de HITO: al vencer, paga su botín y queda resuelto para
+  // siempre; al perder, sigue en la carta (se puede volver con más hierro).
+  if (landmark && won) {
+    campaign = {
+      ...campaign,
+      credits: campaign.credits + landmark.reward,
+      landmarksDone: [...(campaign.landmarksDone ?? []), landmark.id],
+    };
+    saveCampaign();
+  }
   if (expedition) {
-    const deed = rescue
-      ? (won ? '⚔ Rescate cumplido' : '⚠ Rescate fallido')
-      : (won ? '⚔ Emboscada rechazada' : '⚠ Emboscada: mal trago');
+    const deed = landmark
+      ? (won ? `⚔ ${landmark.name}: resuelto` : `⚠ ${landmark.name}: repliegue`)
+      : rescue
+        ? (won ? '⚔ Rescate cumplido' : '⚠ Rescate fallido')
+        : (won ? '⚔ Emboscada rechazada' : '⚠ Emboscada: mal trago');
     expedition = {
       ...expedition,
       log: [...expedition.log,
-        `Día ${expedition.day} — ${deed} en la ruta${loot > 0 ? ` · saqueo ⌾${loot}` : ''}.`],
+        `Día ${expedition.day} — ${deed} en la ruta${landmark && won ? ` · botín ⌾${landmark.reward}` : ''}${loot > 0 ? ` · saqueo ⌾${loot}` : ''}.`],
     };
     saveExpedition();
   }
-  const lines = rescue
-    ? [`<div><b>Rescate en la ruta</b> — ${RESCUE_TIERS[rescue.tier].label}</div>`]
-    : [`<div><b>Emboscada en la ruta</b> — chusma de bandidos</div>`];
+  const lines = landmark
+    ? [`<div><b>${escapeHtml(landmark.name)}</b> — combate del hito</div>`]
+    : rescue
+      ? [`<div><b>Rescate en la ruta</b> — ${RESCUE_TIERS[rescue.tier].label}</div>`]
+      : [`<div><b>Emboscada en la ruta</b> — chusma de bandidos</div>`];
+  if (landmark) {
+    lines.push(won
+      ? `<div class="mgain">✔ El hito queda resuelto · botín ⌾${landmark.reward}</div>`
+      : '<div class="mloss">El hito sigue ahí. Se puede volver con más hierro.</div>');
+  }
   if (rescue && won) {
     const saved = rescuePilot(rescue.key, rescue.tier);
     joinRescued(rescue.tier, rescue.key);
@@ -4082,8 +4106,12 @@ function loadExpedition(): ExpeditionState | null {
     if (typeof exp.regionId !== 'string') exp.regionId = SALT_PASS_REGION.id;
     const home = WORLD_ATLAS.regions.find((r) => r.id === exp.regionId);
     if (!home) return null;
+    // La caravana puede estar en CAMPO ABIERTO (at = 'campo:x,y' + pos):
+    // un guardado en mitad de la nada es tan válido como uno en un nodo.
     const validNode = (id: string): boolean => home.nodes.some((n) => n.id === id);
-    if (!validNode(exp.at) || !Array.isArray(exp.log)) return null;
+    const inField = exp.at.startsWith('campo:') &&
+      !!exp.pos && Number.isInteger(exp.pos.x) && Number.isInteger(exp.pos.y);
+    if ((!validNode(exp.at) && !inField) || !Array.isArray(exp.log)) return null;
     return exp;
   } catch {
     return null;
@@ -4134,13 +4162,30 @@ const OW_FILL: Record<OverworldTerrain, string> = {
   agua: '#1d3a52',
 };
 
-/** Pinta el territorio, la ruta pendiente y la caravana. */
+/** Máscara venteada de la región activa (sin guardar: carta de rutas). */
+function surveyOf(): string {
+  return campaign?.surveyed?.[REGION.id] ?? initialSurvey(REGION, campaign?.discovered ?? []);
+}
+
+function storeSurvey(mask: string): void {
+  if (!campaign) return;
+  campaign = { ...campaign, surveyed: { ...(campaign.surveyed ?? {}), [REGION.id]: mask } };
+}
+
+/** Glifo de cada clase de hito para la carta. */
+const LANDMARK_GLYPH: Record<Landmark['kind'], string> = {
+  pecio: '🦴', campamento: '⛺', antena: '📡', caravana: '🆘', santuario: '🕯',
+};
+
+/** Pinta el territorio, la niebla, los hitos, la ruta y la caravana. */
 function drawOverworld(world: Overworld, cur: OverworldCell): void {
   const canvas = $('world-terrain') as HTMLCanvasElement;
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
   const cw = canvas.width / OW_W;
   const ch = canvas.height / OW_H;
+  // Lo venteado + lo que se ve desde donde estás ahora mismo.
+  const mask = surveyReveal(surveyOf(), cur, SIGHT_RADIUS);
   for (let y = 0; y < OW_H; y++) {
     for (let x = 0; x < OW_W; x++) {
       const terrain = world.cells[y * OW_W + x]!;
@@ -4154,7 +4199,24 @@ function drawOverworld(world: Overworld, cur: OverworldCell): void {
         ctx.fillStyle = 'rgba(0,0,0,0.18)';
         ctx.fillRect(x * cw + cw * 0.3, y * ch + ch * 0.4, cw * 0.4, ch * 0.2);
       }
+      // La niebla del territorio: lo no venteado apenas se intuye.
+      if (!surveyHas(mask, { x, y })) {
+        ctx.fillStyle = 'rgba(4,7,12,0.92)';
+        ctx.fillRect(x * cw, y * ch, Math.ceil(cw), Math.ceil(ch));
+      }
     }
+  }
+  // Hitos del camino: solo los que la niebla ya soltó (y siguen ahí).
+  const done = campaign?.landmarksDone ?? [];
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (const lm of regionLandmarks(REGION)) {
+    if (done.includes(lm.id) || !surveyHas(mask, lm.cell)) continue;
+    const px = (lm.cell.x + 0.5) * cw, py = (lm.cell.y + 0.5) * ch;
+    ctx.fillStyle = 'rgba(255,180,84,0.22)';
+    ctx.beginPath(); ctx.arc(px, py, Math.max(cw, ch) * 0.75, 0, Math.PI * 2); ctx.fill();
+    ctx.font = `${Math.round(ch * 0.9)}px serif`;
+    ctx.fillText(LANDMARK_GLYPH[lm.kind], px, py + 0.5);
   }
   // La ruta pendiente, dibujada paso a paso.
   if (owPending && expedition) {
@@ -4302,6 +4364,16 @@ function renderWorld(): void {
       : '🧭 Registrar el lugar (1 día)';
     explore.addEventListener('click', doExplore);
     actions.appendChild(explore);
+  }
+  // De pie sobre un hito sin resolver (diálogo cerrado, batalla perdida,
+  // partida recargada): siempre se puede volver a encararlo.
+  const lmUnder = landmarkAtCell(REGION, cur);
+  if (lmUnder && !(campaign.landmarksDone ?? []).includes(lmUnder.id)) {
+    const spec = landmarkSpec(lmUnder.kind);
+    const visit = document.createElement('button');
+    visit.textContent = `${spec.icon} Explorar: ${spec.name}`;
+    visit.addEventListener('click', () => visitLandmark(lmUnder));
+    actions.appendChild(visit);
   }
   if (here?.city) {
     const enter = document.createElement('button');
@@ -5095,13 +5167,35 @@ function doTravelTo(target: OverworldCell): void {
     pos: { ...target },
     at: destNode ? destNode.id : `campo:${target.x},${target.y}`,
   };
-  // Avistamientos: lo oculto que queda a la vista entra al mapa para siempre.
-  const spotted = spotHiddenNodes(REGION, target, campaign.discovered ?? []);
-  if (spotted.length > 0) {
-    campaign = { ...campaign, discovered: [...(campaign.discovered ?? []), ...spotted.map((n) => n.id)] };
+  // EL TRASLADO ventea la carta: la niebla se levanta a lo largo de TODO
+  // el corredor de marcha, y lo que asoma por el camino queda avistado —
+  // lugares ocultos y también los HITOS que dormían bajo la niebla.
+  const maskBefore = surveyOf();
+  let mask = maskBefore;
+  const spottedIds: string[] = [];
+  for (const cell of route.path) {
+    mask = surveyReveal(mask, cell, SIGHT_RADIUS);
+    for (const n of spotHiddenNodes(REGION, cell, [...(campaign.discovered ?? []), ...spottedIds])) {
+      spottedIds.push(n.id);
+    }
+  }
+  storeSurvey(mask);
+  if (spottedIds.length > 0) {
+    campaign = { ...campaign, discovered: [...(campaign.discovered ?? []), ...spottedIds] };
+    const names = spottedIds.map((id) => REGION.nodes.find((n) => n.id === id)?.name ?? id);
     expedition = {
       ...expedition,
-      log: [...expedition.log, ...spotted.map((n) => `Día ${expedition!.day} — ⚑ Avistamos ${n.name} a lo lejos: queda en el mapa.`)],
+      log: [...expedition.log, ...names.map((name) => `Día ${expedition!.day} — ⚑ Avistamos ${name} a lo lejos: queda en el mapa.`)],
+    };
+  }
+  const doneLandmarks = campaign.landmarksDone ?? [];
+  const emerged = regionLandmarks(REGION).filter((lm) =>
+    !doneLandmarks.includes(lm.id) && !surveyHas(maskBefore, lm.cell) && surveyHas(mask, lm.cell));
+  if (emerged.length > 0) {
+    expedition = {
+      ...expedition,
+      log: [...expedition.log, ...emerged.map((lm) =>
+        `Día ${expedition!.day} — ${LANDMARK_GLYPH[lm.kind]} En el camino asoma: ${landmarkSpec(lm.kind).name}. Queda en la carta.`)],
     };
   }
   const consumed = consumeSupplies(campaign, (expedition.day - dayBefore) + stormToll);
@@ -5125,9 +5219,13 @@ function doTravelTo(target: OverworldCell): void {
       log: [...expedition.log, `⚠ Día ${expedition.day} — Sin suministros: marcha forzada. Máquinas y pilotos sufren.`],
     };
   }
+  // La llegada a un HITO es el evento de esta marcha (una historia por
+  // traslado: los tramos con hito no tiran además encrucijada).
+  const lmHere = landmarkAtCell(REGION, target);
+  const lmPending = lmHere && !(campaign.landmarksDone ?? []).includes(lmHere.id) ? lmHere : undefined;
   // El tramo cuenta su historia: hallazgo, tormenta o encrucijada (solo
   // en marchas de verdad; un salto corto no da para sorpresas).
-  const ev = route.hours >= 4
+  const ev = !lmPending && route.hours >= 4
     ? legEvent(expedition, REGION, `${from}->${expedition.at}`)
     : { event: 'calm' as const, eventText: '' };
   if (ev.event === 'find' && ev.cargo) {
@@ -5149,8 +5247,31 @@ function doTravelTo(target: OverworldCell): void {
   }
   saveCampaign();
   saveExpedition();
-  renderWorld();
+  // El traslado se VE: la caravana recorre el corredor recién venteado y
+  // solo al llegar habla el camino (hito, encrucijada o emboscada).
+  animateMarch(world, route.path, () => {
+    renderWorld();
+    if (lmPending) { visitLandmark(lmPending); return; }
+    afterMarchEvents(ev);
+  });
+}
 
+/** Marcha visual: la caravana recorre el corredor (solo presentación). */
+function animateMarch(world: Overworld, path: OverworldCell[], after: () => void): void {
+  if (reducedMotion || path.length < 3 || !worldOpen) { after(); return; }
+  let index = 0;
+  const step = (): void => {
+    if (!worldOpen || index >= path.length) { after(); return; }
+    drawOverworld(world, path[index]!);
+    index++;
+    window.setTimeout(step, 40);
+  };
+  step();
+}
+
+/** Lo que habla el camino al cerrar una marcha sin hito. */
+function afterMarchEvents(ev: { event: TravelEventKind; encounter?: Encounter }): void {
+  if (!campaign || !expedition) return;
   // Encrucijada: la ruta pregunta, el jugador responde, y solo entonces
   // se aplican las consecuencias (todas anunciadas en el botón).
   if (ev.event === 'encounter' && ev.encounter) {
@@ -5536,6 +5657,60 @@ function startRescueBattle(tier: 1 | 2 | 3, key: string): void {
   });
   // Si nadie pudo desplegar (todos heridos/destacados), no hay rescate.
   if (!activeSkirmish) pendingRescue = null;
+}
+
+/**
+ * Combate de HITO pendiente: al vencer, el hito queda resuelto y paga su
+ * botín (settleSkirmish liquida). En memoria, como el rescate.
+ */
+let pendingLandmark: { id: string; reward: number; name: string } | null = null;
+
+/** Visitar un hito del camino: la carta pregunta, el botón anuncia. */
+function visitLandmark(lm: Landmark): void {
+  if (!campaign || !expedition) return;
+  const spec = landmarkSpec(lm.kind);
+  void uiChoice(`${spec.icon} ${spec.name} — ${spec.prompt}`, spec.options).then((optionId) => {
+    if (!campaign || !expedition) return;
+    const out = resolveLandmark(lm, optionId);
+    if (optionId === 'seguir') { renderWorld(); return; }
+    if (out.hours > 0) passHours(out.hours);
+    if (out.supplyDelta > 0) campaign = { ...campaign, supplies: campaign.supplies + out.supplyDelta };
+    else if (out.supplyDelta < 0) campaign = consumeSupplies(campaign, -out.supplyDelta).state;
+    if (out.stressDelta !== 0) {
+      for (const id of Object.keys(pilots)) pilots[id] = adjustStress(pilots[id]!, out.stressDelta);
+      savePilots();
+    }
+    if (out.cargo) {
+      const before = campaign.cargo.length;
+      campaign = stashCargo(campaign, out.cargo, CARGO_CAPACITY);
+      if (campaign.cargo.length === before) {
+        expedition = { ...expedition, log: [...expedition.log, `⚠ La bodega está llena: ${out.cargo.name} se quedó atrás.`] };
+      }
+    }
+    for (const change of out.reputation ?? []) {
+      campaign = { ...campaign, reputation: adjustReputation(campaign.reputation, change.factionId, change.delta) };
+    }
+    if (out.done) {
+      campaign = { ...campaign, landmarksDone: [...(campaign.landmarksDone ?? []), lm.id] };
+    }
+    expedition = {
+      ...expedition,
+      log: [...expedition.log, `Día ${expedition.day} — ${spec.icon} ${spec.name}: ${out.text}`],
+    };
+    saveCampaign();
+    saveExpedition();
+    if (out.battle) {
+      pendingLandmark = { id: lm.id, reward: out.battle.reward, name: spec.name };
+      startTravelBattle(seededRng(`poi|${lm.id}`), {
+        enemies: out.battle.squad,
+        aiSkill: out.battle.aiSkill,
+        briefing: `${spec.name}: el botón ya lo anunció — esto se resuelve a tiros. Vence y el hito queda cerrado (⌾${out.battle.reward}).`,
+      });
+      if (!activeSkirmish) pendingLandmark = null;
+      return;
+    }
+    renderWorld();
+  });
 }
 
 /** El piloto rescatado firma (o, sin sitio, su gremio salda la deuda). */
