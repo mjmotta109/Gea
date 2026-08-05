@@ -1358,3 +1358,41 @@ arquitectura del motor van en DESIGN.md.)*
   vuelta al activo. Uno a la vez → caben todas las unidades en la misma altura que
   antes ocupaban 3 diagramas. Solo cliente (renderRoster + CSS .ucard). Verificado
   en el juego: 1 diagrama visible, clicar P2 lo mueve a P2. tsc limpio, 347 verde.
+- **2026-07-09** — REVISIÓN GENERAL: EL FRAME ERA UN IMPUESTO (dirección del
+  usuario: "revisa todo hasta ahora"). La batería automática salió limpia, pero al
+  volver a pasar el SIMULADOR de campaña —que no se había re-corrido tras repartir
+  los frames— apareció una regresión seria que ningún test cubría: el arco había
+  caído de una media del 56% al 48%, y el ARRANQUE (lo que el director pidió
+  expresamente que fuera asequible) se había desplomado del 47% al 33%.
+  DIAGNÓSTICO, medido con dos experimentos A/B (mismo simulador, desactivando en
+  caliente una pieza cada vez):
+  · Quitando los frames: 48/60/45 → los frames costaban ~13 puntos al jugador.
+  · Quitando solo las secuelas: 40/58/33 → las secuelas explicaban la mitad.
+  · La otra mitad, medida sobre las batallas del golden: un chasis con frame
+    MORÍA CON EL 44% DEL CASCO INTACTO — le reventaban el núcleo (pequeño, ~38%
+    del casco, pero receptor del ~40% de los impactos MÁS todo el desbordamiento
+    de las piezas rotas) mientras las extremidades seguían enteras.
+  El fallo de fondo NO era la curva sino el CALIBRADO: un chasis con frame era
+  estrictamente más débil que el mismo chasis monocasco. Montar frames salía a
+  IMPUESTO, y el hangar quedaba desigual según qué chasis tuviera alguien escrito.
+  ARREGLO (regla nueva, escrita en data/modules.ts): el NÚCLEO se lleva la MAYORÍA
+  del casco (~55%) para que "núcleo roto" ≈ "casco agotado" (desperdicio medido:
+  44% → 32%), y las SECUELAS pesan sin lisiar (perder el arma quita ~25% de
+  pegada, no la mitad). Aplicado también a los DOS frames originales (Liger CAS,
+  Geno CP), que arrastraban el mismo núcleo pequeño. Al medir de nuevo, el
+  péndulo se había pasado al otro lado (los chasis con frame subían 6-7 puntos en
+  el banco), así que el BLINDAJE por placa se bajó a la mitad: sigue viéndose
+  arrancarse, pero deja de regalar casco.
+  RESULTADO (medido, no supuesto): arco de vuelta a la línea base — media 54%
+  (era 56% antes de los frames, 48% roto) y arranque al 45%. Envolvente:
+  TECHO 80%→52%, A LA PAR ~54%, SUELO 57%→20%. Banco del hangar sin outliers
+  nuevos por culpa del frame (gojulas 53%, iron-kong 45%, pteras 51%, wolf 50%);
+  queda liger-zero marginal al 61%, y se deja A PROPÓSITO: es el chasis de
+  arranque del jugador y NO está en el pool enemigo, así que su fuerza sostiene
+  justo la rampa de entrada que el director pidió suave.
+  REGENERA EL GOLDEN (el reparto de HP de las piezas cambia las batallas de
+  referencia; declarado y verificado estable al repetir). 347 tests en verde, tsc
+  limpio, build y arranque sin errores. Un test del garaje se actualizó: comparaba
+  la mochila del Liger con la cola del Geno para ver el delta de maxHp y, con el
+  recalibrado, ambas pesan igual — ahora usa una pieza real del garaje (generador
+  de pantalla) y vuelve a medir un delta de verdad.

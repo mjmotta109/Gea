@@ -39,16 +39,17 @@ describe('garaje: loadouts al desplegar', () => {
   });
 
   it('sustituir un módulo cambia stats y maxHp derivado', () => {
-    // La mochila del Liger (16 hp, evade+5) se cambia por la cola del Geno
-    // (14 hp, atk+10): pierde evasión y HP, gana ataque.
+    // La mochila del Liger (8 hp, evade+5) se cambia por el generador de
+    // pantalla del garaje (16 hp, energyDef+6): gana casco y escudo, pierde
+    // evasión. El maxHp DERIVA de lo montado, no del chasis.
     const stock = garage();
-    const custom = garage({ slots: { backpack: 'geno-tail' } });
+    const custom = garage({ slots: { backpack: 'am-shield-pack' } });
     const stockStats = stock.effectiveStats(stock.unit('L'));
     const customStats = custom.effectiveStats(custom.unit('L'));
-    expect(customStats.maxHp).toBe(stockStats.maxHp - 2); // 16→14
+    expect(customStats.maxHp).toBe(stockStats.maxHp + 8); // 8→16
     expect(customStats.evade).toBe(stockStats.evade - 5);
-    expect(customStats.atk).toBe(stockStats.atk + 10);
-    expect(custom.unit('L').hp).toBe(118);
+    expect(customStats.energyDef).toBe(stockStats.energyDef + 6);
+    expect(custom.unit('L').hp).toBe(128);
   });
 
   it('rechaza slots que el chasis no tiene y loadout sin frame', () => {
