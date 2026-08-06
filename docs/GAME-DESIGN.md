@@ -1773,3 +1773,37 @@ arquitectura del motor van en DESIGN.md.)*
   la mochila del Liger con la cola del Geno para ver el delta de maxHp y, con el
   recalibrado, ambas pesan igual — ahora usa una pieza real del garaje (generador
   de pantalla) y vuelve a medir un delta de verdad.
+
+- **2026-07-09** — EL FRAME DEJA DE SER UN IMPUESTO (re-medido sobre la base
+  fusionada, con la ley del casco ya dentro). El hallazgo de la línea paralela se
+  comprobó AQUÍ antes de tocar nada, y seguía vivo: en las batallas de referencia
+  un chasis con frame moría con el **45% del casco aún sano** —le reventaban el
+  núcleo mientras las extremidades seguían enteras— y el blindaje por placa solo
+  compensaba un 26%: **−19% de dureza real frente al mismo chasis monocasco**.
+  El motivo: la unidad muere con el núcleo, y el núcleo no solo recibe su cuota
+  de impactos, también el DESBORDAMIENTO de cada pieza que cae; con núcleos al
+  ~38% del casco, moría demasiado pronto.
+  A/B en campaña (mismo simulador, quitando los frames en caliente) confirmó que
+  el impuesto es simétrico y lo paga quien más frames lleva: al arranque, el
+  jugador (sus tres chasis iniciales llevan frame) 30% con frames contra 50% sin
+  ellos; en el tramo 20-29, al revés, porque ahí los pesados enemigos son los
+  framed.
+  ARREGLO: el núcleo pasa a llevarse ~55% del casco en los NUEVE chasis con
+  frame (los 7 a medida y los 2 de núcleo desnudo), repartiendo el resto en
+  proporción y dejando simétricas las parejas (alas, patas). Desperdicio medido
+  45% → 32%; neto frente al monocasco −19% → **−5%**. La regla queda escrita en
+  data/modules.ts para que no se vuelva a calibrar a ojo.
+  MEDIDO (arco de 100 contratos, A/B contra los valores anteriores):
+  arranque 30% → **55%**, 10-19 40% → **63%**, y el resto casi igual (20-29
+  38→40, 30-39 40→42, 40-49 63→62, 90-99 53→50). Media 50% → 57%. En el banco
+  del hangar los chasis con frame dejan de estar agolpados al fondo y se
+  reparten por la tabla (liger-zero 59%, geno-saurer 58%, gun-sniper 55%,
+  command-wolf 53%, pteras 52%, gojulas 51%, iron-kong 42%).
+  PENDIENTE, ajeno a esto y ANTERIOR: el tramo 80-89 es un paseo (82% antes,
+  80% ahora) — el roster de élite tardío se come la curva. No se toca aquí.
+  GOLDEN REGENERADO (el reparto de HP cambia las batallas de referencia;
+  declarado y verificado estable al repetir). 416 tests en verde, tsc limpio,
+  build y arranque sin errores. Un test del garaje se actualizó: comparaba la
+  mochila del Liger con la cola del Geno y, tras el reparto, ambas pesan igual;
+  ahora usa una pieza REAL del garaje (generador de pantalla) y vuelve a medir
+  un delta de verdad.
