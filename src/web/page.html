@@ -287,6 +287,16 @@
   .bar.hp i { background: linear-gradient(90deg, #5a9e4c, var(--hp)); box-shadow: 0 0 8px rgba(138, 213, 116, 0.5); }
   .bar.en i { background: linear-gradient(90deg, #2e9a72, var(--energy)); box-shadow: 0 0 8px rgba(99, 232, 174, 0.5); }
   .bar.ht i { background: linear-gradient(90deg, #c67428, var(--heat)); box-shadow: 0 0 8px rgba(255, 167, 78, 0.5); }
+  /* Refuerzo: placas de taller que se gastan antes que el casco (gris acero). */
+  .bar.ar i { background: linear-gradient(90deg, #6b7b8c, #a8bccf); box-shadow: 0 0 8px rgba(168, 188, 207, 0.45); }
+  /* Ficha de la unidad SELECCIONADA: los números con los que se decide un tiro. */
+  .specrow { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+  .specrow span {
+    font-family: var(--mono); font-size: 10px; padding: 2px 6px; border-radius: 3px;
+    background: var(--panel-2); color: var(--muted); border: 1px solid var(--line);
+    cursor: help;
+  }
+  .specrow b { color: var(--ink); font-weight: 700; }
   .mods { margin-top: 4px; display: flex; flex-wrap: wrap; gap: 3px; }
   .mods span {
     font-family: var(--mono); font-size: 9px; padding: 1px 4px; border-radius: 2px;

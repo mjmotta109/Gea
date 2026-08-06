@@ -352,6 +352,9 @@ function enemyTeam(seed: number): UnitSpawn[] {
 let allEvents: BattleEvent[] = [];
 let startPositions: Record<string, Position> = {};
 let unitTeams: Record<string, Team> = {};
+/** Refuerzo con el que ENTRÓ cada unidad: el búnker solo baja, así que este es
+ *  su máximo y permite pintarlo como barra (cuánto queda de las placas). */
+let startArmor: Record<string, number> = {};
 let xpAwarded = false;
 
 const PLAYER_POSITIONS: Position[] = [{ x: 1, y: 3 }, { x: 0, y: 5 }, { x: 1, y: 7 }, { x: 0, y: 4 }];
@@ -682,6 +685,7 @@ function startBattle(
   };
   startPositions = Object.fromEntries(spawns.map((s) => [s.id, { ...s.position }]));
   unitTeams = Object.fromEntries(spawns.map((s) => [s.id, s.team]));
+  startArmor = Object.fromEntries(spawns.map((s) => [s.id, s.armor ?? 0]));
   xpAwarded = false;
   inspectedUnitId = null;
   mode = { kind: 'idle' };
@@ -1999,11 +2003,29 @@ function rosterCard(unit: UnitState, detailed: boolean, focusId: string | null):
         `<span class="num">${value}/${max}</span>`);
     };
     addBar('HP', 'hp', unit.hp, stats.maxHp);
+    // Refuerzo: el búnker de placas que se GASTA antes que el casco. Es físico
+    // (se ve saltar), así que también del enemigo. Solo baja → su máximo es
+    // con el que entró.
+    const armorMax = Math.max(startArmor[unit.id] ?? 0, unit.armor ?? 0);
+    if (armorMax > 0) addBar('🧱', 'ar', unit.armor ?? 0, armorMax);
     const { energy, heat, arsenal, frame } = unit.components;
     // Energía y calor son telemetría de a bordo: solo de los tuyos.
     if (detailed && energy) addBar('⚡', 'en', energy.current, energy.capacity);
     if (detailed && heat) addBar('🔥', 'ht', heat.current, heat.max);
     card.appendChild(bars);
+
+    // Ficha de la SELECCIONADA: los tres números con los que se decide un
+    // disparo — cuánto casco aguanta, cuánto recorta el golpe físico y cuánto
+    // el energético. Solo en la seleccionada para no volver a llenar el panel.
+    if (unit.id === focusId) {
+      card.classList.add('sel'); // resalta también la enemiga seleccionada
+      card.insertAdjacentHTML('beforeend',
+        '<div class="specrow">' +
+        `<span title="Vida: casco que le queda antes de caer">❤ vida <b>${unit.hp}/${stats.maxHp}</b></span>` +
+        `<span title="Blindaje: recorta el daño FÍSICO de cada impacto (mordiscos, balas, misiles)">🛡 blindaje <b>${stats.def}</b></span>` +
+        `<span title="Escudo: recorta el daño ENERGÉTICO de cada impacto (láser, partículas)">✦ escudo <b>${stats.energyDef}</b></span>` +
+        '</div>'); // el refuerzo ya va como barra (🧱) arriba: no se repite aquí
+    }
 
     if (detailed) {
       const pilot = pilotOfUnit(unit);
@@ -2053,15 +2075,15 @@ function rosterCard(unit: UnitState, detailed: boolean, focusId: string | null):
     // casco (frame propio), además lo despliega/repliega.
     card.classList.add('locatable');
     card.title = detailed && frame
-      ? 'clic: localizar en el mapa · ver/ocultar el casco'
-      : 'clic: localizar en el mapa';
+      ? 'clic: localizar en el mapa · ver ficha y casco'
+      : 'clic: localizar en el mapa · ver ficha (vida, blindaje, escudo)';
     const uid = unit.id;
+    // Clic en CUALQUIER carta —también enemiga— la selecciona: salta el cursor
+    // y despliega su ficha. Reclicar la suelta y el foco vuelve al que juega.
     card.addEventListener('click', () => {
       setCursor({ ...unit.position });
-      if (detailed && frame) {
-        inspectedUnitId = focusId === uid ? null : uid;
-        renderRoster();
-      }
+      inspectedUnitId = focusId === uid ? null : uid;
+      renderRoster();
     });
   }
   return card;
