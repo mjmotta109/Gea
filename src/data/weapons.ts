@@ -9,7 +9,7 @@ import type { WeaponDefinition } from '../core/types.js';
 export const WEAPONS: Record<string, WeaponDefinition> = {
   'w-strike-laser-claw': {
     id: 'w-strike-laser-claw',
-    name: 'Strike Laser Claw',
+    name: 'Zarpazo de plasma',
     abilityId: 'strike-laser-claw',
     costs: { energy: 15, heat: 10 },
     magazine: 0,
@@ -19,7 +19,7 @@ export const WEAPONS: Record<string, WeaponDefinition> = {
   },
   'w-charged-particle-gun': {
     id: 'w-charged-particle-gun',
-    name: 'Cañón de partículas cargadas',
+    name: 'Cañón de fisura',
     abilityId: 'charged-particle-gun',
     // El arma definitoria del Geno: devastadora, pero recalienta el
     // chasis y exige un turno de enfriamiento entre disparos.

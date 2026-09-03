@@ -116,7 +116,7 @@ LICENCIA. Propuesta de sistema de nombres (la dirección bautiza):
 designación oficial burocrática (línea + clase de peso como
 certificación estatal) + APODO de taller con el que todos las llaman —
 la tensión burocracia/calle en cada ficha del hangar. El término
-categoría («zoid» →) sale del canon; candidatos para la dirección:
+categoría («armazón» →) sale del canon; candidatos para la dirección:
 *armazón*, *reliquia*, *eco*, o un nombre propio del lore.
 1. **Gameplay**: el hangar cuenta el mundo sin un texto extra.
 2. **Narrativa**: burocracia y decadencia en la nomenclatura misma.

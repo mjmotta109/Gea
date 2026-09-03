@@ -2,12 +2,12 @@ import { CT_ACT_HEAVY, type AbilityDefinition } from '../core/types.js';
 
 /**
  * Catálogo de habilidades. Equivalen a las habilidades de job de FFTA;
- * aquí son sistemas de armas y equipo de los Zoids.
+ * aquí son sistemas de armas y equipo de los armazones.
  */
 export const ABILITIES: Record<string, AbilityDefinition> = {
   'strike-laser-claw': {
     id: 'strike-laser-claw',
-    name: 'Strike Laser Claw',
+    name: 'Zarpazo de plasma',
     description: 'Zarpazo energético a bocajarro de enorme potencia.',
     range: 1,
     minRange: 1,
@@ -20,7 +20,7 @@ export const ABILITIES: Record<string, AbilityDefinition> = {
   'bite-crush': {
     id: 'bite-crush',
     name: 'Mordisco triturador',
-    description: 'Ataque de mandíbulas estándar de los Zoids cuadrúpedos.',
+    description: 'Ataque de mandíbulas estándar de los armazones cuadrúpedos.',
     range: 1,
     minRange: 1,
     shape: 'single',
@@ -67,7 +67,7 @@ export const ABILITIES: Record<string, AbilityDefinition> = {
   },
   'charged-particle-gun': {
     id: 'charged-particle-gun',
-    name: 'Cañón de partículas cargadas',
+    name: 'Cañón de fisura',
     description: 'Haz devastador en línea recta que recalienta al objetivo.',
     range: 6,
     minRange: 2,

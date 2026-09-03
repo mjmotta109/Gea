@@ -36,8 +36,8 @@ comportarse de forma completamente distinta según su configuración.
    del `Rng` compartido.
 5. **Modularidad**: cada sistema nuevo es un módulo desacoplado que se puede
    activar, desactivar y testear por separado.
-6. **El núcleo es genérico**: nada en `src/core/` sabe qué es un Zoid. Los
-   Zoids son *contenido* y viven en `src/data/`. El motor debe poder simular
+6. **El núcleo es genérico**: nada en `src/core/` sabe qué es un armazón. Los
+   armazones son *contenido* y viven en `src/data/`. El motor debe poder simular
    mechas, tanques, infantería o naves sin tocar el core.
 7. **Evolución, no reescritura**: cada fase compila, pasa los tests y deja el
    juego jugable. Lo existente no se rompe.
@@ -55,15 +55,15 @@ comportarse de forma completamente distinta según su configuración.
 | `core/grid.ts` | Mapa, tiles `{terrain, height}`, parser ASCII | 🔶 Extensible: los tiles necesitan propiedades de material (fase 3) con defaults derivados del terreno actual. |
 | `core/status.ts` | 4 estados hardcodeados con bonus en funciones | 🔴 Se generaliza a un sistema de modificadores data-driven (fase 0). |
 | `core/battle.ts` | Orquestador: turnos, validación, efectos, eventos | 🔴 Es el "casi-god-object" (~430 líneas). Se descompone en coordinador + hooks de sistemas (fases 0-2). |
-| `core/types.ts` | Tipos compartidos | 🔴 `Stats` plano y `ZoidDefinition` en el core violan el principio 6. Se generaliza. |
-| `data/*` | Catálogos de Zoids, habilidades, mapas | ✅ El patrón data-driven es exactamente el que se extiende. |
+| `core/types.ts` | Tipos compartidos | 🔴 `Stats` plano y `armazónDefinition` en el core violan el principio 6. Se generaliza. |
+| `data/*` | Catálogos de armazones, habilidades, mapas | ✅ El patrón data-driven es exactamente el que se extiende. |
 | `ai/simpleAi.ts` | IA greedy pura sobre la fachada `Battle` | 🔶 Se conserva como IA de referencia; la fase 5 añade perfiles de personalidad encima. |
 | `demo/cli.ts` | Demo ASCII de punta a punta | ✅ Se convierte en el banco de pruebas visual de cada fase. |
 
 ### 2.2 Activos que hacen viable la migración
 
 - **Cuello de botella único de stats.** Todas las lecturas de stats pasan por
-  `battle.effectiveStats()` o `zoidOf(...).stats`. Hay ~10 sitios de lectura,
+  `battle.effectiveStats()` o `armazónOf(...).stats`. Hay ~10 sitios de lectura,
   todos localizables. Convertir `effectiveStats` en un *pipeline de stats
   derivadas* es el cambio de mayor palanca de todo el plan: una vez que todo
   lee de ahí, los módulos, el calor, la energía y el daño localizado solo
@@ -87,7 +87,7 @@ comportarse de forma completamente distinta según su configuración.
    El daño localizado exige HP por módulo con el HP global como *derivado*.
 3. **Tres lecturas esquivan `effectiveStats`**: la curación
    (`battle.ts:298`), el sobrecalentamiento (`battle.ts:333`) y la IA
-   (`simpleAi.ts:47`) leen `zoid.stats.maxHp` directo. La fase 0 las
+   (`simpleAi.ts:47`) leen `armazón.stats.maxHp` directo. La fase 0 las
    canaliza por el pipeline — si no, el maxHp modificado por módulos
    desincronizaría curaciones e IA.
 4. **`applyEffects` mezcla responsabilidades**: precisión, daño, curación y
@@ -95,7 +95,7 @@ comportarse de forma completamente distinta según su configuración.
    munición) lo engordaría más. Se descompone en un pipeline de resolución.
 5. **Estados hardcodeados**: `armor-up` suma +15 dentro de una función. No
    escalan a decenas de efectos de módulos/calor/terreno.
-6. **Naming "Zoid" en el core**: `ZoidDefinition`, `zoidId`, `zoidOf` viven
+6. **Naming "armazón" en el core**: `armazónDefinition`, `armazónId`, `armazónOf` viven
    en `core/types.ts` y `core/battle.ts`. Migran a `UnitDefinition` /
    `unitTypeId` / `definitionOf` con alias de compatibilidad.
 7. **`AbilityDefinition` es autocontenida**: sin coste de energía, sin calor,
@@ -187,7 +187,7 @@ Reglas:
 
 ### 3.3 Compatibilidad por envoltura, no por bifurcación
 
-Las definiciones actuales (`ZoidDefinition` con stats planas) se adaptan
+Las definiciones actuales (`armazónDefinition` con stats planas) se adaptan
 automáticamente al modelo nuevo mediante una envoltura *monocasco*: un frame
 de un solo módulo (el casco) cuyo HP es el maxHp actual y que aporta todas
 las stats base. Nada del contenido existente se toca; los tests actuales
@@ -255,9 +255,9 @@ valor estructural máximo.*
    y compara el log de eventos serializado contra archivos de referencia.
    Es la red de seguridad de TODA la migración: cualquier refactor que
    cambie el comportamiento sin querer, lo detecta este test.
-2. **Genericización del core**: `ZoidDefinition → UnitDefinition`,
-   `zoidId → unitTypeId`, `zoidOf → definitionOf`, con alias `deprecated`
-   para no romper imports. "Zoid" queda solo en `src/data/` y en la demo.
+2. **Genericización del core**: `armazónDefinition → UnitDefinition`,
+   `armazónId → unitTypeId`, `armazónOf → definitionOf`, con alias `deprecated`
+   para no romper imports. "armazón" queda solo en `src/data/` y en la demo.
 3. **Pipeline de stats derivadas** (§3.2): `core/derived.ts`. Los estados
    actuales (`armor-up`, `evasion-up`) se convierten en `StatModifier`
    data-driven; `status.ts` deja de tener números incrustados. Las 3
@@ -267,13 +267,13 @@ valor estructural máximo.*
    (`OverheatSystem`) como prueba del mecanismo.
 
 **Hecho cuando**: golden master idéntico antes y después; cero referencias a
-"zoid" en `src/core/`; los 32 tests actuales pasan sin modificarse.
+"armazón" en `src/core/`; los 32 tests actuales pasan sin modificarse.
 
 **Resultado (2026-07-03)**: completada en 4 commits (golden master →
 genericización → pipeline → bus de sistemas). Golden master idéntico en los
 tres pasos de refactor. Desvíos del plan, anotados:
 - Los tests existentes SÍ se tocaron, pero solo mecánicamente (renombrado
-  `zoidId`→`unitTypeId`, `zoidCatalog`→`unitCatalog` en literales); ninguna
+  `armazónId`→`unitTypeId`, `armazónCatalog`→`unitCatalog` en literales); ninguna
   aserción cambió. El criterio real de no-regresión lo cubre el golden master.
 - `onValidateAction` recibe también la unidad actora además de la acción,
   y `SystemContext` expone `effectiveStats` + `units` en lugar de la Battle
@@ -328,12 +328,12 @@ type Loadout = Record<SlotId, string /* moduleId */>;
    sin frame: un solo módulo crítico cuyo HP es el maxHp de siempre.
 5. **Eventos nuevos**: `module-damaged`, `module-destroyed`,
    `hit-location-rolled`.
-6. **Contenido**: 2-3 Zoids del catálogo se remodelan con frames completos
-   como demostración (Liger Zero con CAS es el candidato natural); el resto
+6. **Contenido**: 2-3 armazones del catálogo se remodelan con frames completos
+   como demostración (Zarpa con CAS es el candidato natural); el resto
    sigue monocasco.
 
 **Hecho cuando**: una batalla de la demo muestra piernas/armas destruidas
-con efectos visibles; los Zoids monocasco se comportan idéntico al golden
+con efectos visibles; los armazones monocasco se comportan idéntico al golden
 master; tests de localización, overflow y contribuciones.
 
 **Resultado (2026-07-04)**: completada en 2 commits (motor de frames →
@@ -398,8 +398,8 @@ interface WeaponDefinition {
    energética (filtro de acciones vetadas — gratis, porque pregunta al
    motor) y a recargar cuando no tiene tiro.
 
-**Hecho cuando**: en la demo se ve a un Geno Saurer gestionar el calor de su
-cañón de partículas y a un Gun Sniper quedarse sin munición y recargar; el
+**Hecho cuando**: en la demo se ve a un Basilisco gestionar el calor de su
+cañón de partículas y a una Aguja quedarse sin munición y recargar; el
 golden master de unidades sin componentes sigue intacto.
 
 **Resultado (2026-07-04)**: completada en 2 commits (sistemas → contenido +
@@ -423,7 +423,7 @@ IA). Golden master intacto. Desvíos anotados:
 - Semilla 30 de la demo para ver recarga/boost/cooldown; la 42 sigue de
   referencia para módulos.
 - Confirmado el desequilibrio del cañón de partículas (fase 1): en la
-  semilla 30 el Geno CP gana 4v4 sin un rasguño. La herramienta de
+  semilla 30 el Basilisco Ígneo gana 4v4 sin un rasguño. La herramienta de
   balance por lotes sube de prioridad para la fase 3.
 
 ---
@@ -448,7 +448,7 @@ enemigo gratis.*
 4. **IA sobre percepción**: la IA de referencia pasa de omnisciente a operar
    sobre `battle.knownEnemies(team)`. Mismo contrato, información filtrada.
 
-**Hecho cuando**: en la demo, un Gun Sniper detrás de una colina es
+**Hecho cuando**: en la demo, una Aguja detrás de una colina es
 inalcanzable e invisible hasta que alguien gana línea de visión; con niebla
 la batalla se decide a corta distancia.
 
@@ -506,7 +506,7 @@ puntería con la distancia, la penetración perfora la armadura de los
 módulos, las explosiones tienen caída radial (−25%/casilla, mín 30%) y
 derriban muros (escombros transitables que abren líneas de visión;
 Battle clona su mapa para no mutar el catálogo). El cañón de impacto
-del Gustav demuestra el empuje (masa ≥ 3 desplaza una casilla, con
+de la Acémila demuestra el empuje (masa ≥ 3 desplaza una casilla, con
 reglas de destino en physics.ts). Evento projectile-fired con
 trayectoria teórica para el renderer. Desvío: el rebote (ricochet)
 queda declarado en el spec pero sin consumir.
@@ -550,7 +550,7 @@ defecto. La utilidad pondera: los prudentes descartan tiros dudosos y
 no terminan rodeados; los defensivos aguantan posición; los heridos con
 alta autoconservación se repliegan; solo los agresivos queman energía
 en boost. Ejemplo inmediato de su valor: subir la autoconservación del
-Geno lo llevó de morir el 98.5% (kamikaze) a hacer 186 de daño medio
+El Basilisco lo llevó de morir el 98.5% (kamikaze) a hacer 186 de daño medio
 kiteando — la personalidad ES una herramienta de balance. Mando:
 UnitSpawn.commander, evento command-link-lost (una vez por equipo) y
 −5 puntería/evasión para el equipo huérfano vía pipeline. Desvíos:

@@ -160,7 +160,7 @@ interface SlotConfig {
 
 const PLAYER_IDS = ['P1', 'P2', 'P3', 'P4'] as const;
 const PILOT_IDS = ['pilot-1', 'pilot-2', 'pilot-3', 'pilot-4'] as const;
-const DEFAULT_PILOT_NAMES = ['Van', 'Irvine', 'Moonbay', 'Fiona'];
+const DEFAULT_PILOT_NAMES = ['Ilán', 'Corvo', 'Bruna', 'Aris'];
 const SPEC_LABEL: Record<SpecializationId, string> = {
   assault: 'Asalto', sniper: 'Tirador', support: 'Soporte', defense: 'Defensa',
 };
@@ -2058,7 +2058,7 @@ function rosterCard(unit: UnitState, detailed: boolean, focusId: string | null):
           : `✦ <s>${ability.name}</s> — gastada`}</div>`);
       }
       if (frame) {
-        // El diagrama del casco ocupa: solo lo muestra el zoid SELECCIONADO
+        // El diagrama del casco ocupa: solo lo muestra el armazón SELECCIONADO
         // (por defecto el que tiene el turno). El resto va compacto con la
         // pista '▸ ver casco'. Uno a la vez: el panel no crece sin control.
         card.classList.add('frameable');
@@ -2089,7 +2089,7 @@ function rosterCard(unit: UnitState, detailed: boolean, focusId: string | null):
   return card;
 }
 
-/** Zoid cuyo CASCO se muestra desplegado. null = seguir al activo. Un muerto
+/** Armazón cuyo CASCO se muestra desplegado. null = seguir al activo. Un muerto
  *  cae de vuelta al activo. Solo UNO a la vez: así el panel no ocupa tanto. */
 let inspectedUnitId: string | null = null;
 
@@ -2109,7 +2109,7 @@ function renderRoster(): void {
 }
 
 /*
- * Diagrama de estado del Zoid: silueta lateral genérica (morro a la
+ * Diagrama de estado del armazón: silueta lateral genérica (morro a la
  * derecha) con cada módulo como pieza coloreada por su HP. Los slots
  * son cadenas libres del frame: se asignan a regiones por patrón y lo
  * que no encaje se apila como bloque extra a la izquierda.
@@ -2682,7 +2682,7 @@ function showOverlay(): void {
   } else {
     $('ov-sub').textContent = won
       ? 'El equipo cian controla el campo. [Enter] para otra batalla.'
-      : 'Tus Zoids quedan fuera de combate. [Enter] para reintentar.';
+      : 'Tus armazones quedan fuera de combate. [Enter] para reintentar.';
     restartBtn.textContent = 'Nueva batalla';
   }
   $('ov-xp').innerHTML = renderXpSummary();
@@ -2918,7 +2918,7 @@ function renderGarage(): void {
       saveGarage();
       renderGarage();
     });
-    mkRow('Zoid', zoidSelect);
+    mkRow('Armazón', zoidSelect);
 
     // Armas (hasta 3; el chasis pone las innatas gratis aparte).
     const legalWeapons = compatibleWeapons(config.unitTypeId);
@@ -3361,7 +3361,7 @@ function renderMercHangar(): void {
         `${scars > 0 ? ` · <span class="symptom">${'✚'.repeat(scars)} cicatrices</span>` : ''}</span></div>`);
     }
     {
-      // Todo Zoid está vivo: cada carta enseña su núcleo. La compañera
+      // Todo armazón está vivo: cada carta enseña su núcleo. La compañera
       // usa su tabla completa; el resto, la de núcleo (techos más bajos).
       const bio = document.createElement('div');
       bio.className = 'gbio';
@@ -3874,7 +3874,7 @@ function settleContract(): string {
           const record = zoidRecord(updated);
           serviceLines.push(`⭐ El ${ZOIDS[zoid.unitTypeId]!.name} ya es ${after.label.toUpperCase()}: ${record.battles} batallas y ${record.kills} derribos a cuestas.`);
         }
-        // Todo Zoid está vivo: su núcleo también graba (la compañera lo
+        // Todo armazón está vivo: su núcleo también graba (la compañera lo
         // hace aparte, con su tabla completa).
         if (slot === 0) return updated;
         const observed = observeCompanionBattle(zoidCore(updated), {
@@ -4605,7 +4605,7 @@ function cityDoors(city: { level: number; factory?: string }): Array<{ key: stri
   ];
   if (city.factory === 'armas') doors.push({ key: '🏭 Fábrica', icon: '🏭', name: 'Fábrica de armas', sub: 'armamento con descuento local' });
   if (city.factory === 'piezas') doors.push({ key: '🏭 Fábrica', icon: '🏭', name: 'Fábrica de piezas', sub: 'planos de módulos' });
-  if (city.level >= 2) doors.push({ key: '🏗 Fabricación', icon: '🏗', name: 'Fabricación de Zoids', sub: 'encargar chasis con retoma' });
+  if (city.level >= 2) doors.push({ key: '🏗 Fabricación', icon: '🏗', name: 'Fabricación de armazones', sub: 'encargar chasis con retoma' });
   if (city.level >= 2) doors.push({ key: '🏛 Agencia', icon: '🏛', name: 'Agencia de Colocación', sub: 'pilotos certificados del Estado' });
   doors.push(
     { key: '🔧 Modificación', icon: '🔧', name: 'Modificación', sub: 'tunear armas y módulos' },
@@ -4843,7 +4843,7 @@ function renderCity(): void {
 
   // 🏗 FABRICACIÓN DE ZOIDS — encargar chasis (nivel 2+).
   if (city.level >= 2) {
-    const yard = citySection('🏗 Fabricación de Zoids — encargo con retoma');
+    const yard = citySection('🏗 Fabricación de armazones — encargo con retoma');
     campaign.roster.forEach((zoid, slot) => {
       const maxHp = campaignMaxHp(slot);
       const select = document.createElement('select');

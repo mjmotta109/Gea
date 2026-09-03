@@ -599,7 +599,7 @@ export const WEAPON_LIBRARY_ENTRIES: Record<string, WeaponLibraryEntry> = {
     weight: 'medium',
     role: 'skirmisher',
     tags: ['ammo', 'stable', 'mid-range'],
-    notes: 'Arma de batalla general para Command Wolf, Molga elite o Gustav armado.',
+    notes: 'Arma de batalla general para Batidor, Oruga elite o Acémila armado.',
   },
   'lib-w-flak-burst': {
     weaponId: 'lib-w-flak-burst',

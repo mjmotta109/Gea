@@ -18,7 +18,7 @@ texto narrativo.
 ## 2. Leyes permanentes (no negociables)
 
 1. **Motor separado del juego**: `src/core` no conoce el universo
-   (cero vocabulario de Zoids). `src/game` es puro y determinista.
+   (cero vocabulario de armazones). `src/game` es puro y determinista.
    `src/data` es contenido (lo PROVISIONAL está marcado). `src/web` es
    el cliente.
 2. **Determinismo total**: sin dados escondidos; azar por clave grabada

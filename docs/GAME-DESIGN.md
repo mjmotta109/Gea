@@ -17,7 +17,7 @@ nacen de ellas (el guion de "la primera expedición" en §1.2 es la
 plantilla del método).
 
 La base táctica sigue siendo FFT (CT, casillas, posicionamiento) con
-profundidad de máquina (Armored Core / BattleTech); la inspiración Zoids
+profundidad de máquina (Armored Core / BattleTech); la inspiración armazones
 se conserva como andamio de identidad y más adelante se sustituirá por
 IP original. La estrella polar no cambia: **cada expedición debe
 producir recuerdos** que surgen del sistema, no de cinemáticas.
@@ -96,7 +96,7 @@ diario automático. Todo lo demás ya existe.
 
 ## 2. Relación motor ↔ juego
 
-El motor se mantiene genérico — nada del universo Zoids en `src/core/`, y
+El motor se mantiene genérico — nada del universo armazones en `src/core/`, y
 hay verificación de ello — pero **las prioridades las dicta este juego**.
 Solo se generaliza una mecánica cuando el juego la necesita y ha
 demostrado funcionar. El motor es una consecuencia de hacer un gran
@@ -175,8 +175,8 @@ Pendientes de pasar el filtro del §5 con una propuesta concreta:
 |---|---|---|
 | Controles de teclado (WASD + confirmación) y flujo de UI estilo XCOM: seleccionar → previsualizar → confirmar | feedback del primer playtest | explorando |
 | Bonus defensivo/sensorial por tipo de terreno ocupado (bosque, agua somera) en lugar de cobertura direccional XCOM | feedback del primer playtest | encaja con fase 3 del motor (terreno rico); pendiente de números |
-| Ensamblaje de Zoids ("garaje"): intercambiar módulos y armas por unidad entre batallas | visión original | ✅ motor (UnitSpawn.loadout) y ✅ UI web: pantalla de garaje con selección de chasis (todo el hangar), hasta 3 armas del catálogo mezclado, recambios aftermarket por slot y vista previa de stats en vivo (deltas vs fábrica), persistida en localStorage. Pendiente: reglas de peso/energía |
-| Progresión piloto ↔ Zoid separadas; árbol de habilidades con especializaciones | visión original | ✅ motor (core/progression.ts) y ✅ web: pilotos persistentes en localStorage, XP repartida al terminar cada batalla (resumen en el overlay con avisos de nivel), pistas visibles en el garaje y sinergia señalada en la vista previa. ✅ árbol visual (pantalla 🧠 Pilotos: 4 pistas × 5 perks nombrados, desbloqueo por XP) y ✅ MANÍAS estilo Darkest Dungeon: la memoria del piloto cuenta lo vivido (batallas, bajas, castigo, apagados, esquivas, reparaciones, roces con ≤20% HP) y al cruzar umbrales se graban rasgos permanentes — bendiciones, cicatrices o mixtos (Curtido, Miedo al calor, Gatillo fácil, Paranoia...), tope 4, números modestos: son personalidad, no poder. Pendiente: respec |
+| Ensamblaje de armazones ("garaje"): intercambiar módulos y armas por unidad entre batallas | visión original | ✅ motor (UnitSpawn.loadout) y ✅ UI web: pantalla de garaje con selección de chasis (todo el hangar), hasta 3 armas del catálogo mezclado, recambios aftermarket por slot y vista previa de stats en vivo (deltas vs fábrica), persistida en localStorage. Pendiente: reglas de peso/energía |
+| Progresión piloto ↔ armazón separadas; árbol de habilidades con especializaciones | visión original | ✅ motor (core/progression.ts) y ✅ web: pilotos persistentes en localStorage, XP repartida al terminar cada batalla (resumen en el overlay con avisos de nivel), pistas visibles en el garaje y sinergia señalada en la vista previa. ✅ árbol visual (pantalla 🧠 Pilotos: 4 pistas × 5 perks nombrados, desbloqueo por XP) y ✅ MANÍAS estilo Darkest Dungeon: la memoria del piloto cuenta lo vivido (batallas, bajas, castigo, apagados, esquivas, reparaciones, roces con ≤20% HP) y al cruzar umbrales se graban rasgos permanentes — bendiciones, cicatrices o mixtos (Curtido, Miedo al calor, Gatillo fácil, Paranoia...), tope 4, números modestos: son personalidad, no poder. Pendiente: respec |
 | Generador de mapas/escenarios (aleatorio y dirigido) | feedback | aplazado explícitamente ("ahora no") |
 | Gráficos: investigar punto dulce estilizado + game feel satisfactorio | feedback | investigación pendiente |
 
@@ -194,33 +194,33 @@ arquitectura del motor van en DESIGN.md.)*
   combate "se siente bien" sin niebla de guerra. Sensores/niebla quedan
   APLAZADOS hasta nueva orden; el clima entra ya (lluvia refrigera,
   tormenta de arena degrada la puntería a distancia).
-- **2026-07-05** — Progresión (ley del usuario): el Zoid NO gana XP, solo
-  el piloto; el piloto se especializa por pistas y el Zoid "se especializa
+- **2026-07-05** — Progresión (ley del usuario): el armazón NO gana XP, solo
+  el piloto; el piloto se especializa por pistas y el armazón "se especializa
   hacia el mismo lado" mediante piezas/mods etiquetados — la sinergia
   piloto↔máquina es la recompensa (tope 2 piezas para evitar builds
   degeneradas). Números modestos: el posicionamiento sigue mandando.
 - **2026-07-05** — Primer ciclo de balance con datos (npm run balance):
   cañón de partículas 60→36 de potencia y alcance mínimo 2; el escenario
   del valle pasa de 81.5% enemigo a 55/45 jugador. Detectados los
-  siguientes objetivos: rifle del francotirador sobre-rendido y Geno
+  siguientes objetivos: rifle del francotirador sobre-rendido y Basilisco
   demasiado frágil una vez nerfeado su cañón.
 - **2026-07-05** — Ciclo de balance del HANGAR COMPLETO (nueva herramienta
   `npm run balance:hangar`: 4v4 aleatorios deterministas, 1500 batallas,
   ±2pp de error). Lecciones y cambios:
   - Con 300 batallas (±10pp) se persigue ruido; las decisiones se toman
     solo con la muestra grande.
-  - El rifle innato gratuito del Gun Sniper stock era la unidad más
+  - El rifle innato gratuito de la Aguja stock era la unidad más
     fuerte del juego (69.6%): pasó a arma montada con munición, como
     su variante custom. El golden master se regeneró declarándolo.
   - La IA aprendió a usar SOPORTE (curas y buffs a aliados bajo amenaza,
     con utilidad menor que un buen disparo): el arquetipo de apoyo por
     fin pulsa sus botones y se vuelve balanceable.
-  - Ajustados: König Wolf (5 nerfs; su patrón de fuego a distancia 6 se
+  - Ajustados: Montero (5 nerfs; su patrón de fuego a distancia 6 se
     asienta en ~59.6% — VIGILAR: es un límite de la IA greedy, que no
     sabe castigar el standoff, tanto como un problema de números),
-    aguja térmica (cargador 4→3, proc de calor 45%→30%), Zaber Fang,
-    Dibison, y buffs a Storm Sworder, Guysak, Gordos, Gojulas, Brachios.
-  - Aceptados como débiles POR DISEÑO: Molga (carne de cañón) y Gustav
+    aguja térmica (cargador 4→3, proc de calor 45%→30%), Colmillo,
+    Ariete, y buffs a Vendaval, Alacrán, Bastión, Yunque, Zahorí.
+  - Aceptados como débiles POR DISEÑO: Oruga (carne de cañón) y Acémila
     (transporte). Anotado: las variantes framed pagan ~7pp de "impuesto
     de módulos" frente a sus gemelas monocasco.
   - Banda final: 21 de 23 chasis en 42–58% de victoria; el valle queda
@@ -232,7 +232,7 @@ arquitectura del motor van en DESIGN.md.)*
   ciclo de balance) + pantalla de cuartel en la web. Reglas de la
   rebanada: 3 ofertas deterministas por ciclo (escolta/asalto/caza, con
   escuadras enemigas muestreadas por presupuesto), recompensa solo al
-  ganar + chatarra por baja enemiga, reparar cuesta 2⌾/HP, un Zoid
+  ganar + chatarra por baja enemiga, reparar cuesta 2⌾/HP, un armazón
   destruido no se despliega hasta reconstruirlo (60% del precio), las
   armas son propiedad (comprar/vender/montar con validación de arsenal)
   y cambiar de chasis incluye retoma del actual según su estado. El
@@ -353,7 +353,7 @@ arquitectura del motor van en DESIGN.md.)*
     100% de lo reparable hasta el tope del nivel; la munición se repone
     al desplegar), 🏪 Mercader (suministros, bodega, armas de segunda
     mano, jornal), 🏭 Fábrica (armas o planos, según especialidad),
-    🏗 Fabricación de Zoids (encargo con retoma, nivel 2+), 🔧
+    🏗 Fabricación de armazones (encargo con retoma, nivel 2+), 🔧
     Modificación/tunear (armas del arsenal y módulos con plano), 😴
     Descansos y consultorio (pensión, vela, cantina, Farol Rojo,
     terapia), y 🍻 Taberna y gremio.
@@ -382,10 +382,10 @@ arquitectura del motor van en DESIGN.md.)*
   suministros, Mercenario ⌾2500/8, Leyenda ⌾1600/5 (solo cambia el
   punto de partida económico, nunca las reglas de combate: el
   determinismo es ley); (3) compañera inicial — 4 chasis curados
-  (Liger Zero, Shield Liger, Zaber Fang, Rev Raptor) con sus stats de
+  (Zarpa, Broquel, Colmillo, Espolón) con sus stats de
   fábrica a la vista, ocupa el slot 0 del roster; (4) nombres de los
-  4 pilotos. El resto del roster inicial es fijo (Command Wolf, Gun
-  Sniper, Gustav) para que la elección de compañera sea identidad, no
+  4 pilotos. El resto del roster inicial es fijo (Batidor, Gun
+  Sniper, Acémila) para que la elección de compañera sea identidad, no
   ventaja. Fundar borra las claves vivas y aterriza directo en el
   cuartel sin pasar por el menú. Motor y capa de juego intactos:
   `newCampaign` solo ganó un parámetro opcional de overrides
@@ -433,9 +433,9 @@ arquitectura del motor van en DESIGN.md.)*
   balística por arma (alejarse castiga doble con proyectiles). hitChance
   se acota a [5,99]: LA CERTEZA NO EXISTE, el 99 deja siempre sitio al
   desastre. Golden master actualizado y declarado en el commit.
-- **2026-07-05** — DIAGRAMA DE ESTADO DEL ZOID (dirección del usuario:
+- **2026-07-05** — DIAGRAMA DE ESTADO DEL ARMAZÓN (dirección del usuario:
   "quiero ver un diagrama del estatus con cada parte a la vista"). En
-  la lista de unidades, cada Zoid con frame muestra un esquema lateral
+  la lista de unidades, cada armazón con frame muestra un esquema lateral
   (morro a la derecha): mochila/torso/cabeza/arma/patas como piezas
   coloreadas por HP (verde ≥70, ámbar ≥35, rojo <35, gris ✕ destruido)
   con el número dentro y tooltip. Asignación por patrón de slot: los
@@ -487,7 +487,7 @@ arquitectura del motor van en DESIGN.md.)*
      VEN: insignias 🦵 cojea / 📡 sensores rotos / 🔫 arma inutilizada,
      y con sensores destruidos la consola MIENTE (% con ruido ±20
      determinista, marcado "≈…%?"; el motor usa el real).
-  4. HERIDAS DE PILOTO (pilar 6): Zoid a 0 en batalla de campaña →
+  4. HERIDAS DE PILOTO (pilar 6): armazón a 0 en batalla de campaña →
      piloto herido 3 jornadas + estrés +15, determinista y anunciado.
      Los heridos no despliegan; el tiempo (viaje/descanso) cura.
      Nunca muerte permanente sin aviso.
@@ -714,7 +714,7 @@ arquitectura del motor van en DESIGN.md.)*
 - **2026-07-06** — De los 12 arquetipos de silueta, el CARACOL pasa a
   TORTUGA ("es más aesthetic"): caparazón abovedado con banda de
   placas, cabeza corta al frente y patas rechonchas. La llevan el
-  Gustav y el carguero de escolta. El encargo de arte se actualiza.
+  Acémila y el carguero de escolta. El encargo de arte se actualiza.
 - **2026-07-06** — DIORAMA GIRATORIO + CLIMA CON PESO Y PRESENCIA.
   · GIRO DE CÁMARA: el diorama rota en cuartos de vuelta (botón ⟳ y
     tecla Q, persistido). La cámara gira, el mundo no: el motor sigue
@@ -733,9 +733,9 @@ arquitectura del motor van en DESIGN.md.)*
     a distancia); ahora viajar bajo tormenta come +1 suministro, y el
     mapa de mundo anuncia el cielo del día (☀/🌧/🌪).
 - **2026-07-07** — HOJA DE SERVICIO DEL CHASIS + CICATRICES ("¿qué pasó
-  con las marcas de batalla en el zoid?" → aplícalo). La LEY se mantiene:
+  con las marcas de batalla en el armazón?" → aplícalo). La LEY se mantiene:
   la máquina NO gana experiencia — pero sí HISTORIA.
-  · ZoidRecord por máquina: batallas servidas, derribos, reconstrucciones,
+  · armazónRecord por máquina: batallas servidas, derribos, reconstrucciones,
     eyecciones y retiradas. Se graba al liquidar cada batalla (los
     derribos se atribuyen por el log de eventos) y en el taller (cada
     reconstrucción queda anotada). Guardados viejos: hoja a cero, sin
@@ -749,11 +749,11 @@ arquitectura del motor van en DESIGN.md.)*
     plana, mesa, diorama y en la carta del hangar (silueta + resumen).
     Las máquinas de escaramuza no llevan historial: cicatrices solo en
     campaña.
-- **2026-07-07** — TODO ZOID ESTÁ VIVO ("todos los zoids tienen historia
+- **2026-07-07** — TODO ARMAZÓN ESTÁ VIVO ("todos los armazones tienen historia
   y núcleo, no solo el mío"). Ley de universo: cada máquina del roster
   tiene NÚCLEO — marcas grabadas por lo vivido y compenetración con su
   piloto — no solo la compañera.
-  · OwnedZoid.core (misma forma que el de la compañera); guardados
+  · Ownedarmazón.core (misma forma que el de la compañera); guardados
     viejos leen núcleo verde, sin migración.
   · CORE_TABLE (data/marks.ts): mismas marcas, pero el vínculo menor
     tiene TECHOS más bajos — 3 espacios de marca (vs 6) y compenetración
@@ -773,7 +773,7 @@ arquitectura del motor van en DESIGN.md.)*
     (corre al borde y abandona — se te puede escapar la presa); olfato
     de misión en escoltas (+40 de utilidad al carguero protegido).
     Golden regenerado y declarado. Nota de diseño: dos bandos pasivos
-    aún pueden empatar sin fin (los Gordos que mantienen posición);
+    aún pueden empatar sin fin (los Bastión que mantienen posición);
     contra un jugador que avanza no ocurre — vigilar si molesta.
   · HABILIDADES ACTIVAS POR ESCUELA (commit propio): usesPerBattle en
     el motor + extraAbilityIds por spawn; Embestida / Tiro calibrado /
@@ -790,7 +790,7 @@ arquitectura del motor van en DESIGN.md.)*
     posturas+vigilancia, reacciones, retirada/eyección, memoria del
     metal), con Saltar; se guarda en localStorage y no vuelve a sonar.
 - **2026-07-07** — ESTADO DEL DESTACAMENTO EN BATALLA ("me gustaría ver
-  el estado de mis zoids mientras peleo"). El panel Unidades deja de ser
+  el estado de mis armazones mientras peleo"). El panel Unidades deja de ser
   una lista plana: los TUYOS van primero con carta completa — piloto a
   los mandos (nombre, escuela principal/secundaria con nivel, 💢 si el
   estrés pesa), barras, munición por arma, estados, cupo de escuela
@@ -840,7 +840,7 @@ arquitectura del motor van en DESIGN.md.)*
     derriba los muros que cruce. Verificado con el pathfinding real: 1400
     spawns en 200 mapas generados, 0 inalcanzables.
   · Golden master regenerado y DECLARADO: en el valle, con el río ya
-    vadeable y el cañón de partículas del Geno castigando a quien cruza a
+    vadeable y el cañón de fisura del Basilisco castigando a quien cruza a
     campo abierto con −20, las tres batallas de referencia se inclinan al
     enemigo (terminan en 26-44 turnos). Es señal de BALANCE del escenario,
     no de rotura: el motor sigue determinista. Los números (3 / 20 / 2)
@@ -876,7 +876,7 @@ arquitectura del motor van en DESIGN.md.)*
     atlas/expedition intactos.
 - **2026-07-07** — DESGASTE DE COMBATE Y DIFICULTAD SIN ESPONJAS
   (aclaración del usuario: "no quiero esponjas de balas en dificultades
-  altas; con tanto desgaste visible en cada Zoid, que cueste y que cada
+  altas; con tanto desgaste visible en cada armazón, que cueste y que cada
   impacto deje marca — sin una pata te mueves menos y apuntas peor —, más
   dinámico pero con reglas claras y opciones"). La dificultad deja de ser
   solo el punto de partida económico y pasa a escalar la CONSECUENCIA del
@@ -888,10 +888,10 @@ arquitectura del motor van en DESIGN.md.)*
     la campaña; el motor genérico no sabe de dificultad. Con severidad 0,
     comportamiento y golden IDÉNTICOS (verificado). No toca maxHp jamás.
   · DIFICULTAD (data/economy.ts): Cadete wear 0.5, Mercenario 1, Leyenda
-    1.6 — mismo Zoid al 15% de HP: −7/−14/−22 de puntería, el HP intacto en
+    1.6 — mismo armazón al 15% de HP: −7/−14/−22 de puntería, el HP intacto en
     los tres. Escaramuza usa el desgaste base (Mercenario). Guardada en
     CampaignState.difficulty (migración: ausente = mercenario).
-  · SIN UNA PATA (data/modules.ts): las cuatro patas (Liger CAS, Geno CP)
+  · SIN UNA PATA (data/modules.ts): las cuatro patas (Zarpa Coraza, Basilisco Ígneo)
     ganan onDestroyed −10 de puntería: perder un tren no solo quita
     movimiento (contribución perdida) — además cuesta apuntar. El retroceso
     fuerte ya existe (physics.ts knockback), ahora con más sentido (el agua
@@ -935,7 +935,7 @@ arquitectura del motor van en DESIGN.md.)*
   · EXPUESTA = sufre de verdad: la estructura recibe el daño ÍNTEGRO, sin
     mitigación de armadura, hasta destruirse (con su onDestroyed: la pata
     quita movimiento y puntería, la cabeza puntería, etc.). Ejemplo real
-    (torso Liger CAS, blindaje 16 / armadura 3): golpes de 12 → 9 al
+    (torso de la Zarpa Coraza, blindaje 16 / armadura 3): golpes de 12 → 9 al
     blindaje (HP global intacto); roto el blindaje, cada 12 son 12 íntegros
     a la estructura. Cada impacto deja marca, por zona.
   · deriveUnitHp sigue la ESTRUCTURA (el blindaje es capa extra): el HP
@@ -960,7 +960,7 @@ arquitectura del motor van en DESIGN.md.)*
     proyectil se cuela sin gastarlo; el resto lo frena hasta agotarse (evento
     unit-armor-broken). Absorbe también el daño de reacciones. Con armor 0
     (por defecto) el motor se comporta idéntico: golden INTACTO.
-  · TALLER (game/mercenary.ts + data/economy.ts): OwnedZoid.reinforced +
+  · TALLER (game/mercenary.ts + data/economy.ts): Ownedarmazón.reinforced +
     armor. `reinforceArmor` monta el búnker (⌾400, 30 de placas), `repairArmor`
     lo repara a tope (⌾3/punto gastado), `stripReinforcement` lo quita. El
     blindaje gastado en batalla PERSISTE (resolveContract.finalArmor) y se
@@ -968,7 +968,7 @@ arquitectura del motor van en DESIGN.md.)*
   · EL PRECIO: reforzar resta MOV −1 y velocidad −3 al desplegar
     (reinforcementModifiers, sumados a las marcas de la compañera). Extra
     aguante a cambio de ir más lento — consecuencia anunciada. Verificado:
-    Command Wolf reforzado MOV 5→4 con 30 de búnker; vuelve a 8/30 y el
+    Batidor reforzado MOV 5→4 con 30 de búnker; vuelve a 8/30 y el
     taller lo repara a 30/30 por ⌾66.
   · WEB: el hangar del cuartel gana Reforzar / Reparar blindaje / Quitar
     refuerzo por máquina; el despliegue aplica búnker + penalización; el
@@ -1204,14 +1204,14 @@ arquitectura del motor van en DESIGN.md.)*
     /reactores enemigos, así que su IA no cambia (verificado byte-idéntico).
   · CONTINUIDAD, CAPA DE CAMPAÑA — el motor ya lo aceptaba; ahora la campaña lo
     USA. Al liquidar una batalla, cada SUPERVIVIENTE graba su estado residual
-    (calor, energía, munición en cargador) en el roster (OwnedZoid.residualHeat/
+    (calor, energía, munición en cargador) en el roster (Ownedarmazón.residualHeat/
     residualEnergy/ammo). Al desplegar la SIGUIENTE batalla se relee por
     initialHeat/initialEnergy/ammo: entras como saliste (caliente, con el
-    cargador a medias). Una JORNADA DE DESCANSO hace refit (refitZoid: el
+    cargador a medias). Una JORNADA DE DESCANSO hace refit (refitarmazón: el
     reactor se enfría, se reabastece) — es lo que impide la espiral de la
     muerte. Retro-compatible (campos opt-in; guardados viejos, iguales) y
     golden-safe (el golden no toca la campaña). Verificado en el juego real: un
-    Liger con calor residual 80 despliega a 80/100 y humea de salida.
+    Zarpa con calor residual 80 despliega a 80/100 y humea de salida.
   327 tests en verde (+6 desde la revisión), tsc limpio, golden regenerado
   (balance) y por lo demás intacto.
 - **2026-07-08** — IA MÁS PROFUNDA: ESCUADRA + EMBOSCADA (dirección del usuario:
@@ -1338,14 +1338,14 @@ arquitectura del motor van en DESIGN.md.)*
 - **2026-07-09** — QUE EL DAÑO LOCALIZADO SE VEA (dirección del usuario: "haz que
   el daño localizado se vea"). El sistema de frames —impactos por zona, blindaje
   por placa que se arranca, secuela al perder una pieza, desbordamiento al núcleo—
-  solo lo tenían 2 de 25 chasis (Liger CAS, Geno CP), así que la mayoría de
+  solo lo tenían 2 de 25 chasis (Zarpa Coraza, Basilisco Ígneo), así que la mayoría de
   batallas eran de barra de HP única. El director eligió la opción B: frames a
   MEDIDA para 7 chasis comunes, con IDENTIDAD legible.
-  · Chasis: Liger Zero, Command Wolf, Gun Sniper, Gojulas, Iron Kong, Pteras y
-    Geno Saurer. Cada uno con su carácter: el Gojulas guarda el HP en un TORSO
-    grueso, el Iron Kong lleva la MOCHILA de misiles a la espalda (rear-exposed
-    ×2), la Pteras tiene ALAS frágiles y fáciles de acertar (rómpele un ala y
-    pierde evasión/vuelo), al Gun Sniper la COLA-sensor le da la puntería, al Geno
+  · Chasis: Zarpa, Batidor, Aguja, Yunque, Mazo, Vigía y
+    Basilisco. Cada uno con su carácter: el Yunque guarda el HP en un TORSO
+    grueso, el Mazo lleva la MOCHILA de misiles a la espalda (rear-exposed
+    ×2), la Vigía tiene ALAS frágiles y fáciles de acertar (rómpele un ala y
+    pierde evasión/vuelo), a la Aguja la COLA-sensor le da la puntería, al Geno
     el CAÑÓN de partículas es su pegada energética.
   · Convención NUEVA (coexiste con la de "núcleo desnudo" del CAS): el chasis
     conserva sus stats base COMPLETAS y el módulo es CARCASA pura (`struct` en
@@ -1365,7 +1365,7 @@ arquitectura del motor van en DESIGN.md.)*
   (balance:hangar): el blindaje por placa engordó a los duros —gojulas 59.5%,
   se recortó su placa (banda 54%)— y el meta se movió; zaber-fang subió a 61%
   (atk 40→37). Los 7 chasis con frame quedan en banda (43-56%). El cliente ya
-  tenía el lector de casco: en batalla, Command Wolf y Gun Sniper YA se ven como
+  tenía el lector de casco: en batalla, Batidor y Aguja YA se ven como
   piezas (10/40/15/15 y 8/30/16), no una barra. 9 tests nuevos (integridad de
   cada frame), 347 en verde, tsc limpio, verificado en el juego real.
   PENDIENTE (el otro frente del hueco nº1): la IA sigue CIEGA al arco —no
@@ -1411,9 +1411,9 @@ arquitectura del motor van en DESIGN.md.)*
     de estado.
 - **2026-07-09** — EL CASCO, SOLO DEL SELECCIONADO (dirección del usuario: "solo
   si lo selecciono, así no ocupamos tanto espacio"). El panel de UNIDADES pintaba
-  el DIAGRAMA de casco (silueta + módulos) de CADA zoid framed, y con el reparto
+  el DIAGRAMA de casco (silueta + módulos) de CADA armazón framed, y con el reparto
   de frames a 9 chasis eso llenaba la columna. Ahora el diagrama sale solo para el
-  zoid SELECCIONADO —por defecto el que tiene el turno—; el resto va compacto
+  armazón SELECCIONADO —por defecto el que tiene el turno—; el resto va compacto
   (nombre + barras) con una pista '▸ ver casco'. Clic en cualquier tarjeta la abre
   (y la cierra al reclicar, volviendo al activo); un seleccionado muerto cae de
   vuelta al activo. Uno a la vez → caben todas las unidades en la misma altura que
@@ -1485,14 +1485,14 @@ arquitectura del motor van en DESIGN.md.)*
     EXTRAPESADO no lo mueve un cañonazo (como las bestias 2×2) y el
     EXTRALIGERO sale volando UNA CASILLA MÁS si el camino sigue libre
     (muros y ocupantes lo frenan en la primera). Golden-safe verificado:
-    el knockback no dispara en las batallas de referencia. La Molga del
+    el knockback no dispara en las batallas de referencia. La Oruga del
     test de balística ahora vuela dos casillas: el test lo celebra.
   · UI: el selector del garaje agrupa por báscula (▖▚▜█), los dos
     selectores de compra enseñan [báscula], el análisis del cursor y las
     cartas del hangar dicen «▜ pesado · asalto».
-  · docs/RENOMBRES.md: inventario COMPLETO del rebranding anti-Zoids
+  · docs/RENOMBRES.md: inventario COMPLETO del rebranding anti-armazones
     por báscula — 22 chasis IP + 4 pilotos del anime + 3 armas/módulos
-    + la palabra «Zoid» en ~6 textos visibles; con columnas en blanco
+    + la palabra «armazón» en ~6 textos visibles; con columnas en blanco
     para que la dirección bautice y el plan del bloque de aplicación.
   374 tests en verde (4 nuevos de báscula), tsc limpio, verificado en el
   juego real (optgroups del garaje y báscula en el análisis).
@@ -1530,8 +1530,8 @@ arquitectura del motor van en DESIGN.md.)*
     burbuja NO se ve ni se puede apuntar: veto en legalTargets (ejecutar
     es ilegal) y en canTargetFrom (IA, vigilancia y ⌖ planean con la
     posición hipotética). De día, motor idéntico: GOLDEN INTACTO.
-  · OJOS DE LA NOCHE (data): König Wolf visión 9 (cazador nocturno);
-    Gun Sniper/custom (cola-sensor) y los tres voladores, 8.
+  · OJOS DE LA NOCHE (data): Montero visión 9 (cazador nocturno);
+    Aguja/custom (cola-sensor) y los tres voladores, 8.
   · IA: solo DISPARA a lo visible (foco, emboscada y vigilancia
     incluidos), pero AVANZA por el rumor de los motores — la niebla no
     congela la batalla en un empate ciego.
@@ -1755,8 +1755,8 @@ arquitectura del motor van en DESIGN.md.)*
   ARREGLO (regla nueva, escrita en data/modules.ts): el NÚCLEO se lleva la MAYORÍA
   del casco (~55%) para que "núcleo roto" ≈ "casco agotado" (desperdicio medido:
   44% → 32%), y las SECUELAS pesan sin lisiar (perder el arma quita ~25% de
-  pegada, no la mitad). Aplicado también a los DOS frames originales (Liger CAS,
-  Geno CP), que arrastraban el mismo núcleo pequeño. Al medir de nuevo, el
+  pegada, no la mitad). Aplicado también a los DOS frames originales (Zarpa Coraza,
+  Basilisco Ígneo), que arrastraban el mismo núcleo pequeño. Al medir de nuevo, el
   péndulo se había pasado al otro lado (los chasis con frame subían 6-7 puntos en
   el banco), así que el BLINDAJE por placa se bajó a la mitad: sigue viéndose
   arrancarse, pero deja de regalar casco.
@@ -1770,7 +1770,7 @@ arquitectura del motor van en DESIGN.md.)*
   REGENERA EL GOLDEN (el reparto de HP de las piezas cambia las batallas de
   referencia; declarado y verificado estable al repetir). 347 tests en verde, tsc
   limpio, build y arranque sin errores. Un test del garaje se actualizó: comparaba
-  la mochila del Liger con la cola del Geno para ver el delta de maxHp y, con el
+  la mochila de la Zarpa con la cola del Geno para ver el delta de maxHp y, con el
   recalibrado, ambas pesan igual — ahora usa una pieza real del garaje (generador
   de pantalla) y vuelve a medir un delta de verdad.
 
@@ -1804,6 +1804,36 @@ arquitectura del motor van en DESIGN.md.)*
   GOLDEN REGENERADO (el reparto de HP cambia las batallas de referencia;
   declarado y verificado estable al repetir). 416 tests en verde, tsc limpio,
   build y arranque sin errores. Un test del garaje se actualizó: comparaba la
-  mochila del Liger con la cola del Geno y, tras el reparto, ambas pesan igual;
+  mochila de la Zarpa con la cola del Geno y, tras el reparto, ambas pesan igual;
   ahora usa una pieza REAL del garaje (generador de pantalla) y vuelve a medir
   un delta de verdad.
+
+- **2026-07-12** — EL REBAUTIZO: fuera la franquicia, nombres propios (dirección
+  del usuario: «renombra todo con nombres originales»). `docs/RENOMBRES.md`
+  llevaba meses siendo un inventario con la columna «nombre nuevo» VACÍA, a la
+  espera de dirección; queda relleno y APLICADO.
+  CRITERIO (de la propia dirección + §P5 de LORE.md): más MECÁNICO que animal,
+  con base bestial — la silueta recuerda al bicho, el nombre habla de la
+  máquina: herramienta, calibre, oficio. Cortos, en castellano, que quepan en
+  una carta y suenen a APODO DE TALLER, que es lo que son (así las llama la
+  gente, no el Registro). Bautizo por básculas: extraligeros Oruga, Aguja,
+  Aguja afinada, Cometa; ligeros Zarpa (y Zarpa Coraza), Batidor, Vigía,
+  Colmillo, Espolón, Montero, Alacrán, Vendaval; pesados Broquel, Alabarda,
+  Basilisco (y Basilisco Ígneo), Acémila, Zahorí; extrapesados Yunque, Mazo,
+  Ariete, Bastión. Los dos propios (Gran Brontes, Carguero colono) se quedan.
+  TÉRMINO DEL UNIVERSO: «zoid» → **armazón**, de los candidatos del canon.
+  Encaja con el tono burocrático («licencia de armazón») y CONTRASTA con el
+  núcleo vivo que lleva dentro, que sigue siendo el misterio de Prathama.
+  Pilotos de fábrica: Ilán, Corvo, Bruna, Aris. Armas: Zarpazo de plasma
+  (antes técnica insignia del felino) y Cañón de fisura (antes el término
+  insignia de la franquicia).
+  IDS INTERNOS SIN TOCAR a propósito (`liger-zero`, `geno-saurer`…): no se
+  publican y renombrarlos exigiría migrar guardados. Solo cambian los nombres
+  MOSTRADOS. Los comentarios del código sí se limpiaron (el repo se abre).
+  RED DE SEGURIDAD: `tests/rebrand.test.ts` (7 nuevos) recorre TODOS los
+  catálogos —chasis, habilidades, armas, biblioteca, módulos— y falla si un
+  nombre mostrado contiene cualquiera de los 24 términos de franquicia. Si
+  alguien añade contenido copiando de la referencia, salta aquí y no en la
+  página de Steam. Verificado además con Playwright sobre el juego construido:
+  menú, batalla y garaje, sin un solo término vivo en el texto visible.
+  423 tests en verde, tsc limpio, build y arranque sin errores.

@@ -6,8 +6,8 @@ demás) y reparte el trabajo entre la dirección y el desarrollo.
 
 ## La línea roja: primero el rebranding, luego TODO lo demás
 
-**Nada con IP de Zoids puede tocar una página de Steam** — ni nombres de
-chasis (Liger Zero, Geno Saurer…), ni el término «Zoid», ni material
+**Nada con IP de armazones puede tocar una página de Steam** — ni nombres de
+chasis (Zarpa, Basilisco…), ni el término «armazón», ni material
 promocional que los mencione. Son marcas de Takara Tomy. La página de
 tienda de un Early Access es pública desde el día uno (y Valve revisa),
 así que el rebranding no es el último paso: es el PRIMERO.
@@ -21,7 +21,7 @@ una pasada de datos + textos, no una reescritura.
 - Nombre comercial del juego («Gea» está probablemente bien — verificar
   colisiones en Steam y registros de marca básicos).
 - Nomenclatura del universo: cómo se llaman las bestias-máquina como
-  categoría (sustituto de «zoid» en textos de juego; el código interno
+  categoría (sustituto de «armazón» en textos de juego; el código interno
   puede quedarse — no se publica).
 - Tabla de renombres de los ~25 chasis + armas con nombre de la
   franquicia. Las siluetas son nuestras (procedurales), pero los 2-3

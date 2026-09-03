@@ -82,7 +82,7 @@ export const COMPANION_TABLE: CompanionTable = {
 };
 
 /**
- * Núcleo de las DEMÁS máquinas del roster: TODO Zoid está vivo y graba
+ * Núcleo de las DEMÁS máquinas del roster: TODO armazón está vivo y graba
  * lo vivido, pero el vínculo del viaje es único — menos espacios de
  * marca y techo de compenetración más bajo que la compañera. Los tramos
  * altos ('Una sola pieza', 'Leyenda del taller') son solo suyos.

@@ -36,7 +36,7 @@ export interface EconomyTable {
   /** unitTypeIds del hangar inicial (orden = huecos de despliegue). */
   starterRoster: string[];
   repairCostPerHp: number;
-  /** Reconstruir un Zoid destruido cuesta precio × factor. */
+  /** Reconstruir un armazón destruido cuesta precio × factor. */
   rebuildFactor: number;
   /** Vender (chasis o arma) devuelve precio × factor. */
   sellFactor: number;
@@ -48,7 +48,7 @@ export interface EconomyTable {
   weaponPrices: Record<string, number>;
 }
 
-/** Un Zoid en propiedad, con su daño y su montaje persistentes. */
+/** Un armazón en propiedad, con su daño y su montaje persistentes. */
 /**
  * Hoja de servicio de UNA máquina: la unidad no gana experiencia (ley
  * del diseño), pero sí HISTORIA. Se graba al liquidar cada batalla y
@@ -72,7 +72,7 @@ export interface OwnedZoid {
   /** Hoja de servicio (ausente en guardados viejos = a estrenar). */
   record?: ZoidRecord;
   /**
-   * Núcleo de la máquina: TODO Zoid está vivo — también los que no son
+   * Núcleo de la máquina: TODO armazón está vivo — también los que no son
    * la compañera graban marcas y estrechan compenetración (con los
    * techos más bajos de CORE_TABLE). Ausente = núcleo verde.
    */

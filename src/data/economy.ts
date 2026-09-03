@@ -112,7 +112,7 @@ export const DIFFICULTIES: DifficultySpec[] = [
 /**
  * Chasis elegibles como COMPAÑERA al fundar la compañía (curados: sin
  * los pesos pesados — esos se ganan). El resto del equipo inicial es
- * fijo: Command Wolf, Gun Sniper y Gustav.
+ * fijo: Batidor, Aguja y Acémila.
  */
 export const STARTER_COMPANIONS: Array<{ id: string; blurb: string }> = [
   { id: 'liger-zero', blurb: 'La equilibrada: rápida, fiable, honesta.' },
@@ -135,7 +135,7 @@ export const BLUEPRINT_PRICES: Record<string, number> = {
  * Tabla económica del modo mercenario. Los precios NO son arbitrarios:
  * derivan del ciclo de balance del hangar (npm run balance:hangar,
  * 1500 batallas, 2026-07-05) — tasa de victoria y daño medio mandan.
- * El König Wolf paga su 59.6% de victorias; la Molga es carne de cañón
+ * El Montero paga su 59.6% de victorias; la Oruga es carne de cañón
  * barata a propósito.
  */
 export const ECONOMY: EconomyTable = {

@@ -3,7 +3,7 @@
  * con Three.js en modo espectador — IA contra IA, cámara orbital libre.
  *
  * Objetivo: comparar en una misma escena el modelo GLB subido por el
- * usuario (Liger Zero) con unidades de primitivas low-poly, y validar el
+ * usuario (Zarpa) con unidades de primitivas low-poly, y validar el
  * estilo visual antes de comprometer el cliente jugable al 3D.
  *
  * Build: npm run web3d  →  dist/web/gea3d.html (autocontenido; el modelo
@@ -287,14 +287,14 @@ function newBattle(): void {
     weaponCatalog: WEAPONS,
     seed,
     spawns: [
-      { id: 'P1', name: 'Liger Zero CAS', unitTypeId: 'liger-zero-cas', team: 'player', position: { x: 1, y: 3 } },
-      { id: 'P2', name: 'Command Wolf', unitTypeId: 'command-wolf', team: 'player', position: { x: 0, y: 5 } },
-      { id: 'P3', name: 'Gun Sniper', unitTypeId: 'gun-sniper-naomi', team: 'player', position: { x: 1, y: 7 } },
-      { id: 'P4', name: 'Gustav', unitTypeId: 'gustav', team: 'player', position: { x: 0, y: 4 } },
-      { id: 'E1', name: 'Geno Saurer CP', unitTypeId: 'geno-saurer-cp', team: 'enemy', position: { x: 10, y: 3 } },
-      { id: 'E2', name: 'Molga', unitTypeId: 'molga', team: 'enemy', position: { x: 11, y: 5 } },
-      { id: 'E3', name: 'Molga', unitTypeId: 'molga', team: 'enemy', position: { x: 10, y: 6 } },
-      { id: 'E4', name: 'Pteras', unitTypeId: 'pteras', team: 'enemy', position: { x: 11, y: 2 } },
+      { id: 'P1', name: 'Zarpa Coraza', unitTypeId: 'liger-zero-cas', team: 'player', position: { x: 1, y: 3 } },
+      { id: 'P2', name: 'Batidor', unitTypeId: 'command-wolf', team: 'player', position: { x: 0, y: 5 } },
+      { id: 'P3', name: 'Aguja', unitTypeId: 'gun-sniper-naomi', team: 'player', position: { x: 1, y: 7 } },
+      { id: 'P4', name: 'Acémila', unitTypeId: 'gustav', team: 'player', position: { x: 0, y: 4 } },
+      { id: 'E1', name: 'Basilisco Ígneo', unitTypeId: 'geno-saurer-cp', team: 'enemy', position: { x: 10, y: 3 } },
+      { id: 'E2', name: 'Oruga', unitTypeId: 'molga', team: 'enemy', position: { x: 11, y: 5 } },
+      { id: 'E3', name: 'Oruga', unitTypeId: 'molga', team: 'enemy', position: { x: 10, y: 6 } },
+      { id: 'E4', name: 'Vigía', unitTypeId: 'pteras', team: 'enemy', position: { x: 11, y: 2 } },
     ],
   });
   spawnUnits();
@@ -507,7 +507,7 @@ function dataUriToArrayBuffer(uri: string): ArrayBuffer {
 
 const loader = new GLTFLoader();
 loader.setMeshoptDecoder(MeshoptDecoder);
-setStatus('cargando modelo del Liger Zero...');
+setStatus('cargando modelo del Zarpa...');
 loader.parse(dataUriToArrayBuffer(ligerUrl as string), '', (gltf) => {
   ligerTemplate = gltf.scene;
   buildBoard();

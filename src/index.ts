@@ -60,7 +60,7 @@ export { VALLEY_CROSSING, FLAT_ARENA } from './data/maps.js';
 export { planTurn } from './ai/simpleAi.js';
 
 /**
- * @deprecated Alias de compatibilidad de la fase 0 (des-Zoidificación del
+ * @deprecated Alias de compatibilidad de la fase 0 (des-marcado del
  * core). Usa `UnitDefinition`; se retirará tras la fase 1.
  */
 export type { UnitDefinition as ZoidDefinition } from './core/types.js';

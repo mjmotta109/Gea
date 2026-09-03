@@ -33,14 +33,14 @@ const battle = new Battle({
   seed,
   spawns: [
     // P1 y E1 usan las versiones framed: daño localizado por módulos.
-    { id: 'P1', name: 'Liger Zero CAS (Bit)', unitTypeId: 'liger-zero-cas', team: 'player', position: { x: 1, y: 3 } },
-    { id: 'P2', name: 'Command Wolf (Irvine)', unitTypeId: 'command-wolf', team: 'player', position: { x: 0, y: 5 } },
-    { id: 'P3', name: 'Gun Sniper (Naomi)', unitTypeId: 'gun-sniper-naomi', team: 'player', position: { x: 1, y: 7 } },
-    { id: 'P4', name: 'Gustav (Moonbay)', unitTypeId: 'gustav', team: 'player', position: { x: 0, y: 4 } },
-    { id: 'E1', name: 'Geno Saurer CP', unitTypeId: 'geno-saurer-cp', team: 'enemy', position: { x: 10, y: 3 } },
-    { id: 'E2', name: 'Molga', unitTypeId: 'molga', team: 'enemy', position: { x: 11, y: 5 } },
-    { id: 'E3', name: 'Molga', unitTypeId: 'molga', team: 'enemy', position: { x: 10, y: 6 } },
-    { id: 'E4', name: 'Pteras', unitTypeId: 'pteras', team: 'enemy', position: { x: 11, y: 2 } },
+    { id: 'P1', name: 'Zarpa Coraza (Bit)', unitTypeId: 'liger-zero-cas', team: 'player', position: { x: 1, y: 3 } },
+    { id: 'P2', name: 'Batidor (Irvine)', unitTypeId: 'command-wolf', team: 'player', position: { x: 0, y: 5 } },
+    { id: 'P3', name: 'Aguja (Naomi)', unitTypeId: 'gun-sniper-naomi', team: 'player', position: { x: 1, y: 7 } },
+    { id: 'P4', name: 'Acémila (Moonbay)', unitTypeId: 'gustav', team: 'player', position: { x: 0, y: 4 } },
+    { id: 'E1', name: 'Basilisco Ígneo', unitTypeId: 'geno-saurer-cp', team: 'enemy', position: { x: 10, y: 3 } },
+    { id: 'E2', name: 'Oruga', unitTypeId: 'molga', team: 'enemy', position: { x: 11, y: 5 } },
+    { id: 'E3', name: 'Oruga', unitTypeId: 'molga', team: 'enemy', position: { x: 10, y: 6 } },
+    { id: 'E4', name: 'Vigía', unitTypeId: 'pteras', team: 'enemy', position: { x: 11, y: 2 } },
   ],
 });
 
