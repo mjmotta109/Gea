@@ -1563,17 +1563,22 @@ function rotateDiorama(): void {
 
 let dioramaWired = false;
 
+/** El lienzo del diorama se pinta a más resolución de la lógica: llena el
+ *  panel sin pixelarse (y aguanta pantallas de alta densidad). */
+const DIORAMA_PIXEL_SCALE = Math.min(3, Math.max(2, Math.ceil((window.devicePixelRatio || 1) * 1.5)));
+
 function renderDioramaView(): void {
   const canvas = $('diorama') as HTMLCanvasElement;
   const scene = dioramaScene();
   drawDiorama(canvas, scene,
     (u) => ({ body: spriteBody(u.unitTypeId, scarsFor(u.id)), color: TEAM_COLORS[u.team] }),
-    () => renderDioramaView());
+    () => renderDioramaView(), DIORAMA_PIXEL_SCALE);
   if (!dioramaWired) {
     dioramaWired = true;
     const pickAt = (event: MouseEvent): { x: number; y: number } | null => {
       const rect = canvas.getBoundingClientRect();
-      const scale = canvas.width / rect.width;
+      // Coordenadas LÓGICAS del diorama (el lienzo va a más resolución).
+      const scale = isoCanvasSize(battle.map.width, battle.map.height).width / rect.width;
       return isoPick(
         { x: (event.clientX - rect.left) * scale, y: (event.clientY - rect.top) * scale },
         dioramaScene().tiles, battle.map.width, battle.map.height, dioramaRot);
@@ -1700,7 +1705,7 @@ function renderActionbar(): void {
   ): void => {
     const btn = document.createElement('button');
     btn.className = 'abtn';
-    btn.innerHTML = `<kbd>${kbd}</kbd><span>${label}</span>`;
+    btn.innerHTML = `${kbd === '·' ? '' : `<kbd>${kbd}</kbd>`}<span>${label}</span>`;
     btn.disabled = Boolean(opts.disabled);
     if (opts.title) btn.title = opts.title;
     if (opts.on) btn.classList.add('mode-on');
@@ -1710,9 +1715,9 @@ function renderActionbar(): void {
 
   // Posturas de energía: acción libre, dos caras a la vista en el título.
   const stances: Array<{ id: 'cazador' | 'galope' | 'tortuga'; label: string; title: string }> = [
-    { id: 'cazador', label: '🐆', title: 'Cazador: puntería +10, evasión −5' },
-    { id: 'galope', label: '🐎', title: 'Galope: movimiento +2, blindaje −10' },
-    { id: 'tortuga', label: '🐢', title: 'Tortuga: blindajes +10, movimiento −2' },
+    { id: 'cazador', label: '🐆 Cazador', title: 'Postura Cazador (acción libre): puntería +10, evasión −5' },
+    { id: 'galope', label: '🐎 Galope', title: 'Postura Galope (acción libre): movimiento +2, blindaje −10' },
+    { id: 'tortuga', label: '🐢 Tortuga', title: 'Postura Tortuga (acción libre): blindajes +10, movimiento −2' },
   ];
   for (const stance of stances) {
     mkBtn(stance.label, '·', () => {
@@ -2456,7 +2461,8 @@ function fxCenter(pos: Position): { x: number; y: number } {
   if (currentView() === 'diorama') {
     const canvas = $('diorama') as HTMLCanvasElement;
     const rect = { left: canvas.offsetLeft, top: canvas.offsetTop };
-    const scale = canvas.clientWidth > 0 ? canvas.clientWidth / canvas.width : 1;
+    const scale = canvas.clientWidth > 0
+      ? canvas.clientWidth / isoCanvasSize(battle.map.width, battle.map.height).width : 1;
     const tile = battle.map.tileAt(pos);
     const c = isoProjectView(pos.x, pos.y, tile.terrain === 'wall' ? tile.height + 1 : tile.height,
       battle.map.width, battle.map.height, dioramaRot);
@@ -2866,6 +2872,12 @@ function renderGarage(): void {
     tracks.className = 'gtracks';
     tracks.innerHTML = pilotSummary(pilot);
     card.appendChild(tracks);
+
+    // La máquina, a la vista: ensamblar es más que rellenar desplegables.
+    const portrait = document.createElement('div');
+    portrait.className = 'gportrait';
+    portrait.innerHTML = unitSprite(config.unitTypeId, 'east', 0);
+    card.appendChild(portrait);
 
     const mkRow = (label: string, control: HTMLElement): void => {
       const row = document.createElement('label');
@@ -3322,9 +3334,9 @@ function renderMercHangar(): void {
 
     card.innerHTML =
       `<div class="ghead-row"><span class="gtag">P${slot + 1}${slot === 0 ? ' ❤' : ''}</span>` +
-      `<b style="font-family:var(--mono);font-size:13px">${def.name}</b>` +
-      `<span class="gmuted" style="font-size:9px"> ${chassisClassLabel(zoid.unitTypeId)}</span>` +
-      (slot === 0 ? '<span class="gmuted" style="font-size:9px;letter-spacing:0.14em"> · COMPAÑERA</span>' : '') +
+      `<b style="font-family:var(--mono);font-size:13px;white-space:nowrap">${def.name}</b></div>` +
+      `<div class="gmuted" style="font-size:9px;margin:2px 0 4px">${chassisClassLabel(zoid.unitTypeId)}` +
+      (slot === 0 ? ' · <span style="letter-spacing:0.14em;color:var(--accent)">COMPAÑERA</span>' : '') +
       '</div>' +
       `<div class="gtracks">${escapeHtml(pilot.name)}${isInjured(pilot) ? ` <span class="symptom">🩹 ${pilot.injuryDays}j</span>` : ''}${assignmentOf(slot) ? ' <span class="symptom" style="border-color:var(--player);color:var(--player)">📡 destacado</span>' : ''} · ${pilotSummary(pilot)}</div>`;
     {
@@ -4186,25 +4198,111 @@ function drawOverworld(world: Overworld, cur: OverworldCell): void {
   const ch = canvas.height / OW_H;
   // Lo venteado + lo que se ve desde donde estás ahora mismo.
   const mask = surveyReveal(surveyOf(), cur, SIGHT_RADIUS);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  // Variación determinista por celda: el terreno deja de ser un damero plano.
+  const jitter = (x: number, y: number): number => {
+    const h = Math.imul(x * 374761393 + y * 668265263, 1274126177) >>> 0;
+    return ((h >>> 8) % 1000) / 1000;
+  };
+  const isRoad = (x: number, y: number): boolean =>
+    x >= 0 && y >= 0 && x < OW_W && y < OW_H && world.cells[y * OW_W + x] === 'camino';
   for (let y = 0; y < OW_H; y++) {
     for (let x = 0; x < OW_W; x++) {
       const terrain = world.cells[y * OW_W + x]!;
-      ctx.fillStyle = OW_FILL[terrain];
-      ctx.fillRect(x * cw, y * ch, Math.ceil(cw), Math.ceil(ch));
-      // Textura mínima: el agua brilla, el camino se marca.
+      const j = jitter(x, y);
+      const px = x * cw, py = y * ch;
+      // El camino se pinta como SUELO con una traza encima (no un bloque).
+      ctx.fillStyle = terrain === 'camino' ? '#33382f' : OW_FILL[terrain];
+      ctx.fillRect(px, py, Math.ceil(cw), Math.ceil(ch));
+      ctx.fillStyle = `rgba(${j > 0.5 ? '255,255,255' : '0,0,0'}, ${0.02 + Math.abs(j - 0.5) * 0.10})`;
+      ctx.fillRect(px, py, Math.ceil(cw), Math.ceil(ch));
       if (terrain === 'agua') {
-        ctx.fillStyle = 'rgba(120,180,220,0.12)';
-        ctx.fillRect(x * cw + cw * 0.2, y * ch + ch * 0.45, cw * 0.6, 1.5);
-      } else if (terrain === 'camino') {
-        ctx.fillStyle = 'rgba(0,0,0,0.18)';
-        ctx.fillRect(x * cw + cw * 0.3, y * ch + ch * 0.4, cw * 0.4, ch * 0.2);
-      }
-      // La niebla del territorio: lo no venteado apenas se intuye.
-      if (!surveyHas(mask, { x, y })) {
-        ctx.fillStyle = 'rgba(4,7,12,0.92)';
-        ctx.fillRect(x * cw, y * ch, Math.ceil(cw), Math.ceil(ch));
+        ctx.strokeStyle = 'rgba(140,200,240,0.28)';
+        ctx.lineWidth = Math.max(1, cw * 0.05);
+        const wy = py + ch * (0.35 + j * 0.3);
+        ctx.beginPath();
+        ctx.moveTo(px + cw * 0.18, wy);
+        ctx.quadraticCurveTo(px + cw * 0.34, wy - ch * 0.12, px + cw * 0.5, wy);
+        ctx.quadraticCurveTo(px + cw * 0.66, wy + ch * 0.12, px + cw * 0.82, wy);
+        ctx.stroke();
+      } else if (terrain === 'bosque') {
+        for (let k = 0; k < 3; k++) {
+          const tx = px + cw * (0.22 + ((j * 7 + k * 0.31) % 0.6));
+          const ty = py + ch * (0.42 + ((j * 13 + k * 0.23) % 0.42));
+          const ts = cw * (0.17 + (k % 2) * 0.05);
+          ctx.fillStyle = k % 2 === 0 ? '#2f7a45' : '#27643a';
+          ctx.beginPath();
+          ctx.moveTo(tx, ty - ts * 1.5); ctx.lineTo(tx + ts * 0.7, ty); ctx.lineTo(tx - ts * 0.7, ty);
+          ctx.closePath(); ctx.fill();
+        }
+      } else if (terrain === 'abrupto') {
+        ctx.fillStyle = 'rgba(0,0,0,0.28)';
+        ctx.beginPath();
+        ctx.moveTo(px + cw * 0.15, py + ch * 0.8);
+        ctx.lineTo(px + cw * (0.35 + j * 0.2), py + ch * 0.25);
+        ctx.lineTo(px + cw * 0.62, py + ch * 0.62);
+        ctx.lineTo(px + cw * 0.78, py + ch * 0.4);
+        ctx.lineTo(px + cw * 0.9, py + ch * 0.8);
+        ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      } else if (terrain === 'arena') {
+        ctx.strokeStyle = 'rgba(255,225,160,0.10)';
+        ctx.lineWidth = Math.max(1, cw * 0.04);
+        const dy = py + ch * (0.4 + j * 0.3);
+        ctx.beginPath();
+        ctx.moveTo(px + cw * 0.15, dy);
+        ctx.quadraticCurveTo(px + cw * 0.5, dy - ch * 0.2, px + cw * 0.85, dy);
+        ctx.stroke();
       }
     }
+  }
+  // Los caminos: una traza continua que une celda con celda.
+  ctx.lineCap = 'round';
+  for (const pass of [
+    { color: 'rgba(20,16,10,0.55)', width: cw * 0.42 },
+    { color: '#8a7650', width: cw * 0.26 },
+  ]) {
+    ctx.strokeStyle = pass.color;
+    ctx.lineWidth = pass.width;
+    ctx.beginPath();
+    for (let y = 0; y < OW_H; y++) {
+      for (let x = 0; x < OW_W; x++) {
+        if (!isRoad(x, y)) continue;
+        const mx = (x + 0.5) * cw, my = (y + 0.5) * ch;
+        let linked = false;
+        if (isRoad(x + 1, y)) { ctx.moveTo(mx, my); ctx.lineTo(mx + cw, my); linked = true; }
+        if (isRoad(x, y + 1)) { ctx.moveTo(mx, my); ctx.lineTo(mx, my + ch); linked = true; }
+        // Los caminos tallados en diagonal también se unen (sin triángulos).
+        if (isRoad(x + 1, y + 1) && !isRoad(x + 1, y) && !isRoad(x, y + 1)) {
+          ctx.moveTo(mx, my); ctx.lineTo(mx + cw, my + ch); linked = true;
+        }
+        if (isRoad(x - 1, y + 1) && !isRoad(x - 1, y) && !isRoad(x, y + 1)) {
+          ctx.moveTo(mx, my); ctx.lineTo(mx - cw, my + ch); linked = true;
+        }
+        if (!linked) { ctx.moveTo(mx, my); ctx.lineTo(mx + 0.1, my); }
+      }
+    }
+    ctx.stroke();
+  }
+  // La niebla del territorio, con bordes SUAVES: se pinta a una celda por
+  // píxel y se estira con suavizado — el borde se difumina solo.
+  const fog = document.createElement('canvas');
+  fog.width = OW_W; fog.height = OW_H;
+  const fctx = fog.getContext('2d');
+  if (fctx) {
+    const img = fctx.createImageData(OW_W, OW_H);
+    for (let i = 0; i < OW_W * OW_H; i++) {
+      const seen = surveyHas(mask, { x: i % OW_W, y: Math.floor(i / OW_W) });
+      img.data[i * 4] = 5; img.data[i * 4 + 1] = 9; img.data[i * 4 + 2] = 15;
+      img.data[i * 4 + 3] = seen ? 0 : 238;
+    }
+    fctx.putImageData(img, 0, 0);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(fog, 0, 0, canvas.width, canvas.height);
   }
   // Hitos del camino: solo los que la niebla ya soltó (y siguen ahí).
   const done = campaign?.landmarksDone ?? [];
@@ -4222,9 +4320,11 @@ function drawOverworld(world: Overworld, cur: OverworldCell): void {
   if (owPending && expedition) {
     const route = planRoute(world, cur, owPending.cell);
     if (route) {
-      ctx.strokeStyle = 'rgba(95,217,164,0.85)';
-      ctx.lineWidth = 2;
-      ctx.setLineDash([5, 4]);
+      ctx.strokeStyle = 'rgba(120,240,190,0.95)';
+      ctx.lineWidth = Math.max(2, cw * 0.1);
+      ctx.setLineDash([cw * 0.32, cw * 0.24]);
+      ctx.shadowColor = 'rgba(95,217,164,0.6)';
+      ctx.shadowBlur = cw * 0.25;
       ctx.beginPath();
       route.path.forEach((c, i) => {
         const px = (c.x + 0.5) * cw, py = (c.y + 0.5) * ch;
@@ -4232,8 +4332,10 @@ function drawOverworld(world: Overworld, cur: OverworldCell): void {
       });
       ctx.stroke();
       ctx.setLineDash([]);
-      ctx.strokeStyle = 'rgba(95,217,164,0.9)';
-      ctx.strokeRect(owPending.cell.x * cw + 1, owPending.cell.y * ch + 1, cw - 2, ch - 2);
+      ctx.shadowBlur = 0;
+      ctx.lineWidth = Math.max(2, cw * 0.07);
+      ctx.strokeStyle = 'rgba(120,240,190,0.95)';
+      ctx.strokeRect(owPending.cell.x * cw + 2, owPending.cell.y * ch + 2, cw - 4, ch - 4);
     }
   }
   // La caravana: un rombo con halo, siempre visible.
@@ -4245,7 +4347,7 @@ function drawOverworld(world: Overworld, cur: OverworldCell): void {
   ctx.moveTo(px, py - ch * 0.45); ctx.lineTo(px + cw * 0.4, py);
   ctx.lineTo(px, py + ch * 0.45); ctx.lineTo(px - cw * 0.4, py);
   ctx.closePath(); ctx.fill();
-  ctx.strokeStyle = '#0b1216'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.strokeStyle = '#0b1216'; ctx.lineWidth = Math.max(1.5, cw * 0.06); ctx.stroke();
 }
 
 function renderWorld(): void {
@@ -4344,9 +4446,17 @@ function renderWorld(): void {
   actions.innerHTML = '';
   if (expedition.at === expedition.targetNodeId && !expedition.missionDone && contract) {
     const fight = document.createElement('button');
-    fight.textContent = `⚔ Entablar combate — ${contract.name}`;
+    const nightFight = expeditionNight();
+    fight.textContent = `⚔ Entablar combate — ${contract.name}${nightFight ? ' · 🌙 DE NOCHE' : ''}`;
+    if (nightFight) {
+      fight.title = 'Combate nocturno: solo verás lo que alcancen tus sensores. Acampar hasta el alba lo evita.';
+    }
     fight.addEventListener('click', fightExpeditionBattle);
     actions.appendChild(fight);
+    if (nightFight) {
+      actions.insertAdjacentHTML('beforeend',
+        '<div class="wwarn">🌙 Es de noche: el enemigo peleará oculto en la niebla de sensores. Puedes acampar hasta el alba y entrar con luz.</div>');
+    }
   }
   if (expedition.at === REGION.hq) {
     const home = document.createElement('button');
@@ -4608,6 +4718,9 @@ function assignmentOf(slot: number): import('../game/assignment.js').ActiveAssig
 /** El tiempo cura Y hace avanzar los destacamentos, jornada a jornada. */
 /** ¿La expedición está en horas de lobo? Fija el combate nocturno. */
 function expeditionNight(): boolean {
+  // La PRIMERA batalla (tutorial pendiente) se pelea siempre con luz: el
+  // instructor no puede enseñar el oficio con todo el enemigo en niebla.
+  if (!tutorialDone()) return false;
   return expedition ? isNightHour(hourOf(expedition)) : false;
 }
 

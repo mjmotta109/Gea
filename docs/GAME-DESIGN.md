@@ -1721,3 +1721,45 @@ arquitectura del motor van en DESIGN.md.)*
   propuesta, llegada al santuario con su carta, diario con «en el
   camino asoma», y el asalto al campamento lanzando combate real (3
   enemigos).
+- **2026-11-11** — LA PASADA DE CALIDAD ("arregla este juego para que se
+  vea, se sienta y funcione bien"). Auditoría pantalla a pantalla con
+  capturas (inicio → fundar → cuartel → mundo → ciudad → batalla → fin)
+  y arreglo de lo encontrado, sin tocar reglas ni azar:
+  · BATALLA EN UNA PANTALLA: el pronóstico (Análisis) quedaba BAJO el
+    pliegue — el corazón del flujo no se veía sin hacer scroll. Ahora la
+    consola ocupa el alto de la ventana: tablero elástico a la
+    izquierda, y a la derecha turnos + ANÁLISIS + unidades + registro
+    con scroll propio. Verificado sin scroll de página a 1280×720,
+    1440×900 y 1920×1080 (en pantallas estrechas vuelve el flujo normal).
+  · DIORAMA: el lienzo se pinta a 2-3× y se adapta al hueco (antes:
+    tamaño fijo, pequeño). Clima y noche tiñen SOLO la mesa
+    (source-atop): desaparece el rectángulo sucio de fondo. Aro de
+    bando a los pies (el de la unidad activa late), barra de vida con
+    marco y color por tramo, etiquetas legibles, canto de luz en las
+    aristas, sprites rasterizados en grande. El picado de casillas
+    trabaja en coordenadas lógicas (probado: 86-91 casillas resueltas
+    bajo el ratón y clic-para-mover en los tres tamaños).
+  · PRIMERA IMPRESIÓN: la primera batalla de una campaña nueva salía
+    NOCTURNA (14 h de marcha desde las 07:00) con todo el enemigo en
+    niebla y el instructor tapando los mandos. Ahora la batalla del
+    tutorial se pelea siempre con luz, el instructor vive abajo a la
+    derecha, y el botón «Entablar combate» AVISA cuando es de noche
+    (con la salida: acampar hasta el alba).
+  · CUARTEL: cabecera ordenada (título + herramientas / estado + los dos
+    CTAs en una fila), la escena del hangar ya no recorta a la bestia,
+    los botones de piloto dejaron de ser botones blancos del navegador,
+    pilotos en rejilla de dos columnas con las escuelas dormidas
+    plegadas (la pestaña medía varias pantallas), cartas del hangar sin
+    cabeceras rotas.
+  · MAPA DEL MUNDO: el contenedor era CUADRADO y estiraba un lienzo 3:2
+    (celdas deformes, mapa cortado por abajo). Ahora guarda 36×24 y
+    cabe entero; lienzo a doble resolución; caminos como TRAZA continua
+    (diagonales incluidas) en vez de bloques; textura por terreno
+    (árboles, riscos, dunas, oleaje); niebla de bordes suaves; rótulos
+    con halo.
+  · Detalles: posturas con nombre (un emoji suelto no decía nada), sin
+    teclas fantasma «·», vista plana que nunca recorta un mapa grande,
+    silueta de la máquina en el garaje, estrellas que titilan en la
+    portada.
+  Guion de regresión visual nuevo (35 comprobaciones, todo verde). 416
+  tests en verde, golden intacto (solo presentación y un guard de UI).

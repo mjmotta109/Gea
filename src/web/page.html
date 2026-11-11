@@ -40,7 +40,10 @@
     background-attachment: fixed;
     min-height: 100vh;
   }
-  #app { max-width: 1220px; margin: 0 auto; padding: 14px 16px 40px; }
+  #app {
+    max-width: 1560px; margin: 0 auto; padding: 10px 18px 12px;
+    height: 100vh; box-sizing: border-box; display: flex; flex-direction: column;
+  }
 
   header.gea {
     display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
@@ -65,9 +68,21 @@
     font-family: var(--mono); font-size: 12px; padding: 5px 10px; cursor: pointer;
   }
 
-  main.gea { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 14px; }
-  @media (max-width: 920px) { main.gea { grid-template-columns: 1fr; } }
-  .col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  main.gea {
+    display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 14px;
+    flex: 1; min-height: 0;
+  }
+  .col { display: flex; flex-direction: column; gap: 10px; min-width: 0; min-height: 0; }
+  /* La columna lateral lleva su propio scroll: el tablero nunca se mueve. */
+  #side-col { overflow-y: auto; padding-right: 4px; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+  #side-col > .panel { flex-shrink: 0; }
+  #preview-panel { border-color: var(--line-glow); }
+  /* Pantallas estrechas o bajas: vuelve el flujo natural con scroll. */
+  @media (max-width: 920px), (max-height: 560px) {
+    #app { height: auto; display: block; padding-bottom: 40px; }
+    main.gea { grid-template-columns: 1fr; }
+    #side-col { overflow: visible; }
+  }
 
   .panel {
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.028), transparent 34%), var(--panel);
@@ -100,7 +115,7 @@
     box-shadow: 0 0 18px rgba(255, 144, 102, 0.08);
   }
   #tut {
-    position: fixed; left: 18px; bottom: 18px; max-width: 350px; z-index: 90;
+    position: fixed; right: 22px; bottom: 18px; max-width: 336px; z-index: 90;
     background: var(--panel); border: 1px solid var(--line);
     border-left: 3px solid var(--energy); border-radius: 6px;
     padding: 12px 14px; display: none;
@@ -135,8 +150,9 @@
     background:
       radial-gradient(120% 90% at 50% 0%, rgba(95, 224, 240, 0.05), transparent 55%),
       var(--panel);
-    border: 1px solid var(--line-glow); border-radius: 10px; padding: 12px; position: relative;
+    border: 1px solid var(--line-glow); border-radius: 10px; padding: 10px; position: relative;
     box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4), 0 14px 40px rgba(0, 0, 0, 0.45), 0 0 30px rgba(95, 224, 240, 0.05);
+    flex: 1; min-height: 260px; display: flex; flex-direction: column; overflow: hidden;
   }
   #board-panel::after {
     content: ''; position: absolute; inset: 6px; pointer-events: none; border-radius: 7px;
@@ -152,7 +168,7 @@
   #floats .float.heal { color: var(--energy); }
   #floats .float.miss { color: #cfd8df; font-size: 11px; letter-spacing: 0.08em; }
   #floats .float.stat { color: var(--heat); font-size: 11px; }
-  #board { display: grid; gap: 2px; width: fit-content; margin: 0 auto; }
+  #board { display: grid; gap: 2px; width: fit-content; }
   .cell {
     position: relative; width: 46px; height: 46px; border: 0; border-radius: 3px;
     padding: 0; cursor: default; font-family: var(--mono);
@@ -216,7 +232,10 @@
   .chip .hpbar i { display: block; height: 100%; background: var(--hp); border-radius: 2px; box-shadow: 0 0 4px rgba(126, 201, 107, 0.6); }
   .chip.enemy .hpbar i { background: #ffb066; box-shadow: 0 0 4px rgba(255, 176, 102, 0.6); }
 
-  #legend { color: var(--muted); font-size: 10px; font-family: var(--mono); margin-top: 10px; text-align: center; }
+  #legend {
+    color: var(--muted); font-size: 10px; font-family: var(--mono); margin-top: 6px; text-align: center;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0.75; flex-shrink: 0;
+  }
 
   /* ── Barra de acciones ── */
   #actionbar { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -246,7 +265,7 @@
   .abtn:focus-visible, .cell:focus-visible, #restart:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
 
   /* ── Previsualización ── */
-  #preview { font-family: var(--mono); font-size: 12px; line-height: 1.55; min-height: 40px; }
+  #preview { font-family: var(--mono); font-size: 12px; line-height: 1.55; min-height: 92px; }
   #preview .pv-title { font-weight: 700; }
   #preview .pv-danger { color: var(--danger); }
   #preview .pv-good { color: var(--energy); }
@@ -359,6 +378,13 @@
   }
   .gcard:hover { border-color: var(--line-glow); box-shadow: 0 0 16px rgba(95, 224, 240, 0.07); }
   .gcard .ghead-row { display: flex; align-items: center; gap: 8px; }
+  .gcard .gportrait {
+    height: 54px; margin: 6px 0 2px; display: flex; align-items: center; justify-content: center;
+    color: var(--player);
+    background: radial-gradient(60% 90% at 50% 100%, rgba(95, 224, 240, 0.10), transparent 70%);
+    border-bottom: 1px dashed var(--line);
+  }
+  .gcard .gportrait svg { height: 46px; width: auto; filter: drop-shadow(0 0 8px rgba(95, 224, 240, 0.35)); }
   .gcard .gtag {
     font-family: var(--mono); font-size: 11px; font-weight: 700; padding: 2px 6px;
     border-radius: 3px; background: var(--player-dim); color: var(--player);
@@ -454,8 +480,8 @@
   }
   #world.show { display: block; }
   #world .gbox {
-    max-width: 1220px; margin: 0 auto; background: var(--panel);
-    border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px 20px;
+    max-width: 1500px; margin: 0 auto; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 8px; padding: 14px 18px 16px;
   }
   #world .gtop { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
   #world .gtop h2 {
@@ -465,19 +491,25 @@
     text-shadow: 0 0 18px rgba(99, 232, 174, 0.25);
   }
   #world-status { color: var(--ink); font-family: var(--mono); font-size: 12px; font-weight: 700; flex: 1; }
-  #world-body { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 14px; }
+  #world-body { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 14px; align-items: start; }
   @media (max-width: 920px) { #world-body { grid-template-columns: 1fr; } }
+  /* El territorio es 36×24: la carta guarda SIEMPRE esa proporción y cabe
+     entera en pantalla (nada de celdas estiradas ni mapa recortado). */
   #world-map {
-    position: relative; min-height: 400px; background: #0d1319;
-    border: 1px solid var(--line); border-radius: 6px; overflow: hidden;
+    position: relative; background: #070b10; margin: 0 auto;
+    aspect-ratio: 3 / 2; width: min(100%, calc((100vh - 130px) * 1.5)); min-width: 300px;
+    border: 1px solid var(--line-glow); border-radius: 8px; overflow: hidden;
   }
+  #world-side { max-height: calc(100vh - 130px); overflow-y: auto; padding-right: 4px; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+  @media (max-width: 920px) { #world-side { max-height: none; overflow: visible; } }
   #world-svg { position: absolute; inset: 0; width: 100%; height: 100%; }
   #world-svg line { stroke: #2c3d4c; stroke-width: 0.6; }
   #world-svg line.blocked { stroke: var(--danger); stroke-dasharray: 2 2; }
   #world-nodes { position: absolute; inset: 0; }
   .wnode {
     position: absolute; transform: translate(-50%, -50%); text-align: center;
-    font-family: var(--mono); font-size: 10px; color: var(--muted); width: 110px;
+    font-family: var(--mono); font-size: 11px; color: #c6d3dc; width: 130px; font-weight: 600;
+    text-shadow: 0 0 4px #04080c, 0 0 4px #04080c, 0 1px 6px #04080c;
   }
   .wnode .dot {
     width: 14px; height: 14px; border-radius: 50%; margin: 0 auto 3px;
@@ -604,8 +636,22 @@
   }
   #pilots .gtop { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
   #pilots .gtop h2 { margin: 0; font-size: 13px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--player); }
-  #pilots-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-  @media (max-width: 900px) { #pilots-body { grid-template-columns: 1fr; } }
+  #pilots-body, #merc-pilots { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
+  @media (max-width: 900px) { #pilots-body, #merc-pilots { grid-template-columns: 1fr; } }
+  .pcard .gbtn, .tcard .gbtn {
+    background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 4px;
+    font-family: var(--mono); font-size: 11px; padding: 6px 10px; cursor: pointer; margin: 4px 6px 0 0;
+  }
+  .pcard .gbtn:hover:not(:disabled) { border-color: var(--energy); color: var(--energy); }
+  .pcard .gbtn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .pcard .gtag {
+    font-family: var(--mono); font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 3px;
+    background: var(--player-dim); color: var(--player); margin-right: 6px; vertical-align: 1px;
+  }
+  .pstress .qtitle { font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); font-family: var(--mono); }
+  /* Las escuelas dormidas ocupan una línea: el árbol se abre al elegirlas. */
+  .ptrack.dormant { margin-bottom: 3px; opacity: 0.75; }
+  .ptrack.dormant .pnodes { display: none; }
   .pcard { background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; }
   .pcard h3 { margin: 0 0 8px; font-family: var(--mono); font-size: 14px; color: var(--ink); }
   .pcard h3 .dom { color: var(--player); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; margin-left: 8px; }
@@ -728,6 +774,11 @@
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
   }
   #start-scene { position: absolute; inset: 0; width: 100%; height: 100%; }
+  @keyframes gea-twinkle { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+  #sg-stars circle { animation: gea-twinkle 3.6s ease-in-out infinite; }
+  #sg-stars circle:nth-child(3n) { animation-duration: 5.2s; animation-delay: -1.3s; }
+  #sg-stars circle:nth-child(3n+1) { animation-duration: 4.1s; animation-delay: -2.4s; }
+  @media (prefers-reduced-motion: reduce) { #sg-stars circle { animation: none; } }
   #start .sbox { position: relative; z-index: 1; }
   #start .stitle { text-shadow: 0 0 30px rgba(83, 209, 224, 0.5), 0 4px 24px rgba(0, 0, 0, 0.9); }
   #start .sbtns button { background: rgba(20, 28, 36, 0.82); backdrop-filter: blur(2px); }
@@ -762,9 +813,8 @@
   #merc-scene svg { width: 100%; height: 118px; display: block; border-radius: 6px; }
 
   /* Mapa del mundo: carta de navegación. */
-  #world-map { position: relative; }
-  #world-terrain { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; cursor: crosshair; image-rendering: pixelated; border-radius: 8px; box-shadow: inset 0 0 70px rgba(2, 6, 14, 0.6), 0 0 0 1px var(--line-glow); }
-  #world-svg { position: relative; z-index: 1; pointer-events: none; }
+  #world-terrain { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; cursor: crosshair; border-radius: 8px; box-shadow: inset 0 0 70px rgba(2, 6, 14, 0.6), 0 0 0 1px var(--line-glow); }
+  #world-svg { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
   #world-nodes { z-index: 2; pointer-events: none; }
   .wnode { pointer-events: auto; }
   .wribbon { background: var(--panel-2); border: 1px solid var(--energy); border-radius: 4px; padding: 8px 10px; font-family: var(--mono); font-size: 12px; color: var(--ink); margin-bottom: 6px; }
@@ -904,7 +954,18 @@
     max-width: 1220px; margin: 0 auto; background: var(--panel);
     border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px 20px;
   }
-  #merc .gtop h2 { color: var(--heat); }
+  #merc .gtop h2 {
+    margin: 0; font-size: 15px; letter-spacing: 0.22em; text-transform: uppercase;
+    background: linear-gradient(100deg, var(--heat), var(--accent) 60%, var(--player));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .mtop, .mbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .mtop { margin-bottom: 10px; }
+  .mbar {
+    margin-bottom: 12px; padding: 8px 10px 8px 12px; border: 1px solid var(--line);
+    border-radius: 6px; background: var(--panel-2);
+  }
+  .mspacer { flex: 1; }
   #merc .msec {
     margin: 16px 0 8px; font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase;
     color: var(--muted); font-weight: 600; border-top: 1px dashed var(--line); padding-top: 12px;
@@ -927,7 +988,10 @@
     background: var(--panel-2); color: var(--muted); border: 1px solid var(--line);
     border-radius: 4px; font-family: var(--mono); font-size: 11px; padding: 5px 9px; cursor: pointer;
   }
-  #merc-status { color: var(--heat); font-family: var(--mono); font-size: 12px; font-weight: 700; }
+  #merc-status { color: var(--ink); font-family: var(--mono); font-size: 12px; font-weight: 600; line-height: 1.5; }
+  .mbar #merc-status { flex: 1 1 260px; min-width: 0; }
+  .mbar .mspacer { display: none; }
+  .mbar button { flex-shrink: 0; }
   #merc-assignments { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
   @media (max-width: 800px) { #merc-assignments { grid-template-columns: 1fr; } }
   .acard {
@@ -1170,7 +1234,14 @@
 
   /* ── Vista de mesa (prueba del escalón 2): el tablero se inclina y
         las bestias quedan de pie como figuras sobre un diorama ── */
-  #board-stage { position: relative; }
+  #board-stage {
+    position: relative; flex: 1; min-height: 0; display: flex; overflow: auto;
+    scrollbar-width: thin; scrollbar-color: var(--line) transparent;
+  }
+  #board-stage > #board, #board-stage > #diorama { margin: auto; flex-shrink: 0; }
+  body.diorama-view #board-stage { overflow: hidden; }
+  body.diorama-view #board-stage > #diorama { flex-shrink: 1; min-width: 0; min-height: 0; }
+  body.iso-view #board-stage { overflow: visible; }
   body.iso-view #board-panel { perspective: 1100px; overflow: hidden; }
   body.iso-view #board-stage {
     transform: rotateX(46deg);
@@ -1203,7 +1274,7 @@
   body.iso-view #floats .float::after { content: ''; }
 
   /* ── Diorama (canvas isométrico, escalón 3) ── */
-  #diorama { display: none; margin: 0 auto; max-width: 100%; }
+  #diorama { display: none; max-width: 100%; max-height: 100%; cursor: crosshair; }
   body.diorama-view #diorama { display: block; }
   body.diorama-view #board { position: absolute; opacity: 0; pointer-events: none; }
 
@@ -1379,12 +1450,12 @@
           ⌖ = enemigos a tiro desde esa casilla · ~ agua · ▒ abrupto · número = altura
         </div>
       </section>
-      <div class="panel"><div id="actionbar"></div></div>
-      <div class="panel"><h2>Análisis</h2><div id="preview"></div></div>
+      <div class="panel" id="actionbar-panel"><div id="actionbar"></div></div>
     </div>
 
-    <aside class="col">
+    <aside class="col" id="side-col">
       <div class="panel"><h2>Próximos turnos</h2><div id="forecast"></div></div>
+      <div class="panel" id="preview-panel"><h2>Análisis</h2><div id="preview"></div></div>
       <div class="panel"><h2>Unidades</h2><div id="roster"></div></div>
       <div class="panel"><h2>Registro</h2><div id="log"></div></div>
     </aside>
@@ -1547,7 +1618,7 @@
       </div>
       <div id="world-body">
         <div id="world-map">
-          <canvas id="world-terrain" width="720" height="480"></canvas>
+          <canvas id="world-terrain" width="1440" height="960"></canvas>
           <svg id="world-svg" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
           <svg id="world-compass" viewBox="0 0 40 40" aria-hidden="true">
             <circle cx="20" cy="20" r="18" fill="none" stroke="#53d1e0" stroke-width="1"/>
@@ -1632,17 +1703,21 @@
 
   <div id="merc">
     <div class="gbox">
-      <div class="gtop">
+      <div class="gtop mtop">
         <h2>Compañía mercenaria</h2>
-        <span class="gnote" id="merc-status"></span>
-        <button id="merc-saves" class="gsub">💾</button>
+        <span class="mspacer"></span>
+        <button id="merc-saves" class="gsub">💾 guardar</button>
         <button id="merc-sfx" class="gsub sfxbtn">🔊</button>
         <button id="merc-menu" class="gsub">☰ menú</button>
+      </div>
+      <div class="mbar">
+        <span class="gnote" id="merc-status"></span>
+        <span class="mspacer"></span>
         <button id="merc-freeroam">🧭 Explorar libremente</button>
         <button id="merc-deploy">⚑ Partir al contrato</button>
       </div>
       <div id="merc-scene">
-        <svg viewBox="0 0 800 118" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+        <svg viewBox="0 0 1200 118" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
           <defs>
             <linearGradient id="hg-bg" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0" stop-color="#0a0f14"/><stop offset="1" stop-color="#121a22"/>
@@ -1652,13 +1727,14 @@
               <stop offset="1" stop-color="#ffdf9e" stop-opacity="0"/>
             </linearGradient>
           </defs>
-          <rect width="800" height="118" fill="url(#hg-bg)"/>
+          <rect width="1200" height="118" fill="url(#hg-bg)"/>
+          <g transform="translate(200 0)">
           <g stroke="#1e2b36" stroke-width="3">
             <path d="M60 118 L110 0 M220 118 L260 0 M380 118 L400 0 M540 118 L560 0 M700 118 L730 0" fill="none"/>
           </g>
           <path d="M330 0 L470 0 L520 118 L280 118 Z" fill="url(#hg-light)"/>
-          <rect y="106" width="800" height="12" fill="#070b0f"/>
-          <rect y="104" width="800" height="2" fill="#233240"/>
+          <rect x="-200" y="106" width="1200" height="12" fill="#070b0f"/>
+          <rect x="-200" y="104" width="1200" height="2" fill="#233240"/>
           <g transform="translate(315 8) scale(3.4)" fill="#0c2b31" stroke="#53d1e0" stroke-width="0.5">
             <path d="M4 20 L7 12 L14 10 L22 9 L29 10 L33 7 L38 9 L37 13 L33 15 L30 17 L28 22 L26 28 L23 28 L24 21 L18 20 L14 22 L13 28 L10 28 L10 21 L6 24 Z"/>
             <path d="M33 7 L36 4 L38 6 L38 9 Z"/>
@@ -1669,6 +1745,7 @@
           </g>
           <g fill="#ff9f45" opacity="0.65">
             <circle cx="77" cy="76" r="2"/><circle cx="680" cy="80" r="2"/>
+          </g>
           </g>
         </svg>
       </div>

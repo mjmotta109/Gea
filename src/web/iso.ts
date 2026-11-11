@@ -183,8 +183,14 @@ function prism(ctx: CanvasRenderingContext2D, cx: number, cy: number, depth: num
   ctx.fillStyle = fill;
   diamond(ctx, cx, cy);
   ctx.fill();
-  ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+  ctx.strokeStyle = 'rgba(0,0,0,0.28)';
   ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,0.09)';
+  ctx.beginPath();
+  ctx.moveTo(cx - TILE_W / 2 + 1.5, cy);
+  ctx.lineTo(cx, cy - TILE_H / 2 + 1);
+  ctx.lineTo(cx + TILE_W / 2 - 1.5, cy);
   ctx.stroke();
 }
 
@@ -238,7 +244,7 @@ export function spriteImage(
   const key = `${color}|${svgBody.length}|${svgBody.slice(0, 40)}`;
   const cached = spriteCache.get(key);
   if (cached) return cached;
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 30">` +
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 30" width="320" height="240">` +
     `<g fill="${color}">${svgBody}</g></svg>`;
   const img = new Image();
   img.onload = onReady;
@@ -263,15 +269,22 @@ export function drawDiorama(
   scene: DioramaScene,
   sprite: (unit: DioramaUnit) => { body: string; color: string },
   onSpriteReady: () => void,
+  /** Píxeles de lienzo por unidad lógica: nitidez al ampliar con CSS. */
+  pixelScale = 1,
 ): void {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
   const size = isoCanvasSize(scene.width, scene.height);
-  if (canvas.width !== size.width || canvas.height !== size.height) {
-    canvas.width = size.width;
-    canvas.height = size.height;
+  const pw = Math.round(size.width * pixelScale);
+  const ph = Math.round(size.height * pixelScale);
+  if (canvas.width !== pw || canvas.height !== ph) {
+    canvas.width = pw;
+    canvas.height = ph;
   }
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.setTransform(pixelScale, 0, 0, pixelScale, 0, 0);
+  ctx.globalCompositeOperation = 'source-over';
 
   // Giro de cámara: todo se proyecta en coordenadas de PANTALLA; las
   // claves de resaltado siguen siendo del mundo (el motor no gira).
@@ -299,12 +312,12 @@ export function drawDiorama(
       // El agua vive hundida y ondula.
       const wc = proj(tile.x, tile.y, 0);
       const wave = Math.sin(scene.time / 900 + (tile.x + tile.y * 1.7)) * 1.5;
-      prism(ctx, wc.x, wc.y + 4 + wave * 0.4, 3, tile.fogged ? darken(tile.fill, 0.32) : tile.fill);
+      prism(ctx, wc.x, wc.y + 4 + wave * 0.4, 3, tile.fogged ? darken(tile.fill, 0.42) : tile.fill);
       ctx.fillStyle = 'rgba(140, 200, 255, 0.18)';
       diamond(ctx, wc.x, wc.y + 4 + wave, TILE_W * 0.8, TILE_H * 0.8);
       ctx.fill();
     } else {
-      prism(ctx, c.x, c.y, depth, tile.fogged ? darken(tile.fill, 0.32) : tile.fill);
+      prism(ctx, c.x, c.y, depth, tile.fogged ? darken(tile.fill, 0.42) : tile.fill);
       if (tile.terrain === 'forest') trees(ctx, c.x, c.y, tile.x * 7 + tile.y * 13);
       if (tile.terrain === 'rough') rocks(ctx, c.x, c.y, tile.x * 11 + tile.y * 5);
       if (wall) {
@@ -378,11 +391,20 @@ export function drawDiorama(
     const info = sprite(unit);
     const img = spriteImage(info.body, info.color, onSpriteReady);
     const k = unit.scale ?? 1;
-    const w = 54 * k, h = 40 * k;
-    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    const w = 58 * k, h = 43 * k;
+    const teamColor = unit.team === 'player' ? '95, 224, 240' : '255, 144, 102';
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
     ctx.beginPath();
-    ctx.ellipse(c.x, c.y + 3 * k, 17 * k, 6 * k, 0, 0, Math.PI * 2);
+    ctx.ellipse(c.x, c.y + 3 * k, 18 * k, 6.5 * k, 0, 0, Math.PI * 2);
     ctx.fill();
+    // Aro de bando a los pies: quién es quién de un vistazo. El de la
+    // unidad activa late.
+    const pulse = unit.active ? 0.55 + 0.35 * Math.sin(scene.time / 260) : 0.42;
+    ctx.strokeStyle = `rgba(${teamColor}, ${pulse})`;
+    ctx.lineWidth = unit.active ? 2 : 1.2;
+    ctx.beginPath();
+    ctx.ellipse(c.x, c.y + 3 * k, 20 * k, 7.5 * k, 0, 0, Math.PI * 2);
+    ctx.stroke();
     if (img.complete && img.naturalWidth > 0) {
       ctx.save();
       if (unit.active) {
@@ -399,14 +421,18 @@ export function drawDiorama(
       }
       ctx.restore();
     }
-    ctx.fillStyle = 'rgba(0,0,0,0.55)';
-    ctx.fillRect(c.x - 14 * k, c.y + 7 * k, 28 * k, 3);
-    ctx.fillStyle = unit.team === 'player' ? '#7ec96b' : '#ffb066';
-    ctx.fillRect(c.x - 14 * k, c.y + 7 * k, 28 * k * Math.max(0, Math.min(1, unit.hpRatio)), 3);
-    ctx.fillStyle = 'rgba(255,255,255,0.8)';
-    ctx.font = 'bold 8px monospace';
+    const hp = Math.max(0, Math.min(1, unit.hpRatio));
+    ctx.fillStyle = 'rgba(4,8,12,0.8)';
+    ctx.fillRect(c.x - 16 * k - 1, c.y + 9 * k - 1, 32 * k + 2, 6);
+    ctx.fillStyle = hp > 0.5 ? '#7ee06b' : hp > 0.25 ? '#ffc35a' : '#ff5d47';
+    ctx.fillRect(c.x - 16 * k, c.y + 9 * k, 32 * k * hp, 4);
+    ctx.font = 'bold 10px monospace';
     ctx.textAlign = 'center';
-    ctx.fillText(unit.id, c.x, c.y - h + 2);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(4,8,12,0.9)';
+    ctx.strokeText(unit.id, c.x, c.y - h - 1);
+    ctx.fillStyle = `rgb(${teamColor})`;
+    ctx.fillText(unit.id, c.x, c.y - h - 1);
   }
 
   // Pasada 3 — etiquetas tácticas (el %): por encima de todo.
@@ -427,12 +453,14 @@ export function drawDiorama(
 
   // Pasada 4 — el clima: la lluvia raya y azulea; la tormenta de arena
   // arrastra velos de polvo. Determinista respecto al reloj de escena.
-  weatherOverlay(ctx, canvas.width, canvas.height, scene.weather ?? 'clear', scene.time);
-  // Noche: un tinte azul profundo sobre toda la mesa (la niebla por casilla
-  // ya apagó lo que los sensores no alcanzan).
+  weatherOverlay(ctx, size.width, size.height, scene.weather ?? 'clear', scene.time);
+  // Noche: un tinte azul sobre la MESA (source-atop: solo donde hay
+  // tablero; la niebla por casilla ya apagó lo que no alcanzan los sensores).
   if (scene.night) {
-    ctx.fillStyle = 'rgba(8, 14, 38, 0.34)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.globalCompositeOperation = 'source-atop';
+    ctx.fillStyle = 'rgba(10, 18, 52, 0.26)';
+    ctx.fillRect(0, 0, size.width, size.height);
+    ctx.globalCompositeOperation = 'source-over';
   }
 }
 
@@ -441,8 +469,10 @@ function weatherOverlay(
   weather: 'clear' | 'rain' | 'sandstorm', time: number,
 ): void {
   if (weather === 'rain') {
-    ctx.fillStyle = 'rgba(38, 66, 105, 0.15)';
+    ctx.globalCompositeOperation = 'source-atop';
+    ctx.fillStyle = 'rgba(38, 66, 105, 0.18)';
     ctx.fillRect(0, 0, w, h);
+    ctx.globalCompositeOperation = 'source-over';
     ctx.strokeStyle = 'rgba(172, 206, 255, 0.35)';
     ctx.lineWidth = 1;
     const drops = Math.floor(w / 9);
@@ -458,7 +488,9 @@ function weatherOverlay(
       ctx.stroke();
     }
   } else if (weather === 'sandstorm') {
-    ctx.fillStyle = 'rgba(198, 148, 72, 0.16)';
+    // Todo el polvo va source-atop: la tormenta azota la MESA, no el vacío.
+    ctx.globalCompositeOperation = 'source-atop';
+    ctx.fillStyle = 'rgba(198, 148, 72, 0.18)';
     ctx.fillRect(0, 0, w, h);
     for (let i = 0; i < 30; i++) {
       const seed = (i * 2246822519) >>> 0;
@@ -471,5 +503,6 @@ function weatherOverlay(
       ctx.ellipse(x0, y0 + Math.sin(time / 700 + i) * 5, rx, 4 + ((seed >>> 22) % 4), 0, 0, Math.PI * 2);
       ctx.fill();
     }
+    ctx.globalCompositeOperation = 'source-over';
   }
 }
