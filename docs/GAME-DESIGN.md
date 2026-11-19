@@ -1763,3 +1763,40 @@ arquitectura del motor van en DESIGN.md.)*
     portada.
   Guion de regresión visual nuevo (35 comprobaciones, todo verde). 416
   tests en verde, golden intacto (solo presentación y un guard de UI).
+- **2026-11-19** — EL UNIVERSO PROPIO («quiero ampliar el lore y
+  diferenciarme ya de Zoids»). Rebranding completo y canon nuevo de las
+  máquinas (LORE §6):
+  · TÉRMINO: las bestias de guerra son **yantras** (sánscrito:
+    instrumento, máquina, diagrama sagrado — la familia de Prathama,
+    Sarvatantra y Āryam). Su núcleo es el **bīja**, extraído de las
+    ruinas de Prathama: nadie sabe fabricarlo y recuerda lo vivido (da
+    razón de ser a marcas, compenetración y a la escasez).
+  · TRADICIONES MECÁNICAS: tres escuelas de forja — Albion (placas,
+    aguanta), Yamato (articulación, corta), Argos (sensores, ve) — más
+    los remiendos sin licencia de los clanes. Sus nombres están grabados
+    en placas de Prathama; nadie sabe qué significaron (nunca se
+    explica). Cada chasis tiene escuela y MATRÍCULA del Sarvatantra
+    («ALB-22», «s/l») junto a su apodo de taller: los dos registros de P5.
+    La escuela de sensores se proponía como «Helikon»; se cambió a
+    ARGOS porque «Helikon» suena a la «Helic Republic» de la franquicia.
+  · SE JUEGA: las máquinas Argos ven más lejos de noche (Faro y
+    Rastreador 8, Prisma 7; las demás Argos ya lo tenían). Solo afecta
+    al combate nocturno; golden intacto. Test que lo vigila.
+  · RENOMBRES: 24 chasis, 3 armas, módulos, ids internos, los 4
+    pilotos de fábrica (Iria, Basco, Noor, Tamsin) y la palabra en todo
+    el código. Tabla en RENOMBRES.md; registro canónico en LORE §6.6.
+  · PUBLICADO LIMPIO: build minificado (677 → 428 KB); escaneo del
+    archivo publicado sin un solo término de la franquicia; Playwright
+    recorre portada, fundar, cuartel, garaje, batalla y parte sin verlo
+    en pantalla.
+  · GUARDADOS: migran solos (y los exportados al importarlos). La tabla
+    guarda HUELLAS FNV de los términos viejos, no los términos: el juego
+    publicado no los contiene. La crónica (texto libre) se respeta.
+  · GOLDEN REGENERADO (declarado) y comprobado IGUAL al anterior salvo
+    nombres, campo a campo: el comportamiento no cambió ni una tirada.
+  · Propuestas nuevas con veredicto (LORE §6.5): P6 afinidad de escuela
+    en el taller, P7 ciudades con escuela, P8 se persigue al remiendo —
+    todas para DESPUÉS de la vertical slice.
+  423 tests en verde (7 nuevos). Queda fuera del juego: el prototipo 3D
+  con el modelo viejo (borrar antes de enseñar el repo) y una búsqueda
+  básica de marcas antes de Steam.

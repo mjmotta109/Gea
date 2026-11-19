@@ -6,6 +6,10 @@ demás) y reparte el trabajo entre la dirección y el desarrollo.
 
 ## La línea roja: primero el rebranding, luego TODO lo demás
 
+> ✅ **HECHO el 2026-11-19.** Canon nuevo en `docs/LORE.md` §6 y tabla de
+> equivalencias en `docs/RENOMBRES.md`. Quedan fuera del juego: borrar el
+> prototipo 3D con el modelo viejo y una búsqueda básica de marcas.
+
 **Nada con IP de Zoids puede tocar una página de Steam** — ni nombres de
 chasis (Liger Zero, Geno Saurer…), ni el término «Zoid», ni material
 promocional que los mencione. Son marcas de Takara Tomy. La página de

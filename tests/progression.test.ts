@@ -9,9 +9,9 @@ import { GameMap } from '../src/core/grid.js';
 import { PERKS } from '../src/data/progression.js';
 import { ABILITIES } from '../src/data/abilities.js';
 import { WEAPONS } from '../src/data/weapons.js';
-import { ZOIDS } from '../src/data/zoids.js';
+import { YANTRAS } from '../src/data/yantras.js';
 
-describe('progresión: XP del piloto (el Zoid no gana nada)', () => {
+describe('progresión: XP del piloto (el Yantra no gana nada)', () => {
   const roster = { U1: 'bit', U2: 'naomi' };
   const teams = { U1: 'player', U2: 'player', E1: 'enemy' } as const;
   const starts = { U1: { x: 0, y: 0 }, U2: { x: 0, y: 5 }, E1: { x: 1, y: 0 } };
@@ -49,7 +49,7 @@ describe('progresión: XP del piloto (el Zoid no gana nada)', () => {
     bit.mainSpec = 'assault'; // sin escuela elegida, el árbol duerme
     const battle = new Battle({
       map: GameMap.fromAscii(['00000000']),
-      unitCatalog: ZOIDS,
+      unitCatalog: YANTRAS,
       abilityCatalog: ABILITIES,
       weaponCatalog: WEAPONS,
       moduleCatalog: (await import('../src/data/modules.js')).MODULES,
@@ -57,15 +57,15 @@ describe('progresión: XP del piloto (el Zoid no gana nada)', () => {
       perkTable: PERKS,
       seed: 3,
       spawns: [
-        { id: 'L', name: 'Liger', unitTypeId: 'liger-zero-cas', team: 'player', position: { x: 0, y: 0 } },
-        { id: 'M', name: 'Molga', unitTypeId: 'molga', team: 'enemy', position: { x: 7, y: 0 } },
+        { id: 'L', name: 'Centella', unitTypeId: 'centella-m', team: 'player', position: { x: 0, y: 0 } },
+        { id: 'M', name: 'Tornillo', unitTypeId: 'tornillo', team: 'enemy', position: { x: 7, y: 0 } },
       ],
     });
     const stats = battle.effectiveStats(battle.unit('L'));
     // Base 45 atk + perks(3) + sinergia (garra láser spec assault, dominante assault): +3
     expect(stats.atk).toBe(45 + 3 + 3);
     expect(stats.move).toBe(6 + 1);
-    // La Molga sin piloto no recibe nada.
+    // La Tornillo sin piloto no recibe nada.
     expect(battle.effectiveStats(battle.unit('M')).atk).toBe(30);
   });
 
@@ -148,7 +148,7 @@ describe('heridas: el precio humano de perder la máquina', () => {
   });
 
   it('curar a un piloto sano no fabrica estados nuevos', () => {
-    const pilot = newPilot('p', 'Irvine');
+    const pilot = newPilot('p', 'Basco');
     expect(healInjury(pilot, 3)).toBe(pilot); // misma referencia: sin ruido
   });
 });

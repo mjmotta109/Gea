@@ -4,7 +4,7 @@ import { FLAT_ARENA } from '../src/data/maps.js';
 import { ABILITIES } from '../src/data/abilities.js';
 import { MODULES } from '../src/data/modules.js';
 import { WEAPONS } from '../src/data/weapons.js';
-import { ZOIDS } from '../src/data/zoids.js';
+import { YANTRAS } from '../src/data/yantras.js';
 import { ECONOMY } from '../src/data/economy.js';
 import {
   armorRepairCost, newCampaign, reinforceArmor, reinforcementModifiers,
@@ -16,11 +16,11 @@ import {
 describe('motor: blindaje de refuerzo (búnker a nivel de máquina)', () => {
   it('absorbe el daño antes que el HP y se gasta', () => {
     const battle = new Battle({
-      map: FLAT_ARENA, unitCatalog: ZOIDS, abilityCatalog: ABILITIES, weaponCatalog: WEAPONS,
+      map: FLAT_ARENA, unitCatalog: YANTRAS, abilityCatalog: ABILITIES, weaponCatalog: WEAPONS,
       moduleCatalog: MODULES, seed: 3,
       spawns: [
-        { id: 'A', name: 'a', unitTypeId: 'molga', team: 'player', position: { x: 1, y: 1 }, armor: 200 },
-        { id: 'B', name: 'b', unitTypeId: 'molga', team: 'enemy', position: { x: 2, y: 1 }, armor: 200 },
+        { id: 'A', name: 'a', unitTypeId: 'tornillo', team: 'player', position: { x: 1, y: 1 }, armor: 200 },
+        { id: 'B', name: 'b', unitTypeId: 'tornillo', team: 'enemy', position: { x: 2, y: 1 }, armor: 200 },
       ],
     });
     const maxB = battle.effectiveStats(battle.unit('B')).maxHp;
@@ -42,9 +42,9 @@ describe('motor: blindaje de refuerzo (búnker a nivel de máquina)', () => {
 
   it('a wear/armor 0 el motor se comporta igual (golden intacto): sin blindaje, sin absorción', () => {
     const b = new Battle({
-      map: FLAT_ARENA, unitCatalog: ZOIDS, abilityCatalog: ABILITIES, weaponCatalog: WEAPONS,
+      map: FLAT_ARENA, unitCatalog: YANTRAS, abilityCatalog: ABILITIES, weaponCatalog: WEAPONS,
       moduleCatalog: MODULES, seed: 1,
-      spawns: [{ id: 'U', name: 'u', unitTypeId: 'molga', team: 'player', position: { x: 1, y: 1 } }],
+      spawns: [{ id: 'U', name: 'u', unitTypeId: 'tornillo', team: 'player', position: { x: 1, y: 1 } }],
     });
     expect(b.unit('U').armor).toBe(0); // sin refuerzo por defecto
   });

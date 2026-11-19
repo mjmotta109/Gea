@@ -239,22 +239,22 @@ describe('frame: integración en Battle', () => {
 });
 
 describe('contenido: equivalencia framed vs monocasco', () => {
-  it('liger-zero-cas y geno-saurer-cp intactos rinden igual que sus originales', async () => {
-    const { ZOIDS } = await import('../src/data/zoids.js');
+  it('centella-m y prisma-m intactos rinden igual que sus originales', async () => {
+    const { YANTRAS } = await import('../src/data/yantras.js');
     const { MODULES } = await import('../src/data/modules.js');
     const { WEAPONS } = await import('../src/data/weapons.js');
     const battle = new Battle({
       map: FLAT_ARENA,
-      unitCatalog: ZOIDS,
+      unitCatalog: YANTRAS,
       abilityCatalog: ABILITIES,
       moduleCatalog: MODULES,
       weaponCatalog: WEAPONS,
       seed: 1,
       spawns: [
-        { id: 'L0', name: 'Liger', unitTypeId: 'liger-zero', team: 'player', position: { x: 0, y: 0 } },
-        { id: 'LC', name: 'Liger CAS', unitTypeId: 'liger-zero-cas', team: 'player', position: { x: 1, y: 0 } },
-        { id: 'G0', name: 'Geno', unitTypeId: 'geno-saurer', team: 'enemy', position: { x: 5, y: 0 } },
-        { id: 'GC', name: 'Geno CP', unitTypeId: 'geno-saurer-cp', team: 'enemy', position: { x: 6, y: 0 } },
+        { id: 'L0', name: 'Centella', unitTypeId: 'centella', team: 'player', position: { x: 0, y: 0 } },
+        { id: 'LC', name: 'Centella-M', unitTypeId: 'centella-m', team: 'player', position: { x: 1, y: 0 } },
+        { id: 'G0', name: 'Prisma', unitTypeId: 'prisma', team: 'enemy', position: { x: 5, y: 0 } },
+        { id: 'GC', name: 'Prisma CP', unitTypeId: 'prisma-m', team: 'enemy', position: { x: 6, y: 0 } },
       ],
     });
     expect(battle.effectiveStats(battle.unit('LC'))).toEqual(battle.effectiveStats(battle.unit('L0')));

@@ -7,6 +7,10 @@ const result = await build({
   bundle: true,
   format: 'iife',
   target: 'es2020',
+  // Minificado: el archivo publicado no arrastra comentarios ni nombres
+  // internos (y pesa la mitad).
+  minify: true,
+  legalComments: 'none',
   write: false,
 });
 

@@ -1,7 +1,7 @@
 /**
  * Optimiza un GLB para uso web: poda, suelda vértices, une mallas por
  * material y cuantiza atributos. Uso:
- *   node scripts/optimize-model.mjs assets/models/liger-zero.glb
+ *   node scripts/optimize-model.mjs assets/models/centella.glb
  * Escribe <nombre>.opt.glb al lado.
  */
 import { NodeIO } from '@gltf-transform/core';

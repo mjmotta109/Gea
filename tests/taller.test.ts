@@ -3,13 +3,13 @@ import {
   emptyTaller, nextAbilityId, nextContractId,
   sanitizeAbility, sanitizeContract, sanitizeTaller, tallerGrantIds,
 } from '../src/game/taller.js';
-import { ZOIDS } from '../src/data/zoids.js';
+import { YANTRAS } from '../src/data/yantras.js';
 
 // El taller de contenido: lo que crea el director se valida SIEMPRE
 // contra los límites del motor — un guardado corrupto o un JSON
 // importado a mano no puede colar basura a una batalla.
 
-const KNOWN = new Set(Object.keys(ZOIDS));
+const KNOWN = new Set(Object.keys(YANTRAS));
 
 describe('taller: validación del contenido del director', () => {
   it('una habilidad razonable sobrevive entera (ida y vuelta)', () => {
@@ -46,10 +46,10 @@ describe('taller: validación del contenido del director', () => {
   it('un contrato exige chasis CONOCIDOS: lo inventado se descarta', () => {
     const good = sanitizeContract({
       id: 'txc-emboscada', name: 'Emboscada al convoy', tier: 'caza',
-      enemySquad: ['molga', 'chasis-inventado', 'guysak'], reward: 1200, salvagePerKill: 60,
+      enemySquad: ['tornillo', 'chasis-inventado', 'barrena'], reward: 1200, salvagePerKill: 60,
     }, 'txc-1', KNOWN);
     expect(good).toBeDefined();
-    expect(good!.enemySquad).toEqual(['molga', 'guysak']);
+    expect(good!.enemySquad).toEqual(['tornillo', 'barrena']);
     // Sin un solo chasis real, el contrato no existe.
     expect(sanitizeContract({ enemySquad: ['nada'] }, 'txc-2', KNOWN)).toBeUndefined();
   });
@@ -58,7 +58,7 @@ describe('taller: validación del contenido del director', () => {
     const taller = sanitizeTaller({
       abilities: { 'tx-1': { name: 'Válida', effects: [{ kind: 'heal', power: 30 }] }, rota: 42 },
       grants: { 'tx-1': [0, 0, 3, 7, -1, 'x'], 'tx-fantasma': [1] },
-      contracts: [{ enemySquad: ['molga'] }, null, { enemySquad: [] }],
+      contracts: [{ enemySquad: ['tornillo'] }, null, { enemySquad: [] }],
     }, KNOWN);
     expect(Object.keys(taller.abilities)).toHaveLength(2); // la rota renace con defaults
     expect(taller.grants['tx-1']).toEqual([0, 3]);
@@ -73,7 +73,7 @@ describe('taller: validación del contenido del director', () => {
     taller.abilities['tx-1'] = sanitizeAbility({}, 'tx-1');
     taller.abilities['tx-2'] = sanitizeAbility({}, 'tx-2');
     expect(nextAbilityId(taller)).toBe('tx-3');
-    taller.contracts.push(sanitizeContract({ enemySquad: ['molga'] }, 'txc-1', KNOWN)!);
+    taller.contracts.push(sanitizeContract({ enemySquad: ['tornillo'] }, 'txc-1', KNOWN)!);
     expect(nextContractId(taller)).toBe('txc-2');
   });
 });

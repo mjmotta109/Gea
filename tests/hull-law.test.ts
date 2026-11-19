@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Battle, type BattleConfig, type UnitSpawn } from '../src/core/battle.js';
 import { MAX_HIT_FRACTION, maxHitCap } from '../src/core/combat.js';
 import { GameMap } from '../src/core/grid.js';
-import { ZOIDS } from '../src/data/zoids.js';
+import { YANTRAS } from '../src/data/yantras.js';
 import { MODULES } from '../src/data/modules.js';
 import { ABILITIES } from '../src/data/abilities.js';
 
@@ -24,11 +24,11 @@ const LAB_ABILITIES = {
 
 function duel(): Battle {
   const spawns: UnitSpawn[] = [
-    { id: 'P1', name: 'P1', unitTypeId: 'gojulas', team: 'player', position: { x: 1, y: 1 }, extraAbilityIds: ['lab-aniquilador'] },
-    { id: 'E1', name: 'E1', unitTypeId: 'molga', team: 'enemy', position: { x: 3, y: 1 } },
+    { id: 'P1', name: 'P1', unitTypeId: 'baluarte', team: 'player', position: { x: 1, y: 1 }, extraAbilityIds: ['lab-aniquilador'] },
+    { id: 'E1', name: 'E1', unitTypeId: 'tornillo', team: 'enemy', position: { x: 3, y: 1 } },
   ];
   const config: BattleConfig = {
-    map: OPEN, unitCatalog: ZOIDS, moduleCatalog: MODULES,
+    map: OPEN, unitCatalog: YANTRAS, moduleCatalog: MODULES,
     abilityCatalog: LAB_ABILITIES, seed: 9, spawns,
   };
   return new Battle(config);
@@ -52,17 +52,17 @@ describe('la ley del casco', () => {
   it('un golpe absurdo NO mata a una máquina entera: deja ventana', () => {
     const battle = duel();
     untilP1(battle);
-    const molga = battle.unit('E1');
-    const maxHp = battle.effectiveStats(molga).maxHp;
-    expect(molga.hp).toBe(maxHp);
+    const tornillo = battle.unit('E1');
+    const maxHp = battle.effectiveStats(tornillo).maxHp;
+    expect(tornillo.hp).toBe(maxHp);
     const events = battle.execute({ type: 'ability', unitId: 'P1', abilityId: 'lab-aniquilador', target: { x: 3, y: 1 } });
     const dealt = events.find((e) => e.type === 'damage-dealt');
     expect(dealt).toBeDefined();
     if (dealt && dealt.type === 'damage-dealt') {
       expect(dealt.amount).toBeLessThanOrEqual(maxHitCap(maxHp));
     }
-    expect(molga.hp).toBeGreaterThan(0); // viva: puede retirarse o eyectar
-    expect(molga.hp).toBeGreaterThanOrEqual(maxHp - maxHitCap(maxHp));
+    expect(tornillo.hp).toBeGreaterThan(0); // viva: puede retirarse o eyectar
+    expect(tornillo.hp).toBeGreaterThanOrEqual(maxHp - maxHitCap(maxHp));
   });
 
   it('el SEGUNDO golpe sí mata: la ley no es invulnerabilidad', () => {
@@ -70,7 +70,7 @@ describe('la ley del casco', () => {
     untilP1(battle);
     battle.execute({ type: 'ability', unitId: 'P1', abilityId: 'lab-aniquilador', target: { x: 3, y: 1 } });
     battle.execute({ type: 'wait', unitId: 'P1' });
-    // La molga actúa (lo que haga) y vuelve el turno de P1.
+    // La tornillo actúa (lo que haga) y vuelve el turno de P1.
     untilP1(battle);
     const before = battle.unit('E1').hp;
     expect(before).toBeGreaterThan(0);
@@ -83,9 +83,9 @@ describe('la ley del casco', () => {
   it('el pronóstico anuncia el tope: min y max nunca lo superan', () => {
     const battle = duel();
     untilP1(battle);
-    const molga = battle.unit('E1');
-    const preview = battle.attackPreview('P1', 'lab-aniquilador', molga.position)!;
-    const cap = maxHitCap(battle.effectiveStats(molga).maxHp);
+    const tornillo = battle.unit('E1');
+    const preview = battle.attackPreview('P1', 'lab-aniquilador', tornillo.position)!;
+    const cap = maxHitCap(battle.effectiveStats(tornillo).maxHp);
     expect(preview.max).toBeLessThanOrEqual(cap);
     expect(preview.min).toBeLessThanOrEqual(cap);
   });

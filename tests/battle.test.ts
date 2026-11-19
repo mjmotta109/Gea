@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Battle, type BattleConfig } from '../src/core/battle.js';
 import { FLAT_ARENA } from '../src/data/maps.js';
-import { ZOIDS } from '../src/data/zoids.js';
+import { YANTRAS } from '../src/data/yantras.js';
 import { ABILITIES } from '../src/data/abilities.js';
 import { MODULES } from '../src/data/modules.js';
 import { planTurn } from '../src/ai/simpleAi.js';
@@ -10,13 +10,13 @@ import type { BattleEvent } from '../src/core/types.js';
 function duel(overrides: Partial<BattleConfig> = {}): Battle {
   return new Battle({
     map: FLAT_ARENA,
-    unitCatalog: ZOIDS,
+    unitCatalog: YANTRAS,
     abilityCatalog: ABILITIES,
     moduleCatalog: MODULES,
     seed: 123,
     spawns: [
-      { id: 'P1', name: 'Liger', unitTypeId: 'liger-zero', team: 'player', position: { x: 1, y: 2 } },
-      { id: 'E1', name: 'Molga', unitTypeId: 'molga', team: 'enemy', position: { x: 6, y: 2 } },
+      { id: 'P1', name: 'Centella', unitTypeId: 'centella', team: 'player', position: { x: 1, y: 2 } },
+      { id: 'E1', name: 'Tornillo', unitTypeId: 'tornillo', team: 'enemy', position: { x: 6, y: 2 } },
     ],
     ...overrides,
   });
@@ -26,7 +26,7 @@ describe('Battle: flujo de turno', () => {
   it('abre el turno de la unidad más rápida', () => {
     const battle = duel();
     const events = battle.nextTurn();
-    expect(events[0]).toEqual({ type: 'turn-started', unitId: 'P1' }); // Liger speed 16 > Molga 11
+    expect(events[0]).toEqual({ type: 'turn-started', unitId: 'P1' }); // Centella speed 16 > Tornillo 11
     expect(battle.getActiveUnit()?.id).toBe('P1');
   });
 
@@ -41,7 +41,7 @@ describe('Battle: flujo de turno', () => {
   it('rechaza movimientos fuera de alcance', () => {
     const battle = duel();
     battle.nextTurn();
-    // Liger move=6; (7,5) está a 9 de distancia
+    // Centella move=6; (7,5) está a 9 de distancia
     expect(() => battle.execute({ type: 'move', unitId: 'P1', to: { x: 7, y: 5 } })).toThrow();
   });
 
@@ -66,8 +66,8 @@ describe('Battle: habilidades', () => {
   it('resuelve un ataque melee con daño', () => {
     const battle = duel({
       spawns: [
-        { id: 'P1', name: 'Liger', unitTypeId: 'liger-zero', team: 'player', position: { x: 1, y: 2 } },
-        { id: 'E1', name: 'Molga', unitTypeId: 'molga', team: 'enemy', position: { x: 2, y: 2 } },
+        { id: 'P1', name: 'Centella', unitTypeId: 'centella', team: 'player', position: { x: 1, y: 2 } },
+        { id: 'E1', name: 'Tornillo', unitTypeId: 'tornillo', team: 'enemy', position: { x: 2, y: 2 } },
       ],
     });
     battle.nextTurn();
@@ -80,8 +80,8 @@ describe('Battle: habilidades', () => {
   it('rechaza habilidades que el chasis no conoce y objetivos fuera de rango', () => {
     const battle = duel({
       spawns: [
-        { id: 'P1', name: 'Liger', unitTypeId: 'liger-zero', team: 'player', position: { x: 1, y: 2 } },
-        { id: 'E1', name: 'Molga', unitTypeId: 'molga', team: 'enemy', position: { x: 2, y: 2 } },
+        { id: 'P1', name: 'Centella', unitTypeId: 'centella', team: 'player', position: { x: 1, y: 2 } },
+        { id: 'E1', name: 'Tornillo', unitTypeId: 'tornillo', team: 'enemy', position: { x: 2, y: 2 } },
       ],
     });
     battle.nextTurn();
@@ -95,24 +95,24 @@ describe('Battle: habilidades', () => {
     const { WEAPONS } = await import('../src/data/weapons.js');
     const battle = new Battle({
       map: FLAT_ARENA,
-      unitCatalog: ZOIDS,
+      unitCatalog: YANTRAS,
       abilityCatalog: ABILITIES,
       moduleCatalog: MODULES,
       weaponCatalog: WEAPONS,
       seed: 7,
       spawns: [
-        { id: 'P1', name: 'Gustav', unitTypeId: 'gustav', team: 'player', position: { x: 1, y: 2 } },
-        { id: 'P2', name: 'Liger', unitTypeId: 'liger-zero', team: 'player', position: { x: 2, y: 2 } },
-        { id: 'E1', name: 'Molga', unitTypeId: 'molga', team: 'enemy', position: { x: 7, y: 5 } },
+        { id: 'P1', name: 'Mula', unitTypeId: 'mula', team: 'player', position: { x: 1, y: 2 } },
+        { id: 'P2', name: 'Centella', unitTypeId: 'centella', team: 'player', position: { x: 2, y: 2 } },
+        { id: 'E1', name: 'Tornillo', unitTypeId: 'tornillo', team: 'enemy', position: { x: 7, y: 5 } },
       ],
     });
-    // Liger framed (maxHp 120): el HP se DERIVA de los módulos, así que para
+    // Centella framed (maxHp 120): el HP se DERIVA de los módulos, así que para
     // dejarlo a 100/120 hay que vaciar la ESTRUCTURA (tocar unit.hp no basta,
     // se rederivaría). Vacía 20 del núcleo.
     const p2 = battle.unit('P2');
     p2.components.frame!.modules[1]!.hp -= 20; // núcleo 44→24
     p2.hp = 100;
-    // Avanza turnos hasta que le toque al Gustav.
+    // Avanza turnos hasta que le toque al Mula.
     for (let i = 0; i < 10 && battle.getActiveUnit()?.id !== 'P1'; i++) {
       if (battle.getActiveUnit()) battle.execute({ type: 'wait', unitId: battle.getActiveUnit()!.id });
       else battle.nextTurn();
@@ -153,13 +153,13 @@ describe('posturas de energía: reparto elegido, dos caras a la vista', () => {
   function stanceBattle(): Battle {
     const battle = new Battle({
       map: FLAT_ARENA,
-      unitCatalog: ZOIDS,
+      unitCatalog: YANTRAS,
       abilityCatalog: ABILITIES,
       moduleCatalog: MODULES,
       seed: 7,
       spawns: [
-        { id: 'P1', name: 'Wolf', unitTypeId: 'command-wolf', team: 'player', position: { x: 0, y: 0 } },
-        { id: 'E1', name: 'Molga', unitTypeId: 'molga', team: 'enemy', position: { x: 5, y: 0 } },
+        { id: 'P1', name: 'Wolf', unitTypeId: 'rastreador', team: 'player', position: { x: 0, y: 0 } },
+        { id: 'E1', name: 'Tornillo', unitTypeId: 'tornillo', team: 'enemy', position: { x: 5, y: 0 } },
       ],
     });
     battle.nextTurn();

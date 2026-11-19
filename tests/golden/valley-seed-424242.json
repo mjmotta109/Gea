@@ -532,7 +532,7 @@
     {
       "type": "ability-used",
       "unitId": "E1",
-      "abilityId": "charged-particle-gun",
+      "abilityId": "beam-cannon",
       "target": {
         "x": 3,
         "y": 5
@@ -1022,7 +1022,7 @@
     {
       "type": "ability-used",
       "unitId": "E1",
-      "abilityId": "charged-particle-gun",
+      "abilityId": "beam-cannon",
       "target": {
         "x": 3,
         "y": 4

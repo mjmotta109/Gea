@@ -44,7 +44,7 @@ const TEST_WEAPONS: Record<string, WeaponDefinition> = {
     costs: { heat: 5 }, magazine: 2, reserves: 1,
   },
   'w-test-laser': {
-    id: 'w-test-laser', name: 'Láser de pruebas', abilityId: 'strike-laser-claw',
+    id: 'w-test-laser', name: 'Láser de pruebas', abilityId: 'arc-claw',
     costs: { energy: 25, heat: 30, cooldownTurns: 1 }, magazine: 0, reserves: 0,
   },
 };
@@ -159,7 +159,7 @@ describe('Calor como encrucijada (interacciones)', () => {
     unit.components.heat!.current = 20;
 
     const veto = battle.checkVetoes({
-      type: 'ability', unitId: 'R', abilityId: 'strike-laser-claw', target: { x: 2, y: 1 },
+      type: 'ability', unitId: 'R', abilityId: 'arc-claw', target: { x: 2, y: 1 },
     });
     expect(veto?.systemId).toBe('heat');
     expect(veto?.reason).toMatch(/recalentaría/);

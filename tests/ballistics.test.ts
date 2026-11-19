@@ -5,19 +5,19 @@ import { knockbackDestination } from '../src/core/physics.js';
 import { ABILITIES } from '../src/data/abilities.js';
 import { MODULES } from '../src/data/modules.js';
 import { WEAPONS } from '../src/data/weapons.js';
-import { ZOIDS } from '../src/data/zoids.js';
+import { YANTRAS } from '../src/data/yantras.js';
 
 function artillery(map: GameMap, extraSpawns: Array<Record<string, unknown>> = []) {
   return new Battle({
     map,
-    unitCatalog: ZOIDS,
+    unitCatalog: YANTRAS,
     abilityCatalog: ABILITIES,
     moduleCatalog: MODULES,
     weaponCatalog: WEAPONS,
     seed: 11,
     spawns: [
-      { id: 'G', name: 'Gustav', unitTypeId: 'gustav', team: 'player', position: { x: 0, y: 0 }, commander: true },
-      { id: 'M', name: 'Molga', unitTypeId: 'molga', team: 'enemy', position: { x: 3, y: 0 } },
+      { id: 'G', name: 'Mula', unitTypeId: 'mula', team: 'player', position: { x: 0, y: 0 }, commander: true },
+      { id: 'M', name: 'Tornillo', unitTypeId: 'tornillo', team: 'enemy', position: { x: 3, y: 0 } },
       ...extraSpawns as never[],
     ],
   });
@@ -44,7 +44,7 @@ describe('fase 4: balística', () => {
 
   it('la dispersión degrada la puntería con la distancia', () => {
     const battle = artillery(GameMap.fromAscii(['0000000']), [
-      { id: 'M2', name: 'Lejos', unitTypeId: 'molga', team: 'enemy', position: { x: 4, y: 0 } },
+      { id: 'M2', name: 'Lejos', unitTypeId: 'tornillo', team: 'enemy', position: { x: 4, y: 0 } },
     ]);
     until(battle, 'G');
     const near = battle.attackPreview('G', 'shock-cannon', { x: 3, y: 0 })!;
@@ -60,12 +60,12 @@ describe('fase 4: balística', () => {
     for (let i = 0; i < 12 && battle.unit('M').position.x === 3; i++) {
       const events = battle.execute({ type: 'ability', unitId: 'G', abilityId: 'shock-cannon', target: battle.unit('M').position });
       if (events.some((e) => e.type === 'unit-pushed')) {
-        // La Molga es EXTRALIGERA: el cañonazo la manda dos casillas.
+        // La Tornillo es EXTRALIGERA: el cañonazo la manda dos casillas.
         expect(battle.unit('M').position).toEqual({ x: 5, y: 0 });
         return;
       }
       battle.execute({ type: 'wait', unitId: 'G' });
-      // El turno de la Molga: la dejamos esperar para no mover el blanco.
+      // El turno de la Tornillo: la dejamos esperar para no mover el blanco.
       while (battle.getActiveUnit() && battle.getActiveUnit()!.id !== 'G') {
         battle.execute({ type: 'wait', unitId: battle.getActiveUnit()!.id });
       }
@@ -92,7 +92,7 @@ describe('fase 4: balística', () => {
   it('knockbackDestination respeta muros, ocupantes y alturas', () => {
     const map = GameMap.fromAscii(['00#']);
     const victim = {
-      id: 'V', name: 'V', unitTypeId: 'molga', team: 'enemy' as const, isCommander: false,
+      id: 'V', name: 'V', unitTypeId: 'tornillo', team: 'enemy' as const, isCommander: false,
       position: { x: 1, y: 0 }, facing: 'east' as const, hp: 10, ct: 0,
       statuses: [], hasMoved: false, hasActed: false, size: 1, reactionReady: true, components: {},
     };
@@ -104,14 +104,14 @@ describe('fase 4: balística', () => {
   it('una explosión derriba muros y abre la línea de visión', () => {
     const battle = new Battle({
       map: GameMap.fromAscii(['000#00', '000000']),
-      unitCatalog: ZOIDS,
+      unitCatalog: YANTRAS,
       abilityCatalog: ABILITIES,
       moduleCatalog: MODULES,
       weaponCatalog: WEAPONS,
       seed: 5,
       spawns: [
-        { id: 'GJ', name: 'Gojulas', unitTypeId: 'gojulas', team: 'player', position: { x: 0, y: 0 } },
-        { id: 'M', name: 'Molga', unitTypeId: 'molga', team: 'enemy', position: { x: 5, y: 0 } },
+        { id: 'GJ', name: 'Baluarte', unitTypeId: 'baluarte', team: 'player', position: { x: 0, y: 0 } },
+        { id: 'M', name: 'Tornillo', unitTypeId: 'tornillo', team: 'enemy', position: { x: 5, y: 0 } },
       ],
     });
     until(battle, 'GJ');
@@ -126,24 +126,24 @@ describe('fase 4: balística', () => {
 describe('fase 5: personalidad y mando', () => {
   it('perder al comandante degrada al equipo y emite el evento una vez', () => {
     const battle = artillery(GameMap.fromAscii(['0000']));
-    const gustav = battle.unit('G');
+    const mula = battle.unit('G');
     const before = battle.effectiveStats(battle.unit('G')).accuracy;
     expect(before).toBe(0);
     // Matamos al comandante por la vía del daño.
     until(battle, 'G');
     battle.execute({ type: 'wait', unitId: 'G' });
-    gustav.hp = 1;
+    mula.hp = 1;
     while (battle.getActiveUnit()?.id !== 'M') {
       if (battle.getActiveUnit()) battle.execute({ type: 'wait', unitId: battle.getActiveUnit()!.id });
       else battle.nextTurn();
     }
     battle.execute({ type: 'move', unitId: 'M', to: { x: 1, y: 0 } });
     let linkLost = 0;
-    for (let i = 0; i < 20 && gustav.hp > 0; i++) {
-      const events = battle.execute({ type: 'ability', unitId: 'M', abilityId: 'bite-crush', target: gustav.position });
+    for (let i = 0; i < 20 && mula.hp > 0; i++) {
+      const events = battle.execute({ type: 'ability', unitId: 'M', abilityId: 'bite-crush', target: mula.position });
       linkLost += events.filter((e) => e.type === 'command-link-lost').length;
       if (battle.isOver) break;
-      if (gustav.hp > 0) {
+      if (mula.hp > 0) {
         battle.execute({ type: 'wait', unitId: 'M' });
         while (!battle.isOver && battle.getActiveUnit()?.id !== 'M') {
           if (battle.getActiveUnit()) battle.execute({ type: 'wait', unitId: battle.getActiveUnit()!.id });
@@ -151,15 +151,15 @@ describe('fase 5: personalidad y mando', () => {
         }
       }
     }
-    expect(gustav.hp).toBe(0);
+    expect(mula.hp).toBe(0);
     expect(linkLost).toBe(1);
   });
 
   it('los perfiles cambian el comportamiento: el agresivo avanza, el defensivo aguanta', async () => {
     const { planTurn } = await import('../src/ai/simpleAi.js');
-    const aggressive = { ...ZOIDS['liger-zero']!, id: 'aggro' };
+    const aggressive = { ...YANTRAS['centella']!, id: 'aggro' };
     const defensive = {
-      ...ZOIDS['liger-zero']!, id: 'turtle',
+      ...YANTRAS['centella']!, id: 'turtle',
       aiProfile: { aggression: 0.1, selfPreservation: 0.5, riskTolerance: 0.5 },
     };
     const mk = (typeId: string, catalog: Record<string, typeof aggressive>) => {
@@ -171,14 +171,14 @@ describe('fase 5: personalidad y mando', () => {
         seed: 2,
         spawns: [
           { id: 'A', name: 'A', unitTypeId: typeId, team: 'player', position: { x: 0, y: 0 } },
-          { id: 'E', name: 'E', unitTypeId: 'molga', team: 'enemy', position: { x: 17, y: 0 } },
+          { id: 'E', name: 'E', unitTypeId: 'tornillo', team: 'enemy', position: { x: 17, y: 0 } },
         ],
       });
       battle.nextTurn();
       return planTurn(battle, battle.unit('A'));
     };
-    const aggroPlan = mk('aggro', { aggro: aggressive, molga: ZOIDS['molga']! });
-    const turtlePlan = mk('turtle', { turtle: defensive, molga: ZOIDS['molga']! });
+    const aggroPlan = mk('aggro', { aggro: aggressive, tornillo: YANTRAS['tornillo']! });
+    const turtlePlan = mk('turtle', { turtle: defensive, tornillo: YANTRAS['tornillo']! });
     expect(aggroPlan.some((a) => a.type === 'move')).toBe(true);   // avanza
     expect(turtlePlan.every((a) => a.type === 'wait')).toBe(true); // aguanta lejos
   });

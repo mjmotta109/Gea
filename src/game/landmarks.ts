@@ -149,7 +149,7 @@ export function resolveLandmark(landmark: Landmark, optionId: string): LandmarkO
       return {
         hours: 0, supplyDelta: 0, stressDelta: 0, done: false,
         battle: {
-          squad: landmarkSquad(landmark.id, ['guysak', 'rev-raptor', 'command-wolf'], 3),
+          squad: landmarkSquad(landmark.id, ['barrena', 'navaja', 'rastreador'], 3),
           aiSkill: 0.45,
           reward: 420,
         },
@@ -172,7 +172,7 @@ export function resolveLandmark(landmark: Landmark, optionId: string): LandmarkO
       return {
         hours: 0, supplyDelta: 0, stressDelta: 0, done: false,
         battle: {
-          squad: landmarkSquad(landmark.id, ['molga', 'guysak', 'rev-raptor'], 3),
+          squad: landmarkSquad(landmark.id, ['tornillo', 'barrena', 'navaja'], 3),
           aiSkill: 0.3,
           reward: 200,
         },

@@ -5,7 +5,7 @@ import { ABILITIES } from '../../src/data/abilities.js';
 import { WEAPONS } from '../../src/data/weapons.js';
 import { MODULES } from '../../src/data/modules.js';
 import { VALLEY_CROSSING } from '../../src/data/maps.js';
-import { ZOIDS } from '../../src/data/zoids.js';
+import { YANTRAS } from '../../src/data/yantras.js';
 
 /**
  * Corre una batalla completa IA-vs-IA con una semilla fija y devuelve un
@@ -35,20 +35,20 @@ export interface BattleRecord {
 export function runScriptedBattle(seed: number, maxTurns = 300): BattleRecord {
   const battle = new Battle({
     map: VALLEY_CROSSING,
-    unitCatalog: ZOIDS,
+    unitCatalog: YANTRAS,
     abilityCatalog: ABILITIES,
     weaponCatalog: WEAPONS,
     moduleCatalog: MODULES,
     seed,
     spawns: [
-      { id: 'P1', name: 'Liger Zero', unitTypeId: 'liger-zero', team: 'player', position: { x: 1, y: 3 } },
-      { id: 'P2', name: 'Command Wolf', unitTypeId: 'command-wolf', team: 'player', position: { x: 0, y: 5 } },
-      { id: 'P3', name: 'Gun Sniper', unitTypeId: 'gun-sniper', team: 'player', position: { x: 1, y: 7 } },
-      { id: 'P4', name: 'Gustav', unitTypeId: 'gustav', team: 'player', position: { x: 0, y: 4 } },
-      { id: 'E1', name: 'Geno Saurer', unitTypeId: 'geno-saurer', team: 'enemy', position: { x: 10, y: 3 } },
-      { id: 'E2', name: 'Molga A', unitTypeId: 'molga', team: 'enemy', position: { x: 11, y: 5 } },
-      { id: 'E3', name: 'Molga B', unitTypeId: 'molga', team: 'enemy', position: { x: 10, y: 6 } },
-      { id: 'E4', name: 'Pteras', unitTypeId: 'pteras', team: 'enemy', position: { x: 11, y: 2 } },
+      { id: 'P1', name: 'Centella', unitTypeId: 'centella', team: 'player', position: { x: 1, y: 3 } },
+      { id: 'P2', name: 'Rastreador', unitTypeId: 'rastreador', team: 'player', position: { x: 0, y: 5 } },
+      { id: 'P3', name: 'Visor', unitTypeId: 'visor', team: 'player', position: { x: 1, y: 7 } },
+      { id: 'P4', name: 'Mula', unitTypeId: 'mula', team: 'player', position: { x: 0, y: 4 } },
+      { id: 'E1', name: 'Prisma', unitTypeId: 'prisma', team: 'enemy', position: { x: 10, y: 3 } },
+      { id: 'E2', name: 'Tornillo A', unitTypeId: 'tornillo', team: 'enemy', position: { x: 11, y: 5 } },
+      { id: 'E3', name: 'Tornillo B', unitTypeId: 'tornillo', team: 'enemy', position: { x: 10, y: 6 } },
+      { id: 'E4', name: 'Cometa', unitTypeId: 'cometa', team: 'enemy', position: { x: 11, y: 2 } },
     ],
   });
 

@@ -1,10 +1,10 @@
 import type { ModuleDefinition, Stats } from '../core/types.js';
 
 /**
- * Catálogo de módulos para los frames de los Zoids.
+ * Catálogo de módulos para los frames de los Yantras.
  *
  * DOS convenciones conviven:
- *  1. Frames "núcleo desnudo" (Liger Zero CAS, Geno Saurer CP): las stats base
+ *  1. Frames "núcleo desnudo" (Centella-M, Prisma-M): las stats base
  *     del chasis son el núcleo y los módulos aportan el resto vía contributions;
  *     base + módulos intactos = versión monocasco (hay test de equivalencia).
  *  2. Frames de combate A MEDIDA (`struct`, 2026-07-09): el chasis conserva sus
@@ -35,101 +35,101 @@ function struct(
  * frenas y desapuntas, sin ala no esquivas, sin cañón pierdes tu pegada.
  */
 const COMBAT_FRAME_MODULES: Record<string, ModuleDefinition> = {
-  // ── Liger Zero (120): felino de asalto, garras devastadoras ──────────
-  'lz-casco': struct('lz-casco', 'Cabeza sensora', 12, { plate: 4, hit: 10, tags: ['high-profile', 'sensor'], pen: [['accuracy', -20]] }),
-  'lz-nucleo': struct('lz-nucleo', 'Torso y núcleo Zoid', 44, { plate: 14, hit: 40, tags: ['high-profile'], crit: true }),
-  'lz-tren-del': struct('lz-tren-del', 'Tren delantero', 16, { plate: 5, hit: 15, tags: ['low-profile', 'locomotion'], pen: [['move', -2], ['accuracy', -8]] }),
-  'lz-tren-tras': struct('lz-tren-tras', 'Tren trasero', 16, { plate: 5, hit: 15, tags: ['low-profile', 'locomotion'], pen: [['move', -2], ['accuracy', -8]] }),
-  'lz-garras': struct('lz-garras', 'Garras Strike Laser', 16, { plate: 4, hit: 12, tags: ['weapon'], pen: [['atk', -18], ['energyAtk', -20]] }),
-  'lz-lomo': struct('lz-lomo', 'Propulsores de lomo', 16, { plate: 4, hit: 10, tags: ['rear-exposed'], pen: [['evade', -8]] }),
+  // ── Centella (120): felino de asalto, garras devastadoras ──────────
+  'ce-casco': struct('ce-casco', 'Cabeza sensora', 12, { plate: 4, hit: 10, tags: ['high-profile', 'sensor'], pen: [['accuracy', -20]] }),
+  'ce-nucleo': struct('ce-nucleo', 'Torso y núcleo', 44, { plate: 14, hit: 40, tags: ['high-profile'], crit: true }),
+  'ce-tren-del': struct('ce-tren-del', 'Tren delantero', 16, { plate: 5, hit: 15, tags: ['low-profile', 'locomotion'], pen: [['move', -2], ['accuracy', -8]] }),
+  'ce-tren-tras': struct('ce-tren-tras', 'Tren trasero', 16, { plate: 5, hit: 15, tags: ['low-profile', 'locomotion'], pen: [['move', -2], ['accuracy', -8]] }),
+  'ce-garras': struct('ce-garras', 'Garras de arco', 16, { plate: 4, hit: 12, tags: ['weapon'], pen: [['atk', -18], ['energyAtk', -20]] }),
+  'ce-lomo': struct('ce-lomo', 'Propulsores de lomo', 16, { plate: 4, hit: 10, tags: ['rear-exposed'], pen: [['evade', -8]] }),
 
-  // ── Command Wolf (100): escaramuza, cañón dorsal expuesto ────────────
-  'cw-casco': struct('cw-casco', 'Cabeza sensora', 10, { plate: 3, hit: 10, tags: ['high-profile', 'sensor'], pen: [['accuracy', -18]] }),
-  'cw-nucleo': struct('cw-nucleo', 'Torso y núcleo Zoid', 40, { plate: 12, hit: 40, tags: ['high-profile'], crit: true }),
-  'cw-patas-del': struct('cw-patas-del', 'Patas delanteras', 15, { plate: 4, hit: 15, tags: ['low-profile', 'locomotion'], pen: [['move', -2], ['accuracy', -6]] }),
-  'cw-patas-tras': struct('cw-patas-tras', 'Patas traseras', 15, { plate: 4, hit: 15, tags: ['low-profile', 'locomotion'], pen: [['move', -2], ['accuracy', -6]] }),
-  'cw-canon': struct('cw-canon', 'Cañón dorsal', 20, { plate: 5, hit: 12, tags: ['rear-exposed', 'weapon'], pen: [['atk', -12], ['energyAtk', -15]] }),
+  // ── Rastreador (100): escaramuza, cañón dorsal expuesto ────────────
+  'ra-casco': struct('ra-casco', 'Cabeza sensora', 10, { plate: 3, hit: 10, tags: ['high-profile', 'sensor'], pen: [['accuracy', -18]] }),
+  'ra-nucleo': struct('ra-nucleo', 'Torso y núcleo', 40, { plate: 12, hit: 40, tags: ['high-profile'], crit: true }),
+  'ra-patas-del': struct('ra-patas-del', 'Patas delanteras', 15, { plate: 4, hit: 15, tags: ['low-profile', 'locomotion'], pen: [['move', -2], ['accuracy', -6]] }),
+  'ra-patas-tras': struct('ra-patas-tras', 'Patas traseras', 15, { plate: 4, hit: 15, tags: ['low-profile', 'locomotion'], pen: [['move', -2], ['accuracy', -6]] }),
+  'ra-canon': struct('ra-canon', 'Cañón dorsal', 20, { plate: 5, hit: 12, tags: ['rear-exposed', 'weapon'], pen: [['atk', -12], ['energyAtk', -15]] }),
 
-  // ── Gun Sniper (80): cristal; la cola-sensor da la puntería ──────────
-  'gsn-sensor': struct('gsn-sensor', 'Cabeza de puntería', 8, { plate: 2, hit: 10, tags: ['high-profile', 'sensor'], pen: [['accuracy', -20]] }),
-  'gsn-nucleo': struct('gsn-nucleo', 'Torso y núcleo Zoid', 30, { plate: 8, hit: 40, tags: ['high-profile'], crit: true }),
-  'gsn-patas': struct('gsn-patas', 'Patas de salto', 16, { plate: 4, hit: 15, tags: ['low-profile', 'locomotion'], pen: [['move', -2], ['evade', -4]] }),
-  'gsn-cola': struct('gsn-cola', 'Cola estabilizadora', 12, { plate: 3, hit: 14, tags: ['rear-exposed', 'sensor'], pen: [['accuracy', -15]] }),
-  'gsn-rifle': struct('gsn-rifle', 'Rifle de francotirador', 14, { plate: 3, hit: 10, tags: ['weapon'], pen: [['atk', -20]] }),
+  // ── Visor (80): cristal; la cola-sensor da la puntería ──────────
+  'vi-sensor': struct('vi-sensor', 'Cabeza de puntería', 8, { plate: 2, hit: 10, tags: ['high-profile', 'sensor'], pen: [['accuracy', -20]] }),
+  'vi-nucleo': struct('vi-nucleo', 'Torso y núcleo', 30, { plate: 8, hit: 40, tags: ['high-profile'], crit: true }),
+  'vi-patas': struct('vi-patas', 'Patas de salto', 16, { plate: 4, hit: 15, tags: ['low-profile', 'locomotion'], pen: [['move', -2], ['evade', -4]] }),
+  'vi-cola': struct('vi-cola', 'Cola estabilizadora', 12, { plate: 3, hit: 14, tags: ['rear-exposed', 'sensor'], pen: [['accuracy', -15]] }),
+  'vi-rifle': struct('vi-rifle', 'Rifle de francotirador', 14, { plate: 3, hit: 10, tags: ['weapon'], pen: [['atk', -20]] }),
 
-  // ── Gojulas (200): muralla; el HP vive en el núcleo ──────────────────
-  'gj-casco': struct('gj-casco', 'Cabeza acorazada', 16, { plate: 3, hit: 10, tags: ['high-profile', 'sensor'], pen: [['accuracy', -15]] }),
-  'gj-nucleo': struct('gj-nucleo', 'Torso y reactor Zoid', 96, { plate: 10, hit: 45, tags: ['high-profile'], crit: true }),
-  'gj-patas': struct('gj-patas', 'Patas de asedio', 34, { plate: 5, hit: 14, tags: ['low-profile', 'locomotion'], pen: [['move', -2], ['accuracy', -6]] }),
-  'gj-misiles': struct('gj-misiles', 'Batería de misiles', 30, { plate: 4, hit: 12, tags: ['rear-exposed', 'weapon'], pen: [['atk', -14]] }),
-  'gj-coraza': struct('gj-coraza', 'Coraza lateral', 24, { plate: 5, hit: 12, tags: ['high-profile'], pen: [['def', -8]] }),
+  // ── Baluarte (200): muralla; el HP vive en el núcleo ──────────────────
+  'ba-casco': struct('ba-casco', 'Cabeza acorazada', 16, { plate: 3, hit: 10, tags: ['high-profile', 'sensor'], pen: [['accuracy', -15]] }),
+  'ba-nucleo': struct('ba-nucleo', 'Torso y reactor', 96, { plate: 10, hit: 45, tags: ['high-profile'], crit: true }),
+  'ba-patas': struct('ba-patas', 'Patas de asedio', 34, { plate: 5, hit: 14, tags: ['low-profile', 'locomotion'], pen: [['move', -2], ['accuracy', -6]] }),
+  'ba-misiles': struct('ba-misiles', 'Batería de misiles', 30, { plate: 4, hit: 12, tags: ['rear-exposed', 'weapon'], pen: [['atk', -14]] }),
+  'ba-coraza': struct('ba-coraza', 'Coraza lateral', 24, { plate: 5, hit: 12, tags: ['high-profile'], pen: [['def', -8]] }),
 
-  // ── Iron Kong (190): gorila; mochila de misiles a la espalda ─────────
-  'ik-casco': struct('ik-casco', 'Cabeza sensora', 14, { plate: 4, hit: 10, tags: ['high-profile', 'sensor'], pen: [['accuracy', -15]] }),
-  'ik-nucleo': struct('ik-nucleo', 'Torso y núcleo Zoid', 98, { plate: 22, hit: 42, tags: ['high-profile'], crit: true }),
-  'ik-brazos': struct('ik-brazos', 'Brazos de impacto', 34, { plate: 8, hit: 14, tags: ['weapon'], pen: [['atk', -18]] }),
-  'ik-piernas': struct('ik-piernas', 'Piernas hidráulicas', 34, { plate: 8, hit: 14, tags: ['low-profile', 'locomotion'], pen: [['move', -1], ['accuracy', -6]] }),
-  'ik-mochila': struct('ik-mochila', 'Mochila de misiles', 30, { plate: 7, hit: 12, tags: ['rear-exposed', 'weapon'], pen: [['atk', -10]] }),
+  // ── Martinete (190): gorila; mochila de misiles a la espalda ─────────
+  'ma-casco': struct('ma-casco', 'Cabeza sensora', 14, { plate: 4, hit: 10, tags: ['high-profile', 'sensor'], pen: [['accuracy', -15]] }),
+  'ma-nucleo': struct('ma-nucleo', 'Torso y núcleo', 98, { plate: 22, hit: 42, tags: ['high-profile'], crit: true }),
+  'ma-brazos': struct('ma-brazos', 'Brazos de impacto', 34, { plate: 8, hit: 14, tags: ['weapon'], pen: [['atk', -18]] }),
+  'ma-piernas': struct('ma-piernas', 'Piernas hidráulicas', 34, { plate: 8, hit: 14, tags: ['low-profile', 'locomotion'], pen: [['move', -1], ['accuracy', -6]] }),
+  'ma-mochila': struct('ma-mochila', 'Mochila de misiles', 30, { plate: 7, hit: 12, tags: ['rear-exposed', 'weapon'], pen: [['atk', -10]] }),
 
-  // ── Pteras (100): volador; alas frágiles y fáciles de acertar ────────
-  'pt-casco': struct('pt-casco', 'Morro sensor', 10, { plate: 2, hit: 10, tags: ['high-profile', 'sensor'], pen: [['accuracy', -15]] }),
-  'pt-fuselaje': struct('pt-fuselaje', 'Fuselaje y núcleo Zoid', 40, { plate: 10, hit: 38, tags: ['high-profile'], crit: true }),
-  'pt-ala-izq': struct('pt-ala-izq', 'Ala izquierda', 18, { plate: 3, hit: 16, tags: ['low-profile'], pen: [['evade', -12], ['move', -2]] }),
-  'pt-ala-der': struct('pt-ala-der', 'Ala derecha', 18, { plate: 3, hit: 16, tags: ['low-profile'], pen: [['evade', -12], ['move', -2]] }),
-  'pt-cola': struct('pt-cola', 'Cola de timón', 14, { plate: 3, hit: 12, tags: ['rear-exposed'], pen: [['accuracy', -10]] }),
+  // ── Cometa (100): volador; alas frágiles y fáciles de acertar ────────
+  'co-casco': struct('co-casco', 'Morro sensor', 10, { plate: 2, hit: 10, tags: ['high-profile', 'sensor'], pen: [['accuracy', -15]] }),
+  'co-fuselaje': struct('co-fuselaje', 'Fuselaje y núcleo', 40, { plate: 10, hit: 38, tags: ['high-profile'], crit: true }),
+  'co-ala-izq': struct('co-ala-izq', 'Ala izquierda', 18, { plate: 3, hit: 16, tags: ['low-profile'], pen: [['evade', -12], ['move', -2]] }),
+  'co-ala-der': struct('co-ala-der', 'Ala derecha', 18, { plate: 3, hit: 16, tags: ['low-profile'], pen: [['evade', -12], ['move', -2]] }),
+  'co-cola': struct('co-cola', 'Cola de timón', 14, { plate: 3, hit: 12, tags: ['rear-exposed'], pen: [['accuracy', -10]] }),
 
-  // ── Geno Saurer (130): el cañón de partículas es su identidad ────────
-  'gsa-casco': struct('gsa-casco', 'Cabeza blindada', 12, { plate: 3, hit: 10, tags: ['high-profile', 'sensor'], pen: [['accuracy', -20]] }),
-  'gsa-nucleo': struct('gsa-nucleo', 'Torso y núcleo Zoid', 50, { plate: 9, hit: 40, tags: ['high-profile'], crit: true }),
-  'gsa-patas': struct('gsa-patas', 'Piernas de asalto', 32, { plate: 5, hit: 14, tags: ['low-profile', 'locomotion'], pen: [['move', -2], ['accuracy', -8]] }),
-  'gsa-canon': struct('gsa-canon', 'Cañón de partículas', 20, { plate: 5, hit: 12, tags: ['weapon'], pen: [['energyAtk', -30]] }),
-  'gsa-cola': struct('gsa-cola', 'Cola estabilizadora', 16, { plate: 4, hit: 14, tags: ['rear-exposed'], pen: [['atk', -8]] }),
+  // ── Prisma (130): el cañón de haz es su identidad ────────
+  'pr-casco': struct('pr-casco', 'Cabeza blindada', 12, { plate: 3, hit: 10, tags: ['high-profile', 'sensor'], pen: [['accuracy', -20]] }),
+  'pr-nucleo': struct('pr-nucleo', 'Torso y núcleo', 50, { plate: 9, hit: 40, tags: ['high-profile'], crit: true }),
+  'pr-patas': struct('pr-patas', 'Piernas de asalto', 32, { plate: 5, hit: 14, tags: ['low-profile', 'locomotion'], pen: [['move', -2], ['accuracy', -8]] }),
+  'pr-canon': struct('pr-canon', 'Cañón de haz', 20, { plate: 5, hit: 12, tags: ['weapon'], pen: [['energyAtk', -30]] }),
+  'pr-cola': struct('pr-cola', 'Cola estabilizadora', 16, { plate: 4, hit: 14, tags: ['rear-exposed'], pen: [['atk', -8]] }),
 };
 
 export const MODULES: Record<string, ModuleDefinition> = {
   ...COMBAT_FRAME_MODULES,
-  // ── Liger Zero CAS ──────────────────────────────────────────────────
-  'liger-head': {
-    id: 'liger-head', name: 'Cabeza sensora', hp: 12, armor: 2, plating: 4, weight: 6, hitWeight: 10,
+  // ── Centella-M ──────────────────────────────────────────────────
+  'cm-cabeza': {
+    id: 'cm-cabeza', name: 'Cabeza sensora', hp: 12, armor: 2, plating: 4, weight: 6, hitWeight: 10,
     critical: false,
-    contributions: [{ source: 'module:liger-head', stat: 'evade', add: 5 }],
-    onDestroyed: [{ source: 'module:liger-head', stat: 'accuracy', add: -25 }],
+    contributions: [{ source: 'module:cm-cabeza', stat: 'evade', add: 5 }],
+    onDestroyed: [{ source: 'module:cm-cabeza', stat: 'accuracy', add: -25 }],
     tags: ['high-profile', 'sensor'],
   },
-  'liger-torso': {
-    id: 'liger-torso', name: 'Torso y núcleo Zoid', hp: 46, armor: 3, plating: 16, weight: 40, hitWeight: 40,
+  'cm-torso': {
+    id: 'cm-torso', name: 'Torso y núcleo', hp: 46, armor: 3, plating: 16, weight: 40, hitWeight: 40,
     critical: true, contributions: [], onDestroyed: [], tags: ['high-profile'],
   },
-  'liger-legs-front': {
-    id: 'liger-legs-front', name: 'Tren delantero', hp: 16, armor: 2, plating: 6, weight: 18, hitWeight: 15,
+  'cm-tren-del': {
+    id: 'cm-tren-del', name: 'Tren delantero', hp: 16, armor: 2, plating: 6, weight: 18, hitWeight: 15,
     critical: false,
     contributions: [
-      { source: 'module:liger-legs-front', stat: 'move', add: 3 },
-      { source: 'module:liger-legs-front', stat: 'jump', add: 1 },
-      { source: 'module:liger-legs-front', stat: 'speed', add: 2 },
-      { source: 'module:liger-legs-front', stat: 'evade', add: 5 },
+      { source: 'module:cm-tren-del', stat: 'move', add: 3 },
+      { source: 'module:cm-tren-del', stat: 'jump', add: 1 },
+      { source: 'module:cm-tren-del', stat: 'speed', add: 2 },
+      { source: 'module:cm-tren-del', stat: 'evade', add: 5 },
     ],
-    onDestroyed: [{ source: 'module:liger-legs-front', stat: 'accuracy', add: -10 }],
+    onDestroyed: [{ source: 'module:cm-tren-del', stat: 'accuracy', add: -10 }],
     tags: ['low-profile', 'locomotion'],
   },
-  'liger-legs-rear': {
-    id: 'liger-legs-rear', name: 'Tren trasero', hp: 16, armor: 2, plating: 6, weight: 18, hitWeight: 15,
+  'cm-tren-tras': {
+    id: 'cm-tren-tras', name: 'Tren trasero', hp: 16, armor: 2, plating: 6, weight: 18, hitWeight: 15,
     critical: false,
     contributions: [
-      { source: 'module:liger-legs-rear', stat: 'move', add: 3 },
-      { source: 'module:liger-legs-rear', stat: 'jump', add: 1 },
-      { source: 'module:liger-legs-rear', stat: 'speed', add: 2 },
-      { source: 'module:liger-legs-rear', stat: 'evade', add: 5 },
+      { source: 'module:cm-tren-tras', stat: 'move', add: 3 },
+      { source: 'module:cm-tren-tras', stat: 'jump', add: 1 },
+      { source: 'module:cm-tren-tras', stat: 'speed', add: 2 },
+      { source: 'module:cm-tren-tras', stat: 'evade', add: 5 },
     ],
-    onDestroyed: [{ source: 'module:liger-legs-rear', stat: 'accuracy', add: -10 }],
+    onDestroyed: [{ source: 'module:cm-tren-tras', stat: 'accuracy', add: -10 }],
     tags: ['low-profile', 'locomotion'],
   },
-  'strike-claws': {
-    id: 'strike-claws', name: 'Garras Strike Laser', hp: 14, armor: 1, plating: 5, weight: 10, hitWeight: 10,
+  'arc-claws': {
+    id: 'arc-claws', name: 'Garras de arco', hp: 14, armor: 1, plating: 5, weight: 10, hitWeight: 10,
     critical: false,
     contributions: [
-      { source: 'module:strike-claws', stat: 'atk', add: 20 },
-      { source: 'module:strike-claws', stat: 'energyAtk', add: 30 },
+      { source: 'module:arc-claws', stat: 'atk', add: 20 },
+      { source: 'module:arc-claws', stat: 'energyAtk', add: 30 },
     ],
     onDestroyed: [],
     tags: ['weapon'],
@@ -142,58 +142,58 @@ export const MODULES: Record<string, ModuleDefinition> = {
     tags: ['rear-exposed'],
   },
 
-  // ── Geno Saurer CP ──────────────────────────────────────────────────
-  'geno-head': {
-    id: 'geno-head', name: 'Cabeza blindada', hp: 12, armor: 2, plating: 4, weight: 8, hitWeight: 10,
+  // ── Prisma-M ──────────────────────────────────────────────────
+  'pm-cabeza': {
+    id: 'pm-cabeza', name: 'Cabeza blindada', hp: 12, armor: 2, plating: 4, weight: 8, hitWeight: 10,
     critical: false,
-    contributions: [{ source: 'module:geno-head', stat: 'evade', add: 4 }],
-    onDestroyed: [{ source: 'module:geno-head', stat: 'accuracy', add: -25 }],
+    contributions: [{ source: 'module:pm-cabeza', stat: 'evade', add: 4 }],
+    onDestroyed: [{ source: 'module:pm-cabeza', stat: 'accuracy', add: -25 }],
     tags: ['high-profile', 'sensor'],
   },
-  'geno-torso': {
-    id: 'geno-torso', name: 'Torso y núcleo Zoid', hp: 52, armor: 4, plating: 18, weight: 45, hitWeight: 40,
+  'pm-torso': {
+    id: 'pm-torso', name: 'Torso y núcleo', hp: 52, armor: 4, plating: 18, weight: 45, hitWeight: 40,
     critical: true, contributions: [], onDestroyed: [], tags: ['high-profile'],
   },
-  'geno-leg-l': {
-    id: 'geno-leg-l', name: 'Pierna izquierda', hp: 18, armor: 3, plating: 7, weight: 16, hitWeight: 12,
+  'pm-pierna-izq': {
+    id: 'pm-pierna-izq', name: 'Pierna izquierda', hp: 18, armor: 3, plating: 7, weight: 16, hitWeight: 12,
     critical: false,
     contributions: [
-      { source: 'module:geno-leg-l', stat: 'move', add: 2 },
-      { source: 'module:geno-leg-l', stat: 'speed', add: 2 },
-      { source: 'module:geno-leg-l', stat: 'evade', add: 3 },
+      { source: 'module:pm-pierna-izq', stat: 'move', add: 2 },
+      { source: 'module:pm-pierna-izq', stat: 'speed', add: 2 },
+      { source: 'module:pm-pierna-izq', stat: 'evade', add: 3 },
     ],
-    onDestroyed: [{ source: 'module:geno-leg-l', stat: 'accuracy', add: -10 }],
+    onDestroyed: [{ source: 'module:pm-pierna-izq', stat: 'accuracy', add: -10 }],
     tags: ['low-profile', 'locomotion'],
   },
-  'geno-leg-r': {
-    id: 'geno-leg-r', name: 'Pierna derecha', hp: 18, armor: 3, plating: 7, weight: 16, hitWeight: 12,
+  'pm-pierna-der': {
+    id: 'pm-pierna-der', name: 'Pierna derecha', hp: 18, armor: 3, plating: 7, weight: 16, hitWeight: 12,
     critical: false,
     contributions: [
-      { source: 'module:geno-leg-r', stat: 'move', add: 2 },
-      { source: 'module:geno-leg-r', stat: 'speed', add: 2 },
-      { source: 'module:geno-leg-r', stat: 'evade', add: 3 },
+      { source: 'module:pm-pierna-der', stat: 'move', add: 2 },
+      { source: 'module:pm-pierna-der', stat: 'speed', add: 2 },
+      { source: 'module:pm-pierna-der', stat: 'evade', add: 3 },
     ],
-    onDestroyed: [{ source: 'module:geno-leg-r', stat: 'accuracy', add: -10 }],
+    onDestroyed: [{ source: 'module:pm-pierna-der', stat: 'accuracy', add: -10 }],
     tags: ['low-profile', 'locomotion'],
   },
-  'particle-intake': {
-    id: 'particle-intake', name: 'Cañón de partículas', hp: 16, armor: 1, plating: 6, weight: 14, hitWeight: 12,
+  'beam-intake': {
+    id: 'beam-intake', name: 'Cañón de haz', hp: 16, armor: 1, plating: 6, weight: 14, hitWeight: 12,
     critical: false,
-    contributions: [{ source: 'module:particle-intake', stat: 'energyAtk', add: 30 }],
+    contributions: [{ source: 'module:beam-intake', stat: 'energyAtk', add: 30 }],
     onDestroyed: [],
     tags: ['weapon'],
   },
-  'geno-tail': {
-    id: 'geno-tail', name: 'Cola estabilizadora', hp: 14, armor: 1, plating: 5, weight: 10, hitWeight: 14,
+  'pm-cola': {
+    id: 'pm-cola', name: 'Cola estabilizadora', hp: 14, armor: 1, plating: 5, weight: 10, hitWeight: 14,
     critical: false,
-    contributions: [{ source: 'module:geno-tail', stat: 'atk', add: 10 }],
+    contributions: [{ source: 'module:pm-cola', stat: 'atk', add: 10 }],
     onDestroyed: [],
     tags: ['rear-exposed'],
   },
 
   // ── Aftermarket (garaje) ────────────────────────────────────────────
   // Piezas de recambio etiquetadas con una especialización: montarlas
-  // orienta al Zoid hacia esa pista y, si coincide con la dominante del
+  // orienta al Yantra hacia esa pista y, si coincide con la dominante del
   // piloto, activa el bonus de sinergia (core/progression.ts).
   'am-sniper-sensor': {
     id: 'am-sniper-sensor', name: 'Sensor de tirador', hp: 10, armor: 1, plating: 4, weight: 6, hitWeight: 10,

@@ -1,6 +1,6 @@
 # Gea — Motor + juego de simulación táctica profunda
 
-Juego táctico por turnos que combina el flujo de **Final Fantasy Tactics** (CT, casillas, posicionamiento, facing) con la profundidad mecánica de **Armored Core / BattleTech**: unidades compuestas por módulos, daño localizado, energía y calor como recursos, munición finita, control del campo y una IA que se adapta a cómo juegas. El contenido usa temática **Zoids**, pero el núcleo es genérico. Ya no es solo un motor: sobre él corre un **juego de campaña** completo (contratos, economía, taller, pilotos, expediciones).
+Juego táctico por turnos que combina el flujo de **Final Fantasy Tactics** (CT, casillas, posicionamiento, facing) con la profundidad mecánica de **Armored Core / BattleTech**: unidades compuestas por módulos, daño localizado, energía y calor como recursos, munición finita, control del campo y una IA que se adapta a cómo juegas. El universo es propio: bestias de guerra llamadas **yantras**, construidas alrededor de núcleos de una civilización perdida (ver [docs/LORE.md](docs/LORE.md)). El núcleo del motor es genérico. Ya no es solo un motor: sobre él corre un **juego de campaña** completo (contratos, economía, taller, pilotos, expediciones).
 
 > 📐 **[docs/DESIGN.md](docs/DESIGN.md)** — arquitectura del motor y plan de fases (0-5; solo percepción avanzada queda aplazada).
 > 🎮 **[docs/GAME-DESIGN.md](docs/GAME-DESIGN.md)** — visión, filosofía y TODAS las decisiones de diseño fechadas (§7).
@@ -53,22 +53,22 @@ Sobre el motor corre un juego de mercenario mecánico (`src/game/`, cliente en `
 - **Expediciones** con atlas (regiones, clima, encrucijadas, reputación de facciones, ciudades-lugar), **pilotos** con árbol de habilidades, manías, estrés, terapia y heridas, y **hoja de servicio** del chasis con cicatrices.
 - **Continuidad**: sales de una batalla como entras a la siguiente (calor/energía/munición residual); una jornada de descanso repone.
 
-## Los Zoids como "jobs" (~25 chasis)
+## Los yantras como "jobs" (~25 chasis, tres escuelas de forja)
 
-Cada chasis (`src/data/zoids.ts`) define stats, tipo de movimiento y habilidades:
+Cada chasis (`src/data/yantras.ts`) define stats, tipo de movimiento y habilidades; su escuela y su matrícula viven en `src/data/lineage.ts`. Las tres **Tradiciones Mecánicas** — Albion (aguanta), Yamato (corta), Argos (ve; de noche, más lejos) — y los remiendos sin licencia de los clanes:
 
-| Zoid | Rol | Perfil |
-|---|---|---|
-| Liger Zero | Asalto | Rápido, melee devastador (Strike Laser Claw) |
-| Command Wolf | Escaramuza | Equilibrado, cañón medio + humo |
-| Gojulas | Tanque | Lento, mucho HP, misiles en área |
-| Gun Sniper | Francotirador | Frágil, rifle en línea de largo alcance |
-| Pteras | Volador | Ignora terreno, hoja aturdidora |
-| Gustav | Soporte | Drones de reparación, buffs |
-| Geno Saurer CP | Asalto pesado | Reactor + cañón de partículas; frame por módulos |
-| Molga | Grunt | Barato, carne de cañón |
+| Yantra | Escuela | Rol | Perfil |
+|---|---|---|---|
+| Centella | Yamato | Asalto | Rápida y equilibrada; la compañera de arranque |
+| Rastreador | Argos | Escaramuza | Equilibrado, cañón de choque + humo |
+| Baluarte | Albion | Tanque | Lento, mucho HP, misiles en área |
+| Visor | Argos | Tirador | Frágil, rifle en línea de largo alcance |
+| Cometa | Argos | Volador | Ignora terreno, hoja aturdidora |
+| Mula | Albion | Soporte | Drones de reparación, carga |
+| Prisma-M | Argos | Asalto pesado | Reactor + cañón de haz; armazón por módulos |
+| Tornillo | Remiendo | Chusma | Barato, carne de cañón |
 
-Añadir un Zoid, arma o habilidad es tocar solo los catálogos de datos (`src/data/`), no el motor. La **biblioteca de armas** anexa (montables en cualquier chasis) se documenta en [docs/WEAPON-LIBRARY.md](docs/WEAPON-LIBRARY.md).
+Añadir un yantra, arma o habilidad es tocar solo los catálogos de datos (`src/data/`), no el motor. La **biblioteca de armas** anexa (montables en cualquier chasis) se documenta en [docs/WEAPON-LIBRARY.md](docs/WEAPON-LIBRARY.md).
 
 ## Arquitectura
 
@@ -89,7 +89,7 @@ src/
     turn.ts        Sistema de CT/tempo y forecast de turnos
     battle.ts      Orquestador: valida acciones, corre sistemas, emite eventos
   game/            Capa de campaña (mercenario, economía, dosier) — pura
-  data/            Contenido (Zoids, habilidades, armas, mapas, economía)
+  data/            Contenido (yantras, linaje, habilidades, armas, mapas, economía)
   ai/              IA de sparring y de campaña
   web/             Cliente monolito (genera dist/web/gea.html)
   demo/            Demo ASCII en terminal

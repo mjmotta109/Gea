@@ -18,7 +18,7 @@ texto narrativo.
 ## 2. Leyes permanentes (no negociables)
 
 1. **Motor separado del juego**: `src/core` no conoce el universo
-   (cero vocabulario de Zoids). `src/game` es puro y determinista.
+   (cero vocabulario de universo). `src/game` es puro y determinista.
    `src/data` es contenido (lo PROVISIONAL está marcado). `src/web` es
    el cliente.
 2. **Determinismo total**: sin dados escondidos; azar por clave grabada
@@ -37,6 +37,13 @@ texto narrativo.
    sensores YA EXISTE — la pidió él, solo en combate NOCTURNO; de día no
    hay niebla y el golden sigue intacto.) No propongas el 3D salvo que
    él lo pida.
+
+**7. El universo es PROPIO desde el 2026-11-19.** Nada de la franquicia
+   del prototipo vuelve a entrar: las máquinas son **yantras**, su núcleo
+   es el **bīja**, y cada chasis tiene escuela (Albion / Yamato / Argos /
+   remiendo) y matrícula en `src/data/lineage.ts`. Canon en LORE §6.
+   El build va minificado; `tests/rebrand.test.ts` vigila el linaje y la
+   migración de guardados (tabla de huellas en `src/game/rebrand.ts`).
 
 ## 3. El ritual de cada bloque de trabajo
 
@@ -74,7 +81,7 @@ texto narrativo.
 - **Añadido esta tanda (manifiesto Flow + profundidad + curva)** — todo
   fechado en `docs/GAME-DESIGN.md` §7:
   · CALOR / REACTOR como encrucijada: solo 2 chasis con reactor
-    (liger-zero-cas, geno-saurer-cp) llevan energía + calor; sobrecarga,
+    (centella-m, prisma-m) llevan energía + calor; sobrecarga,
     atasco de armas, apagado; SÍNTOMAS legibles en ficha/registro. Armas
     TÉRMICAS (calientan) e INCENDIARIAS (prenden casillas → control de
     campo: quien cierra turno sobre fuego se quema y se calienta).
@@ -104,8 +111,8 @@ texto narrativo.
     final y el suelo (nunca mejoras) se desmorona a 12-17%.
 - **DAÑO LOCALIZADO — mitad hecho (2026-07-09).** Antes solo 2 chasis
   tenían `frame`; ahora **9** (los 2 de núcleo desnudo + 7 a medida:
-  liger-zero, command-wolf, gun-sniper, gojulas, iron-kong, pteras,
-  geno-saurer). Convención nueva para los 7: stats base COMPLETAS + módulo
+  centella, rastreador, visor, baluarte, martinete, cometa,
+  prisma). Convención nueva para los 7: stats base COMPLETAS + módulo
   CARCASA (`struct` en data/modules.ts, contributions [], armor 0); la
   identidad la dan reparto de HP + tags + hitWeight + secuela (onDestroyed).
   En batalla ya SE VE (el lector de casco pinta las piezas). Regeneró el

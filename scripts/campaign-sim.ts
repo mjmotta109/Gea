@@ -19,7 +19,7 @@ import { VALLEY_CROSSING } from '../src/data/maps.js';
 import { MODULES } from '../src/data/modules.js';
 import { withWeaponLibrary } from '../src/data/weaponLibrary.js';
 import { WEAPONS } from '../src/data/weapons.js';
-import { ZOIDS } from '../src/data/zoids.js';
+import { YANTRAS } from '../src/data/yantras.js';
 import { CONTRACT_ENEMY_POOL, DIFFICULTIES, ECONOMY } from '../src/data/economy.js';
 import {
   campaignStrength, contractOffers, counterRoles, counterWeapons, readStyle, updateDossier,
@@ -45,15 +45,15 @@ const MAX_TURNS = 300;
 // enemigo, para que la lectura refleje la PRESIÓN de la curva (destreza +
 // adaptación + desgaste) y no baches artificiales por saltos de roster.
 const PLAYER_STAGES: Array<{ from: number; team: string[] }> = [
-  { from: 0, team: ['liger-zero', 'command-wolf', 'gun-sniper', 'gustav'] },                    // arranque ~4450
-  { from: 10, team: ['liger-zero-cas', 'command-wolf', 'gun-sniper-naomi', 'shield-liger'] },   // veterano ~5350
-  { from: 22, team: ['blade-liger', 'liger-zero-cas', 'gun-sniper-naomi', 'iron-kong'] },       // curtido ~6000
-  { from: 36, team: ['gojulas', 'blade-liger', 'gun-sniper-naomi', 'iron-kong'] },              // élite ~6400
-  { from: 52, team: ['gojulas', 'konig-wolf', 'gun-sniper-naomi', 'geno-saurer'] },             // leyenda ~7200
+  { from: 0, team: ['centella', 'rastreador', 'visor', 'mula'] },                    // arranque ~4450
+  { from: 10, team: ['centella-m', 'rastreador', 'visor-c', 'rodela'] },   // veterano ~5350
+  { from: 22, team: ['tizona', 'centella-m', 'visor-c', 'martinete'] },       // curtido ~6000
+  { from: 36, team: ['baluarte', 'tizona', 'visor-c', 'martinete'] },              // élite ~6400
+  { from: 52, team: ['baluarte', 'reticula', 'visor-c', 'prisma'] },             // leyenda ~7200
 ];
 const FROZEN_ROSTERS: Record<string, string[]> = {
-  meta: ['gojulas', 'blade-liger', 'gun-sniper-naomi', 'iron-kong'],
-  frozen: ['liger-zero', 'command-wolf', 'gun-sniper', 'gustav'],
+  meta: ['baluarte', 'tizona', 'visor-c', 'martinete'],
+  frozen: ['centella', 'rastreador', 'visor', 'mula'],
 };
 const MODE = process.argv[3] ?? 'campaign';
 /** Roster del jugador para este contrato (crece por tramos en `campaign`). */
@@ -82,7 +82,7 @@ function adaptiveWeight(dossier: Dossier | undefined, skill: number): ((id: stri
   if (skill < 0.45) return undefined;
   const roles = counterRoles(readStyle(dossier));
   if (roles.length === 0) return undefined;
-  return (id) => (roles.includes(ZOIDS[id]?.role ?? '') ? 2.2 : 1);
+  return (id) => (roles.includes(YANTRAS[id]?.role ?? '') ? 2.2 : 1);
 }
 /** Contra por arma (gated a skill 0.7), como el cliente. */
 function enemyCounter(dossier: Dossier | undefined, skill: number, unitTypeId: string, index: number): string[] | undefined {
@@ -90,7 +90,7 @@ function enemyCounter(dossier: Dossier | undefined, skill: number, unitTypeId: s
   const cw = counterWeapons(readStyle(dossier));
   if (cw.length === 0) return undefined;
   const counter = cw[(index / 2) % cw.length]!;
-  return [counter, ...(ZOIDS[unitTypeId]?.weapons ?? [])].filter((w, j, a) => a.indexOf(w) === j).slice(0, 3);
+  return [counter, ...(YANTRAS[unitTypeId]?.weapons ?? [])].filter((w, j, a) => a.indexOf(w) === j).slice(0, 3);
 }
 
 interface Bucket {
@@ -114,14 +114,14 @@ function simulateBattle(
 ): BattleOutcome {
   const spawns: UnitSpawn[] = [
     ...playerTeam.map((unitTypeId, i) => ({
-      id: `P${i + 1}`, name: ZOIDS[unitTypeId]!.name, unitTypeId,
+      id: `P${i + 1}`, name: YANTRAS[unitTypeId]!.name, unitTypeId,
       team: 'player' as const, position: PLAYER_POS[i]!,
       ...(i === 0 ? { commander: true } : {}),
     })),
     ...contract.enemySquad.map((unitTypeId, i) => {
       const weapons = enemyCounter(dossier, skill, unitTypeId, i);
       return {
-        id: `E${i + 1}`, name: ZOIDS[unitTypeId]!.name, unitTypeId,
+        id: `E${i + 1}`, name: YANTRAS[unitTypeId]!.name, unitTypeId,
         team: 'enemy' as const, position: ENEMY_POS[i]!,
         ...(weapons ? { loadout: { weapons } } : {}),
         ...(i === 0 ? { commander: true } : {}),
@@ -129,7 +129,7 @@ function simulateBattle(
     }),
   ];
   const battle = new Battle({
-    map: VALLEY_CROSSING, unitCatalog: ZOIDS,
+    map: VALLEY_CROSSING, unitCatalog: YANTRAS,
     abilityCatalog: CATALOGS.abilityCatalog, moduleCatalog: MODULES, weaponCatalog: CATALOGS.weaponCatalog,
     wear, seed, spawns,
   });
@@ -191,7 +191,7 @@ function runDifficulty(diffId: string): Bucket[] {
     // El dosier evoluciona por la partida canónica (semilla 0) — traza única.
     dossier = updateDossier(dossier, { melee: firstMelee, ranged: firstRanged, overclocks: 0 });
     for (const id of contract.enemySquad) {
-      const role = ZOIDS[id]!.role;
+      const role = YANTRAS[id]!.role;
       b.enemyRoles[role] = (b.enemyRoles[role] ?? 0) + 1;
     }
   }

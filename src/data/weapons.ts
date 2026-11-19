@@ -7,21 +7,21 @@ import type { WeaponDefinition } from '../core/types.js';
  * (mordiscos, garras sin sistema, equipo de apoyo).
  */
 export const WEAPONS: Record<string, WeaponDefinition> = {
-  'w-strike-laser-claw': {
-    id: 'w-strike-laser-claw',
-    name: 'Strike Laser Claw',
-    abilityId: 'strike-laser-claw',
+  'w-arc-claw': {
+    id: 'w-arc-claw',
+    name: 'Garras de arco',
+    abilityId: 'arc-claw',
     costs: { energy: 15, heat: 10 },
     magazine: 0,
     reserves: 0,
     mountSlot: 'weapon-claws',
     spec: 'assault',
   },
-  'w-charged-particle-gun': {
-    id: 'w-charged-particle-gun',
-    name: 'Cañón de partículas cargadas',
-    abilityId: 'charged-particle-gun',
-    // El arma definitoria del Geno: devastadora, pero recalienta el
+  'w-beam-cannon': {
+    id: 'w-beam-cannon',
+    name: 'Cañón de haz',
+    abilityId: 'beam-cannon',
+    // El arma definitoria del Prisma: devastadora, pero recalienta el
     // chasis y exige un turno de enfriamiento entre disparos.
     costs: { energy: 30, heat: 45, cooldownTurns: 1 },
     magazine: 0,

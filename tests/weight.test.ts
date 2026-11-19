@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { GameMap } from '../src/core/grid.js';
 import { knockbackDestination } from '../src/core/physics.js';
 import type { UnitState, WeightClass } from '../src/core/types.js';
-import { ZOIDS } from '../src/data/zoids.js';
+import { YANTRAS } from '../src/data/yantras.js';
 
 // Las cuatro básculas: clasificación completa en datos y dientes en la
 // física — el empuje respeta el peso (extrapesado no se mueve, el
@@ -12,7 +12,7 @@ const CLASSES: WeightClass[] = ['extraligero', 'ligero', 'pesado', 'extrapesado'
 
 function victim(weightClass?: WeightClass): UnitState {
   return {
-    id: 'V', name: 'V', unitTypeId: 'molga', isCommander: false,
+    id: 'V', name: 'V', unitTypeId: 'tornillo', isCommander: false,
     components: {}, team: 'enemy', position: { x: 2, y: 0 }, facing: 'west',
     hp: 50, size: 1, ct: 0, statuses: [], hasMoved: false, hasActed: false,
     reactionReady: true, ...(weightClass ? { weightClass } : {}),
@@ -22,7 +22,7 @@ function victim(weightClass?: WeightClass): UnitState {
 describe('clases de peso', () => {
   it('TODO chasis del catálogo declara su báscula, y las cuatro existen', () => {
     const seen = new Set<string>();
-    for (const def of Object.values(ZOIDS)) {
+    for (const def of Object.values(YANTRAS)) {
       expect(def.weightClass, def.id).toBeDefined();
       expect(CLASSES).toContain(def.weightClass!);
       seen.add(def.weightClass!);

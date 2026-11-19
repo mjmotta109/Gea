@@ -3,7 +3,7 @@ import { Battle, type BattleConfig, type UnitSpawn } from '../src/core/battle.js
 import { knockbackDestination } from '../src/core/physics.js';
 import { FLAT_ARENA } from '../src/data/maps.js';
 import { WEAPONS } from '../src/data/weapons.js';
-import { ZOIDS } from '../src/data/zoids.js';
+import { YANTRAS } from '../src/data/yantras.js';
 import { ABILITIES } from '../src/data/abilities.js';
 import { MODULES } from '../src/data/modules.js';
 import type { UnitState } from '../src/core/types.js';
@@ -16,7 +16,7 @@ const E = (id: string, unitTypeId: string, x: number, y: number): UnitSpawn =>
 function arena(overrides: Partial<BattleConfig>): Battle {
   return new Battle({
     map: FLAT_ARENA,
-    unitCatalog: ZOIDS,
+    unitCatalog: YANTRAS,
     abilityCatalog: ABILITIES,
     moduleCatalog: MODULES,
     weaponCatalog: WEAPONS,
@@ -29,7 +29,7 @@ function arena(overrides: Partial<BattleConfig>): Battle {
 describe('bestias 2×2: los jefes ocupan lo que pesan', () => {
   it('ocupa sus cuatro casillas y responde al apuntar a cualquiera', () => {
     const battle = arena({
-      spawns: [P('P1', 'liger-zero', 0, 0), E('B1', 'gran-brontes', 4, 2)],
+      spawns: [P('P1', 'centella', 0, 0), E('B1', 'gran-brontes', 4, 2)],
     });
     const boss = battle.unit('B1');
     expect(boss.size).toBe(2);
@@ -41,23 +41,23 @@ describe('bestias 2×2: los jefes ocupan lo que pesan', () => {
 
   it('el constructor rechaza spawns que pisen la huella del jefe', () => {
     expect(() => arena({
-      spawns: [P('P1', 'liger-zero', 5, 3), E('B1', 'gran-brontes', 4, 2)],
+      spawns: [P('P1', 'centella', 5, 3), E('B1', 'gran-brontes', 4, 2)],
     })).toThrow(/Dos unidades/);
   });
 
   it('no puede terminar el paso solapando a otra unidad ni salirse del mapa', () => {
     const battle = arena({
-      spawns: [E('B1', 'gran-brontes', 4, 2), P('P1', 'liger-zero', 2, 2)],
+      spawns: [E('B1', 'gran-brontes', 4, 2), P('P1', 'centella', 2, 2)],
     });
-    // Turno del liger primero (más rápido): lo esperamos fuera.
-    // El liger repite turno varias veces (speed 16 vs 9): esperamos al jefe.
+    // Turno del centella primero (más rápido): lo esperamos fuera.
+    // El centella repite turno varias veces (speed 16 vs 9): esperamos al jefe.
     for (let i = 0; i < 20 && battle.getActiveUnit()?.id !== 'B1'; i++) {
       if (!battle.getActiveUnit()) battle.nextTurn();
       else battle.execute({ type: 'wait', unitId: battle.getActiveUnit()!.id });
     }
     expect(battle.getActiveUnit()?.id).toBe('B1');
     const anchors = battle.legalMoves('B1').map((t) => `${t.pos.x},${t.pos.y}`);
-    expect(anchors).not.toContain('1,2'); // pisaría al liger en (2,2)
+    expect(anchors).not.toContain('1,2'); // pisaría al centella en (2,2)
     expect(anchors).not.toContain('2,2');
     // Anclas cuya huella se saldría del mapa (8×6): x máx 6, y máx 4.
     expect(anchors.every((a) => {
@@ -68,7 +68,7 @@ describe('bestias 2×2: los jefes ocupan lo que pesan', () => {
 
   it('el golpe con área le pega UNA vez aunque pise varias casillas', () => {
     const battle = arena({
-      spawns: [P('P1', 'gojulas', 1, 2), E('B1', 'gran-brontes', 3, 2)],
+      spawns: [P('P1', 'baluarte', 1, 2), E('B1', 'gran-brontes', 3, 2)],
     });
     while (battle.getActiveUnit()?.id !== 'P1') {
       if (!battle.getActiveUnit()) battle.nextTurn();
@@ -88,17 +88,17 @@ describe('bestias 2×2: los jefes ocupan lo que pesan', () => {
     // el tirador en (4,3) está a 3 del ancla (2,2) pero a 1 de la pata
     // (3,3). El bonus de proximidad debe usar la pata: +16 en vez de +8.
     // Evasión alta para que ningún pronóstico sature el techo del 99%.
-    const esquivo = { ...ZOIDS['gran-brontes']!.stats, evade: 40 };
+    const esquivo = { ...YANTRAS['gran-brontes']!.stats, evade: 40 };
     const big = arena({
-      unitCatalog: { ...ZOIDS, 'gran-brontes': { ...ZOIDS['gran-brontes']!, stats: esquivo } },
-      spawns: [P('P1', 'gun-sniper', 4, 3), E('B1', 'gran-brontes', 2, 2)],
+      unitCatalog: { ...YANTRAS, 'gran-brontes': { ...YANTRAS['gran-brontes']!, stats: esquivo } },
+      spawns: [P('P1', 'visor', 4, 3), E('B1', 'gran-brontes', 2, 2)],
     });
     const small = arena({
       unitCatalog: {
-        ...ZOIDS,
-        'brontes-uno': { ...ZOIDS['gran-brontes']!, id: 'brontes-uno', size: 1, stats: esquivo },
+        ...YANTRAS,
+        'brontes-uno': { ...YANTRAS['gran-brontes']!, id: 'brontes-uno', size: 1, stats: esquivo },
       },
-      spawns: [P('P1', 'gun-sniper', 4, 3), E('B1', 'brontes-uno', 2, 2)],
+      spawns: [P('P1', 'visor', 4, 3), E('B1', 'brontes-uno', 2, 2)],
     });
     big.nextTurn();
     small.nextTurn();

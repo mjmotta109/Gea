@@ -52,7 +52,7 @@ export {
 export { Rng } from './core/rng.js';
 export * from './core/types.js';
 
-export { ZOIDS } from './data/zoids.js';
+export { YANTRAS } from './data/yantras.js';
 export { MODULES } from './data/modules.js';
 export { ABILITIES } from './data/abilities.js';
 export { VALLEY_CROSSING, FLAT_ARENA } from './data/maps.js';
@@ -60,7 +60,7 @@ export { VALLEY_CROSSING, FLAT_ARENA } from './data/maps.js';
 export { planTurn } from './ai/simpleAi.js';
 
 /**
- * @deprecated Alias de compatibilidad de la fase 0 (des-Zoidificación del
+ * @deprecated Alias de compatibilidad de la fase 0 (des-Yantraificación del
  * core). Usa `UnitDefinition`; se retirará tras la fase 1.
  */
-export type { UnitDefinition as ZoidDefinition } from './core/types.js';
+export type { UnitDefinition as YantraDefinition } from './core/types.js';

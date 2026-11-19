@@ -4,23 +4,23 @@ import { GameMap } from '../src/core/grid.js';
 import { ABILITIES } from '../src/data/abilities.js';
 import { MODULES } from '../src/data/modules.js';
 import { WEAPONS } from '../src/data/weapons.js';
-import { ZOIDS } from '../src/data/zoids.js';
+import { YANTRAS } from '../src/data/yantras.js';
 
 /** Pasillo llano con un muro/colina central configurable. */
 function corridor(middle: string) {
   return new Battle({
     map: GameMap.fromAscii([`00${middle}00`, '00000', '00000']),
-    unitCatalog: ZOIDS,
+    unitCatalog: YANTRAS,
     abilityCatalog: ABILITIES,
     moduleCatalog: MODULES,
-    // El rifle del gun-sniper es un arma montada desde el ciclo de
+    // El rifle del visor es un arma montada desde el ciclo de
     // balance del hangar (antes era habilidad innata).
     weaponCatalog: WEAPONS,
     seed: 9,
     spawns: [
       // Gun sniper clásico: rifle en línea, alcance 3-7.
-      { id: 'P1', name: 'Sniper', unitTypeId: 'gun-sniper', team: 'player', position: { x: 0, y: 0 } },
-      { id: 'E1', name: 'Molga', unitTypeId: 'molga', team: 'enemy', position: { x: 4, y: 0 } },
+      { id: 'P1', name: 'Sniper', unitTypeId: 'visor', team: 'player', position: { x: 0, y: 0 } },
+      { id: 'E1', name: 'Tornillo', unitTypeId: 'tornillo', team: 'enemy', position: { x: 4, y: 0 } },
     ],
   });
 }
@@ -56,16 +56,16 @@ describe('fase 3: cobertura por terreno', () => {
     const battle = new Battle({
       // (4,0) es bosque; (4,1) llanura.
       map: GameMap.fromAscii(['0000A', '00000']),
-      unitCatalog: ZOIDS,
+      unitCatalog: YANTRAS,
       abilityCatalog: ABILITIES,
       moduleCatalog: MODULES,
       seed: 9,
       spawns: [
-        { id: 'P1', name: 'Wolf', unitTypeId: 'command-wolf', team: 'player', position: { x: 0, y: 0 } },
-        { id: 'E1', name: 'Molga en bosque', unitTypeId: 'molga', team: 'enemy', position: { x: 4, y: 0 } },
+        { id: 'P1', name: 'Wolf', unitTypeId: 'rastreador', team: 'player', position: { x: 0, y: 0 } },
+        { id: 'E1', name: 'Tornillo en bosque', unitTypeId: 'tornillo', team: 'enemy', position: { x: 4, y: 0 } },
         // A la misma distancia (4) que E1: la comparación aísla la cobertura
         // del bonus de proximidad.
-        { id: 'E2', name: 'Molga expuesta', unitTypeId: 'molga', team: 'enemy', position: { x: 3, y: 1 } },
+        { id: 'E2', name: 'Tornillo expuesta', unitTypeId: 'tornillo', team: 'enemy', position: { x: 3, y: 1 } },
       ],
     });
     battle.nextTurn();
@@ -100,20 +100,20 @@ describe('fase 3: clima', () => {
     const { WEAPONS } = await import('../src/data/weapons.js');
     const mk = (weather: 'clear' | 'rain') => new Battle({
       map: GameMap.fromAscii(['00000']),
-      unitCatalog: ZOIDS,
+      unitCatalog: YANTRAS,
       abilityCatalog: ABILITIES,
       weaponCatalog: WEAPONS,
       moduleCatalog: MODULES,
       weather,
       seed: 3,
       spawns: [
-        { id: 'G', name: 'Geno', unitTypeId: 'geno-saurer-cp', team: 'player', position: { x: 0, y: 0 } },
-        { id: 'M', name: 'Molga', unitTypeId: 'molga', team: 'enemy', position: { x: 4, y: 0 } },
+        { id: 'G', name: 'Prisma', unitTypeId: 'prisma-m', team: 'player', position: { x: 0, y: 0 } },
+        { id: 'M', name: 'Tornillo', unitTypeId: 'tornillo', team: 'enemy', position: { x: 4, y: 0 } },
       ],
     });
     for (const [weather, expected] of [['clear', 15], ['rain', 23]] as Array<['clear' | 'rain', number]>) {
       const battle = mk(weather);
-      battle.nextTurn(); // Geno (speed 12) actúa primero
+      battle.nextTurn(); // Prisma (speed 12) actúa primero
       const geno = battle.unit('G');
       geno.components.heat!.current = 40;
       battle.execute({ type: 'wait', unitId: 'G' });
@@ -126,15 +126,15 @@ describe('fase 3: clima', () => {
     const mk = (weather: 'clear' | 'sandstorm') => {
       const battle = new Battle({
         map: GameMap.fromAscii(['000000']),
-        unitCatalog: ZOIDS,
+        unitCatalog: YANTRAS,
         abilityCatalog: ABILITIES,
         moduleCatalog: MODULES,
         weather,
         seed: 3,
         spawns: [
-          { id: 'W', name: 'Wolf', unitTypeId: 'command-wolf', team: 'player', position: { x: 0, y: 0 } },
-          { id: 'M1', name: 'Cerca', unitTypeId: 'molga', team: 'enemy', position: { x: 2, y: 0 } },
-          { id: 'M2', name: 'Lejos', unitTypeId: 'molga', team: 'enemy', position: { x: 4, y: 0 } },
+          { id: 'W', name: 'Wolf', unitTypeId: 'rastreador', team: 'player', position: { x: 0, y: 0 } },
+          { id: 'M1', name: 'Cerca', unitTypeId: 'tornillo', team: 'enemy', position: { x: 2, y: 0 } },
+          { id: 'M2', name: 'Lejos', unitTypeId: 'tornillo', team: 'enemy', position: { x: 4, y: 0 } },
         ],
       });
       battle.nextTurn();

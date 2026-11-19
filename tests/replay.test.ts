@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Battle, type UnitSpawn } from '../src/core/battle.js';
 import { GameMap } from '../src/core/grid.js';
 import { VALLEY_CROSSING } from '../src/data/maps.js';
-import { ZOIDS } from '../src/data/zoids.js';
+import { YANTRAS } from '../src/data/yantras.js';
 import { MODULES } from '../src/data/modules.js';
 import { ABILITIES } from '../src/data/abilities.js';
 import type { BattleAction } from '../src/core/types.js';
@@ -22,11 +22,11 @@ describe('repeticiones: la receta reproduce la batalla', () => {
 
   it('mismo mapa serializado + mismas acciones → mismo estado final', () => {
     const spawns: UnitSpawn[] = [
-      { id: 'P1', name: 'Liger', unitTypeId: 'liger-zero', team: 'player', position: { x: 1, y: 3 } },
-      { id: 'E1', name: 'Molga', unitTypeId: 'molga', team: 'enemy', position: { x: 4, y: 3 } },
+      { id: 'P1', name: 'Centella', unitTypeId: 'centella', team: 'player', position: { x: 1, y: 3 } },
+      { id: 'E1', name: 'Tornillo', unitTypeId: 'tornillo', team: 'enemy', position: { x: 4, y: 3 } },
     ];
     const build = (map: GameMap): Battle => new Battle({
-      map, unitCatalog: ZOIDS, moduleCatalog: MODULES, abilityCatalog: ABILITIES, seed: 77, spawns,
+      map, unitCatalog: YANTRAS, moduleCatalog: MODULES, abilityCatalog: ABILITIES, seed: 77, spawns,
     });
 
     // Batalla original: unas cuantas órdenes con dados de por medio.

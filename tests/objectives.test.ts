@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Battle, type BattleConfig, type UnitSpawn } from '../src/core/battle.js';
 import { FLAT_ARENA } from '../src/data/maps.js';
-import { ZOIDS } from '../src/data/zoids.js';
+import { YANTRAS } from '../src/data/yantras.js';
 import { ABILITIES } from '../src/data/abilities.js';
 import { MODULES } from '../src/data/modules.js';
 import type { BattleEvent } from '../src/core/types.js';
@@ -14,7 +14,7 @@ const E = (id: string, unitTypeId: string, x: number, y: number): UnitSpawn =>
 function arena(overrides: Partial<BattleConfig>): Battle {
   return new Battle({
     map: FLAT_ARENA,
-    unitCatalog: ZOIDS,
+    unitCatalog: YANTRAS,
     abilityCatalog: ABILITIES,
     moduleCatalog: MODULES,
     seed: 99,
@@ -35,7 +35,7 @@ function pass(battle: Battle): BattleEvent[] {
 describe('objetivos de batalla: cada contrato es una historia distinta', () => {
   it('eliminate sigue siendo el clásico por defecto', () => {
     const battle = arena({
-      spawns: [P('P1', 'liger-zero', 1, 2), E('E1', 'molga', 6, 2)],
+      spawns: [P('P1', 'centella', 1, 2), E('E1', 'tornillo', 6, 2)],
     });
     expect(battle.objective.kind).toBe('eliminate');
     battle.unit('E1').hp = 0;
@@ -45,7 +45,7 @@ describe('objetivos de batalla: cada contrato es una historia distinta', () => {
 
   it('assassinate: cae el cabecilla y la batalla termina aunque queden más', () => {
     const battle = arena({
-      spawns: [P('P1', 'liger-zero', 1, 2), E('E1', 'molga', 6, 2), E('E2', 'molga', 6, 4)],
+      spawns: [P('P1', 'centella', 1, 2), E('E1', 'tornillo', 6, 2), E('E2', 'tornillo', 6, 4)],
       objective: { kind: 'assassinate', targetUnitId: 'E1' },
     });
     battle.unit('E1').hp = 0;
@@ -56,7 +56,7 @@ describe('objetivos de batalla: cada contrato es una historia distinta', () => {
 
   it('protect: si el protegido cae, se pierde con el equipo entero vivo', () => {
     const battle = arena({
-      spawns: [P('P1', 'liger-zero', 1, 2), P('W1', 'carguero-colono', 0, 0), E('E1', 'molga', 6, 2)],
+      spawns: [P('P1', 'centella', 1, 2), P('W1', 'carguero-colono', 0, 0), E('E1', 'tornillo', 6, 2)],
       objective: { kind: 'protect', wardUnitId: 'W1' },
     });
     battle.unit('W1').hp = 0;
@@ -66,7 +66,7 @@ describe('objetivos de batalla: cada contrato es una historia distinta', () => {
 
   it('el carguero (speed 0) jamás gana turno: es carga, no combatiente', () => {
     const battle = arena({
-      spawns: [P('P1', 'liger-zero', 1, 2), P('W1', 'carguero-colono', 0, 0), E('E1', 'molga', 6, 2)],
+      spawns: [P('P1', 'centella', 1, 2), P('W1', 'carguero-colono', 0, 0), E('E1', 'tornillo', 6, 2)],
       objective: { kind: 'protect', wardUnitId: 'W1' },
     });
     for (let i = 0; i < 12 && !battle.isOver; i++) {
@@ -76,7 +76,7 @@ describe('objetivos de batalla: cada contrato es una historia distinta', () => {
 
   it('reach: plantar una unidad en la zona gana en el acto', () => {
     const battle = arena({
-      spawns: [P('P1', 'liger-zero', 1, 2), E('E1', 'molga', 7, 5)],
+      spawns: [P('P1', 'centella', 1, 2), E('E1', 'tornillo', 7, 5)],
       objective: { kind: 'reach', zone: [{ x: 4, y: 2 }] },
     });
     battle.nextTurn();
@@ -86,7 +86,7 @@ describe('objetivos de batalla: cada contrato es una historia distinta', () => {
 
   it('survive: aguantar N rondas gana; las rondas avanzan con las activaciones', () => {
     const battle = arena({
-      spawns: [P('P1', 'liger-zero', 1, 2), E('E1', 'molga', 7, 5)],
+      spawns: [P('P1', 'centella', 1, 2), E('E1', 'tornillo', 7, 5)],
       objective: { kind: 'survive', rounds: 2 },
     });
     const rounds: number[] = [];
@@ -103,9 +103,9 @@ describe('objetivos de batalla: cada contrato es una historia distinta', () => {
 describe('refuerzos por oleadas', () => {
   it('la oleada entra al arrancar su ronda, en la casilla libre más cercana', () => {
     const battle = arena({
-      spawns: [P('P1', 'liger-zero', 1, 2), E('E1', 'molga', 6, 2)],
+      spawns: [P('P1', 'centella', 1, 2), E('E1', 'tornillo', 6, 2)],
       // Pide la casilla del P1: deberá recolocarse en un anillo vecino.
-      reinforcements: [{ round: 2, spawns: [E('E2', 'molga', 1, 2)] }],
+      reinforcements: [{ round: 2, spawns: [E('E2', 'tornillo', 1, 2)] }],
     });
     expect(battle.units).toHaveLength(2);
     let arrived: Extract<BattleEvent, { type: 'reinforcements-arrived' }> | undefined;
@@ -124,8 +124,8 @@ describe('refuerzos por oleadas', () => {
 
   it('barrer la vanguardia no gana: el grueso está en camino', () => {
     const battle = arena({
-      spawns: [P('P1', 'liger-zero', 1, 2), E('E1', 'molga', 6, 2)],
-      reinforcements: [{ round: 3, spawns: [E('E2', 'molga', 7, 5)] }],
+      spawns: [P('P1', 'centella', 1, 2), E('E1', 'tornillo', 6, 2)],
+      reinforcements: [{ round: 3, spawns: [E('E2', 'tornillo', 7, 5)] }],
     });
     battle.unit('E1').hp = 0;
     pass(battle);
@@ -139,8 +139,8 @@ describe('refuerzos por oleadas', () => {
   it('misma semilla, mismas oleadas: el refuerzo es determinista', () => {
     const run = (): string => {
       const battle = arena({
-        spawns: [P('P1', 'liger-zero', 1, 2), E('E1', 'molga', 6, 2)],
-        reinforcements: [{ round: 2, spawns: [E('E2', 'molga', 6, 2)] }],
+        spawns: [P('P1', 'centella', 1, 2), E('E1', 'tornillo', 6, 2)],
+        reinforcements: [{ round: 2, spawns: [E('E2', 'tornillo', 6, 2)] }],
       });
       for (let i = 0; i < 8; i++) pass(battle);
       const e2 = battle.units.find((u) => u.id === 'E2');
@@ -154,10 +154,10 @@ describe('refuerzos por oleadas', () => {
 describe('retirada y eyección: perder sin game over', () => {
   it('la retirada exige borde y saca a la unidad intacta del campo', () => {
     const battle = arena({
-      spawns: [P('P1', 'liger-zero', 3, 2), P('P2', 'command-wolf', 0, 4), E('E1', 'molga', 7, 5)],
+      spawns: [P('P1', 'centella', 3, 2), P('P2', 'rastreador', 0, 4), E('E1', 'tornillo', 7, 5)],
     });
     battle.nextTurn();
-    expect(battle.getActiveUnit()?.id).toBe('P1'); // liger, el más rápido
+    expect(battle.getActiveUnit()?.id).toBe('P1'); // centella, el más rápido
     // En (3,2) no hay borde: la retirada se rechaza.
     expect(() => battle.execute({ type: 'retreat', unitId: 'P1' })).toThrow(/borde/);
     battle.execute({ type: 'move', unitId: 'P1', to: { x: 0, y: 2 } });
@@ -175,7 +175,7 @@ describe('retirada y eyección: perder sin game over', () => {
 
   it('retirarse el último es la derrota (pero con las máquinas a salvo)', () => {
     const battle = arena({
-      spawns: [P('P1', 'liger-zero', 0, 2), E('E1', 'molga', 7, 5)],
+      spawns: [P('P1', 'centella', 0, 2), E('E1', 'tornillo', 7, 5)],
     });
     battle.nextTurn();
     battle.execute({ type: 'retreat', unitId: 'P1' });
@@ -185,7 +185,7 @@ describe('retirada y eyección: perder sin game over', () => {
 
   it('la eyección sacrifica la máquina y lo marca para la campaña', () => {
     const battle = arena({
-      spawns: [P('P1', 'liger-zero', 3, 2), P('P2', 'command-wolf', 0, 4), E('E1', 'molga', 7, 5)],
+      spawns: [P('P1', 'centella', 3, 2), P('P2', 'rastreador', 0, 4), E('E1', 'tornillo', 7, 5)],
     });
     battle.nextTurn();
     const events = battle.execute({ type: 'eject', unitId: 'P1' });
@@ -200,9 +200,9 @@ describe('retirada y eyección: perder sin game over', () => {
   it('el comandante que se retira deja al equipo sin red de mando', () => {
     const battle = arena({
       spawns: [
-        { ...P('P1', 'liger-zero', 0, 2), commander: true },
-        P('P2', 'command-wolf', 3, 4),
-        E('E1', 'molga', 7, 5),
+        { ...P('P1', 'centella', 0, 2), commander: true },
+        P('P2', 'rastreador', 3, 4),
+        E('E1', 'tornillo', 7, 5),
       ],
     });
     battle.nextTurn();

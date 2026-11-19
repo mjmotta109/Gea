@@ -112,13 +112,13 @@ export const DIFFICULTIES: DifficultySpec[] = [
 /**
  * Chasis elegibles como COMPAÑERA al fundar la compañía (curados: sin
  * los pesos pesados — esos se ganan). El resto del equipo inicial es
- * fijo: Command Wolf, Gun Sniper y Gustav.
+ * fijo: Rastreador, Visor y Mula.
  */
 export const STARTER_COMPANIONS: Array<{ id: string; blurb: string }> = [
-  { id: 'liger-zero', blurb: 'La equilibrada: rápida, fiable, honesta.' },
-  { id: 'shield-liger', blurb: 'La escudera: aguanta lo que otras no.' },
-  { id: 'zaber-fang', blurb: 'La cazadora: presiona de cerca con el autocañón.' },
-  { id: 'rev-raptor', blurb: 'La navaja: frágil, veloz, letal si tú lo eres.' },
+  { id: 'centella', blurb: 'La equilibrada: rápida, fiable, honesta.' },
+  { id: 'rodela', blurb: 'La escudera: aguanta lo que otras no.' },
+  { id: 'cizalla', blurb: 'La cazadora: presiona de cerca con el autocañón.' },
+  { id: 'navaja', blurb: 'La navaja: frágil, veloz, letal si tú lo eres.' },
 ];
 
 /** Planos de módulos aftermarket (se compran una vez, en fábricas de piezas). */
@@ -135,7 +135,7 @@ export const BLUEPRINT_PRICES: Record<string, number> = {
  * Tabla económica del modo mercenario. Los precios NO son arbitrarios:
  * derivan del ciclo de balance del hangar (npm run balance:hangar,
  * 1500 batallas, 2026-07-05) — tasa de victoria y daño medio mandan.
- * El König Wolf paga su 59.6% de victorias; la Molga es carne de cañón
+ * El Retícula paga su 59.6% de victorias; la Tornillo es carne de cañón
  * barata a propósito.
  */
 export const ECONOMY: EconomyTable = {
@@ -143,43 +143,43 @@ export const ECONOMY: EconomyTable = {
   // Refuerzo de blindaje: 30 de búnker por ⌾400, reparar a ⌾3/punto; el
   // precio es ir 1 casilla más lento y cargar CT más despacio.
   reinforcement: { armor: 30, fitCost: 400, repairPerPoint: 3, movePenalty: 1, speedPenalty: 3 },
-  starterRoster: ['liger-zero', 'command-wolf', 'gun-sniper', 'gustav'],
+  starterRoster: ['centella', 'rastreador', 'visor', 'mula'],
   repairCostPerHp: 2,
   supplyPrice: 40,
   startingSupplies: 8,
   rebuildFactor: 0.6,
   sellFactor: 0.5,
 
-  zoidPrices: {
-    'molga': 400,
-    'gustav': 500,
-    'guysak': 700,
-    'rev-raptor': 700,
-    'gordos': 900,
-    'brachios': 900,
-    'storm-sworder': 950,
-    'redler': 1000,
-    'zaber-fang': 1100,
-    'shield-liger': 1200,
-    'pteras': 1200,
-    'command-wolf': 1250,
-    'gun-sniper': 1300,
-    'gun-sniper-naomi': 1400,
-    'liger-zero': 1400,
-    'blade-liger': 1500,
-    'dibison': 1500,
-    'iron-kong': 1600,
-    'liger-zero-cas': 1500,
-    'geno-saurer': 1800,
-    'geno-saurer-cp': 1800,
-    'gojulas': 1900,
-    'konig-wolf': 2100,
+  yantraPrices: {
+    'tornillo': 400,
+    'mula': 500,
+    'barrena': 700,
+    'navaja': 700,
+    'torreon': 900,
+    'faro': 900,
+    'vencejo': 950,
+    'saeta': 1000,
+    'cizalla': 1100,
+    'rodela': 1200,
+    'cometa': 1200,
+    'rastreador': 1250,
+    'visor': 1300,
+    'visor-c': 1400,
+    'centella': 1400,
+    'tizona': 1500,
+    'bombarda': 1500,
+    'martinete': 1600,
+    'centella-m': 1500,
+    'prisma': 1800,
+    'prisma-m': 1800,
+    'baluarte': 1900,
+    'reticula': 2100,
   },
 
   weaponPrices: {
     // Base
-    'w-strike-laser-claw': 400,
-    'w-charged-particle-gun': 500,
+    'w-arc-claw': 400,
+    'w-beam-cannon': 500,
     'w-sniper-rifle': 500,
     'w-impact-cannon': 300,
     // Anexo (uso y daño/uso medidos en el sweep)
@@ -208,8 +208,8 @@ export const ECONOMY: EconomyTable = {
 
 /** Pool de escuadras enemigas por contrato (todo el hangar menos apoyo puro). */
 export const CONTRACT_ENEMY_POOL = [
-  'molga', 'guysak', 'rev-raptor', 'gordos', 'redler', 'zaber-fang',
-  'storm-sworder', 'shield-liger', 'pteras', 'command-wolf', 'gun-sniper',
-  'dibison', 'blade-liger', 'iron-kong', 'geno-saurer', 'gojulas',
-  'konig-wolf', 'brachios',
+  'tornillo', 'barrena', 'navaja', 'torreon', 'saeta', 'cizalla',
+  'vencejo', 'rodela', 'cometa', 'rastreador', 'visor',
+  'bombarda', 'tizona', 'martinete', 'prisma', 'baluarte',
+  'reticula', 'faro',
 ];

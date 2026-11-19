@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Battle, type BattleConfig, type UnitSpawn } from '../src/core/battle.js';
 import { GameMap } from '../src/core/grid.js';
-import { ZOIDS } from '../src/data/zoids.js';
+import { YANTRAS } from '../src/data/yantras.js';
 import { MODULES } from '../src/data/modules.js';
 import { ABILITIES } from '../src/data/abilities.js';
 
@@ -13,11 +13,11 @@ const OPEN = GameMap.fromAscii(['000000', '000000', '000000']);
 
 function duel(playerPos = { x: 1, y: 1 }, enemyPos = { x: 2, y: 1 }): Battle {
   const spawns: UnitSpawn[] = [
-    { id: 'P1', name: 'P1', unitTypeId: 'gojulas', team: 'player', position: playerPos },
-    { id: 'E1', name: 'E1', unitTypeId: 'molga', team: 'enemy', position: enemyPos },
+    { id: 'P1', name: 'P1', unitTypeId: 'baluarte', team: 'player', position: playerPos },
+    { id: 'E1', name: 'E1', unitTypeId: 'tornillo', team: 'enemy', position: enemyPos },
   ];
   const config: BattleConfig = {
-    map: OPEN, unitCatalog: ZOIDS, moduleCatalog: MODULES,
+    map: OPEN, unitCatalog: YANTRAS, moduleCatalog: MODULES,
     abilityCatalog: ABILITIES, seed: 7, spawns,
   };
   return new Battle(config);
@@ -58,13 +58,13 @@ describe('pronóstico de contraataque', () => {
   it('la reacción gastada se anuncia: el segundo golpe de la ronda es gratis', () => {
     const battle = duel();
     untilP1(battle);
-    // El primer mordisco consume la reacción de la molga (contraataca).
+    // El primer mordisco consume la reacción de la tornillo (contraataca).
     const events = battle.execute({ type: 'ability', unitId: 'P1', abilityId: 'bite-crush', target: { x: 2, y: 1 } });
     const reacted = events.some((e) => e.type === 'reaction');
-    const molga = battle.unit('E1');
-    if (reacted && molga.hp > 0) {
-      expect(molga.reactionReady).toBe(false);
-      const again = battle.counterForecast('P1', 'bite-crush', molga.position);
+    const tornillo = battle.unit('E1');
+    if (reacted && tornillo.hp > 0) {
+      expect(tornillo.reactionReady).toBe(false);
+      const again = battle.counterForecast('P1', 'bite-crush', tornillo.position);
       expect(again).toBeDefined();
       expect(again!.risk).toBe('no');
       if (again!.risk === 'no') expect(again!.reason).toContain('gastada');
@@ -82,7 +82,7 @@ describe('pronóstico de contraataque', () => {
     const events = battle.execute({ type: 'ability', unitId: 'P1', abilityId: 'bite-crush', target: { x: 2, y: 1 } });
     const hit = events.find((e) => e.type === 'damage-dealt' && e.targetUnitId === 'E1');
     const reaction = events.find((e) => e.type === 'reaction');
-    // Si el golpe conectó y la molga sigue viva, la reacción anunciada ocurre.
+    // Si el golpe conectó y la tornillo sigue viva, la reacción anunciada ocurre.
     if (hit && battle.unit('E1').hp > 0) {
       expect(reaction).toBeDefined();
       if (reaction && reaction.type === 'reaction' && forecast!.risk === 'contraataque') {
@@ -96,7 +96,7 @@ describe('riesgo de tiro de oportunidad', () => {
   it('despegarse de un enemigo con reacción lista se anuncia; quedarse pegado, no', () => {
     const battle = duel({ x: 1, y: 1 }, { x: 2, y: 1 });
     untilP1(battle);
-    // Alejarse: la molga tiene la reacción lista y el mordisco a mano.
+    // Alejarse: la tornillo tiene la reacción lista y el mordisco a mano.
     const away = battle.opportunityRisk('P1', { x: 0, y: 0 });
     expect(away.map((u) => u.id)).toContain('E1');
     // Reposicionarse sin despegarse (sigue adyacente): no provoca.

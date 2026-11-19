@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { Battle } from '../src/core/battle.js';
 import {
-  buyWeapon, buyZoid, campaignStrength, contractOffers, counterRoles, counterWeapons, FULL_HP, mountedCount,
-  newCampaign, readStyle, rebuildZoid, refitZoid, repairCost, repairZoid, resolveContract,
+  buyWeapon, buyYantra, campaignStrength, contractOffers, counterRoles, counterWeapons, FULL_HP, mountedCount,
+  newCampaign, readStyle, rebuildYantra, refitYantra, repairCost, repairYantra, resolveContract,
   sellWeapon, setMountedWeapons, updateDossier,
 } from '../src/game/mercenary.js';
 import { ABILITIES } from '../src/data/abilities.js';
@@ -10,10 +10,10 @@ import { MODULES } from '../src/data/modules.js';
 import { CONTRACT_ENEMY_POOL, ECONOMY } from '../src/data/economy.js';
 import { VALLEY_CROSSING } from '../src/data/maps.js';
 import { WEAPONS } from '../src/data/weapons.js';
-import { ZOIDS } from '../src/data/zoids.js';
+import { YANTRAS } from '../src/data/yantras.js';
 
 const factoryLoadout = (unitTypeId: string) => ({
-  weapons: [...(ZOIDS[unitTypeId]!.weapons ?? [])],
+  weapons: [...(YANTRAS[unitTypeId]!.weapons ?? [])],
   slots: {},
 });
 
@@ -24,7 +24,7 @@ describe('modo mercenario: campaña', () => {
     const state = fresh();
     expect(state.credits).toBe(ECONOMY.startingCredits);
     expect(state.roster.map((z) => z.unitTypeId)).toEqual(ECONOMY.starterRoster);
-    // El Gustav trae su cañón de impacto: debe constar en el arsenal.
+    // El Mula trae su cañón de impacto: debe constar en el arsenal.
     expect(state.armory['w-impact-cannon']).toBe(1);
     expect(state.armory['w-sniper-rifle']).toBe(1);
   });
@@ -35,12 +35,12 @@ describe('modo mercenario: campaña', () => {
     expect(a).toEqual(b);
     expect(a.map((c) => c.tier)).toEqual(['escolta', 'asalto', 'caza', 'incursion', 'defensa']);
     const squadPrice = (squad: string[]): number =>
-      squad.reduce((n, id) => n + ECONOMY.zoidPrices[id]!, 0);
+      squad.reduce((n, id) => n + ECONOMY.yantraPrices[id]!, 0);
     expect(squadPrice(a[1]!.enemySquad)).toBeGreaterThan(squadPrice(a[0]!.enemySquad));
     expect(squadPrice(a[2]!.enemySquad)).toBeGreaterThan(squadPrice(a[1]!.enemySquad));
     for (const contract of a) {
       expect(contract.enemySquad).toHaveLength(4);
-      for (const id of contract.enemySquad) expect(ZOIDS[id]).toBeDefined();
+      for (const id of contract.enemySquad) expect(YANTRAS[id]).toBeDefined();
     }
     // Ciclos distintos ofrecen contratos distintos.
     expect(contractOffers(6, ECONOMY, CONTRACT_ENEMY_POOL)).not.toEqual(a);
@@ -135,7 +135,7 @@ describe('modo mercenario: campaña', () => {
   });
 
   it('contractOffers sesga la escuadra hacia el rol pesado, y es determinista', () => {
-    const roleOf = (id: string) => ZOIDS[id]!.role;
+    const roleOf = (id: string) => YANTRAS[id]!.role;
     const heavyOnSnipers = (id: string) => (roleOf(id) === 'sniper' ? 10 : 1);
     const countSnipers = (cs: ReturnType<typeof contractOffers>) =>
       cs.reduce((n, c) => n + c.enemySquad.filter((id) => roleOf(id) === 'sniper').length, 0);
@@ -166,7 +166,7 @@ describe('modo mercenario: campaña', () => {
 
   it('la FUERZA compra chasis mejores: un contrato rico trae élites, no chatarra', () => {
     const squadPrice = (squad: string[]): number =>
-      squad.reduce((n, id) => n + ECONOMY.zoidPrices[id]!, 0);
+      squad.reduce((n, id) => n + ECONOMY.yantraPrices[id]!, 0);
     const flojo = contractOffers(0, ECONOMY, CONTRACT_ENEMY_POOL, undefined, 0.55);
     const fuerte = contractOffers(0, ECONOMY, CONTRACT_ENEMY_POOL, undefined, 1.6);
     // Más fuerza ⇒ escuadra más cara en cada tramo (el presupuesto SE GASTA).
@@ -178,17 +178,17 @@ describe('modo mercenario: campaña', () => {
     expect(contractOffers(0, ECONOMY, CONTRACT_ENEMY_POOL, undefined, 1.6)).toEqual(fuerte);
   });
 
-  it('refitZoid enfría/reabastece: limpia el residual y no toca HP ni blindaje', () => {
-    const hot = { unitTypeId: 'liger-zero', hp: 70, destroyed: false, weapons: [], slots: {},
+  it('refitYantra enfría/reabastece: limpia el residual y no toca HP ni blindaje', () => {
+    const hot = { unitTypeId: 'centella', hp: 70, destroyed: false, weapons: [], slots: {},
       reinforced: true, armor: 5, residualHeat: 40, residualEnergy: 3, ammo: { 'w-x': 0 } };
-    const cool = refitZoid(hot);
+    const cool = refitYantra(hot);
     expect(cool.residualHeat).toBeUndefined();
     expect(cool.residualEnergy).toBeUndefined();
     expect(cool.ammo).toBeUndefined();
     expect(cool.hp).toBe(70);        // HP no lo toca el refit
     expect(cool.armor).toBe(5);      // el blindaje tampoco
     // Sin residual, devuelve el mismo objeto (sin trabajo).
-    expect(refitZoid(cool)).toBe(cool);
+    expect(refitYantra(cool)).toBe(cool);
   });
 
   it('taller: reparar cuesta por HP perdido y reconstruir revive al destruido', () => {
@@ -196,15 +196,15 @@ describe('modo mercenario: campaña', () => {
     state = { ...state, roster: state.roster.map((z, i) => (i === 0 ? { ...z, hp: 100 } : z)) };
     const maxHp = 140;
     expect(repairCost(state.roster[0]!, maxHp, ECONOMY)).toBe(40 * ECONOMY.repairCostPerHp);
-    const repaired = repairZoid(state, 0, maxHp, ECONOMY);
+    const repaired = repairYantra(state, 0, maxHp, ECONOMY);
     expect(repaired.roster[0]!.hp).toBe(maxHp);
     expect(repaired.credits).toBe(state.credits - 40 * ECONOMY.repairCostPerHp);
     // Sin crédito: sin cambios.
-    const broke = repairZoid({ ...state, credits: 10 }, 0, maxHp, ECONOMY);
+    const broke = repairYantra({ ...state, credits: 10 }, 0, maxHp, ECONOMY);
     expect(broke).toEqual({ ...state, credits: 10 });
     // Reconstrucción.
     let wrecked = { ...state, roster: state.roster.map((z, i) => (i === 0 ? { ...z, hp: 0, destroyed: true } : z)) };
-    wrecked = rebuildZoid(wrecked, 0, maxHp, ECONOMY);
+    wrecked = rebuildYantra(wrecked, 0, maxHp, ECONOMY);
     expect(wrecked.roster[0]!.destroyed).toBe(false);
     expect(wrecked.roster[0]!.hp).toBe(maxHp);
   });
@@ -231,11 +231,11 @@ describe('modo mercenario: campaña', () => {
 
   it('cambiar de chasis descuenta la retoma y devuelve las armas al arsenal', () => {
     const state = fresh();
-    const maxHp = 140; // liger-zero de fábrica
-    const after = buyZoid(state, 0, 'zaber-fang', maxHp, ECONOMY, factoryLoadout);
-    const tradeIn = Math.round(ECONOMY.zoidPrices['liger-zero']! * ECONOMY.sellFactor * Math.min(1, state.roster[0]!.hp / maxHp));
-    expect(after.credits).toBe(state.credits - (ECONOMY.zoidPrices['zaber-fang']! - tradeIn));
-    expect(after.roster[0]!.unitTypeId).toBe('zaber-fang');
+    const maxHp = 140; // centella de fábrica
+    const after = buyYantra(state, 0, 'cizalla', maxHp, ECONOMY, factoryLoadout);
+    const tradeIn = Math.round(ECONOMY.yantraPrices['centella']! * ECONOMY.sellFactor * Math.min(1, state.roster[0]!.hp / maxHp));
+    expect(after.credits).toBe(state.credits - (ECONOMY.yantraPrices['cizalla']! - tradeIn));
+    expect(after.roster[0]!.unitTypeId).toBe('cizalla');
     // El chasis nuevo llega sin armas montadas: se montan del arsenal.
     expect(after.roster[0]!.weapons).toEqual([]);
   });
@@ -244,14 +244,14 @@ describe('modo mercenario: campaña', () => {
 describe('motor: UnitSpawn.hp (daño persistente)', () => {
   const mk = (hp?: number) => new Battle({
     map: VALLEY_CROSSING,
-    unitCatalog: ZOIDS,
+    unitCatalog: YANTRAS,
     abilityCatalog: ABILITIES,
     moduleCatalog: MODULES,
     weaponCatalog: WEAPONS,
     seed: 7,
     spawns: [
-      { id: 'P1', name: 'Wolf', unitTypeId: 'command-wolf', team: 'player', position: { x: 1, y: 3 }, hp },
-      { id: 'E1', name: 'Molga', unitTypeId: 'molga', team: 'enemy', position: { x: 10, y: 3 } },
+      { id: 'P1', name: 'Wolf', unitTypeId: 'rastreador', team: 'player', position: { x: 1, y: 3 }, hp },
+      { id: 'E1', name: 'Tornillo', unitTypeId: 'tornillo', team: 'enemy', position: { x: 10, y: 3 } },
     ],
   });
 
@@ -260,7 +260,7 @@ describe('motor: UnitSpawn.hp (daño persistente)', () => {
     expect(mk(undefined).unit('P1').hp).toBe(100);
     expect(mk(FULL_HP).unit('P1').hp).toBe(100); // centinela del mercenario
     // Framed: el mínimo vivo es el nº de piezas (cada módulo ≥1 al repartir el
-    // daño de despliegue), no 1. Command Wolf = 5 módulos.
+    // daño de despliegue), no 1. Rastreador = 5 módulos.
     expect(mk(-5).unit('P1').hp).toBe(5);
   });
 });

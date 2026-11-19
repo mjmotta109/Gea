@@ -1,38 +1,39 @@
 import type { UnitDefinition } from '../core/types.js';
 
 /**
- * Catálogo de chasis de Zoids. Cumplen el papel de los jobs de FFTA:
+ * Catálogo de chasis de Yantras. Cumplen el papel de los jobs de FFTA:
  * definen stats, movimiento y qué habilidades están disponibles.
  *
  * Roles pensados para que el plantel base cubra el triángulo táctico:
  * asalto rápido, tanque, francotirador, soporte, volador y grunt barato.
  */
-export const ZOIDS: Record<string, UnitDefinition> = {
-  'liger-zero': {
-    id: 'liger-zero',
+export const YANTRAS: Record<string, UnitDefinition> = {
+  'centella': {
+    id: 'centella',
     weightClass: 'ligero',
-    name: 'Liger Zero',
+    name: 'Centella',
     role: 'assault',
     moveType: 'ground',
     stats: {
       maxHp: 120, atk: 45, energyAtk: 55, def: 30, energyDef: 25,
       speed: 16, move: 6, jump: 2, evade: 20, accuracy: 0,
     },
-    abilityIds: ['strike-laser-claw', 'bite-crush', 'e-shield'],
+    abilityIds: ['arc-claw', 'bite-crush', 'e-shield'],
     aiProfile: { aggression: 0.85, selfPreservation: 0.4, riskTolerance: 0.6 },
     frame: [
-      { slot: 'casco', moduleId: 'lz-casco' },
-      { slot: 'nucleo', moduleId: 'lz-nucleo' },
-      { slot: 'tren-del', moduleId: 'lz-tren-del' },
-      { slot: 'tren-tras', moduleId: 'lz-tren-tras' },
-      { slot: 'garras', moduleId: 'lz-garras' },
-      { slot: 'lomo', moduleId: 'lz-lomo' },
+      { slot: 'casco', moduleId: 'ce-casco' },
+      { slot: 'nucleo', moduleId: 'ce-nucleo' },
+      { slot: 'tren-del', moduleId: 'ce-tren-del' },
+      { slot: 'tren-tras', moduleId: 'ce-tren-tras' },
+      { slot: 'garras', moduleId: 'ce-garras' },
+      { slot: 'lomo', moduleId: 'ce-lomo' },
     ],
   },
-  'command-wolf': {
-    id: 'command-wolf',
+  'rastreador': {
+    id: 'rastreador',
     weightClass: 'ligero',
-    name: 'Command Wolf',
+    vision: 8, // Argos: reconocimiento, ojos de la noche
+    name: 'Rastreador',
     role: 'skirmisher',
     moveType: 'ground',
     stats: {
@@ -41,17 +42,17 @@ export const ZOIDS: Record<string, UnitDefinition> = {
     },
     abilityIds: ['bite-crush', 'shock-cannon', 'smoke-discharger'],
     frame: [
-      { slot: 'casco', moduleId: 'cw-casco' },
-      { slot: 'nucleo', moduleId: 'cw-nucleo' },
-      { slot: 'patas-del', moduleId: 'cw-patas-del' },
-      { slot: 'patas-tras', moduleId: 'cw-patas-tras' },
-      { slot: 'canon', moduleId: 'cw-canon' },
+      { slot: 'casco', moduleId: 'ra-casco' },
+      { slot: 'nucleo', moduleId: 'ra-nucleo' },
+      { slot: 'patas-del', moduleId: 'ra-patas-del' },
+      { slot: 'patas-tras', moduleId: 'ra-patas-tras' },
+      { slot: 'canon', moduleId: 'ra-canon' },
     ],
   },
-  'gojulas': {
-    id: 'gojulas',
+  'baluarte': {
+    id: 'baluarte',
     weightClass: 'extrapesado',
-    name: 'Gojulas',
+    name: 'Baluarte',
     role: 'tank',
     moveType: 'ground',
     stats: {
@@ -62,18 +63,18 @@ export const ZOIDS: Record<string, UnitDefinition> = {
     },
     abilityIds: ['bite-crush', 'missile-pod', 'e-shield'],
     frame: [
-      { slot: 'casco', moduleId: 'gj-casco' },
-      { slot: 'nucleo', moduleId: 'gj-nucleo' },
-      { slot: 'patas', moduleId: 'gj-patas' },
-      { slot: 'misiles', moduleId: 'gj-misiles' },
-      { slot: 'coraza', moduleId: 'gj-coraza' },
+      { slot: 'casco', moduleId: 'ba-casco' },
+      { slot: 'nucleo', moduleId: 'ba-nucleo' },
+      { slot: 'patas', moduleId: 'ba-patas' },
+      { slot: 'misiles', moduleId: 'ba-misiles' },
+      { slot: 'coraza', moduleId: 'ba-coraza' },
     ],
   },
-  'gun-sniper': {
-    id: 'gun-sniper',
+  'visor': {
+    id: 'visor',
     weightClass: 'extraligero',
     vision: 8, // ojos de la noche
-    name: 'Gun Sniper',
+    name: 'Visor',
     role: 'sniper',
     moveType: 'ground',
     stats: {
@@ -84,18 +85,18 @@ export const ZOIDS: Record<string, UnitDefinition> = {
     weapons: ['w-sniper-rifle'],
     aiProfile: { aggression: 0.35, selfPreservation: 0.8, riskTolerance: 0.2 },
     frame: [
-      { slot: 'sensor', moduleId: 'gsn-sensor' },
-      { slot: 'nucleo', moduleId: 'gsn-nucleo' },
-      { slot: 'patas', moduleId: 'gsn-patas' },
-      { slot: 'cola', moduleId: 'gsn-cola' },
-      { slot: 'rifle', moduleId: 'gsn-rifle' },
+      { slot: 'sensor', moduleId: 'vi-sensor' },
+      { slot: 'nucleo', moduleId: 'vi-nucleo' },
+      { slot: 'patas', moduleId: 'vi-patas' },
+      { slot: 'cola', moduleId: 'vi-cola' },
+      { slot: 'rifle', moduleId: 'vi-rifle' },
     ],
   },
-  'pteras': {
-    id: 'pteras',
+  'cometa': {
+    id: 'cometa',
     weightClass: 'ligero',
     vision: 8, // ojos de la noche
-    name: 'Pteras',
+    name: 'Cometa',
     role: 'flyer',
     moveType: 'flying',
     stats: {
@@ -106,17 +107,17 @@ export const ZOIDS: Record<string, UnitDefinition> = {
     },
     abilityIds: ['shock-cannon', 'stun-blade'],
     frame: [
-      { slot: 'casco', moduleId: 'pt-casco' },
-      { slot: 'fuselaje', moduleId: 'pt-fuselaje' },
-      { slot: 'ala-izq', moduleId: 'pt-ala-izq' },
-      { slot: 'ala-der', moduleId: 'pt-ala-der' },
-      { slot: 'cola', moduleId: 'pt-cola' },
+      { slot: 'casco', moduleId: 'co-casco' },
+      { slot: 'fuselaje', moduleId: 'co-fuselaje' },
+      { slot: 'ala-izq', moduleId: 'co-ala-izq' },
+      { slot: 'ala-der', moduleId: 'co-ala-der' },
+      { slot: 'cola', moduleId: 'co-cola' },
     ],
   },
-  'gustav': {
-    id: 'gustav',
+  'mula': {
+    id: 'mula',
     weightClass: 'pesado',
-    name: 'Gustav',
+    name: 'Mula',
     role: 'support',
     moveType: 'ground',
     stats: {
@@ -127,10 +128,10 @@ export const ZOIDS: Record<string, UnitDefinition> = {
     weapons: ['w-impact-cannon'],
     aiProfile: { aggression: 0.2, selfPreservation: 0.9, riskTolerance: 0.3 },
   },
-  'molga': {
-    id: 'molga',
+  'tornillo': {
+    id: 'tornillo',
     weightClass: 'extraligero',
-    name: 'Molga',
+    name: 'Tornillo',
     role: 'skirmisher',
     moveType: 'ground',
     stats: {
@@ -139,34 +140,35 @@ export const ZOIDS: Record<string, UnitDefinition> = {
     },
     abilityIds: ['bite-crush', 'shock-cannon'],
   },
-  'geno-saurer': {
-    id: 'geno-saurer',
+  'prisma': {
+    id: 'prisma',
     weightClass: 'pesado',
-    name: 'Geno Saurer',
+    vision: 7, // Argos: óptica de tiro, ve algo más de noche
+    name: 'Prisma',
     role: 'assault',
     moveType: 'ground',
     stats: {
       maxHp: 130, atk: 45, energyAtk: 65, def: 35, energyDef: 30,
       speed: 12, move: 4, jump: 1, evade: 10, accuracy: 0,
     },
-    abilityIds: ['charged-particle-gun', 'bite-crush', 'e-shield'],
+    abilityIds: ['beam-cannon', 'bite-crush', 'e-shield'],
     aiProfile: { aggression: 0.6, selfPreservation: 0.6, riskTolerance: 0.7 },
     frame: [
-      { slot: 'casco', moduleId: 'gsa-casco' },
-      { slot: 'nucleo', moduleId: 'gsa-nucleo' },
-      { slot: 'patas', moduleId: 'gsa-patas' },
-      { slot: 'canon', moduleId: 'gsa-canon' },
-      { slot: 'cola', moduleId: 'gsa-cola' },
+      { slot: 'casco', moduleId: 'pr-casco' },
+      { slot: 'nucleo', moduleId: 'pr-nucleo' },
+      { slot: 'patas', moduleId: 'pr-patas' },
+      { slot: 'canon', moduleId: 'pr-canon' },
+      { slot: 'cola', moduleId: 'pr-cola' },
     ],
   },
 
-  // La Gun Sniper de Naomi: monocasco, pero con munición finita — cuatro
+  // El Visor-C: monocasco, pero con munición finita — cuatro
   // disparos por cargador y dos de repuesto (fase 2).
-  'gun-sniper-naomi': {
-    id: 'gun-sniper-naomi',
+  'visor-c': {
+    id: 'visor-c',
     weightClass: 'extraligero',
     vision: 8, // ojos de la noche
-    name: 'Gun Sniper (custom)',
+    name: 'Visor-C',
     role: 'sniper',
     moveType: 'ground',
     stats: {
@@ -182,24 +184,24 @@ export const ZOIDS: Record<string, UnitDefinition> = {
   //    Los que montan armas 'lib-*' requieren catálogos mezclados con
   //    withWeaponLibrary() — el cliente web ya los mezcla. ──
 
-  'shield-liger': {
-    id: 'shield-liger', name: 'Shield Liger', role: 'assault', moveType: 'ground',
+  'rodela': {
+    id: 'rodela', name: 'Rodela', role: 'assault', moveType: 'ground',
     weightClass: 'pesado',
     stats: { maxHp: 130, atk: 42, energyAtk: 40, def: 38, energyDef: 42, speed: 14, move: 5, jump: 2, evade: 15, accuracy: 0 },
     abilityIds: ['bite-crush', 'e-shield'],
     weapons: ['lib-w-vibro-fang'],
     aiProfile: { aggression: 0.7, selfPreservation: 0.5, riskTolerance: 0.5 },
   },
-  'blade-liger': {
-    id: 'blade-liger', name: 'Blade Liger', role: 'assault', moveType: 'ground',
+  'tizona': {
+    id: 'tizona', name: 'Tizona', role: 'assault', moveType: 'ground',
     weightClass: 'pesado',
     stats: { maxHp: 135, atk: 50, energyAtk: 52, def: 34, energyDef: 30, speed: 16, move: 6, jump: 2, evade: 18, accuracy: 0 },
     abilityIds: ['bite-crush', 'e-shield'],
     weapons: ['lib-w-thermal-saber'],
     aiProfile: { aggression: 0.85, selfPreservation: 0.35, riskTolerance: 0.65 },
   },
-  'zaber-fang': {
-    id: 'zaber-fang', name: 'Zaber Fang', role: 'skirmisher', moveType: 'ground',
+  'cizalla': {
+    id: 'cizalla', name: 'Cizalla', role: 'skirmisher', moveType: 'ground',
     weightClass: 'ligero',
     // Nerf (2026-07-09): con el daño localizado su autocañón gemelo lo subió a
     // ~61% (castiga bien las piezas frágiles). atk 40→37: sigue siendo un
@@ -209,39 +211,39 @@ export const ZOIDS: Record<string, UnitDefinition> = {
     weapons: ['lib-w-twin-autocannon'],
     aiProfile: { aggression: 0.65, selfPreservation: 0.45, riskTolerance: 0.55 },
   },
-  'iron-kong': {
-    id: 'iron-kong', name: 'Iron Kong', role: 'tank', moveType: 'ground',
+  'martinete': {
+    id: 'martinete', name: 'Martinete', role: 'tank', moveType: 'ground',
     weightClass: 'extrapesado',
     stats: { maxHp: 210, atk: 58, energyAtk: 35, def: 48, energyDef: 38, speed: 9, move: 3, jump: 2, evade: 4, accuracy: 0 },
     abilityIds: ['bite-crush'],
     weapons: ['lib-w-gauss-hammer', 'lib-w-micro-missile-swarm'],
     aiProfile: { aggression: 0.6, selfPreservation: 0.5, riskTolerance: 0.4 },
     frame: [
-      { slot: 'casco', moduleId: 'ik-casco' },
-      { slot: 'nucleo', moduleId: 'ik-nucleo' },
-      { slot: 'brazos', moduleId: 'ik-brazos' },
-      { slot: 'piernas', moduleId: 'ik-piernas' },
-      { slot: 'mochila', moduleId: 'ik-mochila' },
+      { slot: 'casco', moduleId: 'ma-casco' },
+      { slot: 'nucleo', moduleId: 'ma-nucleo' },
+      { slot: 'brazos', moduleId: 'ma-brazos' },
+      { slot: 'piernas', moduleId: 'ma-piernas' },
+      { slot: 'mochila', moduleId: 'ma-mochila' },
     ],
   },
-  'dibison': {
-    id: 'dibison', name: 'Dibison', role: 'tank', moveType: 'ground',
+  'bombarda': {
+    id: 'bombarda', name: 'Bombarda', role: 'tank', moveType: 'ground',
     weightClass: 'extrapesado',
     stats: { maxHp: 165, atk: 48, energyAtk: 28, def: 42, energyDef: 30, speed: 10, move: 4, jump: 1, evade: 6, accuracy: 0 },
     abilityIds: ['bite-crush'],
     weapons: ['lib-w-cluster-mortar', 'lib-w-flak-burst'],
     aiProfile: { aggression: 0.5, selfPreservation: 0.55, riskTolerance: 0.45 },
   },
-  'gordos': {
-    id: 'gordos', name: 'Gordos', role: 'sniper', moveType: 'ground',
+  'torreon': {
+    id: 'torreon', name: 'Torreón', role: 'sniper', moveType: 'ground',
     weightClass: 'extrapesado',
     stats: { maxHp: 175, atk: 46, energyAtk: 30, def: 40, energyDef: 32, speed: 8, move: 3, jump: 1, evade: 4, accuracy: 5 },
     abilityIds: ['bite-crush'],
     weapons: ['lib-w-rail-lance'],
     aiProfile: { aggression: 0.3, selfPreservation: 0.7, riskTolerance: 0.25 },
   },
-  'redler': {
-    id: 'redler', name: 'Redler', role: 'flyer', moveType: 'flying',
+  'saeta': {
+    id: 'saeta', name: 'Saeta', role: 'flyer', moveType: 'flying',
     weightClass: 'extraligero',
     vision: 8, // ojos de la noche
     stats: { maxHp: 90, atk: 36, energyAtk: 34, def: 18, energyDef: 22, speed: 16, move: 7, jump: 99, evade: 26, accuracy: 0 },
@@ -249,8 +251,8 @@ export const ZOIDS: Record<string, UnitDefinition> = {
     weapons: ['lib-w-plasma-carbine'],
     aiProfile: { aggression: 0.75, selfPreservation: 0.45, riskTolerance: 0.6 },
   },
-  'storm-sworder': {
-    id: 'storm-sworder', name: 'Storm Sworder', role: 'flyer', moveType: 'flying',
+  'vencejo': {
+    id: 'vencejo', name: 'Vencejo', role: 'flyer', moveType: 'flying',
     weightClass: 'ligero',
     vision: 8, // ojos de la noche
     // Buff (2026-07-08): cazador aéreo frágil que muere cerrando distancia. +HP
@@ -261,8 +263,8 @@ export const ZOIDS: Record<string, UnitDefinition> = {
     weapons: ['lib-w-plasma-axe'],
     aiProfile: { aggression: 0.85, selfPreservation: 0.5, riskTolerance: 0.7 },
   },
-  'konig-wolf': {
-    id: 'konig-wolf', name: 'König Wolf', role: 'sniper', moveType: 'ground',
+  'reticula': {
+    id: 'reticula', name: 'Retícula', role: 'sniper', moveType: 'ground',
     weightClass: 'ligero',
     vision: 9, // ojos de la noche
     stats: { maxHp: 110, atk: 42, energyAtk: 26, def: 28, energyDef: 26, speed: 12, move: 6, jump: 2, evade: 13, accuracy: 2 },
@@ -270,8 +272,8 @@ export const ZOIDS: Record<string, UnitDefinition> = {
     weapons: ['lib-w-heat-needle'],
     aiProfile: { aggression: 0.45, selfPreservation: 0.65, riskTolerance: 0.3 },
   },
-  'rev-raptor': {
-    id: 'rev-raptor', name: 'Rev Raptor', role: 'skirmisher', moveType: 'ground',
+  'navaja': {
+    id: 'navaja', name: 'Navaja', role: 'skirmisher', moveType: 'ground',
     weightClass: 'ligero',
     // Buff (2026-07-08): asaltante melee de cristal (95% de bajas, 39.6% victoria).
     // +HP y +evasión para que llegue al cuerpo a cuerpo con algo de casco.
@@ -280,8 +282,8 @@ export const ZOIDS: Record<string, UnitDefinition> = {
     weapons: ['lib-w-monomolecular-claw'],
     aiProfile: { aggression: 0.8, selfPreservation: 0.3, riskTolerance: 0.6 },
   },
-  'guysak': {
-    id: 'guysak', name: 'Guysak', role: 'skirmisher', moveType: 'ground',
+  'barrena': {
+    id: 'barrena', name: 'Barrena', role: 'skirmisher', moveType: 'ground',
     weightClass: 'ligero',
     // Buff (2026-07-08): rompedor melee que debe cerrar bajo fuego y paga tempo
     // pesado con el pilote; +HP y +evasión para que llegue a pegar.
@@ -290,9 +292,10 @@ export const ZOIDS: Record<string, UnitDefinition> = {
     weapons: ['lib-w-pile-bunker'],
     aiProfile: { aggression: 0.6, selfPreservation: 0.4, riskTolerance: 0.5 },
   },
-  'brachios': {
-    id: 'brachios', name: 'Brachios', role: 'support', moveType: 'amphibious',
+  'faro': {
+    id: 'faro', name: 'Faro', role: 'support', moveType: 'amphibious',
     weightClass: 'pesado',
+    vision: 8, // Argos: mástil sensor, ojos de la noche
     stats: { maxHp: 155, atk: 34, energyAtk: 40, def: 36, energyDef: 34, speed: 9, move: 4, jump: 1, evade: 8, accuracy: 0 },
     abilityIds: ['e-shield'],
     weapons: ['lib-w-arc-emitter', 'lib-w-smoke-mortar'],
@@ -302,10 +305,10 @@ export const ZOIDS: Record<string, UnitDefinition> = {
   // ── Versiones framed (fase 1): mismo rendimiento intacto que sus
   //    equivalentes monocasco, pero con daño localizado por módulos. ──
 
-  'liger-zero-cas': {
-    id: 'liger-zero-cas',
+  'centella-m': {
+    id: 'centella-m',
     weightClass: 'ligero',
-    name: 'Liger Zero CAS',
+    name: 'Centella-M',
     role: 'assault',
     moveType: 'ground',
     // Núcleo desnudo: los módulos aportan el resto (ver data/modules.ts).
@@ -316,21 +319,22 @@ export const ZOIDS: Record<string, UnitDefinition> = {
     abilityIds: ['bite-crush', 'e-shield'],
     energy: { capacity: 80, outputPerTurn: 30 },
     heat: { max: 100, dissipationPerTurn: 25 },
-    weapons: ['w-strike-laser-claw'],
+    weapons: ['w-arc-claw'],
     aiProfile: { aggression: 0.85, selfPreservation: 0.4, riskTolerance: 0.6 },
     frame: [
-      { slot: 'head', moduleId: 'liger-head' },
-      { slot: 'torso', moduleId: 'liger-torso' },
-      { slot: 'legs-front', moduleId: 'liger-legs-front' },
-      { slot: 'legs-rear', moduleId: 'liger-legs-rear' },
-      { slot: 'weapon-claws', moduleId: 'strike-claws' },
+      { slot: 'head', moduleId: 'cm-cabeza' },
+      { slot: 'torso', moduleId: 'cm-torso' },
+      { slot: 'legs-front', moduleId: 'cm-tren-del' },
+      { slot: 'legs-rear', moduleId: 'cm-tren-tras' },
+      { slot: 'weapon-claws', moduleId: 'arc-claws' },
       { slot: 'backpack', moduleId: 'ion-boosters' },
     ],
   },
-  'geno-saurer-cp': {
-    id: 'geno-saurer-cp',
+  'prisma-m': {
+    id: 'prisma-m',
     weightClass: 'pesado',
-    name: 'Geno Saurer CP',
+    vision: 7, // Argos: óptica de tiro, ve algo más de noche
+    name: 'Prisma-M',
     role: 'assault',
     moveType: 'ground',
     stats: {
@@ -340,15 +344,15 @@ export const ZOIDS: Record<string, UnitDefinition> = {
     abilityIds: ['bite-crush', 'e-shield'],
     energy: { capacity: 120, outputPerTurn: 25 },
     heat: { max: 80, dissipationPerTurn: 15 },
-    weapons: ['w-charged-particle-gun'],
+    weapons: ['w-beam-cannon'],
     aiProfile: { aggression: 0.6, selfPreservation: 0.6, riskTolerance: 0.7 },
     frame: [
-      { slot: 'head', moduleId: 'geno-head' },
-      { slot: 'torso', moduleId: 'geno-torso' },
-      { slot: 'leg-l', moduleId: 'geno-leg-l' },
-      { slot: 'leg-r', moduleId: 'geno-leg-r' },
-      { slot: 'weapon-cannon', moduleId: 'particle-intake' },
-      { slot: 'tail', moduleId: 'geno-tail' },
+      { slot: 'head', moduleId: 'pm-cabeza' },
+      { slot: 'torso', moduleId: 'pm-torso' },
+      { slot: 'leg-l', moduleId: 'pm-pierna-izq' },
+      { slot: 'leg-r', moduleId: 'pm-pierna-der' },
+      { slot: 'weapon-cannon', moduleId: 'beam-intake' },
+      { slot: 'tail', moduleId: 'pm-cola' },
     ],
   },
 

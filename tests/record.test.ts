@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
-  buyZoid, newCampaign, rebuildZoid, scarLevel, serviceTier, updateZoidRecord,
-  zoidCore, zoidRecord,
-  type OwnedZoid,
+  buyYantra, newCampaign, rebuildYantra, scarLevel, serviceTier, updateYantraRecord,
+  yantraCore, yantraRecord,
+  type OwnedYantra,
 } from '../src/game/mercenary.js';
 import { bondExpedition, newCompanion, observeCompanionBattle } from '../src/game/companion.js';
 import { COMPANION_TABLE, CORE_TABLE } from '../src/data/marks.js';
@@ -14,27 +14,27 @@ const factoryLoadout = (unitTypeId: string) => ({
   weapons: [] as string[], slots: {} as Record<string, string>, ...(void unitTypeId, {}),
 });
 
-const bare = (over: Partial<OwnedZoid> = {}): OwnedZoid =>
-  ({ unitTypeId: 'liger-zero', hp: 100, destroyed: false, weapons: [], slots: {}, ...over });
+const bare = (over: Partial<OwnedYantra> = {}): OwnedYantra =>
+  ({ unitTypeId: 'centella', hp: 100, destroyed: false, weapons: [], slots: {}, ...over });
 
 describe('hoja de servicio: la máquina no gana XP, pero sí historia', () => {
   it('los guardados viejos leen una hoja a cero (sin migración)', () => {
-    expect(zoidRecord(bare())).toEqual({ battles: 0, kills: 0, rebuilds: 0, ejections: 0, retreats: 0 });
+    expect(yantraRecord(bare())).toEqual({ battles: 0, kills: 0, rebuilds: 0, ejections: 0, retreats: 0 });
   });
 
-  it('updateZoidRecord acumula sin mutar', () => {
-    const zoid = bare();
-    const once = updateZoidRecord(zoid, { battles: 1, kills: 2 });
-    const twice = updateZoidRecord(once, { battles: 1, ejections: 1 });
-    expect(zoidRecord(twice)).toEqual({ battles: 2, kills: 2, rebuilds: 0, ejections: 1, retreats: 0 });
-    expect(zoid.record).toBeUndefined(); // el original quedó intacto
+  it('updateYantraRecord acumula sin mutar', () => {
+    const yantra = bare();
+    const once = updateYantraRecord(yantra, { battles: 1, kills: 2 });
+    const twice = updateYantraRecord(once, { battles: 1, ejections: 1 });
+    expect(yantraRecord(twice)).toEqual({ battles: 2, kills: 2, rebuilds: 0, ejections: 1, retreats: 0 });
+    expect(yantra.record).toBeUndefined(); // el original quedó intacto
   });
 
   it('reconstruir en el taller deja constancia en la hoja', () => {
     let state = newCampaign(ECONOMY, factoryLoadout);
     state = { ...state, credits: 99999, roster: state.roster.map((z, i) => (i === 0 ? { ...z, hp: 0, destroyed: true } : z)) };
-    const rebuilt = rebuildZoid(state, 0, 120, ECONOMY);
-    expect(zoidRecord(rebuilt.roster[0]!).rebuilds).toBe(1);
+    const rebuilt = rebuildYantra(state, 0, 120, ECONOMY);
+    expect(yantraRecord(rebuilt.roster[0]!).rebuilds).toBe(1);
     expect(rebuilt.roster[0]!.destroyed).toBe(false);
   });
 
@@ -64,30 +64,30 @@ describe('hoja de servicio: la máquina no gana XP, pero sí historia', () => {
 
 describe('cicatrices en la silueta: deterministas y visibles', () => {
   it('nivel 0 no pinta nada; cada nivel añade una marca', () => {
-    expect(scarOverlay('liger-zero', 0)).toBe('');
+    expect(scarOverlay('centella', 0)).toBe('');
     for (const level of [1, 2, 3, 4]) {
-      const marks = scarOverlay('liger-zero', level);
+      const marks = scarOverlay('centella', level);
       const count = (marks.match(/<path|<rect/g) ?? []).length;
       expect(count).toBe(level);
     }
   });
 
   it('mismo chasis y nivel → mismas marcas; chasis distinto → distintas', () => {
-    expect(scarOverlay('liger-zero', 3)).toBe(scarOverlay('liger-zero', 3));
-    expect(scarOverlay('liger-zero', 3)).not.toBe(scarOverlay('gustav', 3));
+    expect(scarOverlay('centella', 3)).toBe(scarOverlay('centella', 3));
+    expect(scarOverlay('centella', 3)).not.toBe(scarOverlay('mula', 3));
   });
 
   it('spriteBody con cicatrices contiene la silueta Y las marcas', () => {
-    const clean = spriteBody('gustav');
-    const scarred = spriteBody('gustav', 2);
+    const clean = spriteBody('mula');
+    const scarred = spriteBody('mula', 2);
     expect(scarred.startsWith(clean)).toBe(true);
     expect(scarred.length).toBeGreaterThan(clean.length);
   });
 });
 
-describe('todo Zoid está vivo: núcleo para las no-compañeras', () => {
+describe('todo Yantra está vivo: núcleo para las no-compañeras', () => {
   it('los guardados viejos leen un núcleo verde', () => {
-    expect(zoidCore(bare())).toEqual({ markIds: [], memory: {}, rapport: 0 });
+    expect(yantraCore(bare())).toEqual({ markIds: [], memory: {}, rapport: 0 });
   });
 
   it('CORE_TABLE es el vínculo menor: 3 marcas, compenetración 6, sin tramos altos', () => {
@@ -123,7 +123,7 @@ describe('todo Zoid está vivo: núcleo para las no-compañeras', () => {
       roster: state.roster.map((z, i) =>
         (i === 1 ? { ...z, core: { markIds: ['diente-mellado'], memory: { bajas: 10 }, rapport: 4 } } : z)),
     };
-    const after = buyZoid(state, 1, 'molga', 120, ECONOMY, factoryLoadout);
+    const after = buyYantra(state, 1, 'tornillo', 120, ECONOMY, factoryLoadout);
     expect(after).not.toBe(state); // la compra ocurrió
     expect(after.roster[1]!.core).toBeUndefined();
   });

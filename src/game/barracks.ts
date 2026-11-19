@@ -213,9 +213,9 @@ export function rescuePilot(key: string, tier: 1 | 2 | 3): RecruitOffer {
 export const RESCUE_TIERS: Record<1 | 2 | 3, {
   pool: string[]; count: number; aiSkill: number; label: string;
 }> = {
-  1: { pool: ['molga', 'guysak', 'rev-raptor'], count: 3, aiSkill: 0.3, label: 'chusma de bandidos' },
-  2: { pool: ['command-wolf', 'rev-raptor', 'gun-sniper', 'guysak'], count: 3, aiSkill: 0.55, label: 'partida de guerra' },
-  3: { pool: ['zaber-fang', 'command-wolf', 'gun-sniper-naomi', 'redler'], count: 4, aiSkill: 0.8, label: 'veteranos a sueldo' },
+  1: { pool: ['tornillo', 'barrena', 'navaja'], count: 3, aiSkill: 0.3, label: 'chusma de bandidos' },
+  2: { pool: ['rastreador', 'navaja', 'visor', 'barrena'], count: 3, aiSkill: 0.55, label: 'partida de guerra' },
+  3: { pool: ['cizalla', 'rastreador', 'visor-c', 'saeta'], count: 4, aiSkill: 0.8, label: 'veteranos a sueldo' },
 };
 
 /** Escuadra concreta de un rescate, determinista por clave. */

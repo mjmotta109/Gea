@@ -42,15 +42,16 @@ import { GARAGE_MODULE_OPTIONS, MODULES } from '../data/modules.js';
 import { PERKS, SCHOOL_ABILITY } from '../data/progression.js';
 import { withWeaponLibrary } from '../data/weaponLibrary.js';
 import { WEAPONS } from '../data/weapons.js';
-import { ZOIDS } from '../data/zoids.js';
+import { YANTRAS } from '../data/yantras.js';
+import { lineageOf } from '../data/lineage.js';
 import {
-  armorRepairCost, buyBlueprint, buySupplies, buyWeapon, buyZoid, cityRepair, consumeSupplies,
-  contractOffers, mountedCount, newCampaign, rebuildCost, rebuildZoid, reinforceArmor,
+  armorRepairCost, buyBlueprint, buySupplies, buyWeapon, buyYantra, cityRepair, consumeSupplies,
+  contractOffers, mountedCount, newCampaign, rebuildCost, rebuildYantra, reinforceArmor,
   adaptationHint, campaignStrength, counterRoles, counterWeapons, readStyle, updateDossier,
-  refitZoid, reinforcementModifiers, repairArmor, repairCost, repairZoid, resolveContract, scarLevel,
+  refitYantra, reinforcementModifiers, repairArmor, repairCost, repairYantra, resolveContract, scarLevel,
   sellCargo, sellWeapon, serviceTier, setMountedWeapons, stashCargo, stripReinforcement,
-  tavernJob, updateZoidRecord, zoidCore, zoidRecord,
-  type CampaignState, type Contract, type OwnedZoid,
+  tavernJob, updateYantraRecord, yantraCore, yantraRecord,
+  type CampaignState, type Contract, type OwnedYantra,
 } from '../game/mercenary.js';
 import {
   canExplore, edgesTowardCivilization, exploreSite, neighbors, otherEnd,
@@ -82,9 +83,28 @@ import {
   bondExpedition, companionModifiers, newCompanion, observeCompanionBattle, recordCompanionEvent,
 } from '../game/companion.js';
 import { COMPANION_TABLE, CORE_TABLE } from '../data/marks.js';
+import { migrateLegacyJson } from '../game/rebrand.js';
+
+// ── Migración única de guardados al universo propio ─────────────────────
+// ANTES de cualquier carga: cada clave 'gea-*' se reescribe con los ids y
+// nombres nuevos (src/game/rebrand.ts). Una sola vez por navegador.
+(() => {
+  try {
+    if (localStorage.getItem('gea-rebrand-v1') === 'done') return;
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key || !key.startsWith('gea-')) continue;
+      const raw = localStorage.getItem(key);
+      if (raw === null) continue;
+      const migrated = migrateLegacyJson(raw);
+      if (migrated !== raw) localStorage.setItem(key, migrated);
+    }
+    localStorage.setItem('gea-rebrand-v1', 'done');
+  } catch { /* almacenamiento privado: nada que migrar */ }
+})();
 
 // Catálogos completos del cliente: base + anexo de la librería de armas.
-// Los Zoids de segunda generación montan armas 'lib-*' y los necesitan.
+// Los Yantras de segunda generación montan armas 'lib-*' y los necesitan.
 const CATALOGS = withWeaponLibrary(ABILITIES, WEAPONS);
 
 // ── Taller de contenido: lo creado por el director se superpone al
@@ -94,7 +114,7 @@ const TALLER_KEY = 'gea-taller-v1';
 
 function loadTaller(): TallerState {
   try {
-    return sanitizeTaller(JSON.parse(localStorage.getItem(TALLER_KEY) ?? '{}'), new Set(Object.keys(ZOIDS)));
+    return sanitizeTaller(JSON.parse(localStorage.getItem(TALLER_KEY) ?? '{}'), new Set(Object.keys(YANTRAS)));
   } catch { return emptyTaller(); }
 }
 
@@ -160,7 +180,7 @@ interface SlotConfig {
 
 const PLAYER_IDS = ['P1', 'P2', 'P3', 'P4'] as const;
 const PILOT_IDS = ['pilot-1', 'pilot-2', 'pilot-3', 'pilot-4'] as const;
-const DEFAULT_PILOT_NAMES = ['Van', 'Irvine', 'Moonbay', 'Fiona'];
+const DEFAULT_PILOT_NAMES = ['Iria', 'Basco', 'Noor', 'Tamsin'];
 const SPEC_LABEL: Record<SpecializationId, string> = {
   assault: 'Asalto', sniper: 'Tirador', support: 'Soporte', defense: 'Defensa',
 };
@@ -168,14 +188,14 @@ const GARAGE_KEY = 'gea-garage-v1';
 const PILOTS_KEY = 'gea-pilots-v1';
 
 function factorySlot(unitTypeId: string): SlotConfig {
-  return { unitTypeId, weapons: [...(ZOIDS[unitTypeId]!.weapons ?? [])], slots: {} };
+  return { unitTypeId, weapons: [...(YANTRAS[unitTypeId]!.weapons ?? [])], slots: {} };
 }
 
-const DEFAULT_TEAM = ['liger-zero-cas', 'command-wolf', 'gun-sniper-naomi', 'gustav'];
+const DEFAULT_TEAM = ['centella-m', 'rastreador', 'visor-c', 'mula'];
 
 /** Armas del catálogo montables en un chasis (mountSlot exige ese slot). */
 function compatibleWeapons(unitTypeId: string): string[] {
-  const def = ZOIDS[unitTypeId]!;
+  const def = YANTRAS[unitTypeId]!;
   return Object.values(CATALOGS.weaponCatalog)
     .filter((w) => !w.mountSlot || def.frame?.some((e) => e.slot === w.mountSlot))
     .map((w) => w.id)
@@ -185,8 +205,8 @@ function compatibleWeapons(unitTypeId: string): string[] {
 /** Valida un hueco guardado contra los catálogos actuales. */
 function sanitizeSlot(raw: unknown, fallbackType: string): SlotConfig {
   const candidate = (raw ?? {}) as Partial<SlotConfig>;
-  const unitTypeId = candidate.unitTypeId && ZOIDS[candidate.unitTypeId] ? candidate.unitTypeId : fallbackType;
-  const def = ZOIDS[unitTypeId]!;
+  const unitTypeId = candidate.unitTypeId && YANTRAS[candidate.unitTypeId] ? candidate.unitTypeId : fallbackType;
+  const def = YANTRAS[unitTypeId]!;
   const legal = new Set(compatibleWeapons(unitTypeId));
   const weapons = Array.isArray(candidate.weapons)
     ? candidate.weapons.filter((w) => legal.has(w)).slice(0, 3)
@@ -330,8 +350,8 @@ function enemyTeam(seed: number): UnitSpawn[] {
     state = (state * 1664525 + 1013904223) >>> 0;
     return state / 0x100000000;
   };
-  const commanders = ['geno-saurer-cp', 'iron-kong', 'blade-liger'];
-  const escorts = ['molga', 'pteras', 'zaber-fang', 'rev-raptor', 'guysak', 'redler', 'dibison', 'gordos', 'konig-wolf', 'shield-liger'];
+  const commanders = ['prisma-m', 'martinete', 'tizona'];
+  const escorts = ['tornillo', 'cometa', 'cizalla', 'navaja', 'barrena', 'saeta', 'bombarda', 'torreon', 'reticula', 'rodela'];
   const commander = commanders[Math.floor(next() * commanders.length)]!;
   const pool = [...escorts];
   const picks: string[] = [];
@@ -340,7 +360,7 @@ function enemyTeam(seed: number): UnitSpawn[] {
   }
   return [commander, ...picks].map((unitTypeId, i) => ({
     id: `E${i + 1}`,
-    name: ZOIDS[unitTypeId]!.name,
+    name: YANTRAS[unitTypeId]!.name,
     unitTypeId,
     team: 'enemy' as Team,
     position: ENEMY_POSITIONS[i]!,
@@ -461,7 +481,7 @@ function newBattle(seed: number, weather: WeatherId): void {
   const spawns: UnitSpawn[] = [
     ...garage.map((config, i) => ({
       id: PLAYER_IDS[i]!,
-      name: ZOIDS[config.unitTypeId]!.name,
+      name: YANTRAS[config.unitTypeId]!.name,
       unitTypeId: config.unitTypeId,
       team: 'player' as Team,
       position: field.playerPos[i]!,
@@ -596,7 +616,7 @@ function startReplay(): void {
   $('overlay').classList.remove('show');
   battle = new Battle({
     map: GameMap.fromAscii(recipe.mapRows),
-    unitCatalog: ZOIDS,
+    unitCatalog: YANTRAS,
     abilityCatalog: CATALOGS.abilityCatalog,
     moduleCatalog: MODULES,
     weaponCatalog: CATALOGS.weaponCatalog,
@@ -645,7 +665,7 @@ function startBattle(
 ): void {
   battle = new Battle({
     map,
-    unitCatalog: ZOIDS,
+    unitCatalog: YANTRAS,
     abilityCatalog: CATALOGS.abilityCatalog,
     moduleCatalog: MODULES,
     weaponCatalog: CATALOGS.weaponCatalog,
@@ -1432,8 +1452,8 @@ function grantedAbilityIds(slot: number): string[] {
 }
 
 /** Modificadores del núcleo propio al desplegar una no-compañera. */
-function coreSpawnModifiers(zoid: OwnedZoid): { modifiers: StatModifier[] } | Record<string, never> {
-  const mods = companionModifiers(zoidCore(zoid), CORE_TABLE);
+function coreSpawnModifiers(yantra: OwnedYantra): { modifiers: StatModifier[] } | Record<string, never> {
+  const mods = companionModifiers(yantraCore(yantra), CORE_TABLE);
   return mods.length > 0 ? { modifiers: mods } : {};
 }
 
@@ -1442,8 +1462,8 @@ function scarsFor(unitId: string): number {
   if (!campaign || !/^P\d+$/.test(unitId)) return 0;
   const slot = Number(unitId.slice(1)) - 1;
   if (!deployedSlots.includes(slot)) return 0; // escaramuza: sin historial
-  const zoid = campaign.roster[slot];
-  return zoid ? scarLevel(zoidRecord(zoid)) : 0;
+  const yantra = campaign.roster[slot];
+  return yantra ? scarLevel(yantraRecord(yantra)) : 0;
 }
 
 function dioramaScene(): DioramaScene {
@@ -2041,7 +2061,7 @@ function rosterCard(unit: UnitState, detailed: boolean, focusId: string | null):
           : `✦ <s>${ability.name}</s> — gastada`}</div>`);
       }
       if (frame) {
-        // El diagrama del casco ocupa: solo lo muestra el zoid SELECCIONADO
+        // El diagrama del casco ocupa: solo lo muestra el yantra SELECCIONADO
         // (por defecto el que tiene el turno). El resto va compacto con la
         // pista '▸ ver casco'. Uno a la vez: el panel no crece sin control.
         card.classList.add('frameable');
@@ -2072,7 +2092,7 @@ function rosterCard(unit: UnitState, detailed: boolean, focusId: string | null):
   return card;
 }
 
-/** Zoid cuyo CASCO se muestra desplegado. null = seguir al activo. Un muerto
+/** Yantra cuyo CASCO se muestra desplegado. null = seguir al activo. Un muerto
  *  cae de vuelta al activo. Solo UNO a la vez: así el panel no ocupa tanto. */
 let inspectedUnitId: string | null = null;
 
@@ -2092,7 +2112,7 @@ function renderRoster(): void {
 }
 
 /*
- * Diagrama de estado del Zoid: silueta lateral genérica (morro a la
+ * Diagrama de estado del Yantra: silueta lateral genérica (morro a la
  * derecha) con cada módulo como pieza coloreada por su HP. Los slots
  * son cadenas libres del frame: se asignan a regiones por patrón y lo
  * que no encaje se apila como bloque extra a la izquierda.
@@ -2666,7 +2686,7 @@ function showOverlay(): void {
   } else {
     $('ov-sub').textContent = won
       ? 'El equipo cian controla el campo. [Enter] para otra batalla.'
-      : 'Tus Zoids quedan fuera de combate. [Enter] para reintentar.';
+      : 'Tus yantras quedan fuera de combate. [Enter] para reintentar.';
     restartBtn.textContent = 'Nueva batalla';
   }
   $('ov-xp').innerHTML = renderXpSummary();
@@ -2757,15 +2777,17 @@ const WEIGHT_ICON: Record<string, string> = {
 };
 
 function weightOf(unitTypeId: string): string {
-  return ZOIDS[unitTypeId]?.weightClass ?? 'ligero';
+  return YANTRAS[unitTypeId]?.weightClass ?? 'ligero';
 }
 
-/** Insignia corta de clase: «█ extrapesado · tanque». */
+/** Insignia corta de clase: «ALB-90 · Albion · █ extrapesado · tanque». */
 function chassisClassLabel(unitTypeId: string): string {
-  const def = ZOIDS[unitTypeId];
+  const def = YANTRAS[unitTypeId];
   if (!def) return '';
   const w = weightOf(unitTypeId);
-  return `${WEIGHT_ICON[w]} ${w} · ${ROLE_LABEL[def.role] ?? def.role}`;
+  const lineage = lineageOf(unitTypeId);
+  const origin = lineage ? `${lineage.designation} · ${lineage.traditionData.name} · ` : '';
+  return `${origin}${WEIGHT_ICON[w]} ${w} · ${ROLE_LABEL[def.role] ?? def.role}`;
 }
 
 function openGarage(): void {
@@ -2785,7 +2807,7 @@ function previewStats(config: SlotConfig, pilotId?: string): ReturnType<Battle['
   try {
     const preview = new Battle({
       map: VALLEY_CROSSING,
-      unitCatalog: ZOIDS,
+      unitCatalog: YANTRAS,
       abilityCatalog: CATALOGS.abilityCatalog,
       moduleCatalog: MODULES,
       weaponCatalog: CATALOGS.weaponCatalog,
@@ -2806,7 +2828,7 @@ function previewStats(config: SlotConfig, pilotId?: string): ReturnType<Battle['
 function synergyPieces(config: SlotConfig, pilot: PilotState): { spec: SpecializationId; count: number } | undefined {
   const dominant = pilot.mainSpec;
   if (!dominant || trackLevel(pilot.tracks[dominant]) === 0) return undefined;
-  const def = ZOIDS[config.unitTypeId]!;
+  const def = YANTRAS[config.unitTypeId]!;
   const specs: (SpecializationId | undefined)[] = [
     ...config.weapons.map((w) => CATALOGS.weaponCatalog[w]?.spec),
     ...(def.frame ?? []).map((entry) => MODULES[config.slots[entry.slot] ?? entry.moduleId]?.spec),
@@ -2846,7 +2868,7 @@ function renderGarage(): void {
   host.innerHTML = '';
 
   garage.forEach((config, index) => {
-    const def = ZOIDS[config.unitTypeId]!;
+    const def = YANTRAS[config.unitTypeId]!;
     const pilotId = crewId(index);
     const pilot = pilots[pilotId]!;
     const card = document.createElement('div');
@@ -2888,12 +2910,12 @@ function renderGarage(): void {
     };
 
     // Chasis (solo los con precio: las bestias de escenario no se pilotan).
-    const zoidSelect = document.createElement('select');
+    const yantraSelect = document.createElement('select');
     for (const weight of WEIGHT_ORDER) {
       const group = document.createElement('optgroup');
       group.label = `${WEIGHT_ICON[weight]} ${weight.toUpperCase()}`;
-      for (const unit of Object.values(ZOIDS)) {
-        if (ECONOMY.zoidPrices[unit.id] === undefined) continue;
+      for (const unit of Object.values(YANTRAS)) {
+        if (ECONOMY.yantraPrices[unit.id] === undefined) continue;
         if (weightOf(unit.id) !== weight) continue;
         const opt = document.createElement('option');
         opt.value = unit.id;
@@ -2901,14 +2923,14 @@ function renderGarage(): void {
         if (unit.id === config.unitTypeId) opt.selected = true;
         group.appendChild(opt);
       }
-      if (group.childElementCount > 0) zoidSelect.appendChild(group);
+      if (group.childElementCount > 0) yantraSelect.appendChild(group);
     }
-    zoidSelect.addEventListener('change', () => {
-      garage[index] = factorySlot(zoidSelect.value);
+    yantraSelect.addEventListener('change', () => {
+      garage[index] = factorySlot(yantraSelect.value);
       saveGarage();
       renderGarage();
     });
-    mkRow('Zoid', zoidSelect);
+    mkRow('Yantra', yantraSelect);
 
     // Armas (hasta 3; el chasis pone las innatas gratis aparte).
     const legalWeapons = compatibleWeapons(config.unitTypeId);
@@ -2998,7 +3020,7 @@ const TIER_LABEL: Record<Contract['tier'], string> = {
 };
 
 const factoryLoadout = (unitTypeId: string): { weapons: string[]; slots: Record<string, string> } =>
-  ({ weapons: [...(ZOIDS[unitTypeId]!.weapons ?? [])], slots: {} });
+  ({ weapons: [...(YANTRAS[unitTypeId]!.weapons ?? [])], slots: {} });
 
 function loadCampaign(): CampaignState | null {
   try {
@@ -3051,12 +3073,12 @@ function saveCampaign(): void {
 
 /** maxHp real del hueco (motor manda: montaje + perks del piloto). */
 function campaignMaxHp(slot: number): number {
-  const zoid = campaign!.roster[slot]!;
+  const yantra = campaign!.roster[slot]!;
   const stats = previewStats(
-    { unitTypeId: zoid.unitTypeId, weapons: zoid.weapons, slots: zoid.slots },
+    { unitTypeId: yantra.unitTypeId, weapons: yantra.weapons, slots: yantra.slots },
     crewId(slot),
   );
-  return stats?.maxHp ?? ZOIDS[zoid.unitTypeId]!.stats.maxHp;
+  return stats?.maxHp ?? YANTRAS[yantra.unitTypeId]!.stats.maxHp;
 }
 
 function openMerc(): void {
@@ -3232,20 +3254,20 @@ function renderAssignments(): void {
       `<div class="ameta">${spec.days} jornadas · paga ⌾${spec.reward} · XP ${xpBits}</div>`;
     // La compañera (hueco 1) no se separa de ti: destacables 2-4.
     const candidates = campaign!.roster
-      .map((zoid, slot) => ({ zoid, slot }))
-      .filter(({ zoid, slot }) => slot > 0 && !zoid.destroyed &&
+      .map((yantra, slot) => ({ yantra, slot }))
+      .filter(({ yantra, slot }) => slot > 0 && !yantra.destroyed &&
         !isInjured(crewPilot(slot)) && !assignmentOf(slot));
     const btn = document.createElement('button');
     btn.textContent = candidates.length > 0 ? '📡 Destacar piloto…' : 'sin pilotos disponibles';
     btn.disabled = candidates.length === 0;
     btn.addEventListener('click', () => {
       void uiChoice(`¿A quién destacas? ${spec.name} (${spec.days} jornadas). Su máquina se va con él: no despliega hasta volver.`,
-        candidates.map(({ zoid, slot }) => {
+        candidates.map(({ yantra, slot }) => {
           const pilot = crewPilot(slot);
           const levels = SPECIALIZATIONS.reduce((n, t) => n + trackLevel(pilot.tracks[t]), 0);
           return {
             id: String(slot),
-            label: `${pilot.name} — ${ZOIDS[zoid.unitTypeId]!.name}`,
+            label: `${pilot.name} — ${YANTRAS[yantra.unitTypeId]!.name}`,
             detail: `${levels} niveles de pista (a más experiencia, mejor grado de éxito)`,
           };
         })).then((slotId) => {
@@ -3313,7 +3335,7 @@ function renderContracts(): void {
       `<div class="ctier ${contract.tier}">${TIER_LABEL[contract.tier]}${contract.id.startsWith('txc-') ? ' · 🛠 taller' : ''}</div>` +
       `<div class="cname">${escapeHtml(contract.name)}</div>` +
       `<div class="creward">recompensa ⌾${contract.reward} · chatarra ⌾${contract.salvagePerKill}/baja</div>` +
-      `<div class="csquad">contra: ${contract.enemySquad.map((id) => ZOIDS[id]!.name).join(' · ')}</div>`;
+      `<div class="csquad">contra: ${contract.enemySquad.map((id) => YANTRAS[id]!.name).join(' · ')}</div>`;
     card.addEventListener('click', () => {
       selectedContractId = contract.id;
       renderMerc();
@@ -3325,8 +3347,8 @@ function renderContracts(): void {
 function renderMercHangar(): void {
   const host = $('merc-hangar');
   host.innerHTML = '';
-  campaign!.roster.forEach((zoid, slot) => {
-    const def = ZOIDS[zoid.unitTypeId]!;
+  campaign!.roster.forEach((yantra, slot) => {
+    const def = YANTRAS[yantra.unitTypeId]!;
     const pilot = crewPilot(slot);
     const maxHp = campaignMaxHp(slot);
     const card = document.createElement('div');
@@ -3335,27 +3357,27 @@ function renderMercHangar(): void {
     card.innerHTML =
       `<div class="ghead-row"><span class="gtag">P${slot + 1}${slot === 0 ? ' ❤' : ''}</span>` +
       `<b style="font-family:var(--mono);font-size:13px;white-space:nowrap">${def.name}</b></div>` +
-      `<div class="gmuted" style="font-size:9px;margin:2px 0 4px">${chassisClassLabel(zoid.unitTypeId)}` +
+      `<div class="gmuted" style="font-size:9px;margin:2px 0 4px">${chassisClassLabel(yantra.unitTypeId)}` +
       (slot === 0 ? ' · <span style="letter-spacing:0.14em;color:var(--accent)">COMPAÑERA</span>' : '') +
       '</div>' +
       `<div class="gtracks">${escapeHtml(pilot.name)}${isInjured(pilot) ? ` <span class="symptom">🩹 ${pilot.injuryDays}j</span>` : ''}${assignmentOf(slot) ? ' <span class="symptom" style="border-color:var(--player);color:var(--player)">📡 destacado</span>' : ''} · ${pilotSummary(pilot)}</div>`;
     {
-      const record = zoidRecord(zoid);
+      const record = yantraRecord(yantra);
       const tier = serviceTier(record);
       const scars = scarLevel(record);
       card.insertAdjacentHTML('beforeend',
-        `<div class="gservice"><span class="gsil">${unitSprite(zoid.unitTypeId, 'east', scars)}</span>` +
+        `<div class="gservice"><span class="gsil">${unitSprite(yantra.unitTypeId, 'east', scars)}</span>` +
         `<span>📜 ${tier.label} · ${record.battles} batalla${record.battles === 1 ? '' : 's'} · ${record.kills} derribo${record.kills === 1 ? '' : 's'}` +
         `${record.rebuilds > 0 ? ` · ${record.rebuilds} ${record.rebuilds === 1 ? 'reconstrucción' : 'reconstrucciones'}` : ''}` +
         `${record.ejections > 0 ? ` · ${record.ejections} ${record.ejections === 1 ? 'eyección' : 'eyecciones'}` : ''}` +
         `${scars > 0 ? ` · <span class="symptom">${'✚'.repeat(scars)} cicatrices</span>` : ''}</span></div>`);
     }
     {
-      // Todo Zoid está vivo: cada carta enseña su núcleo. La compañera
+      // Todo Yantra está vivo: cada carta enseña su núcleo. La compañera
       // usa su tabla completa; el resto, la de núcleo (techos más bajos).
       const bio = document.createElement('div');
       bio.className = 'gbio';
-      const core = slot === 0 ? campaign!.companion : zoidCore(zoid);
+      const core = slot === 0 ? campaign!.companion : yantraCore(yantra);
       const table = slot === 0 ? COMPANION_TABLE : CORE_TABLE;
       const tier = [...table.rapportTiers].sort((a, b) => b.min - a.min)
         .find((t) => core.rapport >= t.min);
@@ -3372,8 +3394,8 @@ function renderMercHangar(): void {
       card.appendChild(bio);
     }
 
-    if (zoid.destroyed) {
-      const cost = rebuildCost(zoid, ECONOMY);
+    if (yantra.destroyed) {
+      const cost = rebuildCost(yantra, ECONOMY);
       const wreck = document.createElement('div');
       wreck.className = 'gwreck';
       wreck.textContent = '💥 DESTRUIDO — no se desplegará';
@@ -3383,12 +3405,12 @@ function renderMercHangar(): void {
       btn.textContent = `Reconstruir (⌾${cost})`;
       btn.disabled = campaign!.credits < cost;
       btn.addEventListener('click', () => {
-        campaign = rebuildZoid(campaign!, slot, campaignMaxHp(slot), ECONOMY);
+        campaign = rebuildYantra(campaign!, slot, campaignMaxHp(slot), ECONOMY);
         if (slot === 0) {
           const marked = recordCompanionEvent(campaign.companion, 'reconstrucciones', COMPANION_TABLE);
           campaign = { ...campaign, companion: marked.companion };
         } else {
-          const marked = recordCompanionEvent(zoidCore(campaign.roster[slot]!), 'reconstrucciones', CORE_TABLE);
+          const marked = recordCompanionEvent(yantraCore(campaign.roster[slot]!), 'reconstrucciones', CORE_TABLE);
           campaign = {
             ...campaign,
             roster: campaign.roster.map((z, i) => (i === slot ? { ...z, core: marked.companion } : z)),
@@ -3399,21 +3421,21 @@ function renderMercHangar(): void {
       });
       card.appendChild(btn);
     } else {
-      const hp = Math.min(zoid.hp, maxHp);
+      const hp = Math.min(yantra.hp, maxHp);
       const row = document.createElement('div');
       row.className = 'ghp';
       row.innerHTML =
         `<span>HP</span><span class="bar hp"><i style="width:${Math.round((hp / maxHp) * 100)}%"></i></span>` +
         `<span>${hp}/${maxHp}</span>`;
       card.appendChild(row);
-      const cost = repairCost(zoid, maxHp, ECONOMY);
+      const cost = repairCost(yantra, maxHp, ECONOMY);
       if (cost > 0) {
         const btn = document.createElement('button');
         btn.className = 'gbtn';
         btn.textContent = `Reparar (⌾${cost})`;
         btn.disabled = campaign!.credits < cost;
         btn.addEventListener('click', () => {
-          campaign = repairZoid(campaign!, slot, campaignMaxHp(slot), ECONOMY);
+          campaign = repairYantra(campaign!, slot, campaignMaxHp(slot), ECONOMY);
           saveCampaign();
           renderMerc();
         });
@@ -3423,15 +3445,15 @@ function renderMercHangar(): void {
 
     // Refuerzo de blindaje: un búnker que absorbe antes que el casco, a
     // cambio de velocidad. Se monta, se repara y se quita en el taller.
-    if (!zoid.destroyed) {
+    if (!yantra.destroyed) {
       const r = ECONOMY.reinforcement;
-      if (zoid.reinforced) {
-        const armor = Math.max(0, Math.min(zoid.armor ?? r.armor, r.armor));
+      if (yantra.reinforced) {
+        const armor = Math.max(0, Math.min(yantra.armor ?? r.armor, r.armor));
         const note = document.createElement('div');
         note.className = 'gnote';
         note.textContent = `🛡 Blindaje de refuerzo: ${armor}/${r.armor}${armor < r.armor ? ' (gastado)' : ''} · −${r.movePenalty} MOV al desplegar`;
         card.appendChild(note);
-        const repCost = armorRepairCost(zoid, ECONOMY);
+        const repCost = armorRepairCost(yantra, ECONOMY);
         if (repCost > 0) {
           const rb = document.createElement('button');
           rb.className = 'gbtn';
@@ -3469,11 +3491,11 @@ function renderMercHangar(): void {
     keep.value = '';
     keep.textContent = `${def.name} (actual)`;
     chassisSelect.appendChild(keep);
-    for (const unit of Object.values(ZOIDS)) {
-      if (unit.id === zoid.unitTypeId) continue;
-      const price = ECONOMY.zoidPrices[unit.id];
+    for (const unit of Object.values(YANTRAS)) {
+      if (unit.id === yantra.unitTypeId) continue;
+      const price = ECONOMY.yantraPrices[unit.id];
       if (price === undefined) continue;
-      const probe = buyZoid(campaign!, slot, unit.id, maxHp, ECONOMY, factoryLoadout);
+      const probe = buyYantra(campaign!, slot, unit.id, maxHp, ECONOMY, factoryLoadout);
       const net = campaign!.credits - probe.credits;
       const opt = document.createElement('option');
       opt.value = unit.id;
@@ -3489,7 +3511,7 @@ function renderMercHangar(): void {
           return;
         }
       } else if (slot !== 0) {
-        const core = zoidCore(zoid);
+        const core = yantraCore(yantra);
         if (core.markIds.length > 0 || core.rapport > 0) {
           if (!(await uiConfirm('El núcleo de esta máquina tiene historia grabada. El chasis nuevo llega verde: marcas y compenetración se pierden. ¿Seguro?'))) {
             renderMerc();
@@ -3498,7 +3520,7 @@ function renderMercHangar(): void {
         }
       }
       const before = campaign!;
-      campaign = buyZoid(campaign!, slot, chassisSelect.value, maxHp, ECONOMY, factoryLoadout);
+      campaign = buyYantra(campaign!, slot, chassisSelect.value, maxHp, ECONOMY, factoryLoadout);
       if (slot === 0 && campaign !== before) {
         campaign = { ...campaign, companion: newCompanion() };
       }
@@ -3508,10 +3530,10 @@ function renderMercHangar(): void {
     mkRow('Cambiar chasis', chassisSelect);
 
     // Armas: solo las que se poseen y tienen unidad libre.
-    if (!zoid.destroyed) {
-      const legal = compatibleWeapons(zoid.unitTypeId);
+    if (!yantra.destroyed) {
+      const legal = compatibleWeapons(yantra.unitTypeId);
       for (let wSlot = 0; wSlot < 3; wSlot++) {
-        const current = zoid.weapons[wSlot] ?? '';
+        const current = yantra.weapons[wSlot] ?? '';
         const weaponSelect = document.createElement('select');
         const none = document.createElement('option');
         none.value = '';
@@ -3531,7 +3553,7 @@ function renderMercHangar(): void {
         }
         weaponSelect.addEventListener('change', () => {
           const picked = [0, 1, 2]
-            .map((s) => (s === wSlot ? weaponSelect.value : zoid.weapons[s] ?? ''))
+            .map((s) => (s === wSlot ? weaponSelect.value : yantra.weapons[s] ?? ''))
             .filter(Boolean);
           campaign = setMountedWeapons(campaign!, slot, picked);
           saveCampaign();
@@ -3554,11 +3576,11 @@ function renderMercHangar(): void {
           opt.textContent = moduleId === entry.moduleId
             ? `${module.name} (fábrica)`
             : module.spec ? `${module.name} [${SPEC_LABEL[module.spec]}]` : module.name;
-          if ((zoid.slots[entry.slot] ?? entry.moduleId) === moduleId) opt.selected = true;
+          if ((yantra.slots[entry.slot] ?? entry.moduleId) === moduleId) opt.selected = true;
           moduleSelect.appendChild(opt);
         }
         moduleSelect.addEventListener('change', () => {
-          const slots = { ...zoid.slots };
+          const slots = { ...yantra.slots };
           if (moduleSelect.value === entry.moduleId) delete slots[entry.slot];
           else slots[entry.slot] = moduleSelect.value;
           campaign = {
@@ -3573,7 +3595,7 @@ function renderMercHangar(): void {
 
       // Stats en vivo con las piezas actuales.
       const stats = previewStats(
-        { unitTypeId: zoid.unitTypeId, weapons: zoid.weapons, slots: zoid.slots },
+        { unitTypeId: yantra.unitTypeId, weapons: yantra.weapons, slots: yantra.slots },
         crewId(slot),
       );
       if (stats) {
@@ -3652,15 +3674,15 @@ function renderMercStore(): void {
 /** Candidatos a salir (vivos, sanos y sin destacar), sin la compañera. */
 function partyCandidates(): Array<{ slot: number; label: string; detail: string }> {
   return campaign!.roster
-    .map((zoid, slot) => ({ zoid, slot }))
-    .filter(({ zoid, slot }) => slot > 0 && !zoid.destroyed &&
+    .map((yantra, slot) => ({ yantra, slot }))
+    .filter(({ yantra, slot }) => slot > 0 && !yantra.destroyed &&
       !isInjured(crewPilot(slot)) && !assignmentOf(slot))
-    .map(({ zoid, slot }) => {
+    .map(({ yantra, slot }) => {
       const pilot = crewPilot(slot);
       return {
         slot,
-        label: `${pilot.name} — ${ZOIDS[zoid.unitTypeId]!.name}`,
-        detail: `${Math.min(zoid.hp, campaignMaxHp(slot))}/${campaignMaxHp(slot)} HP · ${pilotSummary(pilot).replace(/<[^>]+>/g, '') || 'novato'}`,
+        label: `${pilot.name} — ${YANTRAS[yantra.unitTypeId]!.name}`,
+        detail: `${Math.min(yantra.hp, campaignMaxHp(slot))}/${campaignMaxHp(slot)} HP · ${pilotSummary(pilot).replace(/<[^>]+>/g, '') || 'novato'}`,
       };
     });
 }
@@ -3714,7 +3736,7 @@ function adaptiveWeight(): ((id: string) => number) | undefined {
   if (campaignAiSkill() < 0.45) return undefined; // la facción aún no te estudia (curva)
   const roles = counterRoles(readStyle(campaign?.dossier));
   if (roles.length === 0) return undefined;
-  return (id: string) => (roles.includes(ZOIDS[id]?.role ?? '') ? 2.2 : 1);
+  return (id: string) => (roles.includes(YANTRAS[id]?.role ?? '') ? 2.2 : 1);
 }
 
 /**
@@ -3729,7 +3751,7 @@ function enemyCounterLoadout(unitTypeId: string, index: number): { weapons: stri
   const cw = counterWeapons(readStyle(campaign?.dossier));
   if (cw.length === 0 || index % 2 !== 0) return undefined;
   const counter = cw[(index / 2) % cw.length]!;
-  const factory = ZOIDS[unitTypeId]?.weapons ?? [];
+  const factory = YANTRAS[unitTypeId]?.weapons ?? [];
   return { weapons: [counter, ...factory].filter((w, j, a) => a.indexOf(w) === j).slice(0, 3) };
 }
 
@@ -3848,34 +3870,34 @@ function settleContract(): string {
     campaign = {
       ...campaign,
       dossier: updateDossier(campaign.dossier, { melee, ranged, overclocks }),
-      roster: campaign.roster.map((zoid, slot) => {
-        if (!deployedSlots.includes(slot)) return zoid;
+      roster: campaign.roster.map((yantra, slot) => {
+        if (!deployedSlots.includes(slot)) return yantra;
         const unit = battle.units.find((u) => u.id === `P${slot + 1}`);
-        if (!unit) return zoid;
-        const before = serviceTier(zoidRecord(zoid));
-        const updated = updateZoidRecord(zoid, {
+        if (!unit) return yantra;
+        const before = serviceTier(yantraRecord(yantra));
+        const updated = updateYantraRecord(yantra, {
           battles: 1,
           kills: kills.get(unit.id) ?? 0,
           ejections: unit.ejected ? 1 : 0,
           retreats: unit.retreated ? 1 : 0,
         });
-        const after = serviceTier(zoidRecord(updated));
+        const after = serviceTier(yantraRecord(updated));
         if (after.min > before.min) {
-          const record = zoidRecord(updated);
-          serviceLines.push(`⭐ El ${ZOIDS[zoid.unitTypeId]!.name} ya es ${after.label.toUpperCase()}: ${record.battles} batallas y ${record.kills} derribos a cuestas.`);
+          const record = yantraRecord(updated);
+          serviceLines.push(`⭐ El ${YANTRAS[yantra.unitTypeId]!.name} ya es ${after.label.toUpperCase()}: ${record.battles} batallas y ${record.kills} derribos a cuestas.`);
         }
-        // Todo Zoid está vivo: su núcleo también graba (la compañera lo
+        // Todo Yantra está vivo: su núcleo también graba (la compañera lo
         // hace aparte, con su tabla completa).
         if (slot === 0) return updated;
-        const observed = observeCompanionBattle(zoidCore(updated), {
+        const observed = observeCompanionBattle(yantraCore(updated), {
           events: allEvents, unitId: `P${slot + 1}`,
           finalHpRatio: unit.hp / Math.max(1, battle.effectiveStats(unit).maxHp),
           weather: battle.weather,
         }, CORE_TABLE);
         for (const mark of observed.gained) {
-          serviceLines.push(`❖ El núcleo del ${ZOIDS[zoid.unitTypeId]!.name} graba una marca: ${mark.name}.`);
+          serviceLines.push(`❖ El núcleo del ${YANTRAS[yantra.unitTypeId]!.name} graba una marca: ${mark.name}.`);
           companionMarkLines.push(
-            `<div>❖ El núcleo del <b>${ZOIDS[zoid.unitTypeId]!.name}</b> graba una marca: <b class="lvlup">${mark.name}</b> — <span style="color:var(--muted)">${escapeHtml(mark.description)}</span></div>`);
+            `<div>❖ El núcleo del <b>${YANTRAS[yantra.unitTypeId]!.name}</b> graba una marca: <b class="lvlup">${mark.name}</b> — <span style="color:var(--muted)">${escapeHtml(mark.description)}</span></div>`);
         }
         return { ...updated, core: observed.companion };
       }),
@@ -3919,7 +3941,7 @@ function settleContract(): string {
       `<div class="mgain">+⌾${settled.report.creditsEarned}${settled.report.rewardPaid ? '' : ' (sin paga: solo chatarra)'}</div>`,
     ];
     if (settled.report.lost.length > 0) {
-      lines.push(`<div class="mloss">bajas: ${settled.report.lost.map((id) => ZOIDS[id]!.name).join(', ')}</div>`);
+      lines.push(`<div class="mloss">bajas: ${settled.report.lost.map((id) => YANTRAS[id]!.name).join(', ')}</div>`);
     }
     return lines.join('');
   }
@@ -3971,7 +3993,7 @@ function settleContract(): string {
     `<div class="mgain">+⌾${report.creditsEarned} (${report.rewardPaid ? `recompensa ⌾${contract.reward} + ` : 'sin recompensa · '}chatarra ⌾${report.salvage})</div>`,
   ];
   if (report.lost.length > 0) {
-    lines.push(`<div class="mloss">bajas: ${report.lost.map((id) => ZOIDS[id]!.name).join(', ')} — reconstruir cuesta el 60%</div>`);
+    lines.push(`<div class="mloss">bajas: ${report.lost.map((id) => YANTRAS[id]!.name).join(', ')} — reconstruir cuesta el 60%</div>`);
   }
   lines.push(`<div class="pv-muted" style="color:var(--muted)">saldo: ⌾${campaign.credits}</div>`);
   return lines.join('');
@@ -3999,14 +4021,14 @@ function settleSkirmish(): string {
   const res = survivorResidual();
   campaign = {
     ...campaign,
-    roster: campaign.roster.map((zoid, slot) => {
-      if (!deployedSlots.includes(slot)) return zoid;
+    roster: campaign.roster.map((yantra, slot) => {
+      if (!deployedSlots.includes(slot)) return yantra;
       const u = battle.unit(`P${slot + 1}`);
-      if (u.hp <= 0) return { ...zoid, hp: 0, destroyed: true };
+      if (u.hp <= 0) return { ...yantra, hp: 0, destroyed: true };
       return {
-        ...zoid,
+        ...yantra,
         hp: u.hp,
-        ...(zoid.reinforced ? { armor: u.armor ?? 0 } : {}),
+        ...(yantra.reinforced ? { armor: u.armor ?? 0 } : {}),
         residualHeat: res.heat[slot],
         residualEnergy: res.energy[slot],
         ammo: res.ammo[slot],
@@ -4689,7 +4711,7 @@ function cityDoors(city: { level: number; factory?: string }): Array<{ key: stri
   ];
   if (city.factory === 'armas') doors.push({ key: '🏭 Fábrica', icon: '🏭', name: 'Fábrica de armas', sub: 'armamento con descuento local' });
   if (city.factory === 'piezas') doors.push({ key: '🏭 Fábrica', icon: '🏭', name: 'Fábrica de piezas', sub: 'planos de módulos' });
-  if (city.level >= 2) doors.push({ key: '🏗 Fabricación', icon: '🏗', name: 'Fabricación de Zoids', sub: 'encargar chasis con retoma' });
+  if (city.level >= 2) doors.push({ key: '🏗 Fabricación', icon: '🏗', name: 'Fabricación de yantras', sub: 'encargar chasis con retoma' });
   if (city.level >= 2) doors.push({ key: '🏛 Agencia', icon: '🏛', name: 'Agencia de Colocación', sub: 'pilotos certificados del Estado' });
   doors.push(
     { key: '🔧 Modificación', icon: '🔧', name: 'Modificación', sub: 'tunear armas y módulos' },
@@ -4771,7 +4793,7 @@ function healingDays(days: number): void {
   // propia reparación en el taller.
   if (campaign && campaign.roster.some((z) =>
     z.residualHeat !== undefined || z.residualEnergy !== undefined || z.ammo !== undefined)) {
-    campaign = { ...campaign, roster: campaign.roster.map(refitZoid) };
+    campaign = { ...campaign, roster: campaign.roster.map(refitYantra) };
     saveCampaign();
   }
 }
@@ -4836,21 +4858,21 @@ function renderCity(): void {
   taller.insertAdjacentHTML('beforeend',
     `<div class="cnote">Repara hasta el ${Math.round(tier.repairCapRatio * 100)}% del casco a ⌾${px(tier.repairCostPerHp)}/HP. La munición se repone al desplegar (incluida).</div>`);
   let anyRepair = false;
-  campaign.roster.forEach((zoid, slot) => {
-    if (zoid.destroyed) {
+  campaign.roster.forEach((yantra, slot) => {
+    if (yantra.destroyed) {
       taller.insertAdjacentHTML('beforeend',
-        `<div class="cnote">💥 ${ZOIDS[zoid.unitTypeId]!.name}: destruido — la reconstrucción es cosa del cuartel.</div>`);
+        `<div class="cnote">💥 ${YANTRAS[yantra.unitTypeId]!.name}: destruido — la reconstrucción es cosa del cuartel.</div>`);
       return;
     }
     const maxHp = campaignMaxHp(slot);
     const cap = Math.round(maxHp * tier.repairCapRatio);
-    const current = Math.min(zoid.hp, maxHp);
+    const current = Math.min(yantra.hp, maxHp);
     const healable = Math.max(0, cap - current);
     if (healable <= 0) return;
     anyRepair = true;
     const row = document.createElement('div');
     row.className = 'crow';
-    row.innerHTML = `<span class="lbl">${ZOIDS[zoid.unitTypeId]!.name} · ${current}/${maxHp} HP</span>`;
+    row.innerHTML = `<span class="lbl">${YANTRAS[yantra.unitTypeId]!.name} · ${current}/${maxHp} HP</span>`;
     for (const fraction of [0.25, 0.5, 1]) {
       const heal = Math.max(0, Math.round(healable * fraction));
       const cost = Math.round(heal * px(tier.repairCostPerHp));
@@ -4928,21 +4950,21 @@ function renderCity(): void {
     }
   }
 
-  // 🏗 FABRICACIÓN DE ZOIDS — encargar chasis (nivel 2+).
+  // 🏗 FABRICACIÓN DE YANTRAS — encargar chasis (nivel 2+).
   if (city.level >= 2) {
-    const yard = citySection('🏗 Fabricación de Zoids — encargo con retoma');
-    campaign.roster.forEach((zoid, slot) => {
+    const yard = citySection('🏗 Fabricación de yantras — encargo con retoma');
+    campaign.roster.forEach((yantra, slot) => {
       const maxHp = campaignMaxHp(slot);
       const select = document.createElement('select');
       const keep = document.createElement('option');
       keep.value = '';
-      keep.textContent = `P${slot + 1} ${ZOIDS[zoid.unitTypeId]!.name}${slot === 0 ? ' ❤' : ''} (mantener)`;
+      keep.textContent = `P${slot + 1} ${YANTRAS[yantra.unitTypeId]!.name}${slot === 0 ? ' ❤' : ''} (mantener)`;
       select.appendChild(keep);
-      for (const unit of Object.values(ZOIDS)) {
-        if (unit.id === zoid.unitTypeId) continue;
-        const price = ECONOMY.zoidPrices[unit.id];
+      for (const unit of Object.values(YANTRAS)) {
+        if (unit.id === yantra.unitTypeId) continue;
+        const price = ECONOMY.yantraPrices[unit.id];
         if (price === undefined) continue;
-        const probe = buyZoid(campaign!, slot, unit.id, maxHp, ECONOMY, factoryLoadout);
+        const probe = buyYantra(campaign!, slot, unit.id, maxHp, ECONOMY, factoryLoadout);
         const net = campaign!.credits - probe.credits;
         const opt = document.createElement('option');
         opt.value = unit.id;
@@ -4959,7 +4981,7 @@ function renderCity(): void {
           }
         }
         const before = campaign!;
-        campaign = buyZoid(campaign!, slot, select.value, maxHp, ECONOMY, factoryLoadout);
+        campaign = buyYantra(campaign!, slot, select.value, maxHp, ECONOMY, factoryLoadout);
         if (slot === 0 && campaign !== before) campaign = { ...campaign, companion: newCompanion() };
         saveCampaign(); renderCity();
       });
@@ -4969,14 +4991,14 @@ function renderCity(): void {
 
   // 🔧 MODIFICACIÓN — tunear: armas del arsenal y módulos con plano.
   const mod = citySection('🔧 Modificación (tunear)');
-  campaign.roster.forEach((zoid, slot) => {
-    if (zoid.destroyed) return;
-    const def = ZOIDS[zoid.unitTypeId]!;
+  campaign.roster.forEach((yantra, slot) => {
+    if (yantra.destroyed) return;
+    const def = YANTRAS[yantra.unitTypeId]!;
     mod.insertAdjacentHTML('beforeend',
       `<div class="cnote"><b style="color:var(--ink)">P${slot + 1} ${def.name}${slot === 0 ? ' ❤' : ''}</b></div>`);
-    const legal = compatibleWeapons(zoid.unitTypeId);
+    const legal = compatibleWeapons(yantra.unitTypeId);
     for (let wSlot = 0; wSlot < 3; wSlot++) {
-      const current = zoid.weapons[wSlot] ?? '';
+      const current = yantra.weapons[wSlot] ?? '';
       const select = document.createElement('select');
       select.innerHTML = '<option value="">— sin arma —</option>';
       for (const weaponId of legal) {
@@ -4992,7 +5014,7 @@ function renderCity(): void {
         select.appendChild(opt);
       }
       select.addEventListener('change', () => {
-        const picked = [0, 1, 2].map((i) => (i === wSlot ? select.value : zoid.weapons[i] ?? '')).filter(Boolean);
+        const picked = [0, 1, 2].map((i) => (i === wSlot ? select.value : yantra.weapons[i] ?? '')).filter(Boolean);
         campaign = setMountedWeapons(campaign!, slot, picked);
         saveCampaign(); renderCity();
       });
@@ -5008,11 +5030,11 @@ function renderCity(): void {
         const opt = document.createElement('option');
         opt.value = moduleId;
         opt.textContent = moduleId === entry.moduleId ? `${module.name} (fábrica)` : module.name;
-        if ((zoid.slots[entry.slot] ?? entry.moduleId) === moduleId) opt.selected = true;
+        if ((yantra.slots[entry.slot] ?? entry.moduleId) === moduleId) opt.selected = true;
         select.appendChild(opt);
       }
       select.addEventListener('change', () => {
-        const slots = { ...zoid.slots };
+        const slots = { ...yantra.slots };
         if (select.value === entry.moduleId) delete slots[entry.slot];
         else slots[entry.slot] = select.value;
         campaign = { ...campaign!, roster: campaign!.roster.map((z, i) => (i === slot ? { ...z, slots } : z)) };
@@ -5105,7 +5127,7 @@ function renderCity(): void {
     tavern.insertAdjacentHTML('beforeend', '<div class="cnote">✓ Ya hiciste el trabajo sucio de esta ciudad. El tabernero te sirve gratis la primera.</div>');
   } else {
     cityButton(tavern,
-      `🤫 "${job.name}" — contra ${job.enemySquad.map((id) => ZOIDS[id]!.name).join(', ')} · paga ⌾${job.reward} + chatarra`,
+      `🤫 "${job.name}" — contra ${job.enemySquad.map((id) => YANTRAS[id]!.name).join(', ')} · paga ⌾${job.reward} + chatarra`,
       !campaign.roster.some((z) => !z.destroyed),
       () => fightTavernBattle(job, node.id));
   }
@@ -5146,8 +5168,8 @@ function fightTavernBattle(job: Contract, nodeId: string): void {
   if (!campaign || !expedition) return;
   const party = expedition.party ?? [0, 1, 2, 3];
   const alive = campaign.roster
-    .map((zoid, slot) => ({ zoid, slot }))
-    .filter(({ zoid, slot }) => party.includes(slot) && !zoid.destroyed &&
+    .map((yantra, slot) => ({ yantra, slot }))
+    .filter(({ yantra, slot }) => party.includes(slot) && !yantra.destroyed &&
       !isInjured(crewPilot(slot)) && !assignmentOf(slot));
   if (alive.length === 0) return;
   const node = REGION.nodes.find((n) => n.id === nodeId)!;
@@ -5159,32 +5181,32 @@ function fightTavernBattle(job: Contract, nodeId: string): void {
     } catch { /* cae al generado */ }
   }
   const spawns: UnitSpawn[] = [
-    ...alive.map(({ zoid, slot }, k) => {
+    ...alive.map(({ yantra, slot }, k) => {
       // Modificadores al desplegar: marcas de la compañera (hueco 0) o del
       // núcleo del propio chasis, más el refuerzo de blindaje si lo lleva
       // (búnker a cambio de velocidad).
       const mods = [
         ...(slot === 0
           ? companionModifiers(campaign!.companion, COMPANION_TABLE)
-          : coreSpawnModifiers(zoid).modifiers ?? []),
-        ...(zoid.reinforced ? reinforcementModifiers(ECONOMY) : []),
+          : coreSpawnModifiers(yantra).modifiers ?? []),
+        ...(yantra.reinforced ? reinforcementModifiers(ECONOMY) : []),
       ];
       return {
         id: `P${slot + 1}`,
-        name: ZOIDS[zoid.unitTypeId]!.name,
-        unitTypeId: zoid.unitTypeId,
+        name: YANTRAS[yantra.unitTypeId]!.name,
+        unitTypeId: yantra.unitTypeId,
         team: 'player' as Team,
         position: field.playerPos[k]!,
-        hp: zoid.hp,
+        hp: yantra.hp,
         loadout: {
-          weapons: [...zoid.weapons],
-          ...(Object.keys(zoid.slots).length > 0 ? { slots: { ...zoid.slots } } : {}),
+          weapons: [...yantra.weapons],
+          ...(Object.keys(yantra.slots).length > 0 ? { slots: { ...yantra.slots } } : {}),
         },
-        ...(zoid.reinforced ? { armor: zoid.armor ?? ECONOMY.reinforcement.armor } : {}),
+        ...(yantra.reinforced ? { armor: yantra.armor ?? ECONOMY.reinforcement.armor } : {}),
         // Continuidad: el reactor entra como salió si no hubo refit.
-        ...(zoid.residualHeat !== undefined ? { initialHeat: zoid.residualHeat } : {}),
-        ...(zoid.residualEnergy !== undefined ? { initialEnergy: zoid.residualEnergy } : {}),
-        ...(zoid.ammo ? { ammo: { ...zoid.ammo } } : {}),
+        ...(yantra.residualHeat !== undefined ? { initialHeat: yantra.residualHeat } : {}),
+        ...(yantra.residualEnergy !== undefined ? { initialEnergy: yantra.residualEnergy } : {}),
+        ...(yantra.ammo ? { ammo: { ...yantra.ammo } } : {}),
         ...(mods.length > 0 ? { modifiers: mods } : {}),
         ...(grantedAbilityIds(slot).length > 0
           ? { extraAbilityIds: grantedAbilityIds(slot) } : {}),
@@ -5195,7 +5217,7 @@ function fightTavernBattle(job: Contract, nodeId: string): void {
       const loadout = enemyCounterLoadout(unitTypeId, i);
       return {
         id: `E${i + 1}`,
-        name: ZOIDS[unitTypeId]!.name,
+        name: YANTRAS[unitTypeId]!.name,
         unitTypeId,
         team: 'enemy' as Team,
         position: field.enemyPos[i]!,
@@ -5318,11 +5340,11 @@ function doTravelTo(target: OverworldCell): void {
     // en ruta: se quedan a 1 HP como mucho de castigo).
     campaign = {
       ...campaign,
-      roster: campaign.roster.map((zoid, slot) => {
-        if (zoid.destroyed) return zoid;
+      roster: campaign.roster.map((yantra, slot) => {
+        if (yantra.destroyed) return yantra;
         const maxHp = campaignMaxHp(slot);
-        const hp = Math.max(1, Math.min(zoid.hp, maxHp) - Math.ceil(maxHp * FORCED_MARCH_DAMAGE * consumed.shortage));
-        return { ...zoid, hp };
+        const hp = Math.max(1, Math.min(yantra.hp, maxHp) - Math.ceil(maxHp * FORCED_MARCH_DAMAGE * consumed.shortage));
+        return { ...yantra, hp };
       }),
     };
     for (const id of Object.keys(pilots)) pilots[id] = adjustStress(pilots[id]!, 5 * consumed.shortage);
@@ -5495,7 +5517,7 @@ function enemyWave(
     round,
     spawns: contract.enemySquad.slice(0, 2).map((unitTypeId, i) => ({
       id: `E${spawns.filter((s) => s.team === 'enemy').length + i + 1}`,
-      name: ZOIDS[unitTypeId]!.name,
+      name: YANTRAS[unitTypeId]!.name,
       unitTypeId,
       team: 'enemy' as Team,
       position: field.enemyPos[i] ?? field.enemyPos[0]!,
@@ -5510,8 +5532,8 @@ function fightExpeditionBattle(): void {
   if (!contract) return;
   const party = expedition.party ?? [0, 1, 2, 3];
   const alive = campaign.roster
-    .map((zoid, slot) => ({ zoid, slot }))
-    .filter(({ zoid, slot }) => party.includes(slot) && !zoid.destroyed &&
+    .map((yantra, slot) => ({ yantra, slot }))
+    .filter(({ yantra, slot }) => party.includes(slot) && !yantra.destroyed &&
       !isInjured(crewPilot(slot)) && !assignmentOf(slot));
   if (alive.length === 0) return;
 
@@ -5528,33 +5550,33 @@ function fightExpeditionBattle(): void {
   }
 
   const spawns: UnitSpawn[] = [
-    ...alive.map(({ zoid, slot }, k) => {
+    ...alive.map(({ yantra, slot }, k) => {
       // Cada núcleo lleva su biografía a la batalla (la compañera la suya,
       // el resto la del propio chasis); el refuerzo de blindaje añade
       // búnker a cambio de velocidad.
       const mods = [
         ...(slot === 0
           ? companionModifiers(campaign!.companion, COMPANION_TABLE)
-          : coreSpawnModifiers(zoid).modifiers ?? []),
-        ...(zoid.reinforced ? reinforcementModifiers(ECONOMY) : []),
+          : coreSpawnModifiers(yantra).modifiers ?? []),
+        ...(yantra.reinforced ? reinforcementModifiers(ECONOMY) : []),
       ];
       return {
         id: `P${slot + 1}`,
-        name: ZOIDS[zoid.unitTypeId]!.name,
-        unitTypeId: zoid.unitTypeId,
+        name: YANTRAS[yantra.unitTypeId]!.name,
+        unitTypeId: yantra.unitTypeId,
         team: 'player' as Team,
         position: field.playerPos[k]!,
-        hp: zoid.hp,
+        hp: yantra.hp,
         loadout: {
-          weapons: [...zoid.weapons],
-          ...(Object.keys(zoid.slots).length > 0 ? { slots: { ...zoid.slots } } : {}),
+          weapons: [...yantra.weapons],
+          ...(Object.keys(yantra.slots).length > 0 ? { slots: { ...yantra.slots } } : {}),
         },
-        ...(zoid.reinforced ? { armor: zoid.armor ?? ECONOMY.reinforcement.armor } : {}),
+        ...(yantra.reinforced ? { armor: yantra.armor ?? ECONOMY.reinforcement.armor } : {}),
         // Continuidad: entra como salió de la última pelea (caliente, cargador
         // a medias) si no hubo refit. Una jornada de descanso lo limpia.
-        ...(zoid.residualHeat !== undefined ? { initialHeat: zoid.residualHeat } : {}),
-        ...(zoid.residualEnergy !== undefined ? { initialEnergy: zoid.residualEnergy } : {}),
-        ...(zoid.ammo ? { ammo: { ...zoid.ammo } } : {}),
+        ...(yantra.residualHeat !== undefined ? { initialHeat: yantra.residualHeat } : {}),
+        ...(yantra.residualEnergy !== undefined ? { initialEnergy: yantra.residualEnergy } : {}),
+        ...(yantra.ammo ? { ammo: { ...yantra.ammo } } : {}),
         ...(mods.length > 0 ? { modifiers: mods } : {}),
         // Las escuelas del piloto viajan con él (activas, 1/batalla).
         ...(grantedAbilityIds(slot).length > 0
@@ -5566,7 +5588,7 @@ function fightExpeditionBattle(): void {
       const loadout = enemyCounterLoadout(unitTypeId, i);
       return {
         id: `E${i + 1}`,
-        name: ZOIDS[unitTypeId]!.name,
+        name: YANTRAS[unitTypeId]!.name,
         unitTypeId,
         team: 'enemy' as Team,
         position: field.enemyPos[i]!,
@@ -5581,7 +5603,7 @@ function fightExpeditionBattle(): void {
   // asalto = aguanta la segunda oleada. Consecuencias anunciadas.
   const brief: BattleBrief = {};
   const taken = new Set(spawns.flatMap((s) => {
-    const size = ZOIDS[s.unitTypeId]?.size ?? 1;
+    const size = YANTRAS[s.unitTypeId]?.size ?? 1;
     const tiles: string[] = [];
     for (let dy = 0; dy < size; dy++) {
       for (let dx = 0; dx < size; dx++) tiles.push(posKey({ x: s.position.x + dx, y: s.position.y + dy }));
@@ -5591,10 +5613,10 @@ function fightExpeditionBattle(): void {
   if (contract.tier === 'caza') {
     const lead = spawns.find((s) => s.id === 'E1');
     const anchor = lead && freeAnchorFor(field.map, lead.position,
-      ZOIDS['gran-brontes']!.size ?? 2, new Set([...taken].filter((k) => k !== posKey(lead.position))));
+      YANTRAS['gran-brontes']!.size ?? 2, new Set([...taken].filter((k) => k !== posKey(lead.position))));
     if (lead && anchor) {
       lead.unitTypeId = 'gran-brontes';
-      lead.name = ZOIDS['gran-brontes']!.name;
+      lead.name = YANTRAS['gran-brontes']!.name;
       lead.position = anchor;
       brief.objective = { kind: 'assassinate', targetUnitId: 'E1' };
       brief.briefing = 'Caza mayor: derriba al cabecilla (E1) y el resto se dispersará.';
@@ -5603,7 +5625,7 @@ function fightExpeditionBattle(): void {
     const spot = freeAnchorFor(field.map, field.playerPos[3] ?? field.playerPos[0]!, 1, taken);
     if (spot) {
       spawns.push({
-        id: 'W1', name: ZOIDS['carguero-colono']!.name, unitTypeId: 'carguero-colono',
+        id: 'W1', name: YANTRAS['carguero-colono']!.name, unitTypeId: 'carguero-colono',
         team: 'player', position: spot,
       });
       brief.objective = { kind: 'protect', wardUnitId: 'W1' };
@@ -5657,7 +5679,7 @@ function seededRng(key: string): () => number {
 }
 
 /** Chusma barata y débil: la emboscada es fácil a propósito (XP, no reto). */
-const AMBUSH_POOL = ['molga', 'guysak', 'rev-raptor'];
+const AMBUSH_POOL = ['tornillo', 'barrena', 'navaja'];
 const AMBUSH_CHANCE = 0.35;
 
 /**
@@ -5692,8 +5714,8 @@ function startTravelBattle(
   if (!campaign || !expedition) return;
   const party = expedition.party ?? [0, 1, 2, 3];
   const alive = campaign.roster
-    .map((zoid, slot) => ({ zoid, slot }))
-    .filter(({ zoid, slot }) => party.includes(slot) && !zoid.destroyed &&
+    .map((yantra, slot) => ({ yantra, slot }))
+    .filter(({ yantra, slot }) => party.includes(slot) && !yantra.destroyed &&
       !isInjured(crewPilot(slot)) && !assignmentOf(slot));
   if (alive.length === 0) return; // nadie puede pelear: no hay emboscada
 
@@ -5706,33 +5728,33 @@ function startTravelBattle(
     : Array.from({ length: count }, () => AMBUSH_POOL[Math.floor(rng() * AMBUSH_POOL.length)]!);
 
   const spawns: UnitSpawn[] = [
-    ...alive.map(({ zoid, slot }, k) => {
+    ...alive.map(({ yantra, slot }, k) => {
       const mods = [
         ...(slot === 0 ? companionModifiers(campaign!.companion, COMPANION_TABLE) : []),
-        ...(zoid.reinforced ? reinforcementModifiers(ECONOMY) : []),
+        ...(yantra.reinforced ? reinforcementModifiers(ECONOMY) : []),
       ];
       return {
         id: `P${slot + 1}`,
-        name: ZOIDS[zoid.unitTypeId]!.name,
-        unitTypeId: zoid.unitTypeId,
+        name: YANTRAS[yantra.unitTypeId]!.name,
+        unitTypeId: yantra.unitTypeId,
         team: 'player' as Team,
         position: field.playerPos[k]!,
-        hp: zoid.hp,
+        hp: yantra.hp,
         loadout: {
-          weapons: [...zoid.weapons],
-          ...(Object.keys(zoid.slots).length > 0 ? { slots: { ...zoid.slots } } : {}),
+          weapons: [...yantra.weapons],
+          ...(Object.keys(yantra.slots).length > 0 ? { slots: { ...yantra.slots } } : {}),
         },
-        ...(zoid.reinforced ? { armor: zoid.armor ?? ECONOMY.reinforcement.armor } : {}),
-        ...(zoid.residualHeat !== undefined ? { initialHeat: zoid.residualHeat } : {}),
-        ...(zoid.residualEnergy !== undefined ? { initialEnergy: zoid.residualEnergy } : {}),
-        ...(zoid.ammo ? { ammo: { ...zoid.ammo } } : {}),
+        ...(yantra.reinforced ? { armor: yantra.armor ?? ECONOMY.reinforcement.armor } : {}),
+        ...(yantra.residualHeat !== undefined ? { initialHeat: yantra.residualHeat } : {}),
+        ...(yantra.residualEnergy !== undefined ? { initialEnergy: yantra.residualEnergy } : {}),
+        ...(yantra.ammo ? { ammo: { ...yantra.ammo } } : {}),
         ...(mods.length > 0 ? { modifiers: mods } : {}),
         ...(k === 0 ? { commander: true } : {}),
       };
     }),
     ...enemies.map((unitTypeId, i) => ({
       id: `E${i + 1}`,
-      name: ZOIDS[unitTypeId]!.name,
+      name: YANTRAS[unitTypeId]!.name,
       unitTypeId,
       team: 'enemy' as Team,
       position: field.enemyPos[i]!,
@@ -5867,10 +5889,10 @@ function endExpedition(): void {
     const party = expedition.party ?? [0, 1, 2, 3];
     campaign = {
       ...campaign,
-      roster: campaign.roster.map((zoid, slot) =>
-        slot !== 0 && party.includes(slot) && !zoid.destroyed
-          ? { ...zoid, core: bondExpedition(zoidCore(zoid), CORE_TABLE) }
-          : zoid),
+      roster: campaign.roster.map((yantra, slot) =>
+        slot !== 0 && party.includes(slot) && !yantra.destroyed
+          ? { ...yantra, core: bondExpedition(yantraCore(yantra), CORE_TABLE) }
+          : yantra),
     };
   }
   const closingRegion = regionOf(WORLD_ATLAS, expedition.regionId);
@@ -6585,7 +6607,7 @@ function renderTallerCampanas(body: HTMLElement): void {
   newBtn.textContent = '＋ Nuevo contrato';
   newBtn.addEventListener('click', () => {
     const id = nextContractId(taller);
-    const contract = sanitizeContract({ id, name: `Encargo ${id.slice(4)}`, enemySquad: ['molga', 'guysak'] }, id, new Set(Object.keys(ZOIDS)));
+    const contract = sanitizeContract({ id, name: `Encargo ${id.slice(4)}`, enemySquad: ['tornillo', 'barrena'] }, id, new Set(Object.keys(YANTRAS)));
     if (contract) taller.contracts.push(contract);
     saveTaller();
     renderTaller();
@@ -6593,7 +6615,7 @@ function renderTallerCampanas(body: HTMLElement): void {
   body.appendChild(newBtn);
   const chassisOptions: Array<[string, string]> = [
     ['', '— hueco vacío —'],
-    ...Object.values(ZOIDS)
+    ...Object.values(YANTRAS)
       .map((def): [string, string] => [def.id, def.name])
       .sort((a, b) => a[1].localeCompare(b[1])),
   ];
@@ -6621,7 +6643,7 @@ function renderTallerCampanas(body: HTMLElement): void {
         reward: readNum(card, 'reward'),
         salvagePerKill: readNum(card, 'salvage'),
         enemySquad: [0, 1, 2, 3].map((i) => readField(card, `sq-${i}`)).filter((u) => u),
-      }, contract.id, new Set(Object.keys(ZOIDS)));
+      }, contract.id, new Set(Object.keys(YANTRAS)));
       if (updated) taller.contracts[index] = updated;
       saveTaller();
       renderTaller();
@@ -6652,7 +6674,7 @@ function renderTallerArchivo(body: HTMLElement): void {
   importBtn.textContent = '⇪ Importar lo pegado';
   importBtn.addEventListener('click', () => {
     try {
-      taller = sanitizeTaller(JSON.parse(area.value), new Set(Object.keys(ZOIDS)));
+      taller = sanitizeTaller(JSON.parse(area.value), new Set(Object.keys(YANTRAS)));
       saveTaller();
       renderTaller();
     } catch {
@@ -6928,14 +6950,16 @@ function renderNewGame(): void {
   const compHost = $('ng-companion');
   compHost.innerHTML = '';
   for (const option of STARTER_COMPANIONS) {
-    const def = ZOIDS[option.id];
+    const def = YANTRAS[option.id];
     if (!def) continue;
     const btn = document.createElement('button');
     btn.className = 'ngopt' + (option.id === ngCompanion ? ' sel' : '');
     btn.dataset['comp'] = option.id;
+    const lineage = lineageOf(option.id);
     btn.innerHTML = `<b>${option.id === ngCompanion ? '❤ ' : ''}${def.name}</b>` +
+      (lineage ? ` <span style="color:var(--muted);font-size:10px">${lineage.designation} · ${lineage.traditionData.name}</span>` : '') +
       ` · HP ${def.stats.maxHp} · ATQ ${def.stats.atk} · DEF ${def.stats.def} · MOV ${def.stats.move}` +
-      `<span class="sub">${option.blurb}</span>`;
+      `<span class="sub">${option.blurb}${lineage ? ` <i>${lineage.traditionData.motto}</i>` : ''}</span>`;
     btn.addEventListener('click', () => { ngCompanion = option.id; renderNewGame(); });
     compHost.appendChild(btn);
   }
@@ -6971,11 +6995,11 @@ function foundCompany(): void {
     const founded = newCampaign(ECONOMY, factoryLoadout, {
       credits: diff.credits,
       supplies: diff.supplies,
-      starterRoster: [ngCompanion, 'command-wolf', 'gun-sniper', 'gustav'],
+      starterRoster: [ngCompanion, 'rastreador', 'visor', 'mula'],
       difficulty: diff.id,
     });
     founded.chronicle = [
-      `⚑ Se funda ${company}. Dificultad ${diff.name}: ⌾${diff.credits} y ${diff.supplies} suministros. La compañera: ${ZOIDS[ngCompanion]?.name ?? ngCompanion}.`,
+      `⚑ Se funda ${company}. Dificultad ${diff.name}: ⌾${diff.credits} y ${diff.supplies} suministros. La compañera: ${YANTRAS[ngCompanion]?.name ?? ngCompanion}.`,
     ];
     localStorage.setItem(CAMPAIGN_KEY, JSON.stringify(founded));
     localStorage.setItem(COMPANY_KEY, company);
@@ -7079,7 +7103,8 @@ $('save-file').addEventListener('change', () => {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = async () => {
-    const save = validateSave(String(reader.result ?? ''));
+    // Un archivo exportado antes del rebranding también entra migrado.
+    const save = validateSave(migrateLegacyJson(String(reader.result ?? '')));
     if (!save) { void uiAlert('Ese archivo no es una partida de Gea válida.'); return; }
     if (!(await uiConfirm(`¿Cargar "${save.name}" (${fmtDate(save.savedAt)})? La partida en curso se reemplaza.`))) return;
     applySave(save);

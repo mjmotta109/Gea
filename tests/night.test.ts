@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Battle, NIGHT_VISION_BASE, type BattleConfig, type UnitSpawn } from '../src/core/battle.js';
 import { planTurn } from '../src/ai/simpleAi.js';
 import { GameMap } from '../src/core/grid.js';
-import { ZOIDS } from '../src/data/zoids.js';
+import { YANTRAS } from '../src/data/yantras.js';
 import { MODULES } from '../src/data/modules.js';
 import { ABILITIES } from '../src/data/abilities.js';
 
@@ -29,14 +29,14 @@ const LAB_ABILITIES = {
 };
 
 const P = (id: string, x: number, y: number, extra?: string[]): UnitSpawn =>
-  ({ id, name: id, unitTypeId: 'command-wolf', team: 'player', position: { x, y },
+  ({ id, name: id, unitTypeId: 'rastreador', team: 'player', position: { x, y },
     ...(extra ? { extraAbilityIds: extra } : {}) });
 const E = (id: string, x: number, y: number): UnitSpawn =>
-  ({ id, name: id, unitTypeId: 'molga', team: 'enemy', position: { x, y } });
+  ({ id, name: id, unitTypeId: 'tornillo', team: 'enemy', position: { x, y } });
 
 function nightBattle(spawns: UnitSpawn[], night = true): Battle {
   const config: BattleConfig = {
-    map: OPEN, unitCatalog: ZOIDS, moduleCatalog: MODULES,
+    map: OPEN, unitCatalog: YANTRAS, moduleCatalog: MODULES,
     abilityCatalog: LAB_ABILITIES, seed: 5, spawns, night,
   };
   return new Battle(config);
@@ -81,9 +81,9 @@ describe('combate nocturno: la burbuja de sensores', () => {
     expect(battle.canTargetFrom(battle.unit('P1'), { x: 1, y: 2 }, 'lab-fusil', { x: 13, y: 2 })).toBe(true);
   });
 
-  it('los ojos de la noche ven más lejos: el König Wolf declara visión 9', () => {
-    expect(ZOIDS['konig-wolf']!.vision).toBe(9);
-    expect(ZOIDS['molga']!.vision).toBeUndefined(); // el resto, base
+  it('los ojos de la noche ven más lejos: el Retícula declara visión 9', () => {
+    expect(YANTRAS['reticula']!.vision).toBe(9);
+    expect(YANTRAS['tornillo']!.vision).toBeUndefined(); // el resto, base
   });
 
   it('la IA nocturna no dispara a ciegas, pero SÍ avanza por el rumor', () => {

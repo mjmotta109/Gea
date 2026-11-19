@@ -285,7 +285,7 @@
     {
       "type": "ability-used",
       "unitId": "E1",
-      "abilityId": "charged-particle-gun",
+      "abilityId": "beam-cannon",
       "target": {
         "x": 5,
         "y": 3
@@ -817,7 +817,7 @@
     {
       "type": "ability-used",
       "unitId": "E1",
-      "abilityId": "charged-particle-gun",
+      "abilityId": "beam-cannon",
       "target": {
         "x": 2,
         "y": 3
@@ -1106,7 +1106,7 @@
     {
       "type": "ability-used",
       "unitId": "E1",
-      "abilityId": "charged-particle-gun",
+      "abilityId": "beam-cannon",
       "target": {
         "x": 4,
         "y": 3
@@ -1297,7 +1297,7 @@
     {
       "type": "ability-used",
       "unitId": "E1",
-      "abilityId": "charged-particle-gun",
+      "abilityId": "beam-cannon",
       "target": {
         "x": 4,
         "y": 3

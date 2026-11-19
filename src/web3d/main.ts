@@ -3,7 +3,7 @@
  * con Three.js en modo espectador — IA contra IA, cámara orbital libre.
  *
  * Objetivo: comparar en una misma escena el modelo GLB subido por el
- * usuario (Liger Zero) con unidades de primitivas low-poly, y validar el
+ * usuario (Centella) con unidades de primitivas low-poly, y validar el
  * estilo visual antes de comprometer el cliente jugable al 3D.
  *
  * Build: npm run web3d  →  dist/web/gea3d.html (autocontenido; el modelo
@@ -16,7 +16,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 // esbuild empaqueta el .glb como data URI (loader: dataurl).
 // eslint-disable-next-line
 // @ts-ignore
-import ligerUrl from '../../assets/models/liger-zero.opt.glb';
+import ligerUrl from '../../assets/models/centella.opt.glb';
 
 import { planTurn } from '../ai/simpleAi.js';
 import { Battle } from '../core/battle.js';
@@ -25,7 +25,7 @@ import { ABILITIES } from '../data/abilities.js';
 import { VALLEY_CROSSING } from '../data/maps.js';
 import { MODULES } from '../data/modules.js';
 import { WEAPONS } from '../data/weapons.js';
-import { ZOIDS } from '../data/zoids.js';
+import { YANTRAS } from '../data/yantras.js';
 
 const $ = (id: string): HTMLElement => document.getElementById(id)!;
 
@@ -171,7 +171,7 @@ function buildPrimitiveUnit(unitTypeId: string, team: string): THREE.Object3D {
     add(new THREE.Mesh(new THREE.BoxGeometry(w, h, d), body), 0, y, 0);
 
   switch (unitTypeId) {
-    case 'geno-saurer-cp': case 'geno-saurer': { // bípedo alto con cola
+    case 'prisma-m': case 'prisma': { // bípedo alto con cola
       torso(0.34, 0.42, 0.5, 0.52);
       add(new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.34), body), 0, 0.82, -0.3); // cabeza
       add(new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.5), dark), 0, 0.6, 0.42);  // cola
@@ -180,23 +180,23 @@ function buildPrimitiveUnit(unitTypeId: string, team: string): THREE.Object3D {
       add(new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.4, 0.16), dark), 0.14, 0.2, 0.05);
       break;
     }
-    case 'pteras': { // volador con alas
+    case 'cometa': { // volador con alas
       torso(0.2, 0.16, 0.5, 0.7);
       add(new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.03, 0.22), body), 0, 0.74, 0);
       add(new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.2, 4), dark), 0, 0.7, -0.32).rotation.x = -Math.PI / 2;
       break;
     }
-    case 'molga': { // oruga baja y larga
+    case 'tornillo': { // oruga baja y larga
       torso(0.3, 0.2, 0.6, 0.2);
       add(new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.1, 0.62), dark), 0, 0.07, 0);
       break;
     }
-    case 'gustav': { // caracol acorazado
+    case 'mula': { // caracol acorazado
       torso(0.36, 0.24, 0.5, 0.22);
       add(new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 6), dark), 0, 0.42, 0.08);
       break;
     }
-    case 'gun-sniper-naomi': case 'gun-sniper': { // raptor con rifle de cola
+    case 'visor-c': case 'visor': { // raptor con rifle de cola
       torso(0.2, 0.26, 0.36, 0.42);
       add(new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 0.24), body), 0, 0.62, -0.24);
       add(new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.6, 6), dark), 0, 0.62, 0.3).rotation.x = Math.PI / 2;
@@ -264,12 +264,12 @@ function spawnUnits(): void {
   unitMeshes.clear();
 
   for (const unit of battle.units) {
-    const mesh = unit.unitTypeId === 'liger-zero-cas'
+    const mesh = unit.unitTypeId === 'centella-m'
       ? buildLigerUnit(unit.team)
       : buildPrimitiveUnit(unit.unitTypeId, unit.team);
     const top = tileTop(unit.position);
     mesh.position.copy(top);
-    if (unit.unitTypeId === 'pteras') mesh.position.y += 0.5;
+    if (unit.unitTypeId === 'cometa') mesh.position.y += 0.5;
     mesh.rotation.y = FACING_ANGLE[unit.facing];
     scene.add(mesh);
     unitMeshes.set(unit.id, mesh);
@@ -281,20 +281,20 @@ function newBattle(): void {
   const seed = Number(($('seed') as HTMLInputElement).value) || 42;
   battle = new Battle({
     map: VALLEY_CROSSING,
-    unitCatalog: ZOIDS,
+    unitCatalog: YANTRAS,
     abilityCatalog: ABILITIES,
     moduleCatalog: MODULES,
     weaponCatalog: WEAPONS,
     seed,
     spawns: [
-      { id: 'P1', name: 'Liger Zero CAS', unitTypeId: 'liger-zero-cas', team: 'player', position: { x: 1, y: 3 } },
-      { id: 'P2', name: 'Command Wolf', unitTypeId: 'command-wolf', team: 'player', position: { x: 0, y: 5 } },
-      { id: 'P3', name: 'Gun Sniper', unitTypeId: 'gun-sniper-naomi', team: 'player', position: { x: 1, y: 7 } },
-      { id: 'P4', name: 'Gustav', unitTypeId: 'gustav', team: 'player', position: { x: 0, y: 4 } },
-      { id: 'E1', name: 'Geno Saurer CP', unitTypeId: 'geno-saurer-cp', team: 'enemy', position: { x: 10, y: 3 } },
-      { id: 'E2', name: 'Molga', unitTypeId: 'molga', team: 'enemy', position: { x: 11, y: 5 } },
-      { id: 'E3', name: 'Molga', unitTypeId: 'molga', team: 'enemy', position: { x: 10, y: 6 } },
-      { id: 'E4', name: 'Pteras', unitTypeId: 'pteras', team: 'enemy', position: { x: 11, y: 2 } },
+      { id: 'P1', name: 'Centella-M', unitTypeId: 'centella-m', team: 'player', position: { x: 1, y: 3 } },
+      { id: 'P2', name: 'Rastreador', unitTypeId: 'rastreador', team: 'player', position: { x: 0, y: 5 } },
+      { id: 'P3', name: 'Visor', unitTypeId: 'visor-c', team: 'player', position: { x: 1, y: 7 } },
+      { id: 'P4', name: 'Mula', unitTypeId: 'mula', team: 'player', position: { x: 0, y: 4 } },
+      { id: 'E1', name: 'Prisma-M', unitTypeId: 'prisma-m', team: 'enemy', position: { x: 10, y: 3 } },
+      { id: 'E2', name: 'Tornillo', unitTypeId: 'tornillo', team: 'enemy', position: { x: 11, y: 5 } },
+      { id: 'E3', name: 'Tornillo', unitTypeId: 'tornillo', team: 'enemy', position: { x: 10, y: 6 } },
+      { id: 'E4', name: 'Cometa', unitTypeId: 'cometa', team: 'enemy', position: { x: 11, y: 2 } },
     ],
   });
   spawnUnits();
@@ -389,7 +389,7 @@ function applyEvents(events: BattleEvent[]): void {
       case 'unit-moved':
       case 'unit-boosted': {
         const unit = battle.unit(event.unitId);
-        animateMove(event.unitId, event.path, unit.unitTypeId === 'pteras' ? 0.5 : 0);
+        animateMove(event.unitId, event.path, unit.unitTypeId === 'cometa' ? 0.5 : 0);
         break;
       }
       case 'ability-used':
@@ -440,7 +440,7 @@ function syncUnits(): void {
     const mesh = unitMeshes.get(unit.id);
     if (!mesh || unit.hp <= 0) continue;
     const target = tileTop(unit.position);
-    if (unit.unitTypeId === 'pteras') target.y += 0.5;
+    if (unit.unitTypeId === 'cometa') target.y += 0.5;
     if (mesh.position.distanceTo(target) < 0.01) {
       mesh.rotation.y = FACING_ANGLE[unit.facing];
     }
@@ -507,7 +507,7 @@ function dataUriToArrayBuffer(uri: string): ArrayBuffer {
 
 const loader = new GLTFLoader();
 loader.setMeshoptDecoder(MeshoptDecoder);
-setStatus('cargando modelo del Liger Zero...');
+setStatus('cargando modelo del Centella...');
 loader.parse(dataUriToArrayBuffer(ligerUrl as string), '', (gltf) => {
   ligerTemplate = gltf.scene;
   buildBoard();

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Battle, type BattleConfig, type UnitSpawn } from '../src/core/battle.js';
 import { GameMap } from '../src/core/grid.js';
 import { FLAT_ARENA } from '../src/data/maps.js';
-import { ZOIDS } from '../src/data/zoids.js';
+import { YANTRAS } from '../src/data/yantras.js';
 import { ABILITIES } from '../src/data/abilities.js';
 import { MODULES } from '../src/data/modules.js';
 import { WEAPONS } from '../src/data/weapons.js';
@@ -19,7 +19,7 @@ const E = (id: string, unitTypeId: string, x: number, y: number): UnitSpawn =>
 function arena(overrides: Partial<BattleConfig>): Battle {
   return new Battle({
     map: FLAT_ARENA,
-    unitCatalog: ZOIDS,
+    unitCatalog: YANTRAS,
     abilityCatalog: CATALOGS.abilityCatalog,
     moduleCatalog: MODULES,
     weaponCatalog: CATALOGS.weaponCatalog,
@@ -34,8 +34,8 @@ const reactions = (events: BattleEvent[]): Extract<BattleEvent, { type: 'reactio
 
 describe('reacciones: el posicionamiento por fin cuesta', () => {
   it('despegarse de un enemigo en contacto provoca su tiro de oportunidad', () => {
-    const battle = arena({ spawns: [P('P1', 'liger-zero', 2, 2), E('E1', 'molga', 3, 2)] });
-    battle.nextTurn(); // liger, el más rápido
+    const battle = arena({ spawns: [P('P1', 'centella', 2, 2), E('E1', 'tornillo', 3, 2)] });
+    battle.nextTurn(); // centella, el más rápido
     const events = battle.execute({ type: 'move', unitId: 'P1', to: { x: 0, y: 2 } });
     const fired = reactions(events);
     expect(fired).toHaveLength(1);
@@ -43,14 +43,14 @@ describe('reacciones: el posicionamiento por fin cuesta', () => {
   });
 
   it('moverse SIN salir del contacto no provoca nada', () => {
-    const battle = arena({ spawns: [P('P1', 'liger-zero', 2, 2), E('E1', 'molga', 3, 2)] });
+    const battle = arena({ spawns: [P('P1', 'centella', 2, 2), E('E1', 'tornillo', 3, 2)] });
     battle.nextTurn();
     const events = battle.execute({ type: 'move', unitId: 'P1', to: { x: 3, y: 3 } });
     expect(reactions(events)).toHaveLength(0);
   });
 
   it('sobrevivir un golpe a bocajarro desata el contraataque, sin cadenas', () => {
-    const battle = arena({ spawns: [P('P1', 'liger-zero', 2, 2), E('E1', 'iron-kong', 3, 2)] });
+    const battle = arena({ spawns: [P('P1', 'centella', 2, 2), E('E1', 'martinete', 3, 2)] });
     battle.nextTurn();
     const events = battle.execute({
       type: 'ability', unitId: 'P1', abilityId: 'bite-crush', target: { x: 3, y: 2 },
@@ -61,7 +61,7 @@ describe('reacciones: el posicionamiento por fin cuesta', () => {
   });
 
   it('una reacción por ronda: gastada en el contraataque, la fuga sale gratis', () => {
-    const battle = arena({ spawns: [P('P1', 'liger-zero', 2, 2), E('E1', 'iron-kong', 3, 2)] });
+    const battle = arena({ spawns: [P('P1', 'centella', 2, 2), E('E1', 'martinete', 3, 2)] });
     battle.nextTurn();
     const hit = battle.execute({
       type: 'ability', unitId: 'P1', abilityId: 'bite-crush', target: { x: 3, y: 2 },
@@ -72,7 +72,7 @@ describe('reacciones: el posicionamiento por fin cuesta', () => {
   });
 
   it('la reacción se recupera al abrir el turno propio', () => {
-    const battle = arena({ spawns: [P('P1', 'liger-zero', 2, 2), E('E1', 'iron-kong', 3, 2)] });
+    const battle = arena({ spawns: [P('P1', 'centella', 2, 2), E('E1', 'martinete', 3, 2)] });
     battle.nextTurn();
     battle.execute({ type: 'ability', unitId: 'P1', abilityId: 'bite-crush', target: { x: 3, y: 2 } });
     battle.execute({ type: 'wait', unitId: 'P1' });
@@ -88,7 +88,7 @@ describe('reacciones: el posicionamiento por fin cuesta', () => {
 
   it('mismas órdenes, mismos reflejos: las reacciones son deterministas', () => {
     const run = (): string => {
-      const battle = arena({ spawns: [P('P1', 'liger-zero', 2, 2), E('E1', 'iron-kong', 3, 2)] });
+      const battle = arena({ spawns: [P('P1', 'centella', 2, 2), E('E1', 'martinete', 3, 2)] });
       battle.nextTurn();
       const events = battle.execute({
         type: 'ability', unitId: 'P1', abilityId: 'bite-crush', target: { x: 3, y: 2 },
@@ -101,8 +101,8 @@ describe('reacciones: el posicionamiento por fin cuesta', () => {
 
 describe('vigilancia: el terreno abierto se paga (XCOM)', () => {
   it('termina el turno al acecho y dispara al primero que entra a tiro', () => {
-    // Command Wolf (speed 14) vigila; la Molga (11) cruza a su alcance.
-    const battle = arena({ spawns: [P('P1', 'command-wolf', 2, 2), E('E1', 'molga', 6, 2)] });
+    // Rastreador (speed 14) vigila; la Tornillo (11) cruza a su alcance.
+    const battle = arena({ spawns: [P('P1', 'rastreador', 2, 2), E('E1', 'tornillo', 6, 2)] });
     battle.nextTurn();
     const set = battle.execute({ type: 'overwatch', unitId: 'P1' });
     expect(set.map((e) => e.type)).toContain('overwatch-set');
@@ -111,7 +111,7 @@ describe('vigilancia: el terreno abierto se paga (XCOM)', () => {
 
     battle.nextTurn();
     expect(battle.getActiveUnit()?.id).toBe('E1');
-    // La molga entra al alcance del cañón de impacto (range 4, min 2).
+    // La tornillo entra al alcance del cañón de impacto (range 4, min 2).
     const move = battle.execute({ type: 'move', unitId: 'E1', to: { x: 5, y: 2 } });
     const fired = reactions(move);
     expect(fired).toHaveLength(1);
@@ -120,7 +120,7 @@ describe('vigilancia: el terreno abierto se paga (XCOM)', () => {
   });
 
   it('fuera de alcance no dispara: sigue al acecho hasta su turno', () => {
-    const battle = arena({ spawns: [P('P1', 'command-wolf', 0, 0), E('E1', 'molga', 7, 2)] });
+    const battle = arena({ spawns: [P('P1', 'rastreador', 0, 0), E('E1', 'tornillo', 7, 2)] });
     battle.nextTurn();
     battle.execute({ type: 'overwatch', unitId: 'P1' });
     battle.nextTurn();
@@ -134,8 +134,8 @@ describe('vigilancia: el terreno abierto se paga (XCOM)', () => {
   });
 
   it('el disparo de vigilancia es planeado: paga munición de verdad', () => {
-    // Gun Sniper con rifle (línea, alcance 7, min 3): E1 cruza su fila.
-    const battle = arena({ spawns: [P('P1', 'gun-sniper', 0, 2), E('E1', 'iron-kong', 6, 3)] });
+    // Visor con rifle (línea, alcance 7, min 3): E1 cruza su fila.
+    const battle = arena({ spawns: [P('P1', 'visor', 0, 2), E('E1', 'martinete', 6, 3)] });
     battle.nextTurn();
     battle.execute({ type: 'overwatch', unitId: 'P1' });
     const before = battle.unit('P1').components.arsenal!.weapons[0]!.ammo;
@@ -146,7 +146,7 @@ describe('vigilancia: el terreno abierto se paga (XCOM)', () => {
   });
 
   it('vigilar tras actuar está prohibido: es renunciar a la acción', () => {
-    const battle = arena({ spawns: [P('P1', 'liger-zero', 2, 2), E('E1', 'iron-kong', 3, 2)] });
+    const battle = arena({ spawns: [P('P1', 'centella', 2, 2), E('E1', 'martinete', 3, 2)] });
     battle.nextTurn();
     battle.execute({ type: 'ability', unitId: 'P1', abilityId: 'bite-crush', target: { x: 3, y: 2 } });
     expect(() => battle.execute({ type: 'overwatch', unitId: 'P1' })).toThrow(/ya actuó/);
@@ -162,9 +162,9 @@ describe('terreno que sufre la batalla', () => {
     ]);
     const battle = arena({
       map: forestMap,
-      spawns: [P('P1', 'gojulas', 0, 1), E('E1', 'molga', 2, 1)],
+      spawns: [P('P1', 'baluarte', 0, 1), E('E1', 'tornillo', 2, 1)],
     });
-    // Turno del gojulas (no hay nadie más rápido en pie... la molga sí lo es).
+    // Turno del baluarte (no hay nadie más rápido en pie... la tornillo sí lo es).
     while (battle.getActiveUnit()?.id !== 'P1') {
       if (!battle.getActiveUnit()) battle.nextTurn();
       else battle.execute({ type: 'wait', unitId: battle.getActiveUnit()!.id });

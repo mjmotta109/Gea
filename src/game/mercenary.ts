@@ -36,7 +36,7 @@ export interface EconomyTable {
   /** unitTypeIds del hangar inicial (orden = huecos de despliegue). */
   starterRoster: string[];
   repairCostPerHp: number;
-  /** Reconstruir un Zoid destruido cuesta precio × factor. */
+  /** Reconstruir un Yantra destruido cuesta precio × factor. */
   rebuildFactor: number;
   /** Vender (chasis o arma) devuelve precio × factor. */
   sellFactor: number;
@@ -44,17 +44,17 @@ export interface EconomyTable {
   supplyPrice: number;
   /** Suministros con los que arranca la campaña. */
   startingSupplies: number;
-  zoidPrices: Record<string, number>;
+  yantraPrices: Record<string, number>;
   weaponPrices: Record<string, number>;
 }
 
-/** Un Zoid en propiedad, con su daño y su montaje persistentes. */
+/** Un Yantra en propiedad, con su daño y su montaje persistentes. */
 /**
  * Hoja de servicio de UNA máquina: la unidad no gana experiencia (ley
  * del diseño), pero sí HISTORIA. Se graba al liquidar cada batalla y
  * en el taller; las cicatrices cosméticas de la silueta salen de aquí.
  */
-export interface ZoidRecord {
+export interface YantraRecord {
   battles: number;
   kills: number;
   rebuilds: number;
@@ -62,7 +62,7 @@ export interface ZoidRecord {
   retreats: number;
 }
 
-export interface OwnedZoid {
+export interface OwnedYantra {
   unitTypeId: string;
   /** HP actual; el maxHp lo calcula el motor según el montaje. */
   hp: number;
@@ -70,9 +70,9 @@ export interface OwnedZoid {
   weapons: string[];
   slots: Record<string, string>;
   /** Hoja de servicio (ausente en guardados viejos = a estrenar). */
-  record?: ZoidRecord;
+  record?: YantraRecord;
   /**
-   * Núcleo de la máquina: TODO Zoid está vivo — también los que no son
+   * Núcleo de la máquina: TODO Yantra está vivo — también los que no son
    * la compañera graban marcas y estrechan compenetración (con los
    * techos más bajos de CORE_TABLE). Ausente = núcleo verde.
    */
@@ -94,26 +94,26 @@ export interface OwnedZoid {
 }
 
 /** Núcleo con valores verdes para guardados viejos (sin migración). */
-export function zoidCore(zoid: OwnedZoid): CompanionState {
-  return zoid.core ?? newCompanion();
+export function yantraCore(yantra: OwnedYantra): CompanionState {
+  return yantra.core ?? newCompanion();
 }
 
 /** Hoja de servicio con huecos a cero (guardados viejos incluidos). */
-export function zoidRecord(zoid: OwnedZoid): ZoidRecord {
+export function yantraRecord(yantra: OwnedYantra): YantraRecord {
   return {
-    battles: zoid.record?.battles ?? 0,
-    kills: zoid.record?.kills ?? 0,
-    rebuilds: zoid.record?.rebuilds ?? 0,
-    ejections: zoid.record?.ejections ?? 0,
-    retreats: zoid.record?.retreats ?? 0,
+    battles: yantra.record?.battles ?? 0,
+    kills: yantra.record?.kills ?? 0,
+    rebuilds: yantra.record?.rebuilds ?? 0,
+    ejections: yantra.record?.ejections ?? 0,
+    retreats: yantra.record?.retreats ?? 0,
   };
 }
 
 /** Acumula sucesos en la hoja de servicio. Sin mutar. */
-export function updateZoidRecord(zoid: OwnedZoid, delta: Partial<ZoidRecord>): OwnedZoid {
-  const record = zoidRecord(zoid);
+export function updateYantraRecord(yantra: OwnedYantra, delta: Partial<YantraRecord>): OwnedYantra {
+  const record = yantraRecord(yantra);
   return {
-    ...zoid,
+    ...yantra,
     record: {
       battles: record.battles + (delta.battles ?? 0),
       kills: record.kills + (delta.kills ?? 0),
@@ -132,7 +132,7 @@ export const SERVICE_TIERS = [
   { id: 'leyenda', label: 'leyenda del taller', min: 15 },
 ] as const;
 
-export function serviceTier(record: ZoidRecord): (typeof SERVICE_TIERS)[number] {
+export function serviceTier(record: YantraRecord): (typeof SERVICE_TIERS)[number] {
   return [...SERVICE_TIERS].reverse().find((t) => record.battles >= t.min) ?? SERVICE_TIERS[0];
 }
 
@@ -140,14 +140,14 @@ export function serviceTier(record: ZoidRecord): (typeof SERVICE_TIERS)[number] 
  * Cicatrices visibles de la silueta (0-4): una por cada 4 batallas y
  * una por reconstrucción. El metal cuenta lo vivido sin decir palabra.
  */
-export function scarLevel(record: ZoidRecord): number {
+export function scarLevel(record: YantraRecord): number {
   return Math.min(4, Math.floor(record.battles / 4) + record.rebuilds);
 }
 
 export interface CampaignState {
   credits: number;
   /** Huecos de despliegue (longitud fija). */
-  roster: OwnedZoid[];
+  roster: OwnedYantra[];
   /** Arsenal en propiedad: weaponId → unidades poseídas. */
   armory: Record<string, number>;
   contractsDone: number;
@@ -433,20 +433,20 @@ function fillSquad(
   let remaining = budget;
   for (let i = 0; i < slots; i++) {
     const slotBudget = remaining / (slots - i);
-    const affordable = enemyPool.filter((id) => (economy.zoidPrices[id] ?? 0) <= slotBudget * affordCap);
+    const affordable = enemyPool.filter((id) => (economy.yantraPrices[id] ?? 0) <= slotBudget * affordCap);
     const spendWeight = (id: string) => {
-      const ratio = (economy.zoidPrices[id] ?? 0) / Math.max(1, slotBudget);
+      const ratio = (economy.yantraPrices[id] ?? 0) / Math.max(1, slotBudget);
       return ratio * ratio; // favorece gastar el hueco (élites en contratos ricos)
     };
     const weight = (id: string) => Math.max(0.0001, weightOf?.(id) ?? 1) * spendWeight(id);
     const pick = affordable.length > 0
       ? weightedPick(affordable, rand(), weight)
-      : enemyPool.reduce((a, b) => ((economy.zoidPrices[a] ?? 0) <= (economy.zoidPrices[b] ?? 0) ? a : b));
+      : enemyPool.reduce((a, b) => ((economy.yantraPrices[a] ?? 0) <= (economy.yantraPrices[b] ?? 0) ? a : b));
     squad.push(pick);
-    remaining -= economy.zoidPrices[pick] ?? 0;
+    remaining -= economy.yantraPrices[pick] ?? 0;
   }
   // El más caro lidera (comandante) — orden estable para el cliente.
-  squad.sort((a, b) => (economy.zoidPrices[b] ?? 0) - (economy.zoidPrices[a] ?? 0));
+  squad.sort((a, b) => (economy.yantraPrices[b] ?? 0) - (economy.yantraPrices[a] ?? 0));
   return squad;
 }
 
@@ -503,16 +503,16 @@ export function resolveContract(
   outcome: ContractOutcome,
 ): { state: CampaignState; report: ContractReport } {
   const lost: string[] = [];
-  const roster = state.roster.map((zoid, i) => {
+  const roster = state.roster.map((yantra, i) => {
     const hp = outcome.finalHp[i];
-    if (hp === undefined) return zoid; // no se desplegó (ya destruido)
+    if (hp === undefined) return yantra; // no se desplegó (ya destruido)
     if (hp <= 0) {
-      lost.push(zoid.unitTypeId);
-      return { ...zoid, hp: 0, destroyed: true };
+      lost.push(yantra.unitTypeId);
+      return { ...yantra, hp: 0, destroyed: true };
     }
     // El blindaje de refuerzo gastado persiste: se repara en el taller.
-    const armor = zoid.reinforced ? outcome.finalArmor?.[i] : undefined;
-    const next: OwnedZoid = { ...zoid, hp };
+    const armor = yantra.reinforced ? outcome.finalArmor?.[i] : undefined;
+    const next: OwnedYantra = { ...yantra, hp };
     if (armor !== undefined) next.armor = armor;
     // Continuidad: el reactor sale como quedó (calor/energía residual, cargador
     // a medias). Se sobrescribe el residual viejo con el de ESTA batalla (o se
@@ -543,27 +543,27 @@ export function resolveContract(
  * HP ni blindaje (tienen su propia reparación). Es lo que evita la "espiral de
  * la muerte": cualquier jornada de descanso deja el reactor fresco.
  */
-export function refitZoid(zoid: OwnedZoid): OwnedZoid {
-  if (zoid.residualHeat === undefined && zoid.residualEnergy === undefined && zoid.ammo === undefined) {
-    return zoid; // ya está a estrenar: sin cambios
+export function refitYantra(yantra: OwnedYantra): OwnedYantra {
+  if (yantra.residualHeat === undefined && yantra.residualEnergy === undefined && yantra.ammo === undefined) {
+    return yantra; // ya está a estrenar: sin cambios
   }
-  const { residualHeat: _h, residualEnergy: _e, ammo: _a, ...refit } = zoid;
+  const { residualHeat: _h, residualEnergy: _e, ammo: _a, ...refit } = yantra;
   return refit;
 }
 
 // ── Taller y tienda (todo sin mutar; si no se puede pagar, sin cambios) ──
 
-export function repairCost(zoid: OwnedZoid, maxHp: number, economy: EconomyTable): number {
-  if (zoid.destroyed) return 0;
-  return Math.max(0, Math.round((maxHp - Math.min(zoid.hp, maxHp)) * economy.repairCostPerHp));
+export function repairCost(yantra: OwnedYantra, maxHp: number, economy: EconomyTable): number {
+  if (yantra.destroyed) return 0;
+  return Math.max(0, Math.round((maxHp - Math.min(yantra.hp, maxHp)) * economy.repairCostPerHp));
 }
 
-export function repairZoid(
+export function repairYantra(
   state: CampaignState, slot: number, maxHp: number, economy: EconomyTable,
 ): CampaignState {
-  const zoid = state.roster[slot];
-  if (!zoid || zoid.destroyed) return state;
-  const cost = repairCost(zoid, maxHp, economy);
+  const yantra = state.roster[slot];
+  if (!yantra || yantra.destroyed) return state;
+  const cost = repairCost(yantra, maxHp, economy);
   if (cost === 0 || state.credits < cost) return state;
   const roster = state.roster.map((z, i) => (i === slot ? { ...z, hp: maxHp } : z));
   return { ...state, roster, credits: state.credits - cost };
@@ -572,8 +572,8 @@ export function repairZoid(
 // ── Refuerzo de blindaje: aguante extra a cambio de velocidad ───────────
 
 /** Tope de blindaje de refuerzo de una máquina (0 si no está reforzada). */
-export function armorMax(zoid: OwnedZoid, economy: EconomyTable): number {
-  return zoid.reinforced ? economy.reinforcement.armor : 0;
+export function armorMax(yantra: OwnedYantra, economy: EconomyTable): number {
+  return yantra.reinforced ? economy.reinforcement.armor : 0;
 }
 
 /**
@@ -595,8 +595,8 @@ export function reinforcementModifiers(economy: EconomyTable): StatModifier[] {
  * puede (destruida, ya reforzada, o sin fondos).
  */
 export function reinforceArmor(state: CampaignState, slot: number, economy: EconomyTable): CampaignState {
-  const zoid = state.roster[slot];
-  if (!zoid || zoid.destroyed || zoid.reinforced) return state;
+  const yantra = state.roster[slot];
+  if (!yantra || yantra.destroyed || yantra.reinforced) return state;
   const cost = economy.reinforcement.fitCost;
   if (state.credits < cost) return state;
   const roster = state.roster.map((z, i) =>
@@ -606,53 +606,53 @@ export function reinforceArmor(state: CampaignState, slot: number, economy: Econ
 
 /** Desmonta el refuerzo (recupera velocidad; no reembolsa). */
 export function stripReinforcement(state: CampaignState, slot: number): CampaignState {
-  const zoid = state.roster[slot];
-  if (!zoid || !zoid.reinforced) return state;
+  const yantra = state.roster[slot];
+  if (!yantra || !yantra.reinforced) return state;
   const roster = state.roster.map((z, i) =>
     (i === slot ? { ...z, reinforced: false, armor: 0 } : z));
   return { ...state, roster };
 }
 
 /** Coste de reparar el blindaje de refuerzo gastado (0 si no hay refuerzo o está a tope). */
-export function armorRepairCost(zoid: OwnedZoid, economy: EconomyTable): number {
-  if (!zoid.reinforced) return 0;
+export function armorRepairCost(yantra: OwnedYantra, economy: EconomyTable): number {
+  if (!yantra.reinforced) return 0;
   const max = economy.reinforcement.armor;
-  const missing = max - Math.max(0, Math.min(zoid.armor ?? 0, max));
+  const missing = max - Math.max(0, Math.min(yantra.armor ?? 0, max));
   return Math.max(0, Math.round(missing * economy.reinforcement.repairPerPoint));
 }
 
 /** Repara el blindaje de refuerzo a tope, si hay con qué pagar. */
 export function repairArmor(state: CampaignState, slot: number, economy: EconomyTable): CampaignState {
-  const zoid = state.roster[slot];
-  if (!zoid || !zoid.reinforced) return state;
-  const cost = armorRepairCost(zoid, economy);
+  const yantra = state.roster[slot];
+  if (!yantra || !yantra.reinforced) return state;
+  const cost = armorRepairCost(yantra, economy);
   if (cost === 0 || state.credits < cost) return state;
   const roster = state.roster.map((z, i) =>
     (i === slot ? { ...z, armor: economy.reinforcement.armor } : z));
   return { ...state, roster, credits: state.credits - cost };
 }
 
-export function rebuildCost(zoid: OwnedZoid, economy: EconomyTable): number {
-  return Math.round((economy.zoidPrices[zoid.unitTypeId] ?? 0) * economy.rebuildFactor);
+export function rebuildCost(yantra: OwnedYantra, economy: EconomyTable): number {
+  return Math.round((economy.yantraPrices[yantra.unitTypeId] ?? 0) * economy.rebuildFactor);
 }
 
-export function rebuildZoid(
+export function rebuildYantra(
   state: CampaignState, slot: number, maxHp: number, economy: EconomyTable,
 ): CampaignState {
-  const zoid = state.roster[slot];
-  if (!zoid || !zoid.destroyed) return state;
-  const cost = rebuildCost(zoid, economy);
+  const yantra = state.roster[slot];
+  if (!yantra || !yantra.destroyed) return state;
+  const cost = rebuildCost(yantra, economy);
   if (state.credits < cost) return state;
   const roster = state.roster.map((z, i) =>
-    (i === slot ? updateZoidRecord({ ...z, hp: maxHp, destroyed: false }, { rebuilds: 1 }) : z));
+    (i === slot ? updateYantraRecord({ ...z, hp: maxHp, destroyed: false }, { rebuilds: 1 }) : z));
   return { ...state, roster, credits: state.credits - cost };
 }
 
 /** Valor de retoma de un chasis al cambiarlo por otro. */
-export function tradeInValue(zoid: OwnedZoid, maxHp: number, economy: EconomyTable): number {
-  const price = economy.zoidPrices[zoid.unitTypeId] ?? 0;
-  if (zoid.destroyed) return Math.round(price * 0.15);
-  const condition = Math.max(0, Math.min(1, zoid.hp / maxHp));
+export function tradeInValue(yantra: OwnedYantra, maxHp: number, economy: EconomyTable): number {
+  const price = economy.yantraPrices[yantra.unitTypeId] ?? 0;
+  if (yantra.destroyed) return Math.round(price * 0.15);
+  const condition = Math.max(0, Math.min(1, yantra.hp / maxHp));
   return Math.round(price * economy.sellFactor * condition);
 }
 
@@ -660,7 +660,7 @@ export function tradeInValue(zoid: OwnedZoid, maxHp: number, economy: EconomyTab
  * Compra un chasis nuevo para un hueco, entregando el actual como parte
  * de pago. Las armas montadas vuelven al arsenal (siguen en propiedad).
  */
-export function buyZoid(
+export function buyYantra(
   state: CampaignState,
   slot: number,
   unitTypeId: string,
@@ -669,7 +669,7 @@ export function buyZoid(
   factoryLoadout: (unitTypeId: string) => { weapons: string[]; slots: Record<string, string> },
 ): CampaignState {
   const current = state.roster[slot];
-  const price = economy.zoidPrices[unitTypeId];
+  const price = economy.yantraPrices[unitTypeId];
   if (!current || price === undefined) return state;
   const net = price - tradeInValue(current, currentMaxHp, economy);
   if (state.credits < net) return state;
@@ -714,8 +714,8 @@ export function sellWeapon(state: CampaignState, weaponId: string, economy: Econ
  * puede montar más unidades de un arma de las que hay en el arsenal.
  */
 export function setMountedWeapons(state: CampaignState, slot: number, weapons: string[]): CampaignState {
-  const zoid = state.roster[slot];
-  if (!zoid) return state;
+  const yantra = state.roster[slot];
+  if (!yantra) return state;
   const roster = state.roster.map((z, i) => (i === slot ? { ...z, weapons } : z));
   const candidate = { ...state, roster };
   for (const weaponId of new Set(weapons)) {
@@ -768,10 +768,10 @@ export function cityRepair(
   capRatio: number,
   fraction = 1,
 ): CampaignState {
-  const zoid = state.roster[slot];
-  if (!zoid || zoid.destroyed) return state;
+  const yantra = state.roster[slot];
+  if (!yantra || yantra.destroyed) return state;
   const cap = Math.round(maxHp * capRatio);
-  const current = Math.min(zoid.hp, maxHp);
+  const current = Math.min(yantra.hp, maxHp);
   const healable = Math.max(0, cap - current);
   const healed = Math.max(0, Math.round(healable * Math.max(0, Math.min(1, fraction))));
   const cost = Math.round(healed * costPerHp);

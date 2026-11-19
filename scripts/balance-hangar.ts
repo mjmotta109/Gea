@@ -1,6 +1,6 @@
 /**
  * Balance del hangar completo: enfrenta equipos ALEATORIOS (deterministas
- * por semilla) de 4 Zoids por bando, sobre el valle, IA contra IA, y
+ * por semilla) de 4 Yantras por bando, sobre el valle, IA contra IA, y
  * agrega métricas por chasis y por arma para detectar outliers.
  *
  *   npm run balance:hangar            (300 batallas)
@@ -18,7 +18,7 @@ import { VALLEY_CROSSING } from '../src/data/maps.js';
 import { MODULES } from '../src/data/modules.js';
 import { withWeaponLibrary } from '../src/data/weaponLibrary.js';
 import { WEAPONS } from '../src/data/weapons.js';
-import { ZOIDS } from '../src/data/zoids.js';
+import { YANTRAS } from '../src/data/yantras.js';
 
 const CATALOGS = withWeaponLibrary(ABILITIES, WEAPONS);
 const battles = Number(process.argv[2] ?? 300);
@@ -39,8 +39,8 @@ function mulberry32(seed: number): () => number {
 // Solo chasis PILOTABLES: fuera las unidades de escenario — bestias 2×2
 // (no caben en los spawns del flanco) y el carguero inmóvil (speed 0). No
 // son combatientes que se compren ni se balanceen.
-const POOL = Object.keys(ZOIDS).filter((id) => {
-  const z = ZOIDS[id]!;
+const POOL = Object.keys(YANTRAS).filter((id) => {
+  const z = YANTRAS[id]!;
   return (z.size ?? 1) === 1 && z.stats.speed > 0;
 });
 
@@ -53,18 +53,18 @@ function pickTeam(rand: () => number): string[] {
   return team;
 }
 
-interface ZoidAggregate {
+interface YantraAggregate {
   games: number; wins: number; draws: number; destroyed: number;
   damage: number; kills: number;
 }
 interface WeaponAggregate { carried: number; uses: number; damage: number }
 
-const zoids = new Map<string, ZoidAggregate>();
+const yantras = new Map<string, YantraAggregate>();
 const weaponStats = new Map<string, WeaponAggregate>();
 
-const zoidAgg = (id: string): ZoidAggregate => {
-  let agg = zoids.get(id);
-  if (!agg) { agg = { games: 0, wins: 0, draws: 0, destroyed: 0, damage: 0, kills: 0 }; zoids.set(id, agg); }
+const yantraAgg = (id: string): YantraAggregate => {
+  let agg = yantras.get(id);
+  if (!agg) { agg = { games: 0, wins: 0, draws: 0, destroyed: 0, damage: 0, kills: 0 }; yantras.set(id, agg); }
   return agg;
 };
 const weaponAgg = (id: string): WeaponAggregate => {
@@ -93,7 +93,7 @@ for (let seed = 1; seed <= battles; seed++) {
 
   const battle = new Battle({
     map: VALLEY_CROSSING,
-    unitCatalog: ZOIDS,
+    unitCatalog: YANTRAS,
     abilityCatalog: CATALOGS.abilityCatalog,
     moduleCatalog: MODULES,
     weaponCatalog: CATALOGS.weaponCatalog,
@@ -106,9 +106,9 @@ for (let seed = 1; seed <= battles; seed++) {
   // unidad la porta (la misma habilidad puede ser innata en otro chasis).
   const weaponOfAbility = new Map<string, Map<string, string>>();
   for (const spawn of spawns) {
-    zoidAgg(spawn.unitTypeId).games++;
+    yantraAgg(spawn.unitTypeId).games++;
     const byAbility = new Map<string, string>();
-    for (const weaponId of ZOIDS[spawn.unitTypeId]!.weapons ?? []) {
+    for (const weaponId of YANTRAS[spawn.unitTypeId]!.weapons ?? []) {
       weaponAgg(weaponId).carried++;
       byAbility.set(CATALOGS.weaponCatalog[weaponId]!.abilityId, weaponId);
     }
@@ -131,12 +131,12 @@ for (let seed = 1; seed <= battles; seed++) {
           const weaponId = weaponOfAbility.get(event.unitId)?.get(event.abilityId);
           if (weaponId) weaponAgg(weaponId).uses++;
         } else if (event.type === 'damage-dealt') {
-          zoidAgg(typeOf.get(event.unitId)!).damage += event.amount;
+          yantraAgg(typeOf.get(event.unitId)!).damage += event.amount;
           const weaponId = weaponOfAbility.get(event.unitId)?.get(lastAbility.get(event.unitId) ?? '');
           if (weaponId) weaponAgg(weaponId).damage += event.amount;
         } else if (event.type === 'unit-destroyed') {
           if (lastAttacker && lastAttacker !== event.unitId) {
-            zoidAgg(typeOf.get(lastAttacker)!).kills++;
+            yantraAgg(typeOf.get(lastAttacker)!).kills++;
           }
         }
       }
@@ -165,7 +165,7 @@ for (let seed = 1; seed <= battles; seed++) {
   const winner = battle.winner;
   if (!winner) draws++;
   for (const spawn of spawns) {
-    const agg = zoidAgg(spawn.unitTypeId);
+    const agg = yantraAgg(spawn.unitTypeId);
     if (!winner) agg.draws++;
     else if (winner === spawn.team) agg.wins++;
     const unit = battle.units.find((u) => u.id === spawn.id)!;
@@ -179,7 +179,7 @@ console.log(`\n═══ Balance del hangar: ${battles} batallas 4v4 aleatorias 
 console.log(`turnos medios: ${(totalTurns / battles).toFixed(1)}   empates por límite de turnos: ${draws} (${((draws / battles) * 100).toFixed(1)}%)\n`);
 
 console.log('chasis                 partidas   %victoria   %muere   daño/p   kills/p');
-const rows = [...zoids.entries()].sort((a, b) => {
+const rows = [...yantras.entries()].sort((a, b) => {
   const rateA = a[1].wins / Math.max(1, a[1].games - a[1].draws);
   const rateB = b[1].wins / Math.max(1, b[1].games - b[1].draws);
   return rateB - rateA;

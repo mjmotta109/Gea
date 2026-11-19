@@ -6,7 +6,7 @@ import {
 import { trackLevel } from '../src/core/progression.js';
 import { resolveEncounter, startFreeExpedition, type Encounter } from '../src/game/expedition.js';
 import { SALT_PASS_REGION } from '../src/data/world.js';
-import { ZOIDS } from '../src/data/zoids.js';
+import { YANTRAS } from '../src/data/yantras.js';
 
 // El cuartel: reclutar por taberna, agencia, rescate y aspirantes.
 // Todo determinista; la calidad del rescatado ES el riesgo corrido.
@@ -70,7 +70,7 @@ describe('el cuartel de pilotos', () => {
       expect(aiSkill).toBe(RESCUE_TIERS[tier].aiSkill);
       for (const id of squad) {
         expect(RESCUE_TIERS[tier].pool).toContain(id);
-        expect(ZOIDS[id], `chasis real: ${id}`).toBeDefined();
+        expect(YANTRAS[id], `chasis real: ${id}`).toBeDefined();
       }
     }
     expect(RESCUE_TIERS[3].aiSkill).toBeGreaterThan(RESCUE_TIERS[1].aiSkill);

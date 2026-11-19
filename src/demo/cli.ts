@@ -13,34 +13,34 @@ import { ABILITIES } from '../data/abilities.js';
 import { VALLEY_CROSSING } from '../data/maps.js';
 import { MODULES } from '../data/modules.js';
 import { WEAPONS } from '../data/weapons.js';
-import { ZOIDS } from '../data/zoids.js';
+import { YANTRAS } from '../data/yantras.js';
 import { planTurn } from '../ai/simpleAi.js';
 import { STATUS_INFO } from '../core/status.js';
 
 const auto = process.argv.includes('--auto');
 // La 42 luce especialmente bien el daño localizado: garras y tren
-// delantero del Liger, y cañón/cabeza/piernas del Geno, caen por partes.
+// delantero del Centella, y cañón/cabeza/piernas del Prisma, caen por partes.
 // La 30 (SEED=30 npm run demo:auto) luce la gestión de recursos: recarga
-// del rifle de Naomi, boost, y el cañón del Geno ciclando enfriamientos.
+// del rifle de Sela, boost, y el cañón del Prisma ciclando enfriamientos.
 const seed = Number(process.env.SEED ?? 42);
 
 const battle = new Battle({
   map: VALLEY_CROSSING,
-  unitCatalog: ZOIDS,
+  unitCatalog: YANTRAS,
   abilityCatalog: ABILITIES,
   moduleCatalog: MODULES,
   weaponCatalog: WEAPONS,
   seed,
   spawns: [
     // P1 y E1 usan las versiones framed: daño localizado por módulos.
-    { id: 'P1', name: 'Liger Zero CAS (Bit)', unitTypeId: 'liger-zero-cas', team: 'player', position: { x: 1, y: 3 } },
-    { id: 'P2', name: 'Command Wolf (Irvine)', unitTypeId: 'command-wolf', team: 'player', position: { x: 0, y: 5 } },
-    { id: 'P3', name: 'Gun Sniper (Naomi)', unitTypeId: 'gun-sniper-naomi', team: 'player', position: { x: 1, y: 7 } },
-    { id: 'P4', name: 'Gustav (Moonbay)', unitTypeId: 'gustav', team: 'player', position: { x: 0, y: 4 } },
-    { id: 'E1', name: 'Geno Saurer CP', unitTypeId: 'geno-saurer-cp', team: 'enemy', position: { x: 10, y: 3 } },
-    { id: 'E2', name: 'Molga', unitTypeId: 'molga', team: 'enemy', position: { x: 11, y: 5 } },
-    { id: 'E3', name: 'Molga', unitTypeId: 'molga', team: 'enemy', position: { x: 10, y: 6 } },
-    { id: 'E4', name: 'Pteras', unitTypeId: 'pteras', team: 'enemy', position: { x: 11, y: 2 } },
+    { id: 'P1', name: 'Centella-M (Bit)', unitTypeId: 'centella-m', team: 'player', position: { x: 1, y: 3 } },
+    { id: 'P2', name: 'Rastreador (Basco)', unitTypeId: 'rastreador', team: 'player', position: { x: 0, y: 5 } },
+    { id: 'P3', name: 'Visor (Sela)', unitTypeId: 'visor-c', team: 'player', position: { x: 1, y: 7 } },
+    { id: 'P4', name: 'Mula (Noor)', unitTypeId: 'mula', team: 'player', position: { x: 0, y: 4 } },
+    { id: 'E1', name: 'Prisma-M', unitTypeId: 'prisma-m', team: 'enemy', position: { x: 10, y: 3 } },
+    { id: 'E2', name: 'Tornillo', unitTypeId: 'tornillo', team: 'enemy', position: { x: 11, y: 5 } },
+    { id: 'E3', name: 'Tornillo', unitTypeId: 'tornillo', team: 'enemy', position: { x: 10, y: 6 } },
+    { id: 'E4', name: 'Cometa', unitTypeId: 'cometa', team: 'enemy', position: { x: 11, y: 2 } },
   ],
 });
 
@@ -72,9 +72,9 @@ function renderBoard(): string {
 function renderUnits(): string {
   return battle.units
     .map((u) => {
-      const zoid = battle.definitionOf(u.unitTypeId);
+      const yantra = battle.definitionOf(u.unitTypeId);
       const statuses = u.statuses.map((s) => STATUS_INFO[s.id].name).join(', ');
-      const state = u.hp > 0 ? `${u.hp}/${zoid.stats.maxHp} HP` : 'DESTRUIDO';
+      const state = u.hp > 0 ? `${u.hp}/${yantra.stats.maxHp} HP` : 'DESTRUIDO';
       let line = `  [${u.team === 'player' ? 'P' : 'E'}] ${u.id} ${u.name}: ${state}${statuses ? ` (${statuses})` : ''}`;
       if (u.hp > 0) {
         const extras: string[] = [];

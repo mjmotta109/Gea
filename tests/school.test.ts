@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Battle, type BattleConfig, type UnitSpawn } from '../src/core/battle.js';
 import { FLAT_ARENA } from '../src/data/maps.js';
-import { ZOIDS } from '../src/data/zoids.js';
+import { YANTRAS } from '../src/data/yantras.js';
 import { MODULES } from '../src/data/modules.js';
 import { ABILITIES } from '../src/data/abilities.js';
 import { WEAPONS } from '../src/data/weapons.js';
@@ -21,7 +21,7 @@ const E = (id: string, unitTypeId: string, x: number, y: number): UnitSpawn =>
 function arena(overrides: Partial<BattleConfig>): Battle {
   return new Battle({
     map: FLAT_ARENA,
-    unitCatalog: ZOIDS,
+    unitCatalog: YANTRAS,
     moduleCatalog: MODULES,
     abilityCatalog: CATALOGS.abilityCatalog,
     weaponCatalog: CATALOGS.weaponCatalog,
@@ -43,9 +43,9 @@ describe('habilidades de escuela: activas, otorgadas y con cupo', () => {
   it('las otorgadas aparecen en el repertorio; sin otorgar, no existen', () => {
     const battle = arena({
       spawns: [
-        P('P1', 'iron-kong', 1, 2, ['escuela-asalto']),
-        P('P2', 'iron-kong', 1, 4),
-        E('E1', 'molga', 6, 2),
+        P('P1', 'martinete', 1, 2, ['escuela-asalto']),
+        P('P2', 'martinete', 1, 4),
+        E('E1', 'tornillo', 6, 2),
       ],
     });
     expect(battle.knownAbilityIds(battle.unit('P1'))).toContain('escuela-asalto');
@@ -54,7 +54,7 @@ describe('habilidades de escuela: activas, otorgadas y con cupo', () => {
 
   it('una por batalla: el segundo uso se rechaza y el cupo se ve', () => {
     const battle = arena({
-      spawns: [P('P1', 'iron-kong', 2, 2, ['escuela-asalto']), E('E1', 'iron-kong', 3, 2)],
+      spawns: [P('P1', 'martinete', 2, 2, ['escuela-asalto']), E('E1', 'martinete', 3, 2)],
     });
     battle.nextTurn();
     // El kong es lento pero aquí es el único jugador: forzamos su turno.
@@ -78,7 +78,7 @@ describe('habilidades de escuela: activas, otorgadas y con cupo', () => {
 
   it('las habilidades sin cupo siguen siendo ilimitadas', () => {
     const battle = arena({
-      spawns: [P('P1', 'liger-zero', 2, 2), E('E1', 'molga', 6, 2)],
+      spawns: [P('P1', 'centella', 2, 2), E('E1', 'tornillo', 6, 2)],
     });
     battle.nextTurn();
     expect(battle.usesLeft(battle.unit('P1'), 'bite-crush')).toBeUndefined();
@@ -86,7 +86,7 @@ describe('habilidades de escuela: activas, otorgadas y con cupo', () => {
 
   it('la postura de hierro se lanza sobre uno mismo y aplica sus dos escudos', () => {
     const battle = arena({
-      spawns: [P('P1', 'iron-kong', 2, 2, ['escuela-defensa']), E('E1', 'molga', 7, 5)],
+      spawns: [P('P1', 'martinete', 2, 2, ['escuela-defensa']), E('E1', 'tornillo', 7, 5)],
     });
     while (battle.getActiveUnit()?.id !== 'P1') {
       if (!battle.getActiveUnit()) battle.nextTurn();

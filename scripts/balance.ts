@@ -67,5 +67,5 @@ for (const [id, agg] of [...units.entries()].sort()) {
     `${pct(agg.destroyed).padStart(6)}   ${pct(agg.survivedWins).padStart(6)}`,
   );
 }
-console.log('\nRoster: P1 Liger Zero · P2 Command Wolf · P3 Gun Sniper · P4 Gustav');
-console.log('        E1 Geno Saurer · E2/E3 Molga · E4 Pteras');
+console.log('\nRoster: P1 Centella · P2 Rastreador · P3 Visor · P4 Mula');
+console.log('        E1 Prisma · E2/E3 Tornillo · E4 Cometa');

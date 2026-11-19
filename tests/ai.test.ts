@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Battle, type BattleConfig, type UnitSpawn } from '../src/core/battle.js';
 import { planTurn } from '../src/ai/simpleAi.js';
 import { FLAT_ARENA } from '../src/data/maps.js';
-import { ZOIDS } from '../src/data/zoids.js';
+import { YANTRAS } from '../src/data/yantras.js';
 import { ABILITIES } from '../src/data/abilities.js';
 import { MODULES } from '../src/data/modules.js';
 import type { UnitDefinition } from '../src/core/types.js';
@@ -15,15 +15,15 @@ const P = (id: string, unitTypeId: string, x: number, y: number): UnitSpawn =>
 const E = (id: string, unitTypeId: string, x: number, y: number): UnitSpawn =>
   ({ id, name: id, unitTypeId, team: 'enemy', position: { x, y } });
 
-// Chasis de laboratorio: molga prudente (huye) y molga estoica (aguanta).
+// Chasis de laboratorio: tornillo prudente (huye) y tornillo estoica (aguanta).
 const LAB: Record<string, UnitDefinition> = {
-  ...ZOIDS,
-  'molga-prudente': {
-    ...ZOIDS['molga']!, id: 'molga-prudente',
+  ...YANTRAS,
+  'tornillo-prudente': {
+    ...YANTRAS['tornillo']!, id: 'tornillo-prudente',
     aiProfile: { aggression: 0.3, selfPreservation: 0.9, riskTolerance: 0.3 },
   },
-  'molga-estoica': {
-    ...ZOIDS['molga']!, id: 'molga-estoica',
+  'tornillo-estoica': {
+    ...YANTRAS['tornillo']!, id: 'tornillo-estoica',
     aiProfile: { aggression: 0.5, selfPreservation: 0.2, riskTolerance: 0.5 },
   },
 };
@@ -52,7 +52,7 @@ function turnOf(battle: Battle, unitId: string): void {
 describe('la IA usa el arsenal nuevo', () => {
   it('malherida y prudente, pisa el borde y SE RETIRA', () => {
     const battle = arena({
-      spawns: [P('P1', 'liger-zero', 4, 2), E('E1', 'molga-prudente', 7, 2)],
+      spawns: [P('P1', 'centella', 4, 2), E('E1', 'tornillo-prudente', 7, 2)],
     });
     battle.unit('E1').hp = 15; // 15/70: muy tocada, pegada al borde este
     turnOf(battle, 'E1');
@@ -62,7 +62,7 @@ describe('la IA usa el arsenal nuevo', () => {
 
   it('malherida lejos del borde, corre hacia él y remata con la retirada', () => {
     const battle = arena({
-      spawns: [P('P1', 'liger-zero', 7, 2), E('E1', 'molga-prudente', 3, 2)],
+      spawns: [P('P1', 'centella', 7, 2), E('E1', 'tornillo-prudente', 3, 2)],
     });
     battle.unit('E1').hp = 15;
     turnOf(battle, 'E1');
@@ -72,7 +72,7 @@ describe('la IA usa el arsenal nuevo', () => {
 
   it('la estoica no huye: malherida sigue peleando', () => {
     const battle = arena({
-      spawns: [P('P1', 'liger-zero', 4, 2), E('E1', 'molga-estoica', 7, 2)],
+      spawns: [P('P1', 'centella', 4, 2), E('E1', 'tornillo-estoica', 7, 2)],
     });
     battle.unit('E1').hp = 15;
     turnOf(battle, 'E1');
@@ -81,11 +81,11 @@ describe('la IA usa el arsenal nuevo', () => {
   });
 
   it('sin tiro posible pero con enemigos cerca, cierra el turno en VIGILANCIA', () => {
-    // FLAT_ARENA es 8×6: dist máx manhattan 12. La molga (move 4, cañón
-    // rango 4) a 9 del liger: no llega a tiro ni moviéndose, pero el
-    // liger está a menos de 10 → vigila en vez de esperar.
+    // FLAT_ARENA es 8×6: dist máx manhattan 12. La tornillo (move 4, cañón
+    // rango 4) a 9 del centella: no llega a tiro ni moviéndose, pero el
+    // centella está a menos de 10 → vigila en vez de esperar.
     const battle = arena({
-      spawns: [P('P1', 'liger-zero', 0, 0), E('E1', 'molga-estoica', 7, 4)],
+      spawns: [P('P1', 'centella', 0, 0), E('E1', 'tornillo-estoica', 7, 4)],
     });
     turnOf(battle, 'E1');
     const plan = planTurn(battle, battle.unit('E1'));
@@ -93,13 +93,13 @@ describe('la IA usa el arsenal nuevo', () => {
   });
 
   it('en las escoltas huele el contrato: prioriza al carguero protegido', () => {
-    // Liger y carguero equidistantes del atacante, ambos a tiro: sin el
-    // olfato, el liger (más fácil de dañar %) empataría o ganaría; el
+    // Centella y carguero equidistantes del atacante, ambos a tiro: sin el
+    // olfato, el centella (más fácil de dañar %) empataría o ganaría; el
     // bono de misión (+40) debe decidir por el carguero.
     const battle = arena({
       spawns: [
-        E('E1', 'molga-estoica', 3, 2),
-        P('P1', 'liger-zero', 3, 4),
+        E('E1', 'tornillo-estoica', 3, 2),
+        P('P1', 'centella', 3, 4),
         P('W1', 'carguero-colono', 3, 0),
       ],
       objective: { kind: 'protect', wardUnitId: 'W1' },
@@ -114,7 +114,7 @@ describe('la IA usa el arsenal nuevo', () => {
   it('mismo estado, mismo plan: la IA nueva sigue siendo determinista', () => {
     const run = (): string => {
       const battle = arena({
-        spawns: [P('P1', 'liger-zero', 7, 2), E('E1', 'molga-prudente', 3, 2)],
+        spawns: [P('P1', 'centella', 7, 2), E('E1', 'tornillo-prudente', 3, 2)],
       });
       battle.unit('E1').hp = 15;
       turnOf(battle, 'E1');

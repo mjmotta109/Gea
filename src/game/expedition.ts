@@ -446,7 +446,7 @@ export interface EncounterOutcome {
 
 const ENCOUNTERS: Record<Encounter['kind'], { prompt: string; options: EncounterOption[] }> = {
   caravana: {
-    prompt: 'Una caravana varada bloquea el paso: su Gustav de carga ha volcado y el sol no perdona.',
+    prompt: 'Una caravana varada bloquea el paso: su Mula de carga ha volcado y el sol no perdona.',
     options: [
       { id: 'ayudar', label: '⚙ Echar una mano', detail: '+1 jornada; pagan al llegar (bodega); Colonos +8' },
       { id: 'seguir', label: '→ Seguir de largo', detail: 'sin coste; el camino no espera' },
@@ -462,7 +462,7 @@ const ENCOUNTERS: Record<Encounter['kind'], { prompt: string; options: Encounter
     ],
   },
   peaje: {
-    prompt: 'Tres máquinas chatarreras cortan el desfiladero. El de delante golpea el casco de su Molga: peaje.',
+    prompt: 'Tres máquinas chatarreras cortan el desfiladero. El de delante golpea el casco de su Tornillo: peaje.',
     options: [
       { id: 'pagar', label: '📦 Pagar el peaje', detail: 'suministros −2; Chatarreros +6' },
       { id: 'plantarse', label: '🛡 Plantarse sin ceder', detail: 'estrés +8; Chatarreros −8, Colonos +4' },
@@ -471,7 +471,7 @@ const ENCOUNTERS: Record<Encounter['kind'], { prompt: string; options: Encounter
     ],
   },
   manada: {
-    prompt: 'Una manada de zoids salvajes cruza el valle en silencio. Nadie los guía. Nadie los ha domado.',
+    prompt: 'Una manada de yantras salvajes cruza el valle en silencio. Nadie los guía. Nadie los ha domado.',
     options: [
       { id: 'observar', label: '👁 Apagar motores y mirar', detail: 'la tripulación respira: estrés −6' },
       { id: 'cazar', label: '🎯 Cazar una pieza', detail: 'suministros +2; sucio y ruidoso: estrés +6' },
@@ -555,7 +555,7 @@ export function resolveEncounter(
   switch (`${encounter.kind}|${optionId}`) {
     case 'caravana|ayudar':
       return {
-        expedition: stamp(1, 'Enderezamos el Gustav de la caravana. Pagan sin regatear.'),
+        expedition: stamp(1, 'Enderezamos el Mula de la caravana. Pagan sin regatear.'),
         supplyDelta: 0, stressDelta: 0,
         cargo: { name: 'Pago de la caravana', value: 220 },
         reputation: [{ factionId: 'colonos', delta: 8 }],

@@ -5,7 +5,7 @@ import { ABILITIES } from '../src/data/abilities.js';
 import { MODULES } from '../src/data/modules.js';
 import { WEAPONS } from '../src/data/weapons.js';
 import { withWeaponLibrary } from '../src/data/weaponLibrary.js';
-import { ZOIDS } from '../src/data/zoids.js';
+import { YANTRAS } from '../src/data/yantras.js';
 
 /**
  * Red de seguridad de contenido: los chasis de 2ª generación montan armas
@@ -20,7 +20,7 @@ const { abilityCatalog, weaponCatalog } = withWeaponLibrary(ABILITIES, WEAPONS);
 function deploy(unitTypeId: string, catalogs = { abilityCatalog, weaponCatalog }): Battle {
   return new Battle({
     map: FLAT_ARENA,
-    unitCatalog: ZOIDS,
+    unitCatalog: YANTRAS,
     abilityCatalog: catalogs.abilityCatalog,
     weaponCatalog: catalogs.weaponCatalog,
     moduleCatalog: MODULES,
@@ -30,7 +30,7 @@ function deploy(unitTypeId: string, catalogs = { abilityCatalog, weaponCatalog }
 }
 
 describe('integridad de datos: todos los chasis se despliegan con el catálogo canónico', () => {
-  for (const id of Object.keys(ZOIDS)) {
+  for (const id of Object.keys(YANTRAS)) {
     it(`'${id}' se despliega y todas sus armas/habilidades existen`, () => {
       let battle!: Battle;
       expect(() => { battle = deploy(id); }).not.toThrow();
@@ -47,8 +47,8 @@ describe('daño localizado: los chasis con frame se ven en batalla', () => {
   // Los 7 chasis de combate que ganaron frame a medida (2026-07-09) + los 2 de
   // núcleo desnudo. Si alguno pierde el frame o descuadra su HP, salta aquí.
   const FRAMED = [
-    'liger-zero', 'command-wolf', 'gun-sniper', 'gojulas', 'iron-kong', 'pteras', 'geno-saurer',
-    'liger-zero-cas', 'geno-saurer-cp',
+    'centella', 'rastreador', 'visor', 'baluarte', 'martinete', 'cometa', 'prisma',
+    'centella-m', 'prisma-m',
   ];
 
   for (const id of FRAMED) {
@@ -57,7 +57,7 @@ describe('daño localizado: los chasis con frame se ven en batalla', () => {
       const frame = unit.components.frame;
       expect(frame).toBeDefined();
       const sum = frame!.modules.reduce((n, m) => n + m.hp, 0);
-      expect(sum).toBe(ZOIDS[id]!.stats.maxHp);
+      expect(sum).toBe(YANTRAS[id]!.stats.maxHp);
       // Un frame de combate tiene exactamente un núcleo crítico y piezas con placa.
       const cores = frame!.modules.filter((m) => MODULES[m.moduleId]!.critical);
       expect(cores).toHaveLength(1);
@@ -68,9 +68,9 @@ describe('daño localizado: los chasis con frame se ven en batalla', () => {
 
 describe('el catálogo sin biblioteca falla con un mensaje útil', () => {
   it('un chasis lib-* nombra el chasis y sugiere withWeaponLibrary', () => {
-    // brachios monta lib-w-arc-emitter, ausente del catálogo base WEAPONS.
-    const build = () => deploy('brachios', { abilityCatalog: ABILITIES, weaponCatalog: WEAPONS });
-    expect(build).toThrow(/brachios/);
+    // faro monta lib-w-arc-emitter, ausente del catálogo base WEAPONS.
+    const build = () => deploy('faro', { abilityCatalog: ABILITIES, weaponCatalog: WEAPONS });
+    expect(build).toThrow(/faro/);
     expect(build).toThrow(/withWeaponLibrary/);
   });
 });

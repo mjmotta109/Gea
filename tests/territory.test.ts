@@ -5,7 +5,7 @@ import {
 } from '../src/game/overworld.js';
 import { landmarkSpec, resolveLandmark } from '../src/game/landmarks.js';
 import { SALT_PASS_REGION, EMERALD_COAST_REGION, ASH_BELT_REGION } from '../src/data/world.js';
-import { ZOIDS } from '../src/data/zoids.js';
+import { YANTRAS } from '../src/data/yantras.js';
 
 // La niebla del territorio y los hitos del camino: la carta se levanta
 // marchando, y lo que asoma trae peleas o decisiones de facción.
@@ -114,7 +114,7 @@ describe('los hitos del camino', () => {
       expect(out.done).toBe(false); // el hito se cierra al VENCER, no al decidir
       expect(out.battle!.reward).toBeGreaterThan(0);
       expect(out.battle!.aiSkill).toBeGreaterThan(0);
-      for (const id of out.battle!.squad) expect(ZOIDS[id], `chasis real: ${id}`).toBeDefined();
+      for (const id of out.battle!.squad) expect(YANTRAS[id], `chasis real: ${id}`).toBeDefined();
       // Determinista: la misma decisión, la misma escuadra.
       expect(resolveLandmark(lm, optionId)).toEqual(out);
       // La decisión de intervenir/asaltar ya mueve facción (anunciado).

@@ -5,18 +5,18 @@ import type { BattleSystem } from '../src/core/systems.js';
 import { ABILITIES } from '../src/data/abilities.js';
 import { MODULES } from '../src/data/modules.js';
 import { FLAT_ARENA } from '../src/data/maps.js';
-import { ZOIDS } from '../src/data/zoids.js';
+import { YANTRAS } from '../src/data/yantras.js';
 
 function duel(overrides: Partial<BattleConfig> = {}): Battle {
   return new Battle({
     map: FLAT_ARENA,
-    unitCatalog: ZOIDS,
+    unitCatalog: YANTRAS,
     abilityCatalog: ABILITIES,
     moduleCatalog: MODULES,
     seed: 123,
     spawns: [
-      { id: 'P1', name: 'Liger', unitTypeId: 'liger-zero', team: 'player', position: { x: 1, y: 2 } },
-      { id: 'E1', name: 'Molga', unitTypeId: 'molga', team: 'enemy', position: { x: 6, y: 2 } },
+      { id: 'P1', name: 'Centella', unitTypeId: 'centella', team: 'player', position: { x: 1, y: 2 } },
+      { id: 'E1', name: 'Tornillo', unitTypeId: 'tornillo', team: 'enemy', position: { x: 6, y: 2 } },
     ],
     ...overrides,
   });
@@ -71,6 +71,6 @@ describe('bus de sistemas', () => {
     const events = battle.execute({ type: 'wait', unitId: 'P1' });
     const tick = events.find((e) => e.type === 'status-ticked');
     expect(tick).toBeDefined();
-    expect(p1.hp).toBe(120 - Math.round(120 * 0.08)); // 8% del maxHp del Liger
+    expect(p1.hp).toBe(120 - Math.round(120 * 0.08)); // 8% del maxHp del Centella
   });
 });

@@ -4,7 +4,7 @@ import { ABILITIES } from '../src/data/abilities.js';
 import { FLAT_ARENA } from '../src/data/maps.js';
 import { MODULES } from '../src/data/modules.js';
 import { WEAPONS } from '../src/data/weapons.js';
-import { ZOIDS } from '../src/data/zoids.js';
+import { YANTRAS } from '../src/data/yantras.js';
 import {
   WEAPON_LIBRARY_ABILITIES,
   WEAPON_LIBRARY_ENTRIES,
@@ -37,8 +37,8 @@ describe('libreria anexa de armas', () => {
   it('se mezcla con los catalogos base sin pisar IDs existentes', () => {
     const { abilityCatalog, weaponCatalog } = withWeaponLibrary(ABILITIES, WEAPONS);
 
-    expect(abilityCatalog['strike-laser-claw']).toBe(ABILITIES['strike-laser-claw']);
-    expect(weaponCatalog['w-strike-laser-claw']).toBe(WEAPONS['w-strike-laser-claw']);
+    expect(abilityCatalog['arc-claw']).toBe(ABILITIES['arc-claw']);
+    expect(weaponCatalog['w-arc-claw']).toBe(WEAPONS['w-arc-claw']);
     expect(abilityCatalog['lib-rail-lance']).toBe(WEAPON_LIBRARY_ABILITIES['lib-rail-lance']);
     expect(weaponCatalog['lib-w-rail-lance']).toBe(WEAPON_LIBRARY_WEAPONS['lib-w-rail-lance']);
   });
@@ -47,7 +47,7 @@ describe('libreria anexa de armas', () => {
     const { abilityCatalog, weaponCatalog } = withWeaponLibrary(ABILITIES, WEAPONS);
     const battle = new Battle({
       map: FLAT_ARENA,
-      unitCatalog: ZOIDS,
+      unitCatalog: YANTRAS,
       abilityCatalog,
       moduleCatalog: MODULES,
       weaponCatalog,
@@ -55,13 +55,13 @@ describe('libreria anexa de armas', () => {
       spawns: [
         {
           id: 'wolf',
-          name: 'Command Wolf personalizado',
-          unitTypeId: 'command-wolf',
+          name: 'Rastreador personalizado',
+          unitTypeId: 'rastreador',
           team: 'player',
           position: { x: 0, y: 0 },
           loadout: { weapons: WEAPON_LIBRARY_LOADOUTS.skirmisher },
         },
-        { id: 'target', name: 'Molga objetivo', unitTypeId: 'molga', team: 'enemy', position: { x: 4, y: 0 } },
+        { id: 'target', name: 'Tornillo objetivo', unitTypeId: 'tornillo', team: 'enemy', position: { x: 4, y: 0 } },
       ],
     });
 

@@ -5,7 +5,7 @@ import { FLAT_ARENA } from '../src/data/maps.js';
 import { ABILITIES } from '../src/data/abilities.js';
 import { MODULES } from '../src/data/modules.js';
 import { WEAPONS } from '../src/data/weapons.js';
-import { ZOIDS } from '../src/data/zoids.js';
+import { YANTRAS } from '../src/data/yantras.js';
 
 /**
  * Desgaste de combate (block 5): el daño acumulado degrada la máquina en vez
@@ -35,11 +35,11 @@ describe('desgaste de combate: cada impacto deja marca', () => {
 
   it('en batalla, una máquina dañada apunta y se mueve peor (y a wear 0, no)', () => {
     const mk = (wear: number) => new Battle({
-      map: FLAT_ARENA, unitCatalog: ZOIDS, abilityCatalog: ABILITIES, weaponCatalog: WEAPONS,
+      map: FLAT_ARENA, unitCatalog: YANTRAS, abilityCatalog: ABILITIES, weaponCatalog: WEAPONS,
       moduleCatalog: MODULES, seed: 1, wear,
       spawns: [
-        { id: 'H', name: 'sano', unitTypeId: 'command-wolf', team: 'player', position: { x: 1, y: 1 } },
-        { id: 'D', name: 'dañado', unitTypeId: 'command-wolf', team: 'player', position: { x: 3, y: 1 }, hp: 10 },
+        { id: 'H', name: 'sano', unitTypeId: 'rastreador', team: 'player', position: { x: 1, y: 1 } },
+        { id: 'D', name: 'dañado', unitTypeId: 'rastreador', team: 'player', position: { x: 3, y: 1 }, hp: 10 },
       ],
     });
     const worn = mk(1);
@@ -55,7 +55,7 @@ describe('desgaste de combate: cada impacto deja marca', () => {
   });
 
   it('perder una pata cuesta puntería (onDestroyed de las patas)', () => {
-    for (const id of ['liger-legs-front', 'liger-legs-rear', 'geno-leg-l', 'geno-leg-r']) {
+    for (const id of ['cm-tren-del', 'cm-tren-tras', 'pm-pierna-izq', 'pm-pierna-der']) {
       const onDestroyed = MODULES[id]!.onDestroyed;
       expect(onDestroyed.some((m) => m.stat === 'accuracy' && (m.add ?? 0) < 0)).toBe(true);
     }

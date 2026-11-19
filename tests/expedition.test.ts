@@ -12,10 +12,10 @@ import { CITY_TIERS, CONTRACT_ENEMY_POOL } from '../src/data/economy.js';
 import { PERKS } from '../src/data/progression.js';
 import { ECONOMY } from '../src/data/economy.js';
 import { SALT_PASS_REGION } from '../src/data/world.js';
-import { ZOIDS } from '../src/data/zoids.js';
+import { YANTRAS } from '../src/data/yantras.js';
 
 const factoryLoadout = (unitTypeId: string) => ({
-  weapons: [...(ZOIDS[unitTypeId]!.weapons ?? [])],
+  weapons: [...(YANTRAS[unitTypeId]!.weapons ?? [])],
   slots: {},
 });
 
@@ -303,11 +303,11 @@ describe('la compañera: marcas y compenetración', () => {
     const { ABILITIES } = await import('../src/data/abilities.js');
     const { VALLEY_CROSSING } = await import('../src/data/maps.js');
     const battle = new Battle({
-      map: VALLEY_CROSSING, unitCatalog: ZOIDS, abilityCatalog: ABILITIES, seed: 5,
+      map: VALLEY_CROSSING, unitCatalog: YANTRAS, abilityCatalog: ABILITIES, seed: 5,
       spawns: [
-        { id: 'A', name: 'Marcada', unitTypeId: 'molga', team: 'player', position: { x: 1, y: 3 },
+        { id: 'A', name: 'Marcada', unitTypeId: 'tornillo', team: 'player', position: { x: 1, y: 3 },
           modifiers: [{ source: 'mark:test', stat: 'atk', add: 7 }] },
-        { id: 'B', name: 'Limpia', unitTypeId: 'molga', team: 'enemy', position: { x: 10, y: 3 } },
+        { id: 'B', name: 'Limpia', unitTypeId: 'tornillo', team: 'enemy', position: { x: 10, y: 3 } },
       ],
     });
     expect(battle.effectiveStats(battle.unit('A')).atk).toBe(30 + 7);

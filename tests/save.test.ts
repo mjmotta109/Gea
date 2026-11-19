@@ -5,15 +5,15 @@ import { newCampaign } from '../src/game/mercenary.js';
 import { startExpedition } from '../src/game/expedition.js';
 import { ECONOMY } from '../src/data/economy.js';
 import { SALT_PASS_REGION } from '../src/data/world.js';
-import { ZOIDS } from '../src/data/zoids.js';
+import { YANTRAS } from '../src/data/yantras.js';
 
 const factoryLoadout = (unitTypeId: string) => ({
-  weapons: [...(ZOIDS[unitTypeId]!.weapons ?? [])],
+  weapons: [...(YANTRAS[unitTypeId]!.weapons ?? [])],
   slots: {},
 });
 
 function samplePayload() {
-  const van = newPilot('pilot-1', 'Van');
+  const van = newPilot('pilot-1', 'Iria');
   van.tracks.assault = 300;
   van.quirks = ['curtido'];
   return {
@@ -21,7 +21,7 @@ function samplePayload() {
     pilots: { 'pilot-1': van },
     campaign: newCampaign(ECONOMY, factoryLoadout),
     expedition: startExpedition(SALT_PASS_REGION, 'c0-caza', 'caza'),
-    client: { garage: [{ unitTypeId: 'liger-zero' }], maps: {}, selectedMap: '' },
+    client: { garage: [{ unitTypeId: 'centella' }], maps: {}, selectedMap: '' },
   };
 }
 
@@ -33,7 +33,7 @@ describe('sistema de guardado', () => {
     expect(restored!.version).toBe(SAVE_VERSION);
     expect(restored!.pilots['pilot-1']!.quirks).toEqual(['curtido']);
     expect(restored!.expedition!.targetNodeId).toBeDefined();
-    expect(restored!.client['garage']).toEqual([{ unitTypeId: 'liger-zero' }]);
+    expect(restored!.client['garage']).toEqual([{ unitTypeId: 'centella' }]);
   });
 
   it('rechaza basura sin lanzar: JSON roto, versiones imposibles, objetos ajenos', () => {
@@ -51,7 +51,7 @@ describe('sistema de guardado', () => {
     expect(summary.credits).toBe(ECONOMY.startingCredits);
     expect(summary.contractsDone).toBe(0);
     expect(summary.expeditionDay).toBe(0);
-    expect(summary.pilotNames).toEqual(['Van']);
+    expect(summary.pilotNames).toEqual(['Iria']);
     expect(summary.totalPilotLevels).toBe(2); // asalto 300 XP = nivel 2
   });
 

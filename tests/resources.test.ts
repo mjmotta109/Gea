@@ -43,7 +43,7 @@ const TEST_WEAPONS: Record<string, WeaponDefinition> = {
     costs: { heat: 5 }, magazine: 2, reserves: 1,
   },
   'w-test-laser': {
-    id: 'w-test-laser', name: 'Láser de pruebas', abilityId: 'strike-laser-claw',
+    id: 'w-test-laser', name: 'Láser de pruebas', abilityId: 'arc-claw',
     costs: { energy: 25, heat: 30, cooldownTurns: 1 }, magazine: 0, reserves: 0,
   },
 };
@@ -96,7 +96,7 @@ describe('EnergySystem', () => {
     unit.components.energy!.current = 10;
 
     expect(battle.checkVetoes({
-      type: 'ability', unitId: 'R', abilityId: 'strike-laser-claw', target: { x: 2, y: 1 },
+      type: 'ability', unitId: 'R', abilityId: 'arc-claw', target: { x: 2, y: 1 },
     })?.systemId).toBe('energy');
     expect(battle.checkVetoes({ type: 'boost', unitId: 'R', to: { x: 2, y: 1 } })?.systemId).toBe('energy');
 
@@ -135,7 +135,7 @@ describe('HeatSystem', () => {
     const battle = rigBattle();
     untilTurnOf(battle, 'R');
     battle.execute({ type: 'move', unitId: 'R', to: { x: 3, y: 1 } });
-    battle.execute({ type: 'ability', unitId: 'R', abilityId: 'strike-laser-claw', target: { x: 4, y: 1 } });
+    battle.execute({ type: 'ability', unitId: 'R', abilityId: 'arc-claw', target: { x: 4, y: 1 } });
     const heat = battle.unit('R').components.heat!;
     expect(heat.current).toBe(30);
 
@@ -205,25 +205,25 @@ describe('ArsenalSystem', () => {
     const battle = rigBattle();
     untilTurnOf(battle, 'R');
     battle.execute({ type: 'move', unitId: 'R', to: { x: 3, y: 1 } });
-    battle.execute({ type: 'ability', unitId: 'R', abilityId: 'strike-laser-claw', target: { x: 4, y: 1 } });
+    battle.execute({ type: 'ability', unitId: 'R', abilityId: 'arc-claw', target: { x: 4, y: 1 } });
     battle.execute({ type: 'wait', unitId: 'R' });
 
     untilTurnOf(battle, 'R');
     expect(battle.checkVetoes({
-      type: 'ability', unitId: 'R', abilityId: 'strike-laser-claw', target: { x: 4, y: 1 },
+      type: 'ability', unitId: 'R', abilityId: 'arc-claw', target: { x: 4, y: 1 },
     })?.reason).toMatch(/enfriamiento/);
 
     battle.execute({ type: 'wait', unitId: 'R' });
     untilTurnOf(battle, 'R');
     expect(battle.checkVetoes({
-      type: 'ability', unitId: 'R', abilityId: 'strike-laser-claw', target: { x: 4, y: 1 },
+      type: 'ability', unitId: 'R', abilityId: 'arc-claw', target: { x: 4, y: 1 },
     })).toBeNull();
   });
 
   it('las armas del arsenal cuentan como habilidades conocidas', () => {
     const battle = rigBattle();
     expect(battle.knownAbilityIds(battle.unit('R')).sort()).toEqual(
-      ['bite-crush', 'shock-cannon', 'strike-laser-claw'],
+      ['arc-claw', 'bite-crush', 'shock-cannon'],
     );
   });
 });

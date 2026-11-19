@@ -2,12 +2,12 @@ import { CT_ACT_HEAVY, type AbilityDefinition } from '../core/types.js';
 
 /**
  * Catálogo de habilidades. Equivalen a las habilidades de job de FFTA;
- * aquí son sistemas de armas y equipo de los Zoids.
+ * aquí son sistemas de armas y equipo de los Yantras.
  */
 export const ABILITIES: Record<string, AbilityDefinition> = {
-  'strike-laser-claw': {
-    id: 'strike-laser-claw',
-    name: 'Strike Laser Claw',
+  'arc-claw': {
+    id: 'arc-claw',
+    name: 'Garras de arco',
     description: 'Zarpazo energético a bocajarro de enorme potencia.',
     range: 1,
     minRange: 1,
@@ -20,7 +20,7 @@ export const ABILITIES: Record<string, AbilityDefinition> = {
   'bite-crush': {
     id: 'bite-crush',
     name: 'Mordisco triturador',
-    description: 'Ataque de mandíbulas estándar de los Zoids cuadrúpedos.',
+    description: 'Ataque de mandíbulas estándar de los yantras cuadrúpedos.',
     range: 1,
     minRange: 1,
     shape: 'single',
@@ -31,7 +31,7 @@ export const ABILITIES: Record<string, AbilityDefinition> = {
   },
   'shock-cannon': {
     id: 'shock-cannon',
-    name: 'Cañón de impacto AZ',
+    name: 'Cañón de choque',
     description: 'Disparo balístico de medio alcance.',
     range: 4,
     minRange: 2,
@@ -65,9 +65,9 @@ export const ABILITIES: Record<string, AbilityDefinition> = {
     targetsAllies: false,
     effects: [{ kind: 'damage', power: 30, damageType: 'physical' }],
   },
-  'charged-particle-gun': {
-    id: 'charged-particle-gun',
-    name: 'Cañón de partículas cargadas',
+  'beam-cannon': {
+    id: 'beam-cannon',
+    name: 'Cañón de haz',
     description: 'Haz devastador en línea recta que recalienta al objetivo.',
     range: 6,
     minRange: 2,
@@ -76,7 +76,7 @@ export const ABILITIES: Record<string, AbilityDefinition> = {
     accuracy: 70,
     targetsAllies: false,
     // Nerf calibrado con npm run balance (2026-07-05): con power 60/acc 75
-    // el Geno hacía 279 de daño medio y su equipo ganaba el 81.5%; con 36
+    // el Prisma hacía 279 de daño medio y su equipo ganaba el 81.5%; con 36
     // el escenario queda 55/45 para el jugador. Ojo: hay un breakpoint
     // brutal en 37-38 (vuelve a 71.5% enemigo) — no subir sin re-medir.
     // minRange 2 le abre además la debilidad clásica del arma:

@@ -1,7 +1,7 @@
 {
   "name": "gea-tactics-engine",
   "version": "0.1.0",
-  "description": "Motor táctico por turnos estilo Final Fantasy Tactics Advance con temática Zoids",
+  "description": "Juego táctico por turnos de bestias de guerra (yantras) con motor determinista propio",
   "type": "module",
   "scripts": {
     "build": "tsc",
