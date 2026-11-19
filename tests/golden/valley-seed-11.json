@@ -164,7 +164,7 @@
     {
       "type": "ability-used",
       "unitId": "E4",
-      "abilityId": "shock-cannon",
+      "abilityId": "recoilless-gun",
       "target": {
         "x": 5,
         "y": 3
@@ -256,7 +256,7 @@
     {
       "type": "ability-used",
       "unitId": "P2",
-      "abilityId": "smoke-discharger",
+      "abilityId": "smoke-grenades",
       "target": {
         "x": 5,
         "y": 3
@@ -285,7 +285,7 @@
     {
       "type": "ability-used",
       "unitId": "E1",
-      "abilityId": "beam-cannon",
+      "abilityId": "fel-laser",
       "target": {
         "x": 5,
         "y": 3
@@ -451,7 +451,7 @@
       "unitId": "E2",
       "targetUnitId": "P1",
       "reaction": "vigilancia",
-      "abilityId": "shock-cannon"
+      "abilityId": "recoilless-gun"
     },
     {
       "type": "hit-location-rolled",
@@ -489,7 +489,7 @@
       "unitId": "E3",
       "targetUnitId": "P1",
       "reaction": "vigilancia",
-      "abilityId": "shock-cannon"
+      "abilityId": "recoilless-gun"
     },
     {
       "type": "hit-location-rolled",
@@ -576,7 +576,7 @@
     {
       "type": "ability-used",
       "unitId": "E4",
-      "abilityId": "shock-cannon",
+      "abilityId": "recoilless-gun",
       "target": {
         "x": 2,
         "y": 3
@@ -642,7 +642,7 @@
     {
       "type": "ability-used",
       "unitId": "P2",
-      "abilityId": "shock-cannon",
+      "abilityId": "recoilless-gun",
       "target": {
         "x": 6,
         "y": 3
@@ -817,7 +817,7 @@
     {
       "type": "ability-used",
       "unitId": "E1",
-      "abilityId": "beam-cannon",
+      "abilityId": "fel-laser",
       "target": {
         "x": 2,
         "y": 3
@@ -898,7 +898,7 @@
     {
       "type": "ability-used",
       "unitId": "P4",
-      "abilityId": "shock-cannon",
+      "abilityId": "recoilless-gun",
       "target": {
         "x": 8,
         "y": 3
@@ -907,7 +907,7 @@
     {
       "type": "projectile-fired",
       "unitId": "P4",
-      "weaponId": "w-impact-cannon",
+      "weaponId": "w-heavy-recoilless",
       "from": {
         "x": 4,
         "y": 3
@@ -1026,7 +1026,7 @@
     {
       "type": "ability-used",
       "unitId": "E2",
-      "abilityId": "shock-cannon",
+      "abilityId": "recoilless-gun",
       "target": {
         "x": 4,
         "y": 3
@@ -1078,7 +1078,7 @@
     {
       "type": "ability-used",
       "unitId": "E3",
-      "abilityId": "shock-cannon",
+      "abilityId": "recoilless-gun",
       "target": {
         "x": 4,
         "y": 3
@@ -1106,7 +1106,7 @@
     {
       "type": "ability-used",
       "unitId": "E1",
-      "abilityId": "beam-cannon",
+      "abilityId": "fel-laser",
       "target": {
         "x": 4,
         "y": 3
@@ -1166,7 +1166,7 @@
     {
       "type": "ability-used",
       "unitId": "P3",
-      "abilityId": "sniper-rifle",
+      "abilityId": "antimateriel-rifle",
       "target": {
         "x": 8,
         "y": 3
@@ -1175,7 +1175,7 @@
     {
       "type": "projectile-fired",
       "unitId": "P3",
-      "weaponId": "w-sniper-rifle",
+      "weaponId": "w-antimateriel-rifle",
       "from": {
         "x": 1,
         "y": 3
@@ -1214,7 +1214,7 @@
     {
       "type": "ability-used",
       "unitId": "P4",
-      "abilityId": "shock-cannon",
+      "abilityId": "recoilless-gun",
       "target": {
         "x": 8,
         "y": 3
@@ -1223,7 +1223,7 @@
     {
       "type": "projectile-fired",
       "unitId": "P4",
-      "weaponId": "w-impact-cannon",
+      "weaponId": "w-heavy-recoilless",
       "from": {
         "x": 4,
         "y": 3
@@ -1269,7 +1269,7 @@
     {
       "type": "ability-used",
       "unitId": "E3",
-      "abilityId": "shock-cannon",
+      "abilityId": "recoilless-gun",
       "target": {
         "x": 4,
         "y": 3
@@ -1297,7 +1297,7 @@
     {
       "type": "ability-used",
       "unitId": "E1",
-      "abilityId": "beam-cannon",
+      "abilityId": "fel-laser",
       "target": {
         "x": 4,
         "y": 3
@@ -1341,7 +1341,7 @@
     {
       "type": "ability-used",
       "unitId": "P3",
-      "abilityId": "sniper-rifle",
+      "abilityId": "antimateriel-rifle",
       "target": {
         "x": 9,
         "y": 3
@@ -1350,7 +1350,7 @@
     {
       "type": "projectile-fired",
       "unitId": "P3",
-      "weaponId": "w-sniper-rifle",
+      "weaponId": "w-antimateriel-rifle",
       "from": {
         "x": 2,
         "y": 3
@@ -1470,7 +1470,7 @@
     {
       "type": "ability-used",
       "unitId": "E3",
-      "abilityId": "shock-cannon",
+      "abilityId": "recoilless-gun",
       "target": {
         "x": 2,
         "y": 3
@@ -1520,7 +1520,7 @@
     {
       "type": "ability-used",
       "unitId": "E3",
-      "abilityId": "shock-cannon",
+      "abilityId": "recoilless-gun",
       "target": {
         "x": 2,
         "y": 3
@@ -1608,7 +1608,7 @@
     {
       "type": "ability-used",
       "unitId": "E3",
-      "abilityId": "shock-cannon",
+      "abilityId": "recoilless-gun",
       "target": {
         "x": 2,
         "y": 3

@@ -41,7 +41,7 @@ const SHOOTER: UnitDefinition = {
 const REACTOR: UnitDefinition = {
   id: 'reactor', name: 'Reactor', role: 'tank', moveType: 'ground',
   stats: { maxHp: 200, atk: 1, energyAtk: 1, def: 10, energyDef: 10, speed: 6, move: 1, jump: 1, evade: 0, accuracy: 0 },
-  abilityIds: ['bite-crush'],
+  abilityIds: ['hydraulic-jaws'],
   energy: { capacity: 50, outputPerTurn: 10 },
   heat: { max: 40, dissipationPerTurn: 10 },
 };
@@ -50,7 +50,7 @@ const REACTOR: UnitDefinition = {
 const MONO: UnitDefinition = {
   id: 'mono', name: 'Monocasco', role: 'tank', moveType: 'ground',
   stats: { maxHp: 200, atk: 1, energyAtk: 1, def: 10, energyDef: 10, speed: 6, move: 1, jump: 1, evade: 0, accuracy: 0 },
-  abilityIds: ['bite-crush'],
+  abilityIds: ['hydraulic-jaws'],
 };
 
 function heatBattle(targetType: 'reactor' | 'mono', overrides: Partial<BattleConfig> = {}): Battle {
@@ -126,20 +126,20 @@ describe('Arma térmica (vierte calor en el objetivo)', () => {
   });
 });
 
-describe('Lanzallamas de plasma (biblioteca)', () => {
+describe('Proyector de termita (biblioteca)', () => {
   it('existe con efecto de calor y su daño es mínimo', () => {
-    const ability = WEAPON_LIBRARY_ABILITIES['lib-plasma-flamer']!;
+    const ability = WEAPON_LIBRARY_ABILITIES['lib-thermite-projector']!;
     const heat = ability.effects.find((e) => e.kind === 'heat');
     const dmg = ability.effects.find((e) => e.kind === 'damage');
     expect(heat && heat.kind === 'heat' ? heat.amount : 0).toBeGreaterThan(0);
     expect(dmg && dmg.kind === 'damage' ? dmg.power : 99).toBeLessThan(20);
-    expect(WEAPON_LIBRARY_WEAPONS['lib-w-plasma-flamer']!.abilityId).toBe('lib-plasma-flamer');
+    expect(WEAPON_LIBRARY_WEAPONS['lib-w-thermite-projector']!.abilityId).toBe('lib-thermite-projector');
   });
 
   it('el arma REAL montada cuece el reactor (calor +26, pase o no el daño)', () => {
-    const flamerAmount = (WEAPON_LIBRARY_ABILITIES['lib-plasma-flamer']!.effects
+    const flamerAmount = (WEAPON_LIBRARY_ABILITIES['lib-thermite-projector']!.effects
       .find((e) => e.kind === 'heat') as { kind: 'heat'; amount: number }).amount;
-    const gunner: UnitDefinition = { ...SHOOTER, weapons: ['lib-w-plasma-flamer'] };
+    const gunner: UnitDefinition = { ...SHOOTER, weapons: ['lib-w-thermite-projector'] };
     const battle = new Battle({
       map: FLAT_ARENA,
       unitCatalog: { shooter: gunner, reactor: REACTOR, mono: MONO },
@@ -154,7 +154,7 @@ describe('Lanzallamas de plasma (biblioteca)', () => {
     });
     untilTurnOf(battle, 'S');
     const heatBefore = battle.unit('T').components.heat!.current;
-    battle.execute({ type: 'ability', unitId: 'S', abilityId: 'lib-plasma-flamer', target: { x: 2, y: 1 } });
+    battle.execute({ type: 'ability', unitId: 'S', abilityId: 'lib-thermite-projector', target: { x: 2, y: 1 } });
     expect(battle.unit('T').components.heat!.current).toBe(heatBefore + flamerAmount);
   });
 });

@@ -370,8 +370,8 @@ export function counterRoles(style: PlayerStyle): string[] {
  */
 export function counterWeapons(style: PlayerStyle): string[] {
   switch (style) {
-    case 'reactor': return ['lib-w-plasma-flamer', 'lib-w-incendiary-mortar']; // cuecen tu reactor
-    case 'melee': return ['lib-w-suppressor'];    // te FIJAN al cargar (sin contra ni vigilancia)
+    case 'reactor': return ['lib-w-thermite-projector', 'lib-w-thermite-mortar']; // cuecen tu reactor
+    case 'melee': return ['lib-w-suppression-mg'];    // te FIJAN al cargar (sin contra ni vigilancia)
     case 'ranged': return ['lib-w-smoke-mortar'];  // humo para sobrevivir tu hostigamiento
     case 'balanced': return [];
   }
@@ -382,7 +382,7 @@ export function adaptationHint(style: PlayerStyle): string | undefined {
   switch (style) {
     case 'melee': return 'Inteligencia: te han fichado peleando de cerca — traen fuego a distancia y supresores para fijarte.';
     case 'ranged': return 'Inteligencia: saben que hostigas desde lejos — mandan cerradores rápidos con cortinas de humo.';
-    case 'reactor': return 'Inteligencia: se han hartado de tus reactores forzados — vienen con LANZALLAMAS para cocerte.';
+    case 'reactor': return 'Inteligencia: se han hartado de tus reactores forzados — vienen con PROYECTORES DE TERMITA para cocerte.';
     case 'balanced': return undefined;
   }
 }

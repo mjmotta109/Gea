@@ -60,12 +60,12 @@ Cada chasis (`src/data/yantras.ts`) define stats, tipo de movimiento y habilidad
 | Yantra | Escuela | Rol | Perfil |
 |---|---|---|---|
 | Centella | Yamato | Asalto | Rápida y equilibrada; la compañera de arranque |
-| Rastreador | Argos | Escaramuza | Equilibrado, cañón de choque + humo |
+| Rastreador | Argos | Escaramuza | Equilibrado, cañón sin retroceso + humo |
 | Baluarte | Albion | Tanque | Lento, mucho HP, misiles en área |
 | Visor | Argos | Tirador | Frágil, rifle en línea de largo alcance |
 | Cometa | Argos | Volador | Ignora terreno, hoja aturdidora |
 | Mula | Albion | Soporte | Drones de reparación, carga |
-| Prisma-M | Argos | Asalto pesado | Reactor + cañón de haz; armazón por módulos |
+| Prisma-M | Argos | Asalto pesado | Reactor + láser de electrones libres; armazón por módulos |
 | Tornillo | Remiendo | Chusma | Barato, carne de cañón |
 
 Añadir un yantra, arma o habilidad es tocar solo los catálogos de datos (`src/data/`), no el motor. La **biblioteca de armas** anexa (montables en cualquier chasis) se documenta en [docs/WEAPON-LIBRARY.md](docs/WEAPON-LIBRARY.md).

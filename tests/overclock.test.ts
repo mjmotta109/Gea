@@ -19,7 +19,7 @@ const RIG: UnitDefinition = {
     maxHp: 100, atk: 30, energyAtk: 30, def: 20, energyDef: 20,
     speed: 10, move: 4, jump: 1, evade: 10, accuracy: 0,
   },
-  abilityIds: ['bite-crush'],
+  abilityIds: ['hydraulic-jaws'],
   energy: { capacity: 50, outputPerTurn: 10 },
   heat: { max: 40, dissipationPerTurn: 10 },
   weapons: ['w-test-rifle', 'w-test-laser'],
@@ -35,16 +35,16 @@ const DUMMY: UnitDefinition = {
     maxHp: 500, atk: 1, energyAtk: 1, def: 10, energyDef: 10,
     speed: 1, move: 1, jump: 1, evade: 0, accuracy: 0,
   },
-  abilityIds: ['bite-crush'],
+  abilityIds: ['hydraulic-jaws'],
 };
 
 const TEST_WEAPONS: Record<string, WeaponDefinition> = {
   'w-test-rifle': {
-    id: 'w-test-rifle', name: 'Rifle de pruebas', abilityId: 'shock-cannon',
+    id: 'w-test-rifle', name: 'Rifle de pruebas', abilityId: 'recoilless-gun',
     costs: { heat: 5 }, magazine: 2, reserves: 1,
   },
   'w-test-laser': {
-    id: 'w-test-laser', name: 'Láser de pruebas', abilityId: 'arc-claw',
+    id: 'w-test-laser', name: 'Láser de pruebas', abilityId: 'induction-claws',
     costs: { energy: 25, heat: 30, cooldownTurns: 1 }, magazine: 0, reserves: 0,
   },
 };
@@ -159,7 +159,7 @@ describe('Calor como encrucijada (interacciones)', () => {
     unit.components.heat!.current = 20;
 
     const veto = battle.checkVetoes({
-      type: 'ability', unitId: 'R', abilityId: 'arc-claw', target: { x: 2, y: 1 },
+      type: 'ability', unitId: 'R', abilityId: 'induction-claws', target: { x: 2, y: 1 },
     });
     expect(veto?.systemId).toBe('heat');
     expect(veto?.reason).toMatch(/recalentaría/);

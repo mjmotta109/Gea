@@ -75,7 +75,7 @@ describe('bestias 2×2: los jefes ocupan lo que pesan', () => {
       else battle.execute({ type: 'wait', unitId: battle.getActiveUnit()!.id });
     }
     const events = battle.execute({
-      type: 'ability', unitId: 'P1', abilityId: 'missile-pod', target: { x: 3, y: 2 },
+      type: 'ability', unitId: 'P1', abilityId: 'guided-rockets', target: { x: 3, y: 2 },
     });
     const resolutions = events.filter((e) =>
       (e.type === 'damage-dealt' && e.targetUnitId === 'B1') ||
@@ -102,8 +102,8 @@ describe('bestias 2×2: los jefes ocupan lo que pesan', () => {
     });
     big.nextTurn();
     small.nextTurn();
-    const nearChance = big.attackPreview('P1', 'bite-crush', { x: 2, y: 2 })!.chance;
-    const farChance = small.attackPreview('P1', 'bite-crush', { x: 2, y: 2 })!.chance;
+    const nearChance = big.attackPreview('P1', 'hydraulic-jaws', { x: 2, y: 2 })!.chance;
+    const farChance = small.attackPreview('P1', 'hydraulic-jaws', { x: 2, y: 2 })!.chance;
     expect(nearChance - farChance).toBe(8); // proximidad(1)=16 vs proximidad(3)=8
   });
 

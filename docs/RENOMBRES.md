@@ -22,9 +22,11 @@ tabla de equivalencias y lista de lo que falta fuera del juego.
 | Gustav · Brachios | Mula · Faro |
 | Pteras · Redler · Storm Sworder | Cometa · Saeta · Vencejo |
 | Molga · Guysak | Tornillo · Barrena |
-| Strike Laser Claw (arma y módulo) | Garras de arco |
-| Cañón de partículas (cargadas) | Cañón de haz |
-| Cañón de impacto AZ | Cañón de choque |
+| Strike Laser Claw (arma y módulo) | Garras de inducción |
+| Cañón de partículas (cargadas) | Láser de electrones libres |
+| Cañón de impacto AZ / Shock cannon | Cañón sin retroceso |
+| E-Shield · Smoke discharger | Blindaje electromagnético · Granadas fumígenas |
+| Todo el resto del arsenal | Ciencia ficción dura: ver LORE §6.7 |
 | «Torso y núcleo Zoid» (módulos) | «Torso y núcleo» |
 
 Gran Brontes y Carguero colono eran propios: se quedan.

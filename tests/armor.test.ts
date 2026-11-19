@@ -31,7 +31,7 @@ describe('motor: blindaje de refuerzo (búnker a nivel de máquina)', () => {
       const active = battle.getActiveUnit();
       if (!active) break;
       const foe = active.id === 'A' ? 'B' : 'A';
-      const evs = battle.execute({ type: 'ability', unitId: active.id, abilityId: 'bite-crush', target: battle.unit(foe).position });
+      const evs = battle.execute({ type: 'ability', unitId: active.id, abilityId: 'hydraulic-jaws', target: battle.unit(foe).position });
       if (evs.some((e) => e.type === 'unit-armor-damaged' && e.unitId === 'B')) armorHitOnB = true;
       if (battle.getActiveUnit()?.id === active.id) battle.execute({ type: 'wait', unitId: active.id });
     }

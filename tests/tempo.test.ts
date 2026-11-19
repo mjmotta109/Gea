@@ -23,12 +23,12 @@ const TEMPO_WEAPONS: Record<string, WeaponDefinition> = {
 const A: UnitDefinition = {
   id: 'a', name: 'A', role: 'skirmisher', moveType: 'ground',
   stats: { maxHp: 200, atk: 30, energyAtk: 30, def: 15, energyDef: 15, speed: 12, move: 4, jump: 1, evade: 0, accuracy: 0 },
-  abilityIds: ['bite-crush', 'e-shield'], weapons: ['test-heavy-w'],
+  abilityIds: ['hydraulic-jaws', 'em-armor'], weapons: ['test-heavy-w'],
 };
 const D: UnitDefinition = {
   id: 'd', name: 'D', role: 'tank', moveType: 'ground',
   stats: { maxHp: 400, atk: 30, energyAtk: 1, def: 10, energyDef: 10, speed: 6, move: 1, jump: 1, evade: 0, accuracy: 0 },
-  abilityIds: ['bite-crush'],
+  abilityIds: ['hydraulic-jaws'],
 };
 
 function battleOf(pos = { x: 2, y: 1 }, overrides: Partial<BattleConfig> = {}): Battle {
@@ -70,7 +70,7 @@ describe('Tempo como recurso', () => {
   it('un golpe ligero es neutro (base + ligero = umbral)', () => {
     const battle = battleOf({ x: 2, y: 1 }); // D pegado: mordisco ligero sin moverse
     untilTurnOf(battle, 'A');
-    battle.execute({ type: 'ability', unitId: 'A', abilityId: 'bite-crush', target: { x: 2, y: 1 } });
+    battle.execute({ type: 'ability', unitId: 'A', abilityId: 'hydraulic-jaws', target: { x: 2, y: 1 } });
     expect(tempoOnWait(battle, 'A')).toBe(CT_TURN_BASE + CT_ACT_LIGHT); // 60+40=100
   });
 
@@ -112,7 +112,7 @@ describe('Tempo como recurso', () => {
   it('la sobremarcha sobre una habilidad sin daño es ilegal', () => {
     const battle = battleOf({ x: 5, y: 1 });
     untilTurnOf(battle, 'A');
-    expect(() => battle.execute({ type: 'ability', unitId: 'A', abilityId: 'e-shield', target: { x: 1, y: 1 }, overdrive: true }))
+    expect(() => battle.execute({ type: 'ability', unitId: 'A', abilityId: 'em-armor', target: { x: 1, y: 1 }, overdrive: true }))
       .toThrow(/sobremarcha/);
   });
 
@@ -127,7 +127,7 @@ describe('Tempo como recurso', () => {
   it('reaccionar no cuesta tempo al que reacciona', () => {
     const battle = battleOf({ x: 2, y: 1 }); // D pegado a A
     untilTurnOf(battle, 'A');
-    battle.execute({ type: 'ability', unitId: 'A', abilityId: 'bite-crush', target: { x: 2, y: 1 } });
+    battle.execute({ type: 'ability', unitId: 'A', abilityId: 'hydraulic-jaws', target: { x: 2, y: 1 } });
     expect(battle.unit('D').tempoSpent ?? 0).toBe(0);
   });
 

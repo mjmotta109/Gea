@@ -68,7 +68,7 @@ describe('daño localizado: los chasis con frame se ven en batalla', () => {
 
 describe('el catálogo sin biblioteca falla con un mensaje útil', () => {
   it('un chasis lib-* nombra el chasis y sugiere withWeaponLibrary', () => {
-    // faro monta lib-w-arc-emitter, ausente del catálogo base WEAPONS.
+    // faro monta lib-w-electrolaser, ausente del catálogo base WEAPONS.
     const build = () => deploy('faro', { abilityCatalog: ABILITIES, weaponCatalog: WEAPONS });
     expect(build).toThrow(/faro/);
     expect(build).toThrow(/withWeaponLibrary/);

@@ -7,17 +7,17 @@ import { FLAT_ARENA } from '../src/data/maps.js';
 const RIG: UnitDefinition = {
   id: 'rig', name: 'Rig', role: 'skirmisher', moveType: 'ground',
   stats: { maxHp: 100, atk: 30, energyAtk: 30, def: 20, energyDef: 20, speed: 10, move: 4, jump: 1, evade: 10, accuracy: 0 },
-  abilityIds: ['bite-crush'],
+  abilityIds: ['hydraulic-jaws'],
   energy: { capacity: 50, outputPerTurn: 10 }, heat: { max: 40, dissipationPerTurn: 10 },
   weapons: ['w-rig-rifle'],
 };
 const DUMMY: UnitDefinition = {
   id: 'dummy', name: 'Blanco', role: 'tank', moveType: 'ground',
   stats: { maxHp: 500, atk: 1, energyAtk: 1, def: 10, energyDef: 10, speed: 1, move: 1, jump: 1, evade: 0, accuracy: 0 },
-  abilityIds: ['bite-crush'],
+  abilityIds: ['hydraulic-jaws'],
 };
 const WEAPONS: Record<string, WeaponDefinition> = {
-  'w-rig-rifle': { id: 'w-rig-rifle', name: 'Rifle', abilityId: 'shock-cannon', costs: { heat: 5 }, magazine: 3, reserves: 1 },
+  'w-rig-rifle': { id: 'w-rig-rifle', name: 'Rifle', abilityId: 'recoilless-gun', costs: { heat: 5 }, magazine: 3, reserves: 1 },
 };
 
 function build(spawnP: Partial<UnitSpawn>): Battle {
@@ -61,7 +61,7 @@ describe('Continuidad expedición↔combate', () => {
   it('munición residual: cargador a 0 veta el arma', () => {
     const battle = build({ ammo: { 'w-rig-rifle': 0 } });
     expect(battle.unit('R').components.arsenal!.weapons[0]!.ammo).toBe(0);
-    expect(battle.checkVetoes({ type: 'ability', unitId: 'R', abilityId: 'shock-cannon', target: { x: 4, y: 1 } })?.reason)
+    expect(battle.checkVetoes({ type: 'ability', unitId: 'R', abilityId: 'recoilless-gun', target: { x: 4, y: 1 } })?.reason)
       .toMatch(/munición/);
   });
 

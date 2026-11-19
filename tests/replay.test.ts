@@ -39,7 +39,7 @@ describe('repeticiones: la receta reproduce la batalla', () => {
       };
       battle.nextTurn();
       exec({ type: 'move', unitId: 'P1', to: { x: 3, y: 3 } });
-      exec({ type: 'ability', unitId: 'P1', abilityId: 'bite-crush', target: { x: 4, y: 3 } });
+      exec({ type: 'ability', unitId: 'P1', abilityId: 'hydraulic-jaws', target: { x: 4, y: 3 } });
       exec({ type: 'wait', unitId: 'P1' });
       battle.nextTurn();
       if (battle.getActiveUnit()?.id === 'E1' && !battle.isOver) {

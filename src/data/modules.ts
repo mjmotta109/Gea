@@ -40,7 +40,7 @@ const COMBAT_FRAME_MODULES: Record<string, ModuleDefinition> = {
   'ce-nucleo': struct('ce-nucleo', 'Torso y núcleo', 44, { plate: 14, hit: 40, tags: ['high-profile'], crit: true }),
   'ce-tren-del': struct('ce-tren-del', 'Tren delantero', 16, { plate: 5, hit: 15, tags: ['low-profile', 'locomotion'], pen: [['move', -2], ['accuracy', -8]] }),
   'ce-tren-tras': struct('ce-tren-tras', 'Tren trasero', 16, { plate: 5, hit: 15, tags: ['low-profile', 'locomotion'], pen: [['move', -2], ['accuracy', -8]] }),
-  'ce-garras': struct('ce-garras', 'Garras de arco', 16, { plate: 4, hit: 12, tags: ['weapon'], pen: [['atk', -18], ['energyAtk', -20]] }),
+  'ce-garras': struct('ce-garras', 'Garras de inducción', 16, { plate: 4, hit: 12, tags: ['weapon'], pen: [['atk', -18], ['energyAtk', -20]] }),
   'ce-lomo': struct('ce-lomo', 'Propulsores de lomo', 16, { plate: 4, hit: 10, tags: ['rear-exposed'], pen: [['evade', -8]] }),
 
   // ── Rastreador (100): escaramuza, cañón dorsal expuesto ────────────
@@ -55,13 +55,13 @@ const COMBAT_FRAME_MODULES: Record<string, ModuleDefinition> = {
   'vi-nucleo': struct('vi-nucleo', 'Torso y núcleo', 30, { plate: 8, hit: 40, tags: ['high-profile'], crit: true }),
   'vi-patas': struct('vi-patas', 'Patas de salto', 16, { plate: 4, hit: 15, tags: ['low-profile', 'locomotion'], pen: [['move', -2], ['evade', -4]] }),
   'vi-cola': struct('vi-cola', 'Cola estabilizadora', 12, { plate: 3, hit: 14, tags: ['rear-exposed', 'sensor'], pen: [['accuracy', -15]] }),
-  'vi-rifle': struct('vi-rifle', 'Rifle de francotirador', 14, { plate: 3, hit: 10, tags: ['weapon'], pen: [['atk', -20]] }),
+  'vi-rifle': struct('vi-rifle', 'Fusil antimaterial', 14, { plate: 3, hit: 10, tags: ['weapon'], pen: [['atk', -20]] }),
 
   // ── Baluarte (200): muralla; el HP vive en el núcleo ──────────────────
   'ba-casco': struct('ba-casco', 'Cabeza acorazada', 16, { plate: 3, hit: 10, tags: ['high-profile', 'sensor'], pen: [['accuracy', -15]] }),
   'ba-nucleo': struct('ba-nucleo', 'Torso y reactor', 96, { plate: 10, hit: 45, tags: ['high-profile'], crit: true }),
   'ba-patas': struct('ba-patas', 'Patas de asedio', 34, { plate: 5, hit: 14, tags: ['low-profile', 'locomotion'], pen: [['move', -2], ['accuracy', -6]] }),
-  'ba-misiles': struct('ba-misiles', 'Batería de misiles', 30, { plate: 4, hit: 12, tags: ['rear-exposed', 'weapon'], pen: [['atk', -14]] }),
+  'ba-misiles': struct('ba-misiles', 'Cohetes guiados', 30, { plate: 4, hit: 12, tags: ['rear-exposed', 'weapon'], pen: [['atk', -14]] }),
   'ba-coraza': struct('ba-coraza', 'Coraza lateral', 24, { plate: 5, hit: 12, tags: ['high-profile'], pen: [['def', -8]] }),
 
   // ── Martinete (190): gorila; mochila de misiles a la espalda ─────────
@@ -78,11 +78,11 @@ const COMBAT_FRAME_MODULES: Record<string, ModuleDefinition> = {
   'co-ala-der': struct('co-ala-der', 'Ala derecha', 18, { plate: 3, hit: 16, tags: ['low-profile'], pen: [['evade', -12], ['move', -2]] }),
   'co-cola': struct('co-cola', 'Cola de timón', 14, { plate: 3, hit: 12, tags: ['rear-exposed'], pen: [['accuracy', -10]] }),
 
-  // ── Prisma (130): el cañón de haz es su identidad ────────
+  // ── Prisma (130): el láser de electrones libres es su identidad ────────
   'pr-casco': struct('pr-casco', 'Cabeza blindada', 12, { plate: 3, hit: 10, tags: ['high-profile', 'sensor'], pen: [['accuracy', -20]] }),
   'pr-nucleo': struct('pr-nucleo', 'Torso y núcleo', 50, { plate: 9, hit: 40, tags: ['high-profile'], crit: true }),
   'pr-patas': struct('pr-patas', 'Piernas de asalto', 32, { plate: 5, hit: 14, tags: ['low-profile', 'locomotion'], pen: [['move', -2], ['accuracy', -8]] }),
-  'pr-canon': struct('pr-canon', 'Cañón de haz', 20, { plate: 5, hit: 12, tags: ['weapon'], pen: [['energyAtk', -30]] }),
+  'pr-canon': struct('pr-canon', 'Emisor láser', 20, { plate: 5, hit: 12, tags: ['weapon'], pen: [['energyAtk', -30]] }),
   'pr-cola': struct('pr-cola', 'Cola estabilizadora', 16, { plate: 4, hit: 14, tags: ['rear-exposed'], pen: [['atk', -8]] }),
 };
 
@@ -124,20 +124,20 @@ export const MODULES: Record<string, ModuleDefinition> = {
     onDestroyed: [{ source: 'module:cm-tren-tras', stat: 'accuracy', add: -10 }],
     tags: ['low-profile', 'locomotion'],
   },
-  'arc-claws': {
-    id: 'arc-claws', name: 'Garras de arco', hp: 14, armor: 1, plating: 5, weight: 10, hitWeight: 10,
+  'induction-claws-mod': {
+    id: 'induction-claws-mod', name: 'Garras de inducción', hp: 14, armor: 1, plating: 5, weight: 10, hitWeight: 10,
     critical: false,
     contributions: [
-      { source: 'module:arc-claws', stat: 'atk', add: 20 },
-      { source: 'module:arc-claws', stat: 'energyAtk', add: 30 },
+      { source: 'module:induction-claws-mod', stat: 'atk', add: 20 },
+      { source: 'module:induction-claws-mod', stat: 'energyAtk', add: 30 },
     ],
     onDestroyed: [],
     tags: ['weapon'],
   },
-  'ion-boosters': {
-    id: 'ion-boosters', name: 'Propulsores iónicos', hp: 16, armor: 1, plating: 6, weight: 12, hitWeight: 10,
+  'jump-jets': {
+    id: 'jump-jets', name: 'Impulsores de salto', hp: 16, armor: 1, plating: 6, weight: 12, hitWeight: 10,
     critical: false,
-    contributions: [{ source: 'module:ion-boosters', stat: 'evade', add: 5 }],
+    contributions: [{ source: 'module:jump-jets', stat: 'evade', add: 5 }],
     onDestroyed: [],
     tags: ['rear-exposed'],
   },
@@ -176,10 +176,10 @@ export const MODULES: Record<string, ModuleDefinition> = {
     onDestroyed: [{ source: 'module:pm-pierna-der', stat: 'accuracy', add: -10 }],
     tags: ['low-profile', 'locomotion'],
   },
-  'beam-intake': {
-    id: 'beam-intake', name: 'Cañón de haz', hp: 16, armor: 1, plating: 6, weight: 14, hitWeight: 12,
+  'fel-emitter': {
+    id: 'fel-emitter', name: 'Emisor láser', hp: 16, armor: 1, plating: 6, weight: 14, hitWeight: 12,
     critical: false,
-    contributions: [{ source: 'module:beam-intake', stat: 'energyAtk', add: 30 }],
+    contributions: [{ source: 'module:fel-emitter', stat: 'energyAtk', add: 30 }],
     onDestroyed: [],
     tags: ['weapon'],
   },

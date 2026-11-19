@@ -22,15 +22,15 @@ const GUNNER: UnitDefinition = {
 const BRUISER: UnitDefinition = {
   id: 'bruiser', name: 'Melé', role: 'skirmisher', moveType: 'ground',
   stats: { maxHp: 120, atk: 30, energyAtk: 30, def: 15, energyDef: 15, speed: 14, move: 4, jump: 1, evade: 0, accuracy: 0 },
-  abilityIds: ['bite-crush'], weapons: [],
+  abilityIds: ['hydraulic-jaws'], weapons: [],
 };
 const DUMMY: UnitDefinition = {
   id: 'dummy', name: 'Blanco', role: 'tank', moveType: 'ground',
   stats: { maxHp: 120, atk: 1, energyAtk: 1, def: 10, energyDef: 10, speed: 1, move: 1, jump: 1, evade: 0, accuracy: 0 },
-  abilityIds: ['bite-crush'],
+  abilityIds: ['hydraulic-jaws'],
 };
 const WEAPONS: Record<string, WeaponDefinition> = {
-  'w-cannon': { id: 'w-cannon', name: 'Cañón', abilityId: 'shock-cannon', costs: {}, magazine: 0, reserves: 0 },
+  'w-cannon': { id: 'w-cannon', name: 'Cañón', abilityId: 'recoilless-gun', costs: {}, magazine: 0, reserves: 0 },
 };
 
 function mk(spawns: BattleConfig['spawns'], catalog: Record<string, UnitDefinition>): Battle {
@@ -120,7 +120,7 @@ const WIDE = GameMap.fromAscii([
 const CHARGER: UnitDefinition = {
   id: 'charger', name: 'Cargador', role: 'skirmisher', moveType: 'ground',
   stats: { maxHp: 120, atk: 30, energyAtk: 30, def: 15, energyDef: 15, speed: 8, move: 4, jump: 1, evade: 0, accuracy: 0 },
-  abilityIds: ['bite-crush'], aiProfile: { aggression: 0.85, selfPreservation: 0.3, riskTolerance: 0.7 },
+  abilityIds: ['hydraulic-jaws'], aiProfile: { aggression: 0.85, selfPreservation: 0.3, riskTolerance: 0.7 },
 };
 
 function aiBattle(spawns: BattleConfig['spawns'], catalog: Record<string, UnitDefinition>, map = ARENA, aiSkill = 1): Battle {

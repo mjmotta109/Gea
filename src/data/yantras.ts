@@ -18,7 +18,7 @@ export const YANTRAS: Record<string, UnitDefinition> = {
       maxHp: 120, atk: 45, energyAtk: 55, def: 30, energyDef: 25,
       speed: 16, move: 6, jump: 2, evade: 20, accuracy: 0,
     },
-    abilityIds: ['arc-claw', 'bite-crush', 'e-shield'],
+    abilityIds: ['induction-claws', 'hydraulic-jaws', 'em-armor'],
     aiProfile: { aggression: 0.85, selfPreservation: 0.4, riskTolerance: 0.6 },
     frame: [
       { slot: 'casco', moduleId: 'ce-casco' },
@@ -40,7 +40,7 @@ export const YANTRAS: Record<string, UnitDefinition> = {
       maxHp: 100, atk: 40, energyAtk: 30, def: 25, energyDef: 20,
       speed: 14, move: 5, jump: 2, evade: 15, accuracy: 0,
     },
-    abilityIds: ['bite-crush', 'shock-cannon', 'smoke-discharger'],
+    abilityIds: ['hydraulic-jaws', 'recoilless-gun', 'smoke-grenades'],
     frame: [
       { slot: 'casco', moduleId: 'ra-casco' },
       { slot: 'nucleo', moduleId: 'ra-nucleo' },
@@ -61,7 +61,7 @@ export const YANTRAS: Record<string, UnitDefinition> = {
       maxHp: 200, atk: 52, energyAtk: 40, def: 50, energyDef: 40,
       speed: 8, move: 4, jump: 1, evade: 0, accuracy: 3,
     },
-    abilityIds: ['bite-crush', 'missile-pod', 'e-shield'],
+    abilityIds: ['hydraulic-jaws', 'guided-rockets', 'em-armor'],
     frame: [
       { slot: 'casco', moduleId: 'ba-casco' },
       { slot: 'nucleo', moduleId: 'ba-nucleo' },
@@ -81,8 +81,8 @@ export const YANTRAS: Record<string, UnitDefinition> = {
       maxHp: 80, atk: 46, energyAtk: 25, def: 15, energyDef: 15,
       speed: 12, move: 4, jump: 1, evade: 8, accuracy: 0,
     },
-    abilityIds: ['bite-crush'],
-    weapons: ['w-sniper-rifle'],
+    abilityIds: ['hydraulic-jaws'],
+    weapons: ['w-antimateriel-rifle'],
     aiProfile: { aggression: 0.35, selfPreservation: 0.8, riskTolerance: 0.2 },
     frame: [
       { slot: 'sensor', moduleId: 'vi-sensor' },
@@ -105,7 +105,7 @@ export const YANTRAS: Record<string, UnitDefinition> = {
       maxHp: 100, atk: 30, energyAtk: 35, def: 15, energyDef: 20,
       speed: 15, move: 7, jump: 99, evade: 33, accuracy: 0,
     },
-    abilityIds: ['shock-cannon', 'stun-blade'],
+    abilityIds: ['recoilless-gun', 'hv-prod'],
     frame: [
       { slot: 'casco', moduleId: 'co-casco' },
       { slot: 'fuselaje', moduleId: 'co-fuselaje' },
@@ -124,8 +124,8 @@ export const YANTRAS: Record<string, UnitDefinition> = {
       maxHp: 140, atk: 28, energyAtk: 15, def: 45, energyDef: 35,
       speed: 10, move: 4, jump: 1, evade: 5, accuracy: 0,
     },
-    abilityIds: ['repair-drones', 'smoke-discharger', 'e-shield'],
-    weapons: ['w-impact-cannon'],
+    abilityIds: ['repair-drones', 'smoke-grenades', 'em-armor'],
+    weapons: ['w-heavy-recoilless'],
     aiProfile: { aggression: 0.2, selfPreservation: 0.9, riskTolerance: 0.3 },
   },
   'tornillo': {
@@ -138,7 +138,7 @@ export const YANTRAS: Record<string, UnitDefinition> = {
       maxHp: 70, atk: 30, energyAtk: 20, def: 20, energyDef: 15,
       speed: 11, move: 4, jump: 1, evade: 10, accuracy: 0,
     },
-    abilityIds: ['bite-crush', 'shock-cannon'],
+    abilityIds: ['hydraulic-jaws', 'recoilless-gun'],
   },
   'prisma': {
     id: 'prisma',
@@ -151,7 +151,7 @@ export const YANTRAS: Record<string, UnitDefinition> = {
       maxHp: 130, atk: 45, energyAtk: 65, def: 35, energyDef: 30,
       speed: 12, move: 4, jump: 1, evade: 10, accuracy: 0,
     },
-    abilityIds: ['beam-cannon', 'bite-crush', 'e-shield'],
+    abilityIds: ['fel-laser', 'hydraulic-jaws', 'em-armor'],
     aiProfile: { aggression: 0.6, selfPreservation: 0.6, riskTolerance: 0.7 },
     frame: [
       { slot: 'casco', moduleId: 'pr-casco' },
@@ -175,8 +175,8 @@ export const YANTRAS: Record<string, UnitDefinition> = {
       maxHp: 80, atk: 50, energyAtk: 25, def: 15, energyDef: 15,
       speed: 12, move: 4, jump: 1, evade: 10, accuracy: 0,
     },
-    abilityIds: ['bite-crush'],
-    weapons: ['w-sniper-rifle'],
+    abilityIds: ['hydraulic-jaws'],
+    weapons: ['w-antimateriel-rifle'],
     aiProfile: { aggression: 0.35, selfPreservation: 0.8, riskTolerance: 0.2 },
   },
 
@@ -188,16 +188,16 @@ export const YANTRAS: Record<string, UnitDefinition> = {
     id: 'rodela', name: 'Rodela', role: 'assault', moveType: 'ground',
     weightClass: 'pesado',
     stats: { maxHp: 130, atk: 42, energyAtk: 40, def: 38, energyDef: 42, speed: 14, move: 5, jump: 2, evade: 15, accuracy: 0 },
-    abilityIds: ['bite-crush', 'e-shield'],
-    weapons: ['lib-w-vibro-fang'],
+    abilityIds: ['hydraulic-jaws', 'em-armor'],
+    weapons: ['lib-w-ultrasonic-cutter'],
     aiProfile: { aggression: 0.7, selfPreservation: 0.5, riskTolerance: 0.5 },
   },
   'tizona': {
     id: 'tizona', name: 'Tizona', role: 'assault', moveType: 'ground',
     weightClass: 'pesado',
     stats: { maxHp: 135, atk: 50, energyAtk: 52, def: 34, energyDef: 30, speed: 16, move: 6, jump: 2, evade: 18, accuracy: 0 },
-    abilityIds: ['bite-crush', 'e-shield'],
-    weapons: ['lib-w-thermal-saber'],
+    abilityIds: ['hydraulic-jaws', 'em-armor'],
+    weapons: ['lib-w-incandescent-blade'],
     aiProfile: { aggression: 0.85, selfPreservation: 0.35, riskTolerance: 0.65 },
   },
   'cizalla': {
@@ -207,16 +207,16 @@ export const YANTRAS: Record<string, UnitDefinition> = {
     // ~61% (castiga bien las piezas frágiles). atk 40→37: sigue siendo un
     // cerrador fuerte, dentro de banda.
     stats: { maxHp: 105, atk: 33, energyAtk: 32, def: 30, energyDef: 24, speed: 13, move: 5, jump: 2, evade: 14, accuracy: 0 },
-    abilityIds: ['bite-crush'],
-    weapons: ['lib-w-twin-autocannon'],
+    abilityIds: ['hydraulic-jaws'],
+    weapons: ['lib-w-autocannon-30'],
     aiProfile: { aggression: 0.65, selfPreservation: 0.45, riskTolerance: 0.55 },
   },
   'martinete': {
     id: 'martinete', name: 'Martinete', role: 'tank', moveType: 'ground',
     weightClass: 'extrapesado',
     stats: { maxHp: 210, atk: 58, energyAtk: 35, def: 48, energyDef: 38, speed: 9, move: 3, jump: 2, evade: 4, accuracy: 0 },
-    abilityIds: ['bite-crush'],
-    weapons: ['lib-w-gauss-hammer', 'lib-w-micro-missile-swarm'],
+    abilityIds: ['hydraulic-jaws'],
+    weapons: ['lib-w-coilgun', 'lib-w-micromissile-salvo'],
     aiProfile: { aggression: 0.6, selfPreservation: 0.5, riskTolerance: 0.4 },
     frame: [
       { slot: 'casco', moduleId: 'ma-casco' },
@@ -230,16 +230,16 @@ export const YANTRAS: Record<string, UnitDefinition> = {
     id: 'bombarda', name: 'Bombarda', role: 'tank', moveType: 'ground',
     weightClass: 'extrapesado',
     stats: { maxHp: 165, atk: 48, energyAtk: 28, def: 42, energyDef: 30, speed: 10, move: 4, jump: 1, evade: 6, accuracy: 0 },
-    abilityIds: ['bite-crush'],
-    weapons: ['lib-w-cluster-mortar', 'lib-w-flak-burst'],
+    abilityIds: ['hydraulic-jaws'],
+    weapons: ['lib-w-submunition-mortar', 'lib-w-proximity-shrapnel'],
     aiProfile: { aggression: 0.5, selfPreservation: 0.55, riskTolerance: 0.45 },
   },
   'torreon': {
     id: 'torreon', name: 'Torreón', role: 'sniper', moveType: 'ground',
     weightClass: 'extrapesado',
     stats: { maxHp: 175, atk: 46, energyAtk: 30, def: 40, energyDef: 32, speed: 8, move: 3, jump: 1, evade: 4, accuracy: 5 },
-    abilityIds: ['bite-crush'],
-    weapons: ['lib-w-rail-lance'],
+    abilityIds: ['hydraulic-jaws'],
+    weapons: ['lib-w-railgun'],
     aiProfile: { aggression: 0.3, selfPreservation: 0.7, riskTolerance: 0.25 },
   },
   'saeta': {
@@ -247,8 +247,8 @@ export const YANTRAS: Record<string, UnitDefinition> = {
     weightClass: 'extraligero',
     vision: 8, // ojos de la noche
     stats: { maxHp: 90, atk: 36, energyAtk: 34, def: 18, energyDef: 22, speed: 16, move: 7, jump: 99, evade: 26, accuracy: 0 },
-    abilityIds: ['stun-blade'],
-    weapons: ['lib-w-plasma-carbine'],
+    abilityIds: ['hv-prod'],
+    weapons: ['lib-w-pulse-laser'],
     aiProfile: { aggression: 0.75, selfPreservation: 0.45, riskTolerance: 0.6 },
   },
   'vencejo': {
@@ -259,8 +259,8 @@ export const YANTRAS: Record<string, UnitDefinition> = {
     // y +evasión; la evasión alta además lo hace difícil de FIJAR con fuego
     // concentrado (la IA de foco castiga a los que se dejan clavar).
     stats: { maxHp: 140, atk: 46, energyAtk: 40, def: 25, energyDef: 26, speed: 17, move: 8, jump: 99, evade: 44, accuracy: 0 },
-    abilityIds: ['stun-blade'],
-    weapons: ['lib-w-plasma-axe'],
+    abilityIds: ['hv-prod'],
+    weapons: ['lib-w-plasma-cutter'],
     aiProfile: { aggression: 0.85, selfPreservation: 0.5, riskTolerance: 0.7 },
   },
   'reticula': {
@@ -268,8 +268,8 @@ export const YANTRAS: Record<string, UnitDefinition> = {
     weightClass: 'ligero',
     vision: 9, // ojos de la noche
     stats: { maxHp: 110, atk: 42, energyAtk: 26, def: 28, energyDef: 26, speed: 12, move: 6, jump: 2, evade: 13, accuracy: 2 },
-    abilityIds: ['bite-crush'],
-    weapons: ['lib-w-heat-needle'],
+    abilityIds: ['hydraulic-jaws'],
+    weapons: ['lib-w-ir-laser'],
     aiProfile: { aggression: 0.45, selfPreservation: 0.65, riskTolerance: 0.3 },
   },
   'navaja': {
@@ -278,18 +278,18 @@ export const YANTRAS: Record<string, UnitDefinition> = {
     // Buff (2026-07-08): asaltante melee de cristal (95% de bajas, 39.6% victoria).
     // +HP y +evasión para que llegue al cuerpo a cuerpo con algo de casco.
     stats: { maxHp: 105, atk: 38, energyAtk: 24, def: 20, energyDef: 16, speed: 15, move: 6, jump: 2, evade: 22, accuracy: 0 },
-    abilityIds: ['bite-crush'],
-    weapons: ['lib-w-monomolecular-claw'],
+    abilityIds: ['hydraulic-jaws'],
+    weapons: ['lib-w-carbide-claws'],
     aiProfile: { aggression: 0.8, selfPreservation: 0.3, riskTolerance: 0.6 },
   },
   'barrena': {
     id: 'barrena', name: 'Barrena', role: 'skirmisher', moveType: 'ground',
     weightClass: 'ligero',
     // Buff (2026-07-08): rompedor melee que debe cerrar bajo fuego y paga tempo
-    // pesado con el pilote; +HP y +evasión para que llegue a pegar.
+    // pesado con la lanza de carga hueca; +HP y +evasión para que llegue a pegar.
     stats: { maxHp: 115, atk: 46, energyAtk: 20, def: 26, energyDef: 18, speed: 12, move: 5, jump: 1, evade: 20, accuracy: 0 },
-    abilityIds: ['bite-crush', 'stun-blade'],
-    weapons: ['lib-w-pile-bunker'],
+    abilityIds: ['hydraulic-jaws', 'hv-prod'],
+    weapons: ['lib-w-shaped-charge-lance'],
     aiProfile: { aggression: 0.6, selfPreservation: 0.4, riskTolerance: 0.5 },
   },
   'faro': {
@@ -297,8 +297,8 @@ export const YANTRAS: Record<string, UnitDefinition> = {
     weightClass: 'pesado',
     vision: 8, // Argos: mástil sensor, ojos de la noche
     stats: { maxHp: 155, atk: 34, energyAtk: 40, def: 36, energyDef: 34, speed: 9, move: 4, jump: 1, evade: 8, accuracy: 0 },
-    abilityIds: ['e-shield'],
-    weapons: ['lib-w-arc-emitter', 'lib-w-smoke-mortar'],
+    abilityIds: ['em-armor'],
+    weapons: ['lib-w-electrolaser', 'lib-w-smoke-mortar'],
     aiProfile: { aggression: 0.35, selfPreservation: 0.7, riskTolerance: 0.35 },
   },
 
@@ -316,18 +316,18 @@ export const YANTRAS: Record<string, UnitDefinition> = {
       maxHp: 120, atk: 25, energyAtk: 25, def: 30, energyDef: 25,
       speed: 12, move: 0, jump: 0, evade: 0, accuracy: 0,
     },
-    abilityIds: ['bite-crush', 'e-shield'],
+    abilityIds: ['hydraulic-jaws', 'em-armor'],
     energy: { capacity: 80, outputPerTurn: 30 },
     heat: { max: 100, dissipationPerTurn: 25 },
-    weapons: ['w-arc-claw'],
+    weapons: ['w-induction-claws'],
     aiProfile: { aggression: 0.85, selfPreservation: 0.4, riskTolerance: 0.6 },
     frame: [
       { slot: 'head', moduleId: 'cm-cabeza' },
       { slot: 'torso', moduleId: 'cm-torso' },
       { slot: 'legs-front', moduleId: 'cm-tren-del' },
       { slot: 'legs-rear', moduleId: 'cm-tren-tras' },
-      { slot: 'weapon-claws', moduleId: 'arc-claws' },
-      { slot: 'backpack', moduleId: 'ion-boosters' },
+      { slot: 'weapon-claws', moduleId: 'induction-claws-mod' },
+      { slot: 'backpack', moduleId: 'jump-jets' },
     ],
   },
   'prisma-m': {
@@ -341,17 +341,17 @@ export const YANTRAS: Record<string, UnitDefinition> = {
       maxHp: 130, atk: 35, energyAtk: 35, def: 35, energyDef: 30,
       speed: 8, move: 0, jump: 1, evade: 0, accuracy: 0,
     },
-    abilityIds: ['bite-crush', 'e-shield'],
+    abilityIds: ['hydraulic-jaws', 'em-armor'],
     energy: { capacity: 120, outputPerTurn: 25 },
     heat: { max: 80, dissipationPerTurn: 15 },
-    weapons: ['w-beam-cannon'],
+    weapons: ['w-fel-laser'],
     aiProfile: { aggression: 0.6, selfPreservation: 0.6, riskTolerance: 0.7 },
     frame: [
       { slot: 'head', moduleId: 'pm-cabeza' },
       { slot: 'torso', moduleId: 'pm-torso' },
       { slot: 'leg-l', moduleId: 'pm-pierna-izq' },
       { slot: 'leg-r', moduleId: 'pm-pierna-der' },
-      { slot: 'weapon-cannon', moduleId: 'beam-intake' },
+      { slot: 'weapon-cannon', moduleId: 'fel-emitter' },
       { slot: 'tail', moduleId: 'pm-cola' },
     ],
   },
@@ -370,7 +370,7 @@ export const YANTRAS: Record<string, UnitDefinition> = {
       maxHp: 340, atk: 48, energyAtk: 40, def: 44, energyDef: 36,
       speed: 9, move: 3, jump: 1, evade: 2, accuracy: 0,
     },
-    abilityIds: ['bite-crush', 'missile-pod'],
+    abilityIds: ['hydraulic-jaws', 'guided-rockets'],
     aiProfile: { aggression: 0.9, selfPreservation: 0.05, riskTolerance: 0.8 },
   },
   // PROVISIONAL — carga civil de los contratos de escolta: no actúa

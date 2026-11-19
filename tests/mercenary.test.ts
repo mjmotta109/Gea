@@ -25,8 +25,8 @@ describe('modo mercenario: campaña', () => {
     expect(state.credits).toBe(ECONOMY.startingCredits);
     expect(state.roster.map((z) => z.unitTypeId)).toEqual(ECONOMY.starterRoster);
     // El Mula trae su cañón de impacto: debe constar en el arsenal.
-    expect(state.armory['w-impact-cannon']).toBe(1);
-    expect(state.armory['w-sniper-rifle']).toBe(1);
+    expect(state.armory['w-heavy-recoilless']).toBe(1);
+    expect(state.armory['w-antimateriel-rifle']).toBe(1);
   });
 
   it('las ofertas de contrato son deterministas y escalan por dificultad', () => {
@@ -128,9 +128,9 @@ describe('modo mercenario: campaña', () => {
 
   it('counterWeapons arma a la facción contra tu estilo (contra por arma)', () => {
     // Reactor abusón → lanzallamas que cuecen el reactor.
-    expect(counterWeapons('reactor')).toContain('lib-w-plasma-flamer');
+    expect(counterWeapons('reactor')).toContain('lib-w-thermite-projector');
     // Melee → supresor que te fija al cargar.
-    expect(counterWeapons('melee')).toContain('lib-w-suppressor');
+    expect(counterWeapons('melee')).toContain('lib-w-suppression-mg');
     expect(counterWeapons('balanced')).toEqual([]);
   });
 
@@ -211,22 +211,22 @@ describe('modo mercenario: campaña', () => {
 
   it('tienda: comprar armas, no vender lo montado, y validar montajes', () => {
     let state = fresh();
-    state = buyWeapon(state, 'lib-w-heat-needle', ECONOMY);
-    expect(state.armory['lib-w-heat-needle']).toBe(1);
-    expect(state.credits).toBe(ECONOMY.startingCredits - ECONOMY.weaponPrices['lib-w-heat-needle']!);
+    state = buyWeapon(state, 'lib-w-ir-laser', ECONOMY);
+    expect(state.armory['lib-w-ir-laser']).toBe(1);
+    expect(state.credits).toBe(ECONOMY.startingCredits - ECONOMY.weaponPrices['lib-w-ir-laser']!);
     // Montarla en el hueco 0.
-    state = setMountedWeapons(state, 0, ['lib-w-heat-needle']);
-    expect(state.roster[0]!.weapons).toEqual(['lib-w-heat-needle']);
-    expect(mountedCount(state, 'lib-w-heat-needle')).toBe(1);
+    state = setMountedWeapons(state, 0, ['lib-w-ir-laser']);
+    expect(state.roster[0]!.weapons).toEqual(['lib-w-ir-laser']);
+    expect(mountedCount(state, 'lib-w-ir-laser')).toBe(1);
     // Montada: no se puede vender.
-    expect(sellWeapon(state, 'lib-w-heat-needle', ECONOMY)).toEqual(state);
+    expect(sellWeapon(state, 'lib-w-ir-laser', ECONOMY)).toEqual(state);
     // No se puede montar una segunda unidad que no se posee.
-    expect(setMountedWeapons(state, 1, ['lib-w-heat-needle'])).toEqual(state);
+    expect(setMountedWeapons(state, 1, ['lib-w-ir-laser'])).toEqual(state);
     // Desmontar y vender sí.
     state = setMountedWeapons(state, 0, []);
-    const sold = sellWeapon(state, 'lib-w-heat-needle', ECONOMY);
-    expect(sold.armory['lib-w-heat-needle']).toBe(0);
-    expect(sold.credits).toBe(state.credits + Math.round(ECONOMY.weaponPrices['lib-w-heat-needle']! * ECONOMY.sellFactor));
+    const sold = sellWeapon(state, 'lib-w-ir-laser', ECONOMY);
+    expect(sold.armory['lib-w-ir-laser']).toBe(0);
+    expect(sold.credits).toBe(state.credits + Math.round(ECONOMY.weaponPrices['lib-w-ir-laser']! * ECONOMY.sellFactor));
   });
 
   it('cambiar de chasis descuenta la retoma y devuelve las armas al arsenal', () => {

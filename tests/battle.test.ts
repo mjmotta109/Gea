@@ -71,7 +71,7 @@ describe('Battle: habilidades', () => {
       ],
     });
     battle.nextTurn();
-    const events = battle.execute({ type: 'ability', unitId: 'P1', abilityId: 'bite-crush', target: { x: 2, y: 2 } });
+    const events = battle.execute({ type: 'ability', unitId: 'P1', abilityId: 'hydraulic-jaws', target: { x: 2, y: 2 } });
     const kinds = events.map((e) => e.type);
     expect(kinds).toContain('ability-used');
     expect(kinds.some((k) => k === 'damage-dealt' || k === 'ability-missed')).toBe(true);
@@ -85,9 +85,9 @@ describe('Battle: habilidades', () => {
       ],
     });
     battle.nextTurn();
-    expect(() => battle.execute({ type: 'ability', unitId: 'P1', abilityId: 'sniper-rifle', target: { x: 2, y: 2 } }))
+    expect(() => battle.execute({ type: 'ability', unitId: 'P1', abilityId: 'antimateriel-rifle', target: { x: 2, y: 2 } }))
       .toThrow(/no conoce/);
-    expect(() => battle.execute({ type: 'ability', unitId: 'P1', abilityId: 'bite-crush', target: { x: 7, y: 5 } }))
+    expect(() => battle.execute({ type: 'ability', unitId: 'P1', abilityId: 'hydraulic-jaws', target: { x: 7, y: 5 } }))
       .toThrow(/ilegal/);
   });
 

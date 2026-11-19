@@ -260,32 +260,61 @@ fundadores y sus disputas. El jugador no lo verá.
 | Apodo | Matrícula | Escuela | Báscula · rol | Lectura |
 |---|---|---|---|---|
 | Baluarte | ALB-90 | Albion | █ extrapesado · tanque | Muro andante con misiles |
-| Martinete | ALB-72 | Albion | █ extrapesado · tanque | Brazos de martillo Gauss |
-| Bombarda | ALB-66 | Albion | █ extrapesado · tanque | Mortero sobre cuatro patas |
-| Torreón | ALB-80 | Albion | █ extrapesado · tirador | Torre de lanza railgun |
+| Martinete | ALB-72 | Albion | █ extrapesado · tanque | Brazos con cañón de bobinas |
+| Bombarda | ALB-66 | Albion | █ extrapesado · tanque | Mortero de submuniciones sobre cuatro patas |
+| Torreón | ALB-80 | Albion | █ extrapesado · tirador | Torre con cañón de riel |
 | Rodela | ALB-54 | Albion | ▜ pesado · asalto | La escudera |
 | Mula | ALB-22 | Albion | ▜ pesado · transporte | La que carga con todo |
 | Gran Brontes | ALB-00 | Albion | █ jefe 2×2 | El prototipo que nunca se retiró |
 | Carguero colono | ALB-C3 | Albion | ▜ pesado · transporte | Civil: lo que se escolta |
 | Centella | YMT-3 | Yamato | ▚ ligero · asalto | La equilibrada (compañera) |
 | Centella-M | YMT-3M | Yamato | ▚ ligero · asalto | Armazón modular de la Centella |
-| Tizona | YMT-7 | Yamato | ▜ pesado · asalto | Sable térmico |
-| Cizalla | YMT-5 | Yamato | ▚ ligero · escaramuza | Autocañón gemelo de cerca |
-| Vencejo | YMT-9V | Yamato | ▚ ligero · volador | Hacha de plasma en picado |
-| Saeta | YMT-1V | Yamato | ▖ extraligero · volador | Dardo con carabina |
-| Prisma | ARG-12 | Argos | ▜ pesado · asalto | Cañón de haz |
+| Tizona | YMT-7 | Yamato | ▜ pesado · asalto | Hoja incandescente |
+| Cizalla | YMT-5 | Yamato | ▚ ligero · escaramuza | Autocañón doble de 30 mm |
+| Vencejo | YMT-9V | Yamato | ▚ ligero · volador | Cortador de plasma en picado |
+| Saeta | YMT-1V | Yamato | ▖ extraligero · volador | Dardo con láser de pulsos |
+| Prisma | ARG-12 | Argos | ▜ pesado · asalto | Láser de electrones libres |
 | Prisma-M | ARG-12M | Argos | ▜ pesado · asalto | Armazón modular del Prisma |
 | Rastreador | ARG-4 | Argos | ▚ ligero · escaramuza | Reconocimiento con humo |
-| Retícula | ARG-6 | Argos | ▚ ligero · tirador | Aguja térmica; el mejor ojo nocturno |
+| Retícula | ARG-6 | Argos | ▚ ligero · tirador | Láser infrarrojo; el mejor ojo nocturno |
 | Visor | ARG-2 | Argos | ▖ extraligero · tirador | Rifle largo |
 | Visor-C | ARG-2C | Argos | ▖ extraligero · tirador | Visor calibrado a mano |
 | Cometa | ARG-8V | Argos | ▚ ligero · volador | Reconocimiento aéreo |
-| Faro | ARG-15 | Argos | ▜ pesado · soporte | Mástil sensor, emisor de arco |
+| Faro | ARG-15 | Argos | ▜ pesado · soporte | Mástil sensor, electroláser |
 | Navaja | s/l | Remiendo | ▚ ligero · escaramuza | Frágil, veloz, letal si tú lo eres |
-| Barrena | s/l | Remiendo | ▚ ligero · escaramuza | Martillo perforador de clan |
+| Barrena | s/l | Remiendo | ▚ ligero · escaramuza | Lanza de carga hueca de clan |
 | Tornillo | s/l | Remiendo | ▖ extraligero · escaramuza | Carne de cañón de los caminos |
 
-**Armas renombradas**: Garras de arco (antes del prototipo), Cañón de
-haz, Cañón de choque. **Pilotos de fábrica**: Iria, Basco, Noor y
-Tamsin — nombres de un mundo mestizo, sin bandera.
+**Pilotos de fábrica**: Iria, Basco, Noor y Tamsin — nombres de un
+mundo mestizo, sin bandera.
+
+### 6.7 El arsenal: ciencia ficción dura
+
+Canon del 2026-11-19 («renombra todos los ataques; nada de Zoids;
+básate en la ciencia ficción dura»). **Regla**: cada arma es física
+real o tecnología que hoy existe o se investiga. Nada de plasma de
+mano, filos monomoleculares ni escudos de energía. Si el arma no
+podría construirse con la industria de Prathama mal entendida, no entra.
+El nombre dice CÓMO funciona; la descripción, el porqué táctico.
+
+| Familia | Armas |
+|---|---|
+| **Contacto** | Mandíbulas hidráulicas (todo yantra), Garras de inducción, Aguijón de alta tensión, Cortador ultrasónico, Garras de carburo, Hoja incandescente, Cortador de plasma (antorcha industrial), Lanza de carga hueca, Carga de demolición |
+| **Balística** | Cañón sin retroceso, Fusil antimaterial, Autocañón doble de 30 mm, Metralla de proximidad, Cañón de riel, Cañón de bobinas, Ametralladora de supresión |
+| **Artillería** | Cohetes guiados, Salva de micromisiles, Mortero de submuniciones, Mortero de termita, Cohete termobárico |
+| **Energía dirigida** | Láser de electrones libres, Láser de pulsos, Láser infrarrojo, Electroláser, Emisor de microondas, Proyector de termita |
+| **Defensa y apoyo** | Blindaje electromagnético, Dron de protección activa, Granadas fumígenas, Mortero fumígeno, Drones de reparación, Proyector de sellante |
+
+Lectura táctica que el nombre ya enseña: lo **electromagnético y las
+microondas aturden** (electroláser, emisor de microondas, aguijón); lo
+**térmico recalienta** (láseres, termita, termobárico); lo **cinético
+perfora y empuja** (riel, bobinas, carga hueca).
+
+1. **Gameplay**: el nombre anticipa el efecto; se aprende el arsenal
+   leyendo, sin abrir fichas.
+2. **Narrativa**: un mundo industrial y creíble, de talleres y física,
+   no de magia con luces.
+3. **Cuándo**: HECHO. Las escuelas (§6.3) pueden preferir familias más
+   adelante (Argos y la energía dirigida, Albion y lo cinético).
+
 

@@ -5,10 +5,10 @@ import { CT_ACT_HEAVY, type AbilityDefinition } from '../core/types.js';
  * aquí son sistemas de armas y equipo de los Yantras.
  */
 export const ABILITIES: Record<string, AbilityDefinition> = {
-  'arc-claw': {
-    id: 'arc-claw',
-    name: 'Garras de arco',
-    description: 'Zarpazo energético a bocajarro de enorme potencia.',
+  'induction-claws': {
+    id: 'induction-claws',
+    name: 'Garras de inducción',
+    description: 'Bobinas en las garras inducen corrientes parásitas en el blindaje enemigo: el metal se calienta desde dentro.',
     range: 1,
     minRange: 1,
     shape: 'single',
@@ -17,10 +17,10 @@ export const ABILITIES: Record<string, AbilityDefinition> = {
     targetsAllies: false,
     effects: [{ kind: 'damage', power: 55, damageType: 'energy' }],
   },
-  'bite-crush': {
-    id: 'bite-crush',
-    name: 'Mordisco triturador',
-    description: 'Ataque de mandíbulas estándar de los yantras cuadrúpedos.',
+  'hydraulic-jaws': {
+    id: 'hydraulic-jaws',
+    name: 'Mandíbulas hidráulicas',
+    description: 'Cierre de mandíbulas a 400 bar: el arma de contacto que todo yantra trae de fábrica.',
     range: 1,
     minRange: 1,
     shape: 'single',
@@ -29,10 +29,10 @@ export const ABILITIES: Record<string, AbilityDefinition> = {
     targetsAllies: false,
     effects: [{ kind: 'damage', power: 35, damageType: 'physical' }],
   },
-  'shock-cannon': {
-    id: 'shock-cannon',
-    name: 'Cañón de choque',
-    description: 'Disparo balístico de medio alcance.',
+  'recoilless-gun': {
+    id: 'recoilless-gun',
+    name: 'Cañón sin retroceso',
+    description: 'Tubo abierto por detrás que expulsa gases para anular el retroceso: alcance medio y buena pegada.',
     range: 4,
     minRange: 2,
     shape: 'single',
@@ -41,10 +41,10 @@ export const ABILITIES: Record<string, AbilityDefinition> = {
     targetsAllies: false,
     effects: [{ kind: 'damage', power: 40, damageType: 'physical' }],
   },
-  'sniper-rifle': {
-    id: 'sniper-rifle',
-    name: 'Rifle de largo alcance',
-    description: 'Disparo de precisión en línea recta. Inútil en corto.',
+  'antimateriel-rifle': {
+    id: 'antimateriel-rifle',
+    name: 'Fusil antimaterial',
+    description: 'Proyectil de 20 mm a muy larga distancia en línea recta. Inútil a quemarropa.',
     range: 7,
     minRange: 3,
     shape: 'line',
@@ -53,10 +53,10 @@ export const ABILITIES: Record<string, AbilityDefinition> = {
     targetsAllies: false,
     effects: [{ kind: 'damage', power: 50, damageType: 'physical' }],
   },
-  'missile-pod': {
-    id: 'missile-pod',
-    name: 'Batería de misiles',
-    description: 'Andanada que castiga un área alrededor del impacto.',
+  'guided-rockets': {
+    id: 'guided-rockets',
+    name: 'Cohetes guiados',
+    description: 'Salva de cohetes con guiado terminal: castiga un área alrededor del impacto.',
     range: 5,
     minRange: 2,
     shape: 'single',
@@ -65,10 +65,10 @@ export const ABILITIES: Record<string, AbilityDefinition> = {
     targetsAllies: false,
     effects: [{ kind: 'damage', power: 30, damageType: 'physical' }],
   },
-  'beam-cannon': {
-    id: 'beam-cannon',
-    name: 'Cañón de haz',
-    description: 'Haz devastador en línea recta que recalienta al objetivo.',
+  'fel-laser': {
+    id: 'fel-laser',
+    name: 'Láser de electrones libres',
+    description: 'Haz megavatio en línea recta generado por un acelerador de electrones: recalienta al objetivo.',
     range: 6,
     minRange: 2,
     shape: 'line',
@@ -91,7 +91,7 @@ export const ABILITIES: Record<string, AbilityDefinition> = {
   'repair-drones': {
     id: 'repair-drones',
     name: 'Drones de reparación',
-    description: 'Enjambre de drones que restaura el blindaje de un aliado.',
+    description: 'Enjambre de drones de soldadura que restaura el blindaje de un aliado.',
     range: 3,
     minRange: 0,
     shape: 'single',
@@ -100,10 +100,10 @@ export const ABILITIES: Record<string, AbilityDefinition> = {
     targetsAllies: true,
     effects: [{ kind: 'heal', power: 45 }],
   },
-  'smoke-discharger': {
-    id: 'smoke-discharger',
-    name: 'Cortina de humo',
-    description: 'Humo denso que dificulta que apunten al aliado.',
+  'smoke-grenades': {
+    id: 'smoke-grenades',
+    name: 'Granadas fumígenas',
+    description: 'Humo multiespectral que ciega láseres, infrarrojos y radar: cuesta más apuntar al aliado.',
     range: 3,
     minRange: 0,
     shape: 'single',
@@ -112,10 +112,10 @@ export const ABILITIES: Record<string, AbilityDefinition> = {
     targetsAllies: true,
     effects: [{ kind: 'status', status: 'evasion-up', duration: 3, chance: 100 }],
   },
-  'e-shield': {
-    id: 'e-shield',
-    name: 'Escudo de energía',
-    description: 'Refuerza el blindaje propio durante unos turnos.',
+  'em-armor': {
+    id: 'em-armor',
+    name: 'Blindaje electromagnético',
+    description: 'Placas cargadas que descargan contra el proyectil entrante: más blindaje propio durante unos turnos.',
     range: 0,
     minRange: 0,
     shape: 'single',
@@ -124,10 +124,10 @@ export const ABILITIES: Record<string, AbilityDefinition> = {
     targetsAllies: true,
     effects: [{ kind: 'status', status: 'armor-up', duration: 3, chance: 100 }],
   },
-  'stun-blade': {
-    id: 'stun-blade',
-    name: 'Hoja aturdidora',
-    description: 'Golpe eléctrico que puede dejar los sistemas fuera de línea.',
+  'hv-prod': {
+    id: 'hv-prod',
+    name: 'Aguijón de alta tensión',
+    description: 'Descarga de contacto de varios megavoltios: puede tumbar la electrónica de a bordo.',
     range: 1,
     minRange: 1,
     shape: 'single',

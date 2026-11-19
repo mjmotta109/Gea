@@ -26,16 +26,16 @@ describe('garaje: loadouts al desplegar', () => {
     const battle = garage();
     const centella = battle.unit('L');
     expect(battle.effectiveStats(centella).maxHp).toBe(120);
-    expect(centella.components.arsenal!.weapons[0]!.weaponId).toBe('w-arc-claw');
+    expect(centella.components.arsenal!.weapons[0]!.weaponId).toBe('w-induction-claws');
   });
 
   it('cambiar el arsenal cambia las armas montadas', () => {
-    const battle = garage({ weapons: ['w-impact-cannon'] });
+    const battle = garage({ weapons: ['w-heavy-recoilless'] });
     const centella = battle.unit('L');
-    expect(centella.components.arsenal!.weapons.map((w) => w.weaponId)).toEqual(['w-impact-cannon']);
+    expect(centella.components.arsenal!.weapons.map((w) => w.weaponId)).toEqual(['w-heavy-recoilless']);
     // La habilidad del arma nueva es conocida; la de la vieja ya no.
-    expect(battle.knownAbilityIds(centella)).toContain('shock-cannon');
-    expect(battle.knownAbilityIds(centella)).not.toContain('arc-claw');
+    expect(battle.knownAbilityIds(centella)).toContain('recoilless-gun');
+    expect(battle.knownAbilityIds(centella)).not.toContain('induction-claws');
   });
 
   it('sustituir un módulo cambia stats y maxHp derivado', () => {

@@ -215,7 +215,7 @@ export interface ProjectileSpec {
 /**
  * Un arma montada: envuelve una habilidad del catálogo (targeting y
  * efectos) y añade costes, munición y punto de montaje. Las habilidades
- * innatas (mordiscos, garras sin sistema) siguen siendo abilityIds de la
+ * innatas (mandíbulas, garras sin sistema) siguen siendo abilityIds de la
  * unidad y no pasan por aquí.
  */
 export interface WeaponDefinition {

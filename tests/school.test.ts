@@ -81,7 +81,7 @@ describe('habilidades de escuela: activas, otorgadas y con cupo', () => {
       spawns: [P('P1', 'centella', 2, 2), E('E1', 'tornillo', 6, 2)],
     });
     battle.nextTurn();
-    expect(battle.usesLeft(battle.unit('P1'), 'bite-crush')).toBeUndefined();
+    expect(battle.usesLeft(battle.unit('P1'), 'hydraulic-jaws')).toBeUndefined();
   });
 
   it('la postura de hierro se lanza sobre uno mismo y aplica sus dos escudos', () => {

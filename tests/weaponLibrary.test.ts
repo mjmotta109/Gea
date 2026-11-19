@@ -37,10 +37,10 @@ describe('libreria anexa de armas', () => {
   it('se mezcla con los catalogos base sin pisar IDs existentes', () => {
     const { abilityCatalog, weaponCatalog } = withWeaponLibrary(ABILITIES, WEAPONS);
 
-    expect(abilityCatalog['arc-claw']).toBe(ABILITIES['arc-claw']);
-    expect(weaponCatalog['w-arc-claw']).toBe(WEAPONS['w-arc-claw']);
-    expect(abilityCatalog['lib-rail-lance']).toBe(WEAPON_LIBRARY_ABILITIES['lib-rail-lance']);
-    expect(weaponCatalog['lib-w-rail-lance']).toBe(WEAPON_LIBRARY_WEAPONS['lib-w-rail-lance']);
+    expect(abilityCatalog['induction-claws']).toBe(ABILITIES['induction-claws']);
+    expect(weaponCatalog['w-induction-claws']).toBe(WEAPONS['w-induction-claws']);
+    expect(abilityCatalog['lib-railgun']).toBe(WEAPON_LIBRARY_ABILITIES['lib-railgun']);
+    expect(weaponCatalog['lib-w-railgun']).toBe(WEAPON_LIBRARY_WEAPONS['lib-w-railgun']);
   });
 
   it('un Battle puede montar un loadout del anexo sin cambiar el motor', () => {
@@ -67,7 +67,7 @@ describe('libreria anexa de armas', () => {
 
     const wolf = battle.unit('wolf');
     expect(wolf.components.arsenal!.weapons.map((w) => w.weaponId)).toEqual(WEAPON_LIBRARY_LOADOUTS.skirmisher);
-    expect(battle.knownAbilityIds(wolf)).toContain('lib-twin-autocannon');
-    expect(battle.knownAbilityIds(wolf)).toContain('lib-plasma-carbine');
+    expect(battle.knownAbilityIds(wolf)).toContain('lib-autocannon-30');
+    expect(battle.knownAbilityIds(wolf)).toContain('lib-pulse-laser');
   });
 });

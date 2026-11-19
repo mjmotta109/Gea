@@ -37,9 +37,9 @@ describe('fase 4: balística', () => {
   it('disparar un arma con proyectil emite la trayectoria', () => {
     const battle = artillery(GameMap.fromAscii(['000000']));
     until(battle, 'G');
-    const events = battle.execute({ type: 'ability', unitId: 'G', abilityId: 'shock-cannon', target: { x: 3, y: 0 } });
+    const events = battle.execute({ type: 'ability', unitId: 'G', abilityId: 'recoilless-gun', target: { x: 3, y: 0 } });
     const shot = events.find((e) => e.type === 'projectile-fired');
-    expect(shot).toMatchObject({ weaponId: 'w-impact-cannon', from: { x: 0, y: 0 }, to: { x: 3, y: 0 } });
+    expect(shot).toMatchObject({ weaponId: 'w-heavy-recoilless', from: { x: 0, y: 0 }, to: { x: 3, y: 0 } });
   });
 
   it('la dispersión degrada la puntería con la distancia', () => {
@@ -47,8 +47,8 @@ describe('fase 4: balística', () => {
       { id: 'M2', name: 'Lejos', unitTypeId: 'tornillo', team: 'enemy', position: { x: 4, y: 0 } },
     ]);
     until(battle, 'G');
-    const near = battle.attackPreview('G', 'shock-cannon', { x: 3, y: 0 })!;
-    const far = battle.attackPreview('G', 'shock-cannon', { x: 4, y: 0 })!;
+    const near = battle.attackPreview('G', 'recoilless-gun', { x: 3, y: 0 })!;
+    const far = battle.attackPreview('G', 'recoilless-gun', { x: 4, y: 0 })!;
     // A 4 casillas pierde 2 de dispersión del arma Y 4 del bonus de
     // proximidad respecto a 3 casillas: acercarse paga por partida doble.
     expect(near.chance - far.chance).toBe(6);
@@ -58,7 +58,7 @@ describe('fase 4: balística', () => {
     const battle = artillery(GameMap.fromAscii(['000000']));
     until(battle, 'G');
     for (let i = 0; i < 12 && battle.unit('M').position.x === 3; i++) {
-      const events = battle.execute({ type: 'ability', unitId: 'G', abilityId: 'shock-cannon', target: battle.unit('M').position });
+      const events = battle.execute({ type: 'ability', unitId: 'G', abilityId: 'recoilless-gun', target: battle.unit('M').position });
       if (events.some((e) => e.type === 'unit-pushed')) {
         // La Tornillo es EXTRALIGERA: el cañonazo la manda dos casillas.
         expect(battle.unit('M').position).toEqual({ x: 5, y: 0 });
@@ -77,7 +77,7 @@ describe('fase 4: balística', () => {
       const g = battle.unit('G');
       const rifle = g.components.arsenal!.weapons[0]!;
       if (rifle.ammo === 0 && rifle.reserves > 0 && !g.hasActed) {
-        battle.execute({ type: 'reload', unitId: 'G', weaponId: 'w-impact-cannon' });
+        battle.execute({ type: 'reload', unitId: 'G', weaponId: 'w-heavy-recoilless' });
         battle.execute({ type: 'wait', unitId: 'G' });
         if (!battle.getActiveUnit()) battle.nextTurn();
         while (battle.getActiveUnit() && battle.getActiveUnit()!.id !== 'G') {
@@ -116,8 +116,8 @@ describe('fase 4: balística', () => {
     });
     until(battle, 'GJ');
     expect(battle.map.tileAt({ x: 3, y: 0 }).terrain).toBe('wall');
-    // Batería de misiles (aoe 1) junto al muro.
-    const events = battle.execute({ type: 'ability', unitId: 'GJ', abilityId: 'missile-pod', target: { x: 2, y: 0 } });
+    // Cohetes guiados (aoe 1) junto al muro.
+    const events = battle.execute({ type: 'ability', unitId: 'GJ', abilityId: 'guided-rockets', target: { x: 2, y: 0 } });
     expect(events.some((e) => e.type === 'terrain-destroyed')).toBe(true);
     expect(battle.map.tileAt({ x: 3, y: 0 }).terrain).toBe('rough');
   });
@@ -140,7 +140,7 @@ describe('fase 5: personalidad y mando', () => {
     battle.execute({ type: 'move', unitId: 'M', to: { x: 1, y: 0 } });
     let linkLost = 0;
     for (let i = 0; i < 20 && mula.hp > 0; i++) {
-      const events = battle.execute({ type: 'ability', unitId: 'M', abilityId: 'bite-crush', target: mula.position });
+      const events = battle.execute({ type: 'ability', unitId: 'M', abilityId: 'hydraulic-jaws', target: mula.position });
       linkLost += events.filter((e) => e.type === 'command-link-lost').length;
       if (battle.isOver) break;
       if (mula.hp > 0) {

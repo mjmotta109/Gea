@@ -29,12 +29,12 @@ describe('fase 3: línea de visión en combate', () => {
   it('un muro entre medias elimina el objetivo de legalTargets', () => {
     const blocked = corridor('#');
     blocked.nextTurn();
-    const targets = blocked.legalTargets('P1', 'sniper-rifle');
+    const targets = blocked.legalTargets('P1', 'antimateriel-rifle');
     expect(targets.some((p) => p.x === 4 && p.y === 0)).toBe(false);
 
     const open = corridor('0');
     open.nextTurn();
-    expect(open.legalTargets('P1', 'sniper-rifle').some((p) => p.x === 4 && p.y === 0)).toBe(true);
+    expect(open.legalTargets('P1', 'antimateriel-rifle').some((p) => p.x === 4 && p.y === 0)).toBe(true);
   });
 
   it('canTargetFrom evalúa posiciones hipotéticas con LOS', () => {
@@ -44,10 +44,10 @@ describe('fase 3: línea de visión en combate', () => {
     // Desde su casilla: bloqueado. Desde la fila de abajo: el muro ya no
     // está en la línea... pero el rifle exige alineación en línea recta,
     // así que desde (0,1) no puede apuntar a (4,0).
-    expect(battle.canTargetFrom(sniper, { x: 0, y: 0 }, 'sniper-rifle', { x: 4, y: 0 })).toBe(false);
-    expect(battle.canTargetFrom(sniper, { x: 0, y: 1 }, 'sniper-rifle', { x: 4, y: 0 })).toBe(false);
+    expect(battle.canTargetFrom(sniper, { x: 0, y: 0 }, 'antimateriel-rifle', { x: 4, y: 0 })).toBe(false);
+    expect(battle.canTargetFrom(sniper, { x: 0, y: 1 }, 'antimateriel-rifle', { x: 4, y: 0 })).toBe(false);
     // Desde (0,1) hacia un objetivo alineado en su fila sí (si hubiera).
-    expect(battle.canTargetFrom(sniper, { x: 0, y: 1 }, 'sniper-rifle', { x: 4, y: 1 })).toBe(true);
+    expect(battle.canTargetFrom(sniper, { x: 0, y: 1 }, 'antimateriel-rifle', { x: 4, y: 1 })).toBe(true);
   });
 });
 
@@ -69,8 +69,8 @@ describe('fase 3: cobertura por terreno', () => {
       ],
     });
     battle.nextTurn();
-    const inForest = battle.attackPreview('P1', 'shock-cannon', { x: 4, y: 0 })!;
-    const exposed = battle.attackPreview('P1', 'shock-cannon', { x: 3, y: 1 })!;
+    const inForest = battle.attackPreview('P1', 'recoilless-gun', { x: 4, y: 0 })!;
+    const exposed = battle.attackPreview('P1', 'recoilless-gun', { x: 3, y: 1 })!;
     expect(inForest.cover).toBe(20);
     expect(exposed.cover).toBe(0);
     expect(exposed.chance - inForest.chance).toBe(20);
@@ -80,11 +80,11 @@ describe('fase 3: cobertura por terreno', () => {
     // Determinismo cruzado: el pronóstico no consume RNG ni muta nada.
     const battle = corridor('0');
     battle.nextTurn();
-    const before = battle.attackPreview('P1', 'sniper-rifle', { x: 4, y: 0 })!;
-    const again = battle.attackPreview('P1', 'sniper-rifle', { x: 4, y: 0 })!;
+    const before = battle.attackPreview('P1', 'antimateriel-rifle', { x: 4, y: 0 })!;
+    const again = battle.attackPreview('P1', 'antimateriel-rifle', { x: 4, y: 0 })!;
     expect(before).toEqual(again);
     const events = battle.execute({
-      type: 'ability', unitId: 'P1', abilityId: 'sniper-rifle', target: { x: 4, y: 0 },
+      type: 'ability', unitId: 'P1', abilityId: 'antimateriel-rifle', target: { x: 4, y: 0 },
     });
     const dmg = events.find((e) => e.type === 'damage-dealt');
     if (dmg && dmg.type === 'damage-dealt') {
@@ -143,11 +143,11 @@ describe('fase 3: clima', () => {
     const clear = mk('clear');
     const storm = mk('sandstorm');
     // A 2 casillas: sin penalización.
-    expect(storm.attackPreview('W', 'shock-cannon', { x: 2, y: 0 })!.chance)
-      .toBe(clear.attackPreview('W', 'shock-cannon', { x: 2, y: 0 })!.chance);
+    expect(storm.attackPreview('W', 'recoilless-gun', { x: 2, y: 0 })!.chance)
+      .toBe(clear.attackPreview('W', 'recoilless-gun', { x: 2, y: 0 })!.chance);
     // A 4 casillas: -10.
-    expect(clear.attackPreview('W', 'shock-cannon', { x: 4, y: 0 })!.chance
-      - storm.attackPreview('W', 'shock-cannon', { x: 4, y: 0 })!.chance).toBe(10);
-    expect(storm.attackPreview('W', 'shock-cannon', { x: 4, y: 0 })!.weatherPenalty).toBe(10);
+    expect(clear.attackPreview('W', 'recoilless-gun', { x: 4, y: 0 })!.chance
+      - storm.attackPreview('W', 'recoilless-gun', { x: 4, y: 0 })!.chance).toBe(10);
+    expect(storm.attackPreview('W', 'recoilless-gun', { x: 4, y: 0 })!.weatherPenalty).toBe(10);
   });
 });

@@ -37,13 +37,13 @@ const SHOOTER: UnitDefinition = {
 const REACTOR: UnitDefinition = {
   id: 'reactor', name: 'Reactor', role: 'tank', moveType: 'ground',
   stats: { maxHp: 200, atk: 1, energyAtk: 1, def: 10, energyDef: 10, speed: 8, move: 2, jump: 1, evade: 0, accuracy: 0 },
-  abilityIds: ['bite-crush'],
+  abilityIds: ['hydraulic-jaws'],
   energy: { capacity: 50, outputPerTurn: 10 }, heat: { max: 60, dissipationPerTurn: 10 },
 };
 const MONO: UnitDefinition = {
   id: 'mono', name: 'Monocasco', role: 'tank', moveType: 'ground',
   stats: { maxHp: 200, atk: 1, energyAtk: 1, def: 10, energyDef: 10, speed: 8, move: 2, jump: 1, evade: 0, accuracy: 0 },
-  abilityIds: ['bite-crush'],
+  abilityIds: ['hydraulic-jaws'],
 };
 
 function fireBattle(targetType: 'reactor' | 'mono', overrides: Partial<BattleConfig> = {}): Battle {
@@ -158,8 +158,8 @@ describe('El fuego degrada la red de mando', () => {
   });
 });
 
-describe('Mortero incendiario (biblioteca)', () => {
+describe('Mortero de termita (biblioteca)', () => {
   it('existe y prende la zona', () => {
-    expect(WEAPON_LIBRARY_ABILITIES['lib-incendiary-mortar']!.ignites).toBeGreaterThan(0);
+    expect(WEAPON_LIBRARY_ABILITIES['lib-thermite-mortar']!.ignites).toBeGreaterThan(0);
   });
 });

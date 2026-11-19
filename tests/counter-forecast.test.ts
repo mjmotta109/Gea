@@ -34,7 +34,7 @@ describe('pronóstico de contraataque', () => {
   it('a bocajarro anuncia el contraataque con arma, puntería y daño', () => {
     const battle = duel();
     untilP1(battle);
-    const forecast = battle.counterForecast('P1', 'bite-crush', { x: 2, y: 1 });
+    const forecast = battle.counterForecast('P1', 'hydraulic-jaws', { x: 2, y: 1 });
     expect(forecast).toBeDefined();
     expect(forecast!.risk).toBe('contraataque');
     if (forecast!.risk === 'contraataque') {
@@ -49,7 +49,7 @@ describe('pronóstico de contraataque', () => {
   it('desde lejos no hay riesgo: fuera de su alcance de reacción', () => {
     const battle = duel({ x: 0, y: 1 }, { x: 4, y: 1 });
     untilP1(battle);
-    const forecast = battle.counterForecast('P1', 'missile-pod', { x: 4, y: 1 });
+    const forecast = battle.counterForecast('P1', 'guided-rockets', { x: 4, y: 1 });
     expect(forecast).toBeDefined();
     expect(forecast!.risk).toBe('no');
     if (forecast!.risk === 'no') expect(forecast!.reason).toContain('alcance');
@@ -59,27 +59,27 @@ describe('pronóstico de contraataque', () => {
     const battle = duel();
     untilP1(battle);
     // El primer mordisco consume la reacción de la tornillo (contraataca).
-    const events = battle.execute({ type: 'ability', unitId: 'P1', abilityId: 'bite-crush', target: { x: 2, y: 1 } });
+    const events = battle.execute({ type: 'ability', unitId: 'P1', abilityId: 'hydraulic-jaws', target: { x: 2, y: 1 } });
     const reacted = events.some((e) => e.type === 'reaction');
     const tornillo = battle.unit('E1');
     if (reacted && tornillo.hp > 0) {
       expect(tornillo.reactionReady).toBe(false);
-      const again = battle.counterForecast('P1', 'bite-crush', tornillo.position);
+      const again = battle.counterForecast('P1', 'hydraulic-jaws', tornillo.position);
       expect(again).toBeDefined();
       expect(again!.risk).toBe('no');
       if (again!.risk === 'no') expect(again!.reason).toContain('gastada');
     } else {
       // Si el mordisco falló (o derribó), al menos el pronóstico previo avisaba.
-      expect(battle.counterForecast('P1', 'bite-crush', { x: 2, y: 1 })).toBeDefined();
+      expect(battle.counterForecast('P1', 'hydraulic-jaws', { x: 2, y: 1 })).toBeDefined();
     }
   });
 
   it('el pronóstico y la realidad coinciden: si anuncia riesgo, el golpe llega', () => {
     const battle = duel();
     untilP1(battle);
-    const forecast = battle.counterForecast('P1', 'bite-crush', { x: 2, y: 1 });
+    const forecast = battle.counterForecast('P1', 'hydraulic-jaws', { x: 2, y: 1 });
     expect(forecast!.risk).toBe('contraataque');
-    const events = battle.execute({ type: 'ability', unitId: 'P1', abilityId: 'bite-crush', target: { x: 2, y: 1 } });
+    const events = battle.execute({ type: 'ability', unitId: 'P1', abilityId: 'hydraulic-jaws', target: { x: 2, y: 1 } });
     const hit = events.find((e) => e.type === 'damage-dealt' && e.targetUnitId === 'E1');
     const reaction = events.find((e) => e.type === 'reaction');
     // Si el golpe conectó y la tornillo sigue viva, la reacción anunciada ocurre.

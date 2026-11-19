@@ -1800,3 +1800,27 @@ arquitectura del motor van en DESIGN.md.)*
   423 tests en verde (7 nuevos). Queda fuera del juego: el prototipo 3D
   con el modelo viejo (borrar antes de enseñar el repo) y una búsqueda
   básica de marcas antes de Steam.
+- **2026-11-19** — EL ARSENAL DE CIENCIA FICCIÓN DURA («renombra todos
+  los ataques; no quiero ninguna referencia a Zoids; básate en la
+  ciencia ficción dura»). Los 33 ataques y equipos, sus armas y los
+  módulos que los montan, con ids, nombres y descripciones nuevos
+  (canon en LORE §6.7):
+  · REGLA: física real o tecnología que hoy existe o se investiga. Fuera
+    plasma de mano, filos monomoleculares, escudos de energía y los
+    términos de la franquicia que se colaban hasta en los ids
+    (E-Shield, Shock cannon, Smoke discharger).
+  · Ejemplos: Mandíbulas hidráulicas (el ataque de todo yantra), Garras
+    de inducción, Láser de electrones libres (el arma del Prisma),
+    Electroláser, Emisor de microondas, Cañón de riel, Cañón de bobinas,
+    Lanza de carga hueca, Mortero de termita, Blindaje electromagnético,
+    Dron de protección activa.
+  · El nombre enseña el efecto: lo electromagnético aturde, lo térmico
+    recalienta, lo cinético perfora y empuja.
+  · Comportamiento IDÉNTICO: golden regenerado y comprobado igual al
+    anterior salvo nombres, campo a campo.
+  · Guardados: la tabla de huellas se recompone (207 términos) para que
+    un guardado de cualquier etapa salte DIRECTO a los nombres finales;
+    la migración pasa a v2 y vuelve a correr una vez.
+  · Salvaguarda: un test veta términos de la franquicia y de ciencia
+    ficción blanda en cualquier habilidad, arma o módulo.
+  425 tests en verde; regresión visual y del rebranding en verde.

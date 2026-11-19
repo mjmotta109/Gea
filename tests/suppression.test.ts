@@ -10,7 +10,7 @@ import { FLAT_ARENA } from '../src/data/maps.js';
 const BRAWLER: UnitDefinition = {
   id: 'brawler', name: 'Luchador', role: 'skirmisher', moveType: 'ground',
   stats: { maxHp: 200, atk: 30, energyAtk: 30, def: 15, energyDef: 15, speed: 10, move: 4, jump: 1, evade: 0, accuracy: 0 },
-  abilityIds: ['bite-crush'],
+  abilityIds: ['hydraulic-jaws'],
 };
 
 function duel(overrides: Partial<BattleConfig> = {}): Battle {
@@ -48,7 +48,7 @@ describe('Supresión (sinergia de escuadra)', () => {
   it('sin supresión, el defensor CONTRAATACA a bocajarro (control)', () => {
     const battle = duel();
     untilTurnOf(battle, 'A');
-    const events = battle.execute({ type: 'ability', unitId: 'A', abilityId: 'bite-crush', target: { x: 2, y: 1 } });
+    const events = battle.execute({ type: 'ability', unitId: 'A', abilityId: 'hydraulic-jaws', target: { x: 2, y: 1 } });
     expect(events.some((e) => e.type === 'reaction' && e.reaction === 'contraataque' && e.unitId === 'D')).toBe(true);
   });
 
@@ -56,7 +56,7 @@ describe('Supresión (sinergia de escuadra)', () => {
     const battle = duel();
     untilTurnOf(battle, 'A');
     applyStatus(battle.unit('D'), 'suprimido', 1);
-    const events = battle.execute({ type: 'ability', unitId: 'A', abilityId: 'bite-crush', target: { x: 2, y: 1 } });
+    const events = battle.execute({ type: 'ability', unitId: 'A', abilityId: 'hydraulic-jaws', target: { x: 2, y: 1 } });
     expect(events.some((e) => e.type === 'reaction')).toBe(false);
   });
 
@@ -90,7 +90,7 @@ describe('Supresión (sinergia de escuadra)', () => {
   });
 
   it('la ráfaga de supresión existe y aplica el estado', () => {
-    const ability = WEAPON_LIBRARY_ABILITIES['lib-suppressor']!;
+    const ability = WEAPON_LIBRARY_ABILITIES['lib-suppression-mg']!;
     const status = ability.effects.find((e) => e.kind === 'status');
     expect(status && status.kind === 'status' ? status.status : '').toBe('suprimido');
   });

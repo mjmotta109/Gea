@@ -90,7 +90,7 @@ import { migrateLegacyJson } from '../game/rebrand.js';
 // nombres nuevos (src/game/rebrand.ts). Una sola vez por navegador.
 (() => {
   try {
-    if (localStorage.getItem('gea-rebrand-v1') === 'done') return;
+    if (localStorage.getItem('gea-rebrand-v2') === 'done') return;
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (!key || !key.startsWith('gea-')) continue;
@@ -99,7 +99,7 @@ import { migrateLegacyJson } from '../game/rebrand.js';
       const migrated = migrateLegacyJson(raw);
       if (migrated !== raw) localStorage.setItem(key, migrated);
     }
-    localStorage.setItem('gea-rebrand-v1', 'done');
+    localStorage.setItem('gea-rebrand-v2', 'done');
   } catch { /* almacenamiento privado: nada que migrar */ }
 })();
 
@@ -3741,7 +3741,7 @@ function adaptiveWeight(): ((id: string) => number) | undefined {
 
 /**
  * Contra por ARMA: le monta a un enemigo un arma que castiga tu estilo
- * (lanzallamas contra reactores, supresor contra el melee...). Solo a los
+ * (termita contra reactores, supresor contra el melee...). Solo a los
  * "especialistas" (índices pares) y solo si el dosier pide contra. undefined =
  * de fábrica. Las armas de biblioteca no tienen mountSlot: caben en cualquier
  * chasis y el catálogo de batalla (withWeaponLibrary) ya las incluye.

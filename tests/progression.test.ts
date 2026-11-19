@@ -72,10 +72,10 @@ describe('progresión: XP del piloto (el Yantra no gana nada)', () => {
   it('buffar a OTRO aliado puntúa como soporte; a uno mismo no', () => {
     const events: BattleEvent[] = [
       { type: 'turn-started', unitId: 'A' },
-      { type: 'ability-used', unitId: 'A', abilityId: 'smoke-discharger', target: { x: 1, y: 0 } },
+      { type: 'ability-used', unitId: 'A', abilityId: 'smoke-grenades', target: { x: 1, y: 0 } },
       { type: 'status-applied', targetUnitId: 'B', status: 'evasion-up', duration: 3 },
       { type: 'turn-started', unitId: 'B' },
-      { type: 'ability-used', unitId: 'B', abilityId: 'e-shield', target: { x: 1, y: 0 } },
+      { type: 'ability-used', unitId: 'B', abilityId: 'em-armor', target: { x: 1, y: 0 } },
       { type: 'status-applied', targetUnitId: 'B', status: 'armor-up', duration: 3 },
       // Un estado aplicado sin habilidad previa en el turno (p. ej. stun
       // por apagado térmico) no se atribuye a nadie.

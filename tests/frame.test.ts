@@ -59,7 +59,7 @@ const TEST_MECH: UnitDefinition = {
     maxHp: 80, atk: 20, energyAtk: 20, def: 10, energyDef: 10,
     speed: 10, move: 2, jump: 1, evade: 5, accuracy: 0,
   },
-  abilityIds: ['bite-crush', 'repair-drones'],
+  abilityIds: ['hydraulic-jaws', 'repair-drones'],
   frame: TEST_FRAME,
 };
 
@@ -214,7 +214,7 @@ describe('frame: integración en Battle', () => {
     const active = battle.getActiveUnit()!;
     const enemy = battle.units.find((u) => u.team !== active.team)!;
     const events = battle.execute({
-      type: 'ability', unitId: active.id, abilityId: 'bite-crush', target: enemy.position,
+      type: 'ability', unitId: active.id, abilityId: 'hydraulic-jaws', target: enemy.position,
     });
     const kinds = events.map((e) => e.type);
     if (kinds.includes('damage-dealt')) {

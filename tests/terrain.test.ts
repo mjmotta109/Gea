@@ -30,7 +30,7 @@ function previewFrom(attackerTile: '0' | '~', attackerType: string) {
       { id: 'B', name: 'Blanco', unitTypeId: 'tornillo', team: 'enemy', position: { x: 3, y: 0 }, facing: 'west' },
     ],
   });
-  return battle.attackPreview('A', 'shock-cannon', { x: 3, y: 0 })!;
+  return battle.attackPreview('A', 'recoilless-gun', { x: 3, y: 0 })!;
 }
 
 describe('vadear penaliza el ataque de los terrestres', () => {

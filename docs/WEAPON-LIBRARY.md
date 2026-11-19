@@ -46,7 +46,7 @@ Las armas del anexo no tienen `mountSlot` por defecto. Eso las hace compatibles 
 const campaignWeapons = {
   ...WEAPON_LIBRARY_WEAPONS,
   'campaign-back-rail-lance': {
-    ...WEAPON_LIBRARY_WEAPONS['lib-w-rail-lance'],
+    ...WEAPON_LIBRARY_WEAPONS['lib-w-railgun'],
     id: 'campaign-back-rail-lance',
     mountSlot: 'backpack',
   },
@@ -59,23 +59,23 @@ Presets en `WEAPON_LIBRARY_LOADOUTS` (armas montables en cualquier chasis):
 
 | Rol | Preset | Armas |
 | --- | --- | --- |
-| Asalto | `striker` | Colmillo vibratorio, Sable termico, Garra monomolecular |
-| Ruptura melee | `meleeBreaker` | Hacha de plasma, Pilote |
-| Escaramuza | `skirmisher` | Autocanon gemelo, Carabina de plasma |
-| Francotirador | `sniper` | Lanza railgun, Aguja termica |
-| Ruptura | `breaker` | Martillo Gauss, Enjambre de micromisiles |
-| Artilleria | `artillery` | Mortero de racimo, Cohete termobarico, Descarga de metralla, **Mortero incendiario** |
-| Soporte | `support` | Haz de reparacion, Mortero de humo, Proyector de barrera |
-| Control | `controller` | Lanza ionica, Aguja termica, Mortero de humo, Emisor de arco, **Lanzallamas de plasma** |
-| Control de zona | `zoneControl` | Percutor sismico, Emisor de arco, Descarga de metralla, **Supresor** |
+| Asalto | `striker` | Cortador ultrasónico, Hoja incandescente, Garras de carburo |
+| Ruptura melee | `meleeBreaker` | Cortador de plasma, Pilote |
+| Escaramuza | `skirmisher` | Autocañón doble de 30 mm, Láser de pulsos |
+| Francotirador | `sniper` | Cañón de riel, Láser infrarrojo |
+| Ruptura | `breaker` | Cañón de bobinas, Salva de micromisiles |
+| Artilleria | `artillery` | Mortero de racimo, Cohete termobárico, Descarga de metralla, **Mortero de termita** |
+| Soporte | `support` | Haz de reparacion, Mortero fumígeno, Dron de protección activa |
+| Control | `controller` | Emisor de microondas, Láser infrarrojo, Mortero fumígeno, Electroláser, **Proyector de termita** |
+| Control de zona | `zoneControl` | Percutor sismico, Electroláser, Descarga de metralla, **Supresor** |
 
 ## Armas de calor, fuego y control (encajan con los ejes profundos)
 
 Estas familias no son solo daño: interactuan con los sistemas de calor, control del campo y supresion, y la campaña las usa como **contras** (adaptacion de faccion) segun tu estilo de juego.
 
-- **Termicas** (`lib-thermal-saber`, `lib-w-heat-needle`): vierten calor en el reactor del blanco, empujandolo al atasco de armas y al apagado. Contra a jugadores que fuerzan su reactor.
-- **Incendiarias** (`lib-incendiary-mortar` con `ignites`, `lib-plasma-flamer`): PRENDEN la casilla de impacto. Quien cierra su turno sobre fuego se quema (daño de brasas) y se calienta. Control del campo.
-- **Supresor** (`lib-suppressor`): FIJA al enemigo (estado `suprimido`): no puede contraatacar ni vigilar. Contra a los que cargan al cuerpo a cuerpo.
+- **Termicas** (`lib-incandescent-blade`, `lib-w-ir-laser`): vierten calor en el reactor del blanco, empujandolo al atasco de armas y al apagado. Contra a jugadores que fuerzan su reactor.
+- **Incendiarias** (`lib-thermite-mortar` con `ignites`, `lib-thermite-projector`): PRENDEN la casilla de impacto. Quien cierra su turno sobre fuego se quema (daño de brasas) y se calienta. Control del campo.
+- **Supresor** (`lib-suppression-mg`): FIJA al enemigo (estado `suprimido`): no puede contraatacar ni vigilar. Contra a los que cargan al cuerpo a cuerpo.
 - **Humo** (`lib-smoke-mortar`): rompe la linea de tiro. Contra a los hostigadores a distancia.
 
 ## Notas de balance
@@ -83,6 +83,6 @@ Estas familias no son solo daño: interactuan con los sistemas de calor, control
 - Las armas energeticas gastan energia y generan calor, pero no consumen municion.
 - Las armas balisticas suelen consumir municion y pueden tener proyectil para animacion, dispersion, penetracion y empuje.
 - Las armas PESADAS declaran `ctCost`: pegan fuerte, calientan y te RETRASAN (tempo). El peso es una decision, no gratis.
-- `lib-w-gauss-hammer` tiene masa suficiente para activar el empuje fisico existente.
+- `lib-w-coilgun` tiene masa suficiente para activar el empuje fisico existente.
 - Las armas de soporte reutilizan estados ya existentes (`evasion-up`, `armor-up`) o curacion, asi que no requieren sistemas nuevos.
 - Los IDs usan el prefijo `lib-` para evitar colisiones con el contenido base. NINGUNA arma de la biblioteca entra en el golden master (las batallas del golden usan solo el catalogo base), asi que ampliar la biblioteca es golden-safe.

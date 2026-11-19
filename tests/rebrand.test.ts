@@ -22,9 +22,9 @@ describe('migración de guardados', () => {
     const migrated = JSON.parse(migrateLegacyJson(old));
     expect(migrated.roster[0].unitTypeId).toBe('centella');
     expect(migrated.roster[0].slots.casco).toBe('ce-casco');
-    expect(migrated.roster[0].weapons).toEqual(['w-arc-claw']);
+    expect(migrated.roster[0].weapons).toEqual(['w-induction-claws']);
     expect(migrated.roster[1].unitTypeId).toBe('visor-c');
-    expect(migrated.armory).toEqual({ 'w-beam-cannon': 1 });
+    expect(migrated.armory).toEqual({ 'w-fel-laser': 1 });
     expect(migrated.pilots.map((p: { name: string }) => p.name)).toEqual(['Iria', 'Tamsin']);
     expect(migrated.spawn.name).toBe('Centella-M');
     // Todo lo migrado existe en los catálogos nuevos.
@@ -77,5 +77,32 @@ describe('linaje de los yantras', () => {
       if (lineage.tradition !== 'argos') continue;
       expect(YANTRAS[id]!.vision ?? NIGHT_VISION_BASE, `${id} (Argos)`).toBeGreaterThan(NIGHT_VISION_BASE);
     }
+  });
+});
+
+describe('el arsenal: ciencia ficción dura y nada de la franquicia', () => {
+  // Términos vetados: la franquicia del prototipo y la ciencia ficción
+  // blanda (plasma de mano, filos monomoleculares, escudos de energía...).
+  // «Cortador de plasma» es la excepción: la antorcha de arco de plasma
+  // industrial existe y corta acero a alcance de brazo.
+  const BANNED = /strike|laser claw|part[ií]culas|shock|e-shield|escudo de energ|smoke discharger|monomolec|vibrator|pilote|\bAZ\b|carabina de plasma|hacha de plasma|lanzallamas de plasma|i[oó]nic|haz de reparaci|proyector de barrera/i;
+
+  it('ninguna habilidad, arma ni módulo usa un término vetado', async () => {
+    const { withWeaponLibrary } = await import('../src/data/weaponLibrary.js');
+    const { ABILITIES } = await import('../src/data/abilities.js');
+    const { WEAPONS } = await import('../src/data/weapons.js');
+    const all = withWeaponLibrary(ABILITIES, WEAPONS);
+    const texts: string[] = [];
+    for (const a of Object.values(all.abilityCatalog)) texts.push(a.id, a.name, a.description);
+    for (const w of Object.values(all.weaponCatalog)) texts.push(w.id, w.name);
+    for (const m of Object.values(MODULES)) texts.push(m.id, m.name);
+    for (const text of texts) expect(BANNED.test(text), text).toBe(false);
+  });
+
+  it('un guardado de la etapa prototipo salta directo al arsenal final', () => {
+    const old = JSON.stringify({ armory: { 'w-strike-laser-claw': 1, 'w-charged-particle-gun': 1, 'lib-w-pile-bunker': 2 } });
+    expect(JSON.parse(migrateLegacyJson(old)).armory).toEqual({
+      'w-induction-claws': 1, 'w-fel-laser': 1, 'lib-w-shaped-charge-lance': 2,
+    });
   });
 });

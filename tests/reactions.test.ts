@@ -53,7 +53,7 @@ describe('reacciones: el posicionamiento por fin cuesta', () => {
     const battle = arena({ spawns: [P('P1', 'centella', 2, 2), E('E1', 'martinete', 3, 2)] });
     battle.nextTurn();
     const events = battle.execute({
-      type: 'ability', unitId: 'P1', abilityId: 'bite-crush', target: { x: 3, y: 2 },
+      type: 'ability', unitId: 'P1', abilityId: 'hydraulic-jaws', target: { x: 3, y: 2 },
     });
     const fired = reactions(events);
     expect(fired).toHaveLength(1); // el contraataque jamás encadena otro
@@ -64,7 +64,7 @@ describe('reacciones: el posicionamiento por fin cuesta', () => {
     const battle = arena({ spawns: [P('P1', 'centella', 2, 2), E('E1', 'martinete', 3, 2)] });
     battle.nextTurn();
     const hit = battle.execute({
-      type: 'ability', unitId: 'P1', abilityId: 'bite-crush', target: { x: 3, y: 2 },
+      type: 'ability', unitId: 'P1', abilityId: 'hydraulic-jaws', target: { x: 3, y: 2 },
     });
     expect(reactions(hit)).toHaveLength(1);
     const flee = battle.execute({ type: 'move', unitId: 'P1', to: { x: 0, y: 2 } });
@@ -74,7 +74,7 @@ describe('reacciones: el posicionamiento por fin cuesta', () => {
   it('la reacción se recupera al abrir el turno propio', () => {
     const battle = arena({ spawns: [P('P1', 'centella', 2, 2), E('E1', 'martinete', 3, 2)] });
     battle.nextTurn();
-    battle.execute({ type: 'ability', unitId: 'P1', abilityId: 'bite-crush', target: { x: 3, y: 2 } });
+    battle.execute({ type: 'ability', unitId: 'P1', abilityId: 'hydraulic-jaws', target: { x: 3, y: 2 } });
     battle.execute({ type: 'wait', unitId: 'P1' });
     // Turno del kong: recupera su reacción y espera sin moverse.
     battle.nextTurn();
@@ -91,7 +91,7 @@ describe('reacciones: el posicionamiento por fin cuesta', () => {
       const battle = arena({ spawns: [P('P1', 'centella', 2, 2), E('E1', 'martinete', 3, 2)] });
       battle.nextTurn();
       const events = battle.execute({
-        type: 'ability', unitId: 'P1', abilityId: 'bite-crush', target: { x: 3, y: 2 },
+        type: 'ability', unitId: 'P1', abilityId: 'hydraulic-jaws', target: { x: 3, y: 2 },
       });
       return JSON.stringify(events);
     };
@@ -148,7 +148,7 @@ describe('vigilancia: el terreno abierto se paga (XCOM)', () => {
   it('vigilar tras actuar está prohibido: es renunciar a la acción', () => {
     const battle = arena({ spawns: [P('P1', 'centella', 2, 2), E('E1', 'martinete', 3, 2)] });
     battle.nextTurn();
-    battle.execute({ type: 'ability', unitId: 'P1', abilityId: 'bite-crush', target: { x: 3, y: 2 } });
+    battle.execute({ type: 'ability', unitId: 'P1', abilityId: 'hydraulic-jaws', target: { x: 3, y: 2 } });
     expect(() => battle.execute({ type: 'overwatch', unitId: 'P1' })).toThrow(/ya actuó/);
   });
 });
@@ -170,7 +170,7 @@ describe('terreno que sufre la batalla', () => {
       else battle.execute({ type: 'wait', unitId: battle.getActiveUnit()!.id });
     }
     const events = battle.execute({
-      type: 'ability', unitId: 'P1', abilityId: 'missile-pod', target: { x: 2, y: 1 },
+      type: 'ability', unitId: 'P1', abilityId: 'guided-rockets', target: { x: 2, y: 1 },
     });
     const razed = events.filter((e) => e.type === 'terrain-razed');
     expect(razed.length).toBeGreaterThan(0);
